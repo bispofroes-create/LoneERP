@@ -1,7 +1,7 @@
 # Lone ERP — Fase 0: diagnóstico e plano de evolução
 
 Situação em 24/09/2026. Nenhum código foi alterado para produzir este documento.
-Base: leitura do código em `src/` e `tests/` (Lone.slnx), mais a solução antiga na raiz (Lone.sln, WinUI).
+Base: leitura do código em `src/` e `tests/` (Lone.slnx), mais a solução antiga na raiz (Lone.sln, WinUI), removida depois na M5.
 
 > **Observação sobre os requisitos.** Os documentos "Evolução Completa do Cadastro Geral do ERP" e
 > "Motor de Metas — Estrutura Profissional e Parametrizável" **não estão na pasta do projeto**.

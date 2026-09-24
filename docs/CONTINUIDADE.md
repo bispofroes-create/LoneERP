@@ -12,7 +12,8 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
 - **Camadas:**
   `MAUI (Lone.App) → Lone.Cliente (ViewModels + cliente HTTP) → ASP.NET Core API (Lone.Api) → Lone.Application → Lone.Domain → Lone.Infrastructure (EF Core 10) → SQL Server`
 - **Solução nova:** `Lone.slnx`.
-- **Solução antiga:** `Lone.sln`, do WinUI, na raiz. O `Lone.csproj` exclui `src/**`. Será removida na etapa M5.
+- **Solução antiga (WinUI):** removida na M5 (24/09/2026). Continua recuperável no primeiro commit do git (`Snapshot antes da M5`).
+- **Controle de versão:** repositório git local na raiz (branch `main`), criado em 24/09/2026. Um commit por fase.
 - **Pacotes:** gestão central em `src/Directory.Packages.props`, com transitive pinning. O `Lone.App` usa `ManagePackageVersionsCentrally=false`, porque a versão do MAUI acompanha a carga de trabalho instalada.
 - **Testes:** `tests/Lone.Tests` (xUnit). Não usam banco; o cliente é testado com um servidor HTTP falso que responde em fila (FIFO).
 
@@ -99,8 +100,13 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     - Consentimentos LGPD e etiquetas.
   - **Parte 4 (esta sessão):** municípios do IBGE, Descartar, campos personalizados, desativar/reativar, eventos na auditoria. Veja a seção 5.
   - **Critério para fechar a M4:** empresa do grupo, cliente PJ com filial e usuário com perfil por empresa funcionando no Windows e no Android.
-- **M5:** remover o projeto WinUI antigo.
+- **M5:** remover o projeto WinUI antigo. **Concluída em 24/09/2026**, antes da Fase 2 (decisão D8).
 - **M6:** funcionamento offline.
+- **Evolução do Cadastro Geral e Motor de Metas (Fases 2 a 13):** diagnóstico, riscos, plano e decisões D1–D8 em
+  `docs/DIAGNOSTICO-FASE0.md`. Resumo das decisões: papéis em tabela ligada ao enum; telefones/e-mails evoluindo
+  `PessoaMeiosContato`; endereço com finalidades + tipo parametrizável; campos de documentos no motor atual de campos
+  personalizados; carteira em tabela própria `CarteiraClientes`; metas com estrutura agora e realizado do cadastro ou
+  informado; anexos em pasta no servidor da API.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 
