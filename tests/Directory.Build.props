@@ -1,0 +1,4 @@
+<Project>
+  <!-- Os testes usam a mesma configuração dos projetos em src/. -->
+  <Import Project="..\src\Directory.Build.props" />
+</Project>

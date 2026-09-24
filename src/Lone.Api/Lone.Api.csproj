@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- A única porta do banco: recebe as requisições dos aplicativos, confere o token e as permissões
+       e chama os casos de uso (Lone.Application). Não tem regra de negócio. -->
+  <PropertyGroup>
+    <RootNamespace>Lone.Api</RootNamespace>
+    <UserSecretsId>lone-api-9d2c7f3e-4b1a-4c55-9a0e-2f6b8c1d7e40</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Necessário para Add-Migration/Update-Database usarem esta API como projeto de inicialização. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lone.Infrastructure\Lone.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lone.Tests" />
+  </ItemGroup>
+
+</Project>

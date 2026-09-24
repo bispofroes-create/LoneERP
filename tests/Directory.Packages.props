@@ -1,0 +1,4 @@
+<Project>
+  <!-- Mesmas versões de pacotes dos projetos em src/. -->
+  <Import Project="..\src\Directory.Packages.props" />
+</Project>

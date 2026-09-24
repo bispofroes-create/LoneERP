@@ -1,0 +1,157 @@
+using System.Net;
+using System.Net.Http.Json;
+using Lone.Cliente.Api;
+using Lone.Cliente.Navegacao;
+using Lone.Cliente.Plataforma;
+using Lone.Cliente.Sessao;
+using Lone.Contracts.Comum;
+using Lone.Contracts.Empresas;
+using Lone.Contracts.Seguranca;
+
+namespace Lone.Tests.Cliente;
+
+/// <summary>Servidor falso: responde a cada chamada com a próxima resposta da fila e guarda o que recebeu.</summary>
+internal sealed class ServidorFalso : HttpMessageHandler
+{
+    private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _respostas = new();
+
+    public List<(HttpMethod Metodo, string Caminho, string? Token, string Corpo)> Recebidas { get; } = new();
+
+    public ServidorFalso Responder(HttpStatusCode status, object? corpo = null)
+    {
+        _respostas.Enqueue(_ => Resposta(status, corpo));
+        return this;
+    }
+
+    public ServidorFalso Problema(HttpStatusCode status, string codigo, string detalhe, params (string Campo, object Valor)[] extras)
+    {
+        var corpo = new Dictionary<string, object> { ["status"] = (int)status, ["detail"] = detalhe, [ErrosApi.CampoCodigo] = codigo };
+        foreach (var (campo, valor) in extras) corpo[campo] = valor;
+        return Responder(status, corpo);
+    }
+
+    public ServidorFalso ForaDoAr()
+    {
+        _respostas.Enqueue(_ => throw new HttpRequestException("Conexão recusada."));
+        return this;
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage requisicao, CancellationToken ct)
+    {
+        var corpo = requisicao.Content is null ? string.Empty : await requisicao.Content.ReadAsStringAsync(ct);
+        Recebidas.Add((requisicao.Method, requisicao.RequestUri!.AbsolutePath, requisicao.Headers.Authorization?.Parameter, corpo));
+        if (_respostas.Count == 0)
+            throw new InvalidOperationException($"Chamada inesperada: {requisicao.Method} {requisicao.RequestUri}");
+        return _respostas.Dequeue()(requisicao);
+    }
+
+    private static HttpResponseMessage Resposta(HttpStatusCode status, object? corpo) => new(status)
+    {
+        Content = corpo is null ? new StringContent(string.Empty) : JsonContent.Create(corpo, corpo.GetType(), options: OpcoesJson.Padrao)
+    };
+}
+
+internal sealed class CofreEmMemoria : IArmazenamentoSeguro
+{
+    public Dictionary<string, string> Itens { get; } = new();
+
+    public Task<string?> LerAsync(string chave) => Task.FromResult(Itens.GetValueOrDefault(chave));
+
+    public Task GravarAsync(string chave, string valor)
+    {
+        Itens[chave] = valor;
+        return Task.CompletedTask;
+    }
+
+    public void Remover(string chave) => Itens.Remove(chave);
+}
+
+internal sealed class PreferenciasEmMemoria : IPreferencias
+{
+    private readonly Dictionary<string, string> _itens = new();
+
+    public string? Ler(string chave) => _itens.GetValueOrDefault(chave);
+    public void Gravar(string chave, string valor) => _itens[chave] = valor;
+    public void Remover(string chave) => _itens.Remove(chave);
+}
+
+internal sealed class DispositivoDeTeste : IDispositivo
+{
+    public string Descricao => "Teste";
+    public string ServidorPadrao => "https://servidor.teste";
+}
+
+internal sealed class NavegacaoGravada : INavegacao
+{
+    public List<Tela> Telas { get; } = new();
+
+    public Task IrParaAsync(Tela tela, string? mensagem = null)
+    {
+        Telas.Add(tela);
+        return Task.CompletedTask;
+    }
+
+    public Task AbrirTrocaDeSenhaAsync() => Task.CompletedTask;
+    public Task FecharAsync() => Task.CompletedTask;
+}
+
+/// <summary>Diálogos com respostas programadas (o que o "usuário" escolhe) e registro das perguntas feitas.</summary>
+internal sealed class DialogosFalsos : IDialogos
+{
+    public bool RespostaConfirmacao { get; set; } = true;
+    public string? RespostaPergunta { get; set; } = string.Empty;
+    public List<string> Perguntas { get; } = new();
+
+    public Task<bool> ConfirmarAsync(string titulo, string mensagem, string aceitar, string cancelar)
+    {
+        Perguntas.Add(mensagem);
+        return Task.FromResult(RespostaConfirmacao);
+    }
+
+    public Task<string?> PerguntarAsync(string titulo, string mensagem, string aceitar, string cancelar, string? dica = null, int tamanhoMaximo = 200)
+    {
+        Perguntas.Add(mensagem);
+        return Task.FromResult(RespostaPergunta);
+    }
+}
+
+/// <summary>Monta o cliente completo (API, sessão, autenticação, fluxo) sobre o servidor falso.</summary>
+internal sealed class AmbienteCliente
+{
+    public AmbienteCliente()
+    {
+        Servidor = new ServidorFalso();
+        Cofre = new CofreEmMemoria();
+        Sessao = new SessaoCliente(Cofre);
+        Endereco = new ConfiguracaoServidor(new PreferenciasEmMemoria(), new DispositivoDeTeste());
+        Api = new ClienteApi(new HttpClient(Servidor), Sessao, Endereco);
+        Autenticacao = new ServicoAutenticacao(Api, Sessao, new DispositivoDeTeste());
+        Fluxo = new FluxoDeEntrada(Sessao, Autenticacao);
+        Dialogos = new DialogosFalsos();
+    }
+
+    public DialogosFalsos Dialogos { get; }
+
+    public ServidorFalso Servidor { get; }
+    public CofreEmMemoria Cofre { get; }
+    public SessaoCliente Sessao { get; }
+    public ConfiguracaoServidor Endereco { get; }
+    public ClienteApi Api { get; }
+    public ServicoAutenticacao Autenticacao { get; }
+    public FluxoDeEntrada Fluxo { get; }
+
+    public static SessaoDto NovaSessao(string acesso = "acesso-1", string renovacao = "renovacao-1", int empresas = 1,
+                                       bool deveTrocarSenha = false) => new()
+    {
+        TokenAcesso = acesso,
+        TokenRenovacao = renovacao,
+        Nome = "Administrador",
+        Login = "admin",
+        DeveTrocarSenha = deveTrocarSenha,
+        Administrador = true,
+        EmpresasDisponiveis = Enumerable.Range(1, empresas)
+            .Select(i => new EmpresaAtiva(Guid.NewGuid(), Guid.NewGuid(), $"Empresa {i}", null, i == 1))
+            .ToList(),
+        EmpresaAtiva = null
+    };
+}

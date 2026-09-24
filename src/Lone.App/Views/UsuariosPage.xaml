@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Usuários: lista à esquerda e ficha ao lado (no celular, uma de cada vez). -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:seg="clr-namespace:Lone.Cliente.ViewModels.Seguranca;assembly=Lone.Cliente"
+             xmlns:dto="clr-namespace:Lone.Contracts.Seguranca;assembly=Lone.Contracts"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.UsuariosPage"
+             x:DataType="seg:UsuariosViewModel"
+             Title="Usuários">
+
+    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+
+        <!-- ===== Lista ===== -->
+        <Grid RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="12" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar por nome ou login" />
+                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
+            </Grid>
+
+            <!-- A barra controla a própria visibilidade (some sem mensagem); o contêiner a esconde com a ficha aberta. -->
+            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            </ContentView>
+
+            <CollectionView Grid.Row="2" ItemsSource="{Binding Itens}" SelectionMode="Single"
+                            SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhum usuário encontrado." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:UsuarioResumo">
+                        <VerticalStackLayout Padding="12,10" Spacing="2">
+                            <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator Grid.Row="2" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
+                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
+                             HorizontalOptions="Center" Spacing="6" Padding="24">
+            <Label Text="Nenhum usuário aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="Escolha um usuário na lista ou clique em Novo." Style="{StaticResource Secundario}" HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Ficha ===== -->
+        <ScrollView Grid.Column="1" IsVisible="{Binding MostrarFicha}">
+            <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="8" MaximumWidthRequest="760"
+                                 HorizontalOptions="Fill">
+
+                <Button Text="‹ Usuários" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                        IsVisible="{Binding ModoCompacto}" />
+                <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
+
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                <!-- Dados -->
+                <Label Text="Nome" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding Formulario.Nome}" SemanticProperties.Description="Nome" />
+
+                <Label Text="Login" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding Formulario.Login}" Keyboard="Plain" IsSpellCheckEnabled="False"
+                       IsTextPredictionEnabled="False" SemanticProperties.Description="Login" />
+
+                <Label Text="E-mail (opcional)" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding Formulario.Email}" Keyboard="Email" SemanticProperties.Description="E-mail" />
+
+                <HorizontalStackLayout Spacing="4" Margin="0,8,0,0">
+                    <CheckBox IsChecked="{Binding Formulario.Ativo}" VerticalOptions="Center" />
+                    <Label Text="Ativo (pode entrar no sistema)" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="4">
+                    <CheckBox IsChecked="{Binding Formulario.DeveTrocarSenha}" VerticalOptions="Center" />
+                    <Label Text="Trocar a senha no próximo acesso" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <!-- Situação do acesso (usuário já cadastrado) -->
+                <Border Style="{StaticResource Cartao}" Padding="14" Margin="0,8,0,0" IsVisible="{Binding Formulario.Existente}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="{Binding Formulario.SituacaoAcesso}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Desbloquear" Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding DesbloquearCommand}" IsVisible="{Binding Formulario.Bloqueado}" />
+                    </Grid>
+                </Border>
+
+                <!-- Perfis -->
+                <Label Text="Perfis" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+                <Label Text="Cada perfil vale para todas as empresas ou só para uma. O usuário soma as permissões de todos."
+                       Style="{StaticResource Secundario}" />
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Perfis}" Spacing="4">
+                    <BindableLayout.EmptyView>
+                        <Label Text="Nenhum perfil ainda." Style="{StaticResource Secundario}" Margin="0,4" />
+                    </BindableLayout.EmptyView>
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="seg:PerfilAtribuido">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,2">
+                                <Label Text="{Binding Texto}" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}"
+                                        Clicked="RemoverPerfil_Clicked" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <FlexLayout Wrap="Wrap" AlignItems="Center" Margin="0,4,0,0">
+                    <Picker Title="Perfil" ItemsSource="{Binding PerfisDisponiveis}" SelectedItem="{Binding PerfilParaAdicionar}"
+                            WidthRequest="{OnIdiom Phone=-1, Default=220}" Margin="0,0,8,8"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='auto'}" />
+                    <Picker Title="Empresa" ItemsSource="{Binding EmpresasDisponiveis}" SelectedItem="{Binding EmpresaParaAdicionar}"
+                            WidthRequest="{OnIdiom Phone=-1, Default=240}" Margin="0,0,8,8"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='auto'}" />
+                    <Button Text="Adicionar perfil" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,8"
+                            Command="{Binding AdicionarPerfilCommand}" />
+                </FlexLayout>
+
+                <!-- Senha -->
+                <Label Text="Senha" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+                <Label Text="{Binding Formulario.RotuloSenha}" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding Formulario.NovaSenha}" IsPassword="True" SemanticProperties.Description="Senha" />
+                <Label Text="Confirme a senha" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding Formulario.Confirmacao}" IsPassword="True" SemanticProperties.Description="Confirmação da senha" />
+                <Label Text="Pelo menos 8 caracteres, com letras e números. Com a senha definida aqui, o usuário cria a dele no próximo acesso, e as sessões abertas dele são encerradas."
+                       Style="{StaticResource Secundario}" />
+
+                <!-- Ações -->
+                <HorizontalStackLayout Spacing="12" Margin="0,20,0,24">
+                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

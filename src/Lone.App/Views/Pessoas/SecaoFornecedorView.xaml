@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoFornecedorView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Label Text="Condições de compra que valem para todas as empresas do grupo." Style="{StaticResource Secundario}" />
+        <FlexLayout Wrap="Wrap">
+            <c:Campo Rotulo="Condição de pagamento" Texto="{Binding Formulario.ContaFornecedor.CondicaoPagamento}" Dica="Ex.: 28 dias" />
+            <c:Campo Rotulo="Prazo médio de pagamento (dias)" Texto="{Binding Formulario.ContaFornecedor.PrazoMedioDias}" Teclado="Numeric" />
+            <c:Campo Rotulo="Prazo de entrega (dias)" Texto="{Binding Formulario.ContaFornecedor.LeadTimeDias}" Teclado="Numeric" />
+            <c:Campo Rotulo="Avaliação (0 a 5)" Texto="{Binding Formulario.ContaFornecedor.Avaliacao}" Teclado="Numeric" />
+            <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaFornecedor.Observacoes}" FlexLayout.Basis="100%" />
+        </FlexLayout>
+    </VerticalStackLayout>
+</ContentView>

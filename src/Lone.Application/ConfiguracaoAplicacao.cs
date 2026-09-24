@@ -1,0 +1,37 @@
+using Lone.Application.CamposPersonalizados;
+using Lone.Application.Integracoes;
+using Lone.Application.Municipios;
+using Lone.Application.Pessoas;
+using Lone.Application.Seguranca;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace Lone.Application;
+
+public static class ConfiguracaoAplicacao
+{
+    /// <summary>
+    /// Registra os casos de uso. Tudo "scoped": na API, um por requisição (o usuário da requisição
+    /// é quem responde IUsuarioAtual, IEmpresaAtual e IAutorizacao, registrados pela própria API).
+    /// Repositórios e integrações são registrados por Lone.Infrastructure.
+    /// </summary>
+    public static IServiceCollection AddLoneApplication(this IServiceCollection services)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+
+        services.AddSingleton<IHasherSenha, HasherSenhaPbkdf2>();
+        services.AddSingleton<IAutenticador, AutenticadorLocal>();
+
+        services.AddScoped<IAutenticacaoService, AutenticacaoService>();
+        services.AddScoped<IAcessoService, AcessoService>();
+        services.AddScoped<IUsuarioAppService, UsuarioAppService>();
+        services.AddScoped<IPerfilAppService, PerfilAppService>();
+        services.AddScoped<IPessoaAppService, PessoaAppService>();
+        services.AddScoped<IConsultasAppService, ConsultasAppService>();
+        services.AddScoped<ServicoMunicipios>();
+        services.AddScoped<IMunicipioAppService, MunicipioAppService>();
+        services.AddScoped<ICampoPersonalizadoAppService, CampoPersonalizadoAppService>();
+
+        return services;
+    }
+}

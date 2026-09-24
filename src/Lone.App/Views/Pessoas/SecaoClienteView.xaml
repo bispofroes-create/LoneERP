@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoClienteView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Label Text="Condições de venda que valem para todas as empresas do grupo. Mudar crédito exige a permissão &quot;Alterar limite de crédito&quot;."
+               Style="{StaticResource Secundario}" />
+        <FlexLayout Wrap="Wrap">
+            <c:Campo Rotulo="Limite de crédito (R$)" Texto="{Binding Formulario.ContaCliente.LimiteCredito}" Dica="Vazio = sem limite" />
+            <c:Campo Rotulo="Dias máximos de atraso" Texto="{Binding Formulario.ContaCliente.DiasMaximoAtraso}" Teclado="Numeric" />
+            <c:Campo Rotulo="Desconto máximo (%)" Texto="{Binding Formulario.ContaCliente.DescontoMaximo}" />
+            <c:Campo Rotulo="Condição de pagamento" Texto="{Binding Formulario.ContaCliente.CondicaoPagamento}" Dica="Ex.: 30/60/90" />
+            <c:CaixaMarcar Texto="Vender acima do limite só com aprovação" Marcado="{Binding Formulario.ContaCliente.ExigeAprovacaoAcimaLimite}"
+                           FlexLayout.Basis="100%" />
+            <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaCliente.Observacoes}" FlexLayout.Basis="100%" />
+        </FlexLayout>
+    </VerticalStackLayout>
+</ContentView>

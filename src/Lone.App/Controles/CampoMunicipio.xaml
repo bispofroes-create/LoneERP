@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- UF + município com autocompletar (tabela do IBGE). O BindingContext é um SeletorMunicipio. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:comum="clr-namespace:Lone.Cliente.ViewModels.Comum;assembly=Lone.Cliente"
+             xmlns:mun="clr-namespace:Lone.Contracts.Municipios;assembly=Lone.Contracts"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Controles.CampoMunicipio"
+             x:DataType="comum:SeletorMunicipio"
+            >
+    <VerticalStackLayout Spacing="2">
+        <Grid ColumnDefinitions="96,*" ColumnSpacing="8">
+            <c:CampoEscolha Rotulo="UF" Itens="{Binding ListaUfs}" Selecionado="{Binding Uf}" Padding="0" Dica="UF" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label x:Name="RotuloMunicipio" Text="Município" Style="{StaticResource Rotulo}" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <Entry Text="{Binding Texto}" Placeholder="{Binding Dica}" IsEnabled="{Binding PodeDigitar}"
+                           ClearButtonVisibility="WhileEditing" SemanticProperties.Description="Município" />
+                    <Label Grid.Column="1" Text="✓" TextColor="{StaticResource Sucesso}" FontAttributes="Bold"
+                           VerticalOptions="Center" Margin="6,0" IsVisible="{Binding Escolhido}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Grid>
+
+        <ActivityIndicator IsRunning="{Binding Carregando}" IsVisible="{Binding Carregando}" HorizontalOptions="Start" HeightRequest="20" />
+        <Label Text="{Binding Aviso}" IsVisible="{Binding TemAviso}" Style="{StaticResource Secundario}" TextColor="{StaticResource Aviso}" />
+
+        <!-- Sugestões: tocar escolhe (só vale município da lista). -->
+        <Border IsVisible="{Binding MostrarSugestoes}" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}">
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sugestoes}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="mun:MunicipioDto">
+                        <Button Text="{Binding NomeComUf}" Style="{StaticResource BotaoLink}" HorizontalOptions="Fill"
+                                Clicked="Sugestao_Clicked" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </Border>
+    </VerticalStackLayout>
+</ContentView>

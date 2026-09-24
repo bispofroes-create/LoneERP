@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoHistoricoView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Label Text="Quem mudou o quê neste cadastro, do mais recente para o mais antigo." Style="{StaticResource Secundario}" />
+        <ActivityIndicator IsRunning="{Binding CarregandoHistorico}" IsVisible="{Binding CarregandoHistorico}" HorizontalOptions="Start" />
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Historico}" Spacing="10">
+            <BindableLayout.EmptyView>
+                <Label Text="Sem alterações registradas." Style="{StaticResource Secundario}" Margin="0,8" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:HistoricoItem">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding Descricao}" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Quando}" Style="{StaticResource Secundario}" />
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

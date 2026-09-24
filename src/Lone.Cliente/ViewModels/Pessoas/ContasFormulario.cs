@@ -1,0 +1,130 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using Lone.Cliente.ViewModels.Comum;
+using Lone.Contracts.Pessoas;
+using Lone.Domain.Comum;
+
+namespace Lone.Cliente.ViewModels.Pessoas;
+
+/// <summary>Conta padrão de cliente (vale para as empresas do grupo que não têm conta própria).</summary>
+public sealed partial class ContaClienteFormulario : ObservableObject
+{
+    private Guid? _vendedorPadraoId;
+
+    public ContaClienteFormulario() : this(IdSequencial.Novo(), existia: false) { }
+
+    private ContaClienteFormulario(Guid id, bool existia)
+    {
+        Id = id;
+        Existia = existia;
+    }
+
+    public Guid Id { get; }
+    public bool Existia { get; }
+
+    [ObservableProperty] private string _limiteCredito = string.Empty;
+    [ObservableProperty] private string _diasMaximoAtraso = string.Empty;
+    [ObservableProperty] private string _descontoMaximo = string.Empty;
+    [ObservableProperty] private string _condicaoPagamento = string.Empty;
+    [ObservableProperty] private bool _exigeAprovacaoAcimaLimite = true;
+    [ObservableProperty] private string _observacoes = string.Empty;
+
+    public static ContaClienteFormulario De(ContaClienteDto? c) => c is null
+        ? new ContaClienteFormulario()
+        : new ContaClienteFormulario(c.Id, existia: true)
+        {
+            _vendedorPadraoId = c.VendedorPadraoId,
+            LimiteCredito = TextoTela.Decimal(c.LimiteCredito),
+            DiasMaximoAtraso = TextoTela.Inteiro(c.DiasMaximoAtraso),
+            DescontoMaximo = TextoTela.Decimal(c.DescontoMaximo),
+            CondicaoPagamento = c.CondicaoPagamento ?? string.Empty,
+            ExigeAprovacaoAcimaLimite = c.ExigeAprovacaoAcimaLimite,
+            Observacoes = c.Observacoes ?? string.Empty
+        };
+
+    public IEnumerable<string> Validar()
+    {
+        if (!TextoTela.TentarDecimal(LimiteCredito, out _)) yield return "Cliente: limite de crédito inválido.";
+        if (!TextoTela.TentarInteiro(DiasMaximoAtraso, out _)) yield return "Cliente: dias máximos de atraso inválidos.";
+        if (!TextoTela.TentarDecimal(DescontoMaximo, out _)) yield return "Cliente: desconto máximo inválido.";
+    }
+
+    public ContaClienteDto ParaDto()
+    {
+        TextoTela.TentarDecimal(LimiteCredito, out var limite);
+        TextoTela.TentarInteiro(DiasMaximoAtraso, out var dias);
+        TextoTela.TentarDecimal(DescontoMaximo, out var desconto);
+        return new ContaClienteDto
+        {
+            Id = Id,
+            EmpresaId = null,
+            LimiteCredito = limite,
+            DiasMaximoAtraso = dias,
+            DescontoMaximo = desconto,
+            CondicaoPagamento = TextoTela.Nulo(CondicaoPagamento),
+            ExigeAprovacaoAcimaLimite = ExigeAprovacaoAcimaLimite,
+            VendedorPadraoId = _vendedorPadraoId,
+            Observacoes = TextoTela.Nulo(Observacoes)
+        };
+    }
+}
+
+/// <summary>Conta padrão de fornecedor.</summary>
+public sealed partial class ContaFornecedorFormulario : ObservableObject
+{
+    private Guid? _transportadoraPadraoId;
+
+    public ContaFornecedorFormulario() : this(IdSequencial.Novo(), existia: false) { }
+
+    private ContaFornecedorFormulario(Guid id, bool existia)
+    {
+        Id = id;
+        Existia = existia;
+    }
+
+    public Guid Id { get; }
+    public bool Existia { get; }
+
+    [ObservableProperty] private string _condicaoPagamento = string.Empty;
+    [ObservableProperty] private string _prazoMedioDias = string.Empty;
+    [ObservableProperty] private string _leadTimeDias = string.Empty;
+    [ObservableProperty] private string _avaliacao = string.Empty;
+    [ObservableProperty] private string _observacoes = string.Empty;
+
+    public static ContaFornecedorFormulario De(ContaFornecedorDto? f) => f is null
+        ? new ContaFornecedorFormulario()
+        : new ContaFornecedorFormulario(f.Id, existia: true)
+        {
+            _transportadoraPadraoId = f.TransportadoraPadraoId,
+            CondicaoPagamento = f.CondicaoPagamento ?? string.Empty,
+            PrazoMedioDias = TextoTela.Inteiro(f.PrazoMedioDias),
+            LeadTimeDias = TextoTela.Inteiro(f.LeadTimeDias),
+            Avaliacao = TextoTela.Inteiro(f.Avaliacao),
+            Observacoes = f.Observacoes ?? string.Empty
+        };
+
+    public IEnumerable<string> Validar()
+    {
+        if (!TextoTela.TentarInteiro(PrazoMedioDias, out _)) yield return "Fornecedor: prazo médio inválido.";
+        if (!TextoTela.TentarInteiro(LeadTimeDias, out _)) yield return "Fornecedor: prazo de entrega inválido.";
+        if (!TextoTela.TentarInteiro(Avaliacao, out var nota) || nota is < 0 or > 5)
+            yield return "Fornecedor: avaliação deve ser de 0 a 5.";
+    }
+
+    public ContaFornecedorDto ParaDto()
+    {
+        TextoTela.TentarInteiro(PrazoMedioDias, out var prazo);
+        TextoTela.TentarInteiro(LeadTimeDias, out var lead);
+        TextoTela.TentarInteiro(Avaliacao, out var nota);
+        return new ContaFornecedorDto
+        {
+            Id = Id,
+            EmpresaId = null,
+            CondicaoPagamento = TextoTela.Nulo(CondicaoPagamento),
+            PrazoMedioDias = prazo,
+            LeadTimeDias = lead,
+            TransportadoraPadraoId = _transportadoraPadraoId,
+            Avaliacao = nota is { } n ? (byte)n : null,
+            Observacoes = TextoTela.Nulo(Observacoes)
+        };
+    }
+}

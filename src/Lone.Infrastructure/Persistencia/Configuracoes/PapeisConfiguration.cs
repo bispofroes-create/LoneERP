@@ -1,0 +1,76 @@
+using Lone.Domain.Entidades;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Lone.Infrastructure.Persistencia.Configuracoes;
+
+public class PessoaPapelConfiguration : IEntityTypeConfiguration<PessoaPapel>
+{
+    public void Configure(EntityTypeBuilder<PessoaPapel> b)
+    {
+        b.ToTable("PessoaPapeis");
+        b.HasKey(p => p.Id);
+
+        b.Property(p => p.Papel).HasConversion<byte>();
+        b.Property(p => p.Observacoes).HasMaxLength(500);
+
+        b.HasIndex(p => new { p.PessoaId, p.Papel }).IsUnique();
+        b.HasIndex(p => new { p.Papel, p.Ativo }); // filtro "só clientes", "só fornecedores"...
+    }
+}
+
+public class ContaClienteConfiguration : IEntityTypeConfiguration<ContaCliente>
+{
+    public void Configure(EntityTypeBuilder<ContaCliente> b)
+    {
+        b.ToTable("ContasCliente");
+        b.HasKey(c => c.Id);
+
+        b.Property(c => c.LimiteCredito).HasPrecision(15, 2);
+        b.Property(c => c.DescontoMaximo).HasPrecision(5, 2);
+        b.Property(c => c.CondicaoPagamento).HasMaxLength(60);
+        b.Property(c => c.Observacoes).HasMaxLength(1000);
+
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(c => c.EmpresaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(c => c.VendedorPadraoId).OnDelete(DeleteBehavior.NoAction);
+
+        // Uma conta por empresa, e uma só conta padrão (EmpresaId nulo) — por isso sem filtro de nulos.
+        b.HasIndex(c => new { c.PessoaId, c.EmpresaId }).IsUnique().HasFilter(null);
+    }
+}
+
+public class ContaFornecedorConfiguration : IEntityTypeConfiguration<ContaFornecedor>
+{
+    public void Configure(EntityTypeBuilder<ContaFornecedor> b)
+    {
+        b.ToTable("ContasFornecedor");
+        b.HasKey(f => f.Id);
+
+        b.Property(f => f.CondicaoPagamento).HasMaxLength(60);
+        b.Property(f => f.Observacoes).HasMaxLength(1000);
+
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(f => f.EmpresaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(f => f.TransportadoraPadraoId).OnDelete(DeleteBehavior.NoAction);
+
+        b.HasIndex(f => new { f.PessoaId, f.EmpresaId }).IsUnique().HasFilter(null);
+    }
+}
+
+public class BloqueioConfiguration : IEntityTypeConfiguration<Bloqueio>
+{
+    public void Configure(EntityTypeBuilder<Bloqueio> b)
+    {
+        b.ToTable("PessoaBloqueios");
+        b.HasKey(x => x.Id);
+
+        b.Property(x => x.Escopo).HasConversion<byte>();
+        b.Property(x => x.Origem).HasConversion<byte>();
+        b.Property(x => x.Motivo).IsRequired().HasMaxLength(250);
+        b.Property(x => x.InicioPor).IsRequired().HasMaxLength(100);
+        b.Property(x => x.FimPor).HasMaxLength(100);
+        b.Property(x => x.MotivoLiberacao).HasMaxLength(250);
+
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasIndex(x => new { x.PessoaId, x.FimEm });
+    }
+}

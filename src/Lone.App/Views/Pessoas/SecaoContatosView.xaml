@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoContatosView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <!-- Telefones e e-mails da própria pessoa -->
+        <Grid ColumnDefinitions="*,Auto">
+            <Label Text="Telefones e e-mails" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarMeioCommand}" />
+        </Grid>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhum telefone ou e-mail." Style="{StaticResource Secundario}" Margin="0,4,0,8" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:MeioContatoFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <FlexLayout Wrap="Wrap" AlignItems="End">
+                            <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
+                            <c:Campo Rotulo="Número ou e-mail" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
+                            <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" Dica="Ex.: Financeiro" />
+                            <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
+                            <c:CaixaMarcar Texto="Aceita comunicações" Marcado="{Binding PermiteComunicacao}" />
+                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                        </FlexLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <!-- Pessoas de contato -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+            <Label Text="Pessoas de contato" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarContatoCommand}" />
+        </Grid>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Contatos}">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhuma pessoa de contato." Style="{StaticResource Secundario}" Margin="0,4" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:ContatoFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout>
+                            <FlexLayout Wrap="Wrap">
+                                <c:Campo Rotulo="Nome" Texto="{Binding Nome}" />
+                                <c:Campo Rotulo="Cargo" Texto="{Binding Cargo}" />
+                                <c:Campo Rotulo="Departamento" Texto="{Binding Departamento}" />
+                                <c:Campo Rotulo="E-mail" Texto="{Binding Email}" Teclado="Email" />
+                                <c:Campo Rotulo="Telefone" Texto="{Binding Telefone}" Mascara="Telefone" />
+                                <c:Campo Rotulo="Celular" Texto="{Binding Celular}" Mascara="Telefone" />
+                                <c:CaixaMarcar Texto="O celular tem WhatsApp" Marcado="{Binding CelularWhatsApp}" />
+                                <c:CaixaMarcar Texto="Contato principal" Marcado="{Binding Principal}" />
+                                <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
+                            </FlexLayout>
+                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

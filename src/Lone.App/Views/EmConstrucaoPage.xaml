@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Lugar reservado para as telas que chegam na etapa M4 (Pessoas). -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Lone.App.Views.EmConstrucaoPage">
+    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8" Padding="24">
+        <Label x:Name="Titulo" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+        <Label Text="Esta tela chega na próxima entrega." Style="{StaticResource Secundario}" HorizontalOptions="Center" />
+    </VerticalStackLayout>
+</ContentPage>

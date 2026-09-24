@@ -1,0 +1,435 @@
+using Lone.Contracts.CamposPersonalizados;
+using Lone.Contracts.Pessoas;
+using Lone.Domain.Comum;
+using Lone.Domain.Entidades;
+
+namespace Lone.Application.Pessoas;
+
+/// <summary>
+/// Conversão entre a entidade Pessoa e o PessoaDto, campo a campo (explícita: um campo novo que não for
+/// mapeado aparece na revisão, em vez de ser copiado ou perdido em silêncio).
+/// </summary>
+public static class PessoaMapeamento
+{
+    public static PessoaDto ParaDto(Pessoa p) => new()
+    {
+        Id = p.Id,
+        Versao = p.Versao,
+        Codigo = p.Codigo,
+        Natureza = p.Natureza,
+        Situacao = p.Situacao,
+        SituacaoMotivo = p.SituacaoMotivo,
+        SituacaoAlteradaEm = p.SituacaoAlteradaEm is { } alterada ? DateTime.SpecifyKind(alterada, DateTimeKind.Utc) : null,
+        Nome = p.Nome,
+        NomeSocial = p.NomeSocial,
+        NomeExibicao = p.NomeExibicao,
+        Apelido = p.Apelido,
+        DocumentoPrincipal = p.DocumentoPrincipal,
+        DataNascimento = p.DataNascimento,
+        GrupoEconomicoId = p.GrupoEconomicoId,
+        MescladaEmId = p.MescladaEmId,
+        Observacoes = p.Observacoes,
+        Sexo = p.Sexo,
+        IdentidadeGenero = p.IdentidadeGenero,
+        CorRaca = p.CorRaca,
+        EstadoCivil = p.EstadoCivil,
+        Escolaridade = p.Escolaridade,
+        Nacionalidade = p.Nacionalidade,
+        NaturalidadeMunicipioId = p.NaturalidadeMunicipioId,
+        NomeMae = p.NomeMae,
+        NomePai = p.NomePai,
+        Profissao = p.Profissao,
+        DataAbertura = p.DataAbertura,
+        Porte = p.Porte,
+        CapitalSocial = p.CapitalSocial,
+        Socios = p.Socios.OrderBy(s => s.Nome).Select(ParaDto).ToList(),
+        OrigemCadastro = p.OrigemCadastro,
+        PrimeiroContatoEm = p.PrimeiroContatoEm,
+        Consentimentos = p.Consentimentos.OrderBy(c => c.Canal).Select(ParaDto).ToList(),
+        Etiquetas = p.Etiquetas.Select(e => e.Texto).Order().ToList(),
+        ValoresPersonalizados = p.ValoresPersonalizados.Select(ParaDto).ToList(),
+        Estabelecimentos = p.Estabelecimentos.OrderByDescending(e => e.Principal).ThenBy(e => e.Cnpj).Select(ParaDto).ToList(),
+        Enderecos = p.Enderecos.OrderBy(e => e.Ordem).Select(ParaDto).ToList(),
+        MeiosContato = p.MeiosContato.Select(ParaDto).ToList(),
+        Contatos = p.Contatos.OrderByDescending(c => c.Principal).ThenBy(c => c.Nome).Select(ParaDto).ToList(),
+        Documentos = p.Documentos.Select(ParaDto).ToList(),
+        Papeis = p.Papeis.OrderBy(x => x.Papel).Select(ParaDto).ToList(),
+        ContasCliente = p.ContasCliente.Select(ParaDto).ToList(),
+        ContasFornecedor = p.ContasFornecedor.Select(ParaDto).ToList(),
+        Bloqueios = p.Bloqueios.OrderByDescending(b => b.InicioEm).Select(ParaDto).ToList()
+    };
+
+    /// <summary>
+    /// Entidade a gravar. Ids vazios recebem um Id novo aqui, para que referências internas
+    /// (ex.: endereço fiscal de um estabelecimento) já apontem para Ids definitivos. Bloqueios não entram.
+    /// </summary>
+    public static Pessoa ParaEntidade(PessoaDto d)
+    {
+        var pessoaId = IdOuNovo(d.Id);
+        return new Pessoa
+        {
+            Id = pessoaId,
+            Versao = d.Versao,
+            Codigo = d.Codigo,
+            Natureza = d.Natureza,
+            Situacao = d.Situacao,
+            Nome = d.Nome ?? string.Empty,
+            NomeSocial = d.NomeSocial,
+            NomeExibicao = d.NomeExibicao,
+            Apelido = d.Apelido,
+            DocumentoPrincipal = d.DocumentoPrincipal,
+            DataNascimento = d.DataNascimento,
+            GrupoEconomicoId = d.GrupoEconomicoId,
+            MescladaEmId = d.MescladaEmId,
+            Observacoes = d.Observacoes,
+            Sexo = d.Sexo,
+            IdentidadeGenero = d.IdentidadeGenero,
+            CorRaca = d.CorRaca,
+            EstadoCivil = d.EstadoCivil,
+            Escolaridade = d.Escolaridade,
+            Nacionalidade = d.Nacionalidade,
+            NaturalidadeMunicipioId = d.NaturalidadeMunicipioId,
+            NomeMae = d.NomeMae,
+            NomePai = d.NomePai,
+            Profissao = d.Profissao,
+            DataAbertura = d.DataAbertura,
+            Porte = d.Porte,
+            CapitalSocial = d.CapitalSocial,
+            Socios = d.Socios.Select(s => ParaEntidade(s, pessoaId)).ToList(),
+            OrigemCadastro = d.OrigemCadastro,
+            PrimeiroContatoEm = d.PrimeiroContatoEm,
+            Consentimentos = d.Consentimentos.Select(c => ParaEntidade(c, pessoaId)).ToList(),
+            Etiquetas = d.Etiquetas.Select(t => new PessoaEtiqueta { Id = IdSequencial.Novo(), PessoaId = pessoaId, Texto = t }).ToList(),
+            ValoresPersonalizados = d.ValoresPersonalizados.Select(v => ParaEntidade(v, pessoaId)).ToList(),
+            Estabelecimentos = d.Estabelecimentos.Select(e => ParaEntidade(e, pessoaId)).ToList(),
+            Enderecos = d.Enderecos.Select(e => ParaEntidade(e, pessoaId)).ToList(),
+            MeiosContato = d.MeiosContato.Select(m => ParaEntidade(m, pessoaId)).ToList(),
+            Contatos = d.Contatos.Select(c => ParaEntidade(c, pessoaId)).ToList(),
+            Documentos = d.Documentos.Select(x => ParaEntidade(x, pessoaId)).ToList(),
+            Papeis = d.Papeis.Select(x => ParaEntidade(x, pessoaId)).ToList(),
+            ContasCliente = d.ContasCliente.Select(c => ParaEntidade(c, pessoaId)).ToList(),
+            ContasFornecedor = d.ContasFornecedor.Select(f => ParaEntidade(f, pessoaId)).ToList()
+        };
+    }
+
+    private static Guid IdOuNovo(Guid id) => id == Guid.Empty ? IdSequencial.Novo() : id;
+
+    // ---------------------------------------------------------------- Estabelecimento
+
+    private static EstabelecimentoDto ParaDto(Estabelecimento e) => new()
+    {
+        Id = e.Id,
+        Cnpj = e.Cnpj,
+        Principal = e.Principal,
+        NomeFantasia = e.NomeFantasia,
+        Ativo = e.Ativo,
+        SituacaoReceita = e.SituacaoReceita,
+        ConsultadoReceitaEm = e.ConsultadoReceitaEm,
+        IndicadorIE = e.IndicadorIE,
+        InscricaoEstadual = e.InscricaoEstadual,
+        InscricaoMunicipal = e.InscricaoMunicipal,
+        InscricaoSuframa = e.InscricaoSuframa,
+        RegimeTributario = e.RegimeTributario,
+        CnaePrincipal = e.CnaePrincipal,
+        NaturezaJuridica = e.NaturezaJuridica,
+        CnaesSecundarios = e.CnaesSecundarios,
+        EnderecoFiscalId = e.EnderecoFiscalId
+    };
+
+    private static Estabelecimento ParaEntidade(EstabelecimentoDto e, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(e.Id),
+        PessoaId = pessoaId,
+        Cnpj = e.Cnpj,
+        Principal = e.Principal,
+        NomeFantasia = e.NomeFantasia,
+        Ativo = e.Ativo,
+        SituacaoReceita = e.SituacaoReceita,
+        ConsultadoReceitaEm = e.ConsultadoReceitaEm,
+        IndicadorIE = e.IndicadorIE,
+        InscricaoEstadual = e.InscricaoEstadual,
+        InscricaoMunicipal = e.InscricaoMunicipal,
+        InscricaoSuframa = e.InscricaoSuframa,
+        RegimeTributario = e.RegimeTributario,
+        CnaePrincipal = e.CnaePrincipal,
+        NaturezaJuridica = e.NaturezaJuridica,
+        CnaesSecundarios = e.CnaesSecundarios,
+        EnderecoFiscalId = e.EnderecoFiscalId
+    };
+
+    // ---------------------------------------------------------------- Sócios e consentimentos
+
+    private static SocioDto ParaDto(PessoaSocio s) => new()
+    {
+        Id = s.Id,
+        Nome = s.Nome,
+        Qualificacao = s.Qualificacao,
+        Documento = s.Documento,
+        EntradaEm = s.EntradaEm
+    };
+
+    private static PessoaSocio ParaEntidade(SocioDto s, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(s.Id),
+        PessoaId = pessoaId,
+        Nome = s.Nome ?? string.Empty,
+        Qualificacao = s.Qualificacao,
+        Documento = s.Documento,
+        EntradaEm = s.EntradaEm
+    };
+
+    private static ConsentimentoDto ParaDto(PessoaConsentimento c) => new()
+    {
+        Id = c.Id,
+        Canal = c.Canal,
+        Concedido = c.Concedido,
+        ConcedidoEm = c.ConcedidoEm,
+        RevogadoEm = c.RevogadoEm,
+        Origem = c.Origem
+    };
+
+    private static PessoaConsentimento ParaEntidade(ConsentimentoDto c, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(c.Id),
+        PessoaId = pessoaId,
+        Canal = c.Canal,
+        Concedido = c.Concedido,
+        ConcedidoEm = c.ConcedidoEm,
+        RevogadoEm = c.RevogadoEm,
+        Origem = c.Origem
+    };
+
+    // ---------------------------------------------------------------- Campos personalizados
+
+    private static ValorPersonalizadoDto ParaDto(PessoaValorPersonalizado v) => new()
+    {
+        CampoId = v.CampoId,
+        Texto = v.ValorTexto,
+        Numero = v.ValorNumero,
+        Data = v.ValorData,
+        Logico = v.ValorLogico,
+        OpcaoId = v.OpcaoId
+    };
+
+    /// <summary>Id novo: o repositório reaproveita o do valor já gravado para o mesmo campo.</summary>
+    private static PessoaValorPersonalizado ParaEntidade(ValorPersonalizadoDto v, Guid pessoaId) => new()
+    {
+        Id = IdSequencial.Novo(),
+        PessoaId = pessoaId,
+        CampoId = v.CampoId,
+        ValorTexto = v.Texto,
+        ValorNumero = v.Numero,
+        ValorData = v.Data is { } data ? DateTime.SpecifyKind(data, DateTimeKind.Unspecified) : null,
+        ValorLogico = v.Logico,
+        OpcaoId = v.OpcaoId
+    };
+
+    // ---------------------------------------------------------------- Endereço
+
+    private static EnderecoDto ParaDto(PessoaEndereco e) => new()
+    {
+        Id = e.Id,
+        Descricao = e.Descricao,
+        Finalidades = e.Finalidades,
+        Ordem = e.Ordem,
+        Cep = e.Cep,
+        Logradouro = e.Logradouro,
+        Numero = e.Numero,
+        Complemento = e.Complemento,
+        Bairro = e.Bairro,
+        MunicipioId = e.MunicipioId,
+        Cidade = e.Cidade,
+        Uf = e.Uf,
+        CodigoMunicipioIbge = e.CodigoMunicipioIbge,
+        CodigoPais = e.CodigoPais,
+        Pais = e.Pais
+    };
+
+    private static PessoaEndereco ParaEntidade(EnderecoDto e, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(e.Id),
+        PessoaId = pessoaId,
+        Descricao = e.Descricao,
+        Finalidades = e.Finalidades,
+        Ordem = e.Ordem,
+        Cep = e.Cep,
+        Logradouro = e.Logradouro ?? string.Empty,
+        Numero = e.Numero,
+        Complemento = e.Complemento,
+        Bairro = e.Bairro,
+        MunicipioId = e.MunicipioId,
+        Cidade = e.Cidade ?? string.Empty,
+        Uf = e.Uf,
+        CodigoMunicipioIbge = e.CodigoMunicipioIbge,
+        CodigoPais = string.IsNullOrWhiteSpace(e.CodigoPais) ? PessoaEndereco.CodigoPaisBrasil : e.CodigoPais,
+        Pais = e.Pais ?? string.Empty
+    };
+
+    // ---------------------------------------------------------------- Contatos e documentos
+
+    private static MeioContatoDto ParaDto(MeioContato m) => new()
+    {
+        Id = m.Id,
+        Tipo = m.Tipo,
+        Valor = m.Valor,
+        Descricao = m.Descricao,
+        Principal = m.Principal,
+        PermiteComunicacao = m.PermiteComunicacao
+    };
+
+    private static MeioContato ParaEntidade(MeioContatoDto m, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(m.Id),
+        PessoaId = pessoaId,
+        Tipo = m.Tipo,
+        Valor = m.Valor ?? string.Empty,
+        Descricao = m.Descricao,
+        Principal = m.Principal,
+        PermiteComunicacao = m.PermiteComunicacao
+    };
+
+    private static ContatoDto ParaDto(Contato c) => new()
+    {
+        Id = c.Id,
+        Nome = c.Nome,
+        Cargo = c.Cargo,
+        Departamento = c.Departamento,
+        Telefone = c.Telefone,
+        Celular = c.Celular,
+        CelularWhatsApp = c.CelularWhatsApp,
+        Email = c.Email,
+        Observacoes = c.Observacoes,
+        Principal = c.Principal,
+        PessoaVinculadaId = c.PessoaVinculadaId
+    };
+
+    private static Contato ParaEntidade(ContatoDto c, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(c.Id),
+        PessoaId = pessoaId,
+        Nome = c.Nome ?? string.Empty,
+        Cargo = c.Cargo,
+        Departamento = c.Departamento,
+        Telefone = c.Telefone,
+        Celular = c.Celular,
+        CelularWhatsApp = c.CelularWhatsApp,
+        Email = c.Email,
+        Observacoes = c.Observacoes,
+        Principal = c.Principal,
+        PessoaVinculadaId = c.PessoaVinculadaId
+    };
+
+    private static DocumentoDto ParaDto(PessoaDocumento x) => new()
+    {
+        Id = x.Id,
+        Tipo = x.Tipo,
+        Numero = x.Numero,
+        OrgaoEmissor = x.OrgaoEmissor,
+        Uf = x.Uf,
+        EmitidoEm = x.EmitidoEm,
+        ValidoAte = x.ValidoAte,
+        Observacoes = x.Observacoes
+    };
+
+    private static PessoaDocumento ParaEntidade(DocumentoDto x, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(x.Id),
+        PessoaId = pessoaId,
+        Tipo = x.Tipo,
+        Numero = x.Numero ?? string.Empty,
+        OrgaoEmissor = x.OrgaoEmissor,
+        Uf = x.Uf,
+        EmitidoEm = x.EmitidoEm,
+        ValidoAte = x.ValidoAte,
+        Observacoes = x.Observacoes
+    };
+
+    // ---------------------------------------------------------------- Papéis e contas
+
+    private static PapelDto ParaDto(PessoaPapel x) => new()
+    {
+        Id = x.Id,
+        Papel = x.Papel,
+        Ativo = x.Ativo,
+        InicioEm = x.InicioEm,
+        FimEm = x.FimEm,
+        Observacoes = x.Observacoes
+    };
+
+    private static PessoaPapel ParaEntidade(PapelDto x, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(x.Id),
+        PessoaId = pessoaId,
+        Papel = x.Papel,
+        Ativo = x.Ativo,
+        InicioEm = x.InicioEm,
+        FimEm = x.FimEm,
+        Observacoes = x.Observacoes
+    };
+
+    private static ContaClienteDto ParaDto(ContaCliente c) => new()
+    {
+        Id = c.Id,
+        EmpresaId = c.EmpresaId,
+        LimiteCredito = c.LimiteCredito,
+        DiasMaximoAtraso = c.DiasMaximoAtraso,
+        DescontoMaximo = c.DescontoMaximo,
+        CondicaoPagamento = c.CondicaoPagamento,
+        ExigeAprovacaoAcimaLimite = c.ExigeAprovacaoAcimaLimite,
+        VendedorPadraoId = c.VendedorPadraoId,
+        Observacoes = c.Observacoes
+    };
+
+    private static ContaCliente ParaEntidade(ContaClienteDto c, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(c.Id),
+        PessoaId = pessoaId,
+        EmpresaId = c.EmpresaId,
+        LimiteCredito = c.LimiteCredito,
+        DiasMaximoAtraso = c.DiasMaximoAtraso,
+        DescontoMaximo = c.DescontoMaximo,
+        CondicaoPagamento = c.CondicaoPagamento,
+        ExigeAprovacaoAcimaLimite = c.ExigeAprovacaoAcimaLimite,
+        VendedorPadraoId = c.VendedorPadraoId,
+        Observacoes = c.Observacoes
+    };
+
+    private static ContaFornecedorDto ParaDto(ContaFornecedor f) => new()
+    {
+        Id = f.Id,
+        EmpresaId = f.EmpresaId,
+        CondicaoPagamento = f.CondicaoPagamento,
+        PrazoMedioDias = f.PrazoMedioDias,
+        LeadTimeDias = f.LeadTimeDias,
+        TransportadoraPadraoId = f.TransportadoraPadraoId,
+        Avaliacao = f.Avaliacao,
+        Observacoes = f.Observacoes
+    };
+
+    private static ContaFornecedor ParaEntidade(ContaFornecedorDto f, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(f.Id),
+        PessoaId = pessoaId,
+        EmpresaId = f.EmpresaId,
+        CondicaoPagamento = f.CondicaoPagamento,
+        PrazoMedioDias = f.PrazoMedioDias,
+        LeadTimeDias = f.LeadTimeDias,
+        TransportadoraPadraoId = f.TransportadoraPadraoId,
+        Avaliacao = f.Avaliacao,
+        Observacoes = f.Observacoes
+    };
+
+    private static BloqueioDto ParaDto(Bloqueio b) => new()
+    {
+        Id = b.Id,
+        EmpresaId = b.EmpresaId,
+        Escopo = b.Escopo,
+        Origem = b.Origem,
+        Motivo = b.Motivo,
+        InicioEm = b.InicioEm,
+        InicioPor = b.InicioPor,
+        FimEm = b.FimEm,
+        FimPor = b.FimPor,
+        MotivoLiberacao = b.MotivoLiberacao
+    };
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Lone.Views.InicioPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Padding="24,16,24,24" Spacing="24">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Bem-vindo ao Lone" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Escolha um módulo no menu ao lado."
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <Border Width="240" HorizontalAlignment="Left" Padding="20" CornerRadius="8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Clientes ativos" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock x:Name="TotalClientes" Text="–" Style="{StaticResource TitleLargeTextBlockStyle}" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</Page>

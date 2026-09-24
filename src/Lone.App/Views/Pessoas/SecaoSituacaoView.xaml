@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Situação do cadastro: ativo/em análise pelo formulário; desativar e reativar são ações próprias (nunca exclui). -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoSituacaoView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="10">
+        <Border Style="{StaticResource Cartao}" Padding="16">
+            <VerticalStackLayout Spacing="4">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="●" FontSize="18" VerticalOptions="Center" TextColor="{StaticResource Sucesso}"
+                           IsVisible="{Binding Formulario.PodeEscolherSituacao}" />
+                    <Label Text="○" FontSize="18" VerticalOptions="Center" IsVisible="{Binding Formulario.EstaInativo}" />
+                    <Label Text="{Binding Formulario.SituacaoTexto}" FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="{Binding Formulario.SituacaoDetalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- Ativo ou em análise (cadastro incompleto ou aguardando aprovação: não movimenta). -->
+        <c:CampoEscolha Rotulo="Situação de uso" Itens="{Binding Formulario.Situacoes}" Selecionado="{Binding Formulario.Situacao}"
+                        IsVisible="{Binding Formulario.PodeEscolherSituacao}" MaximumWidthRequest="360" HorizontalOptions="Start" />
+
+        <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+               Text="Desativar tira o cadastro das buscas e das operações do dia a dia, sem apagar nada: todo o histórico fica guardado, ele continua no filtro &quot;Inativos&quot; e pode ser reativado a qualquer momento." />
+
+        <HorizontalStackLayout Spacing="12">
+            <Button Text="Desativar cadastro" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                    IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+            <Button Text="Reativar cadastro" Command="{Binding ReativarCommand}"
+                    IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
+        </HorizontalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tudo o que os aplicativos têm em comum e que não depende de tela: cliente da API, sessão,
+       fluxo de entrada e ViewModels. Sem MAUI: testável e reaproveitável por outros clientes. -->
+  <PropertyGroup>
+    <RootNamespace>Lone.Cliente</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lone.Contracts\Lone.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lone.Tests" />
+  </ItemGroup>
+
+</Project>

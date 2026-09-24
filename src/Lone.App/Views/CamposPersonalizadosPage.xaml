@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Campos personalizados do cadastro de pessoas: tabela à esquerda (com a ordem), ficha ao lado. Campos não são excluídos: são desativados. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.CamposPersonalizadosPage"
+             x:DataType="cad:CamposPersonalizadosViewModel"
+             Title="Campos personalizados">
+
+    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+
+        <!-- ===== Tabela ===== -->
+        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar campo" />
+                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
+            </Grid>
+
+            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            </ContentView>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,92,44,40,64" Padding="12,0">
+                <Label Text="Campo" Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="1" Text="Tipo" Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="2" Text="Obrig." Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="3" Text="Ativo" Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="4" Text="Ordem" Style="{StaticResource Rotulo}" HorizontalOptions="Center" />
+            </Grid>
+
+            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhum campo criado. Clique em Novo." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="cad:LinhaCampoPersonalizado">
+                        <Grid ColumnDefinitions="*,92,44,40,32,32" Padding="12,8" ColumnSpacing="2">
+                            <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Tipo}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Obrigatorio}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+                            <Label Grid.Column="3" Text="{Binding Ativo}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+                            <Button Grid.Column="4" Text="▲" Style="{StaticResource BotaoLink}" Padding="0" Clicked="Subir_Clicked"
+                                    SemanticProperties.Description="Subir" />
+                            <Button Grid.Column="5" Text="▼" Style="{StaticResource BotaoLink}" Padding="0" Clicked="Descer_Clicked"
+                                    SemanticProperties.Description="Descer" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
+                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
+                             HorizontalOptions="Center" Spacing="6" Padding="24">
+            <Label Text="Nenhum campo aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="Os campos aparecem na aba &quot;Informações adicionais&quot; do cadastro de pessoas, nesta ordem."
+                   Style="{StaticResource Secundario}" HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Ficha ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+            <ScrollView>
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
+                                     HorizontalOptions="Fill">
+                    <Button Text="‹ Campos" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                            IsVisible="{Binding ModoCompacto}" />
+                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                    <FlexLayout Wrap="Wrap">
+                        <c:Campo Rotulo="Nome do campo" Texto="{Binding Formulario.Nome}" Dica="Ex.: Quantidade de filhos" />
+                        <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Formulario.ListaTipos}" Selecionado="{Binding Formulario.Tipo}"
+                                        IsEnabled="{Binding Formulario.PodeMudarTipo}" />
+                        <c:Campo Rotulo="Dica (opcional)" Texto="{Binding Formulario.Dica}" Dica="Texto de ajuda mostrado dentro do campo"
+                                 FlexLayout.Basis="100%" />
+                        <c:CaixaMarcar Texto="Obrigatório (o cadastro não salva sem este campo)" Marcado="{Binding Formulario.Obrigatorio}" />
+                    </FlexLayout>
+                    <Label Text="O tipo não pode mais ser mudado: este campo já tem valores gravados. Para outro tipo, desative-o e crie outro campo."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.TemValores}" />
+
+                    <!-- Números: limites e casas decimais -->
+                    <FlexLayout Wrap="Wrap" IsVisible="{Binding Formulario.UsaLimites}">
+                        <c:Campo Rotulo="Valor mínimo (opcional)" Texto="{Binding Formulario.Minimo}" Mascara="Numero" />
+                        <c:Campo Rotulo="Valor máximo (opcional)" Texto="{Binding Formulario.Maximo}" Mascara="Numero" />
+                        <c:Campo Rotulo="Casas decimais" Texto="{Binding Formulario.CasasDecimais}" Mascara="Numero"
+                                 IsVisible="{Binding Formulario.UsaCasas}" />
+                    </FlexLayout>
+
+                    <!-- Lista de opções -->
+                    <VerticalStackLayout IsVisible="{Binding Formulario.UsaOpcoes}" Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Opções" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Adicionar opção" Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding Formulario.AdicionarOpcaoCommand}" />
+                        </Grid>
+                        <Label Text="Opções já gravadas não são excluídas (podem estar em uso): são desativadas e continuam legíveis nos cadastros antigos."
+                               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Opcoes}" Spacing="4">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="cad:OpcaoEdicao">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Entry Text="{Binding Texto}" Placeholder="Ex.: Casado" IsEnabled="{Binding Ativa}" />
+                                        <Button Grid.Column="1" Text="{Binding TextoBotao}" Style="{StaticResource BotaoLink}"
+                                                Command="{Binding RemoverCommand}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- Situação -->
+                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                        <Button Text="Desativar campo" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                        <Button Text="Reativar campo" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

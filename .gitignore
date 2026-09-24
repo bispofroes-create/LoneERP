@@ -1,0 +1,19 @@
+# Visual Studio / .NET
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM64/
+[Aa]pp[Pp]ackages/
+*.pfx
+*.appx
+*.msix
+*.log
+TestResults/

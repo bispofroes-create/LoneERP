@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Menu principal. No computador e no tablet fica sempre aberto ao lado; no celular, recolhido (☰). -->
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
+       xmlns:views="clr-namespace:Lone.App.Views"
+       x:Class="Lone.App.AppShell"
+       x:DataType="vm:MenuViewModel"
+       Title="Lone ERP"
+       FlyoutWidth="280">
+
+    <Shell.FlyoutHeader>
+        <VerticalStackLayout Padding="20,24,20,16" Spacing="2"
+                             BackgroundColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource FundoEscuro}}">
+            <Label Text="Lone ERP" FontSize="20" FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
+            <Label Text="{Binding EmpresaAtiva}" FontAttributes="Bold" Margin="0,10,0,0" LineBreakMode="TailTruncation"
+                   TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
+            <Label Text="{Binding EmpresaDetalhe}" FontSize="12" LineBreakMode="WordWrap"
+                   TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoSecundarioEscuro}}" />
+        </VerticalStackLayout>
+    </Shell.FlyoutHeader>
+
+    <FlyoutItem Title="Início" Route="inicio">
+        <ShellContent Title="Início" ContentTemplate="{DataTemplate views:InicioPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Pessoas" Route="pessoas" IsVisible="{Binding PodeVerPessoas}">
+        <ShellContent Title="Pessoas" ContentTemplate="{DataTemplate views:PessoasPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Campos personalizados" Route="campos-personalizados" IsVisible="{Binding PodeGerenciarCampos}">
+        <ShellContent Title="Campos personalizados" ContentTemplate="{DataTemplate views:CamposPersonalizadosPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Usuários" Route="usuarios" IsVisible="{Binding PodeGerenciarUsuarios}">
+        <ShellContent Title="Usuários" ContentTemplate="{DataTemplate views:UsuariosPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Perfis" Route="perfis" IsVisible="{Binding PodeGerenciarPerfis}">
+        <ShellContent Title="Perfis" ContentTemplate="{DataTemplate views:PerfisPage}" />
+    </FlyoutItem>
+
+    <MenuItem Text="Trocar empresa" Command="{Binding TrocarEmpresaCommand}"
+              Shell.FlyoutItemIsVisible="{Binding PodeTrocarEmpresa}" />
+    <MenuItem Text="Trocar senha" Command="{Binding TrocarSenhaCommand}" />
+    <MenuItem Text="Sair" Command="{Binding SairCommand}" />
+
+    <Shell.FlyoutFooter>
+        <VerticalStackLayout Padding="20,12,20,20" Spacing="2">
+            <Label Text="{Binding NomeUsuario}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+            <Label Text="{Binding Login}" Style="{StaticResource Secundario}" />
+        </VerticalStackLayout>
+    </Shell.FlyoutFooter>
+</Shell>

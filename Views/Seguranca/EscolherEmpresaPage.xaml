@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Lone.Views.Seguranca.EscolherEmpresaPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Lone.ViewModels"
+    xmlns:empresas="using:Lone.Aplicacao.Empresas">
+
+    <Grid>
+        <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Escolha a empresa" Style="{StaticResource TitleLargeTextBlockStyle}" />
+                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                    <Run Text="{x:Bind ViewModel.NomeUsuario}" /><Run Text=", em qual empresa você vai trabalhar agora?" />
+                </TextBlock>
+            </StackPanel>
+
+            <InfoBar IsOpen="{x:Bind ViewModel.MensagemAberta, Mode=TwoWay}"
+                     Severity="{x:Bind ViewModel.MensagemSeveridade, Mode=OneWay}"
+                     Message="{x:Bind ViewModel.Mensagem, Mode=OneWay}" />
+
+            <ListView x:Name="Lista" MaxHeight="360"
+                      AutomationProperties.Name="Empresas disponíveis"
+                      SelectionMode="Single"
+                      ItemsSource="{x:Bind ViewModel.Empresas}"
+                      SelectedItem="{x:Bind ViewModel.Selecionada, Mode=OneWay}"
+                      SelectionChanged="Lista_SelectionChanged"
+                      DoubleTapped="Lista_DoubleTapped"
+                      KeyDown="Lista_KeyDown"
+                      Visibility="{x:Bind vm:Conversores.VisivelSeFalso(ViewModel.SemEmpresas), Mode=OneWay}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="empresas:EmpresaAtiva">
+                        <StackPanel Padding="0,10" Spacing="2">
+                            <TextBlock Text="{x:Bind Nome}" TextTrimming="CharacterEllipsis"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                <Run Text="{x:Bind CnpjFormatado}" /><Run Text="{x:Bind vm:Conversores.TextoMatriz(EhMatriz)}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button Content="Entrar" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                        Command="{x:Bind ViewModel.EntrarCommand}"
+                        Visibility="{x:Bind vm:Conversores.VisivelSeFalso(ViewModel.SemEmpresas), Mode=OneWay}" />
+                <Button Content="Continuar sem empresa" HorizontalAlignment="Stretch"
+                        Command="{x:Bind ViewModel.ContinuarSemEmpresaCommand}"
+                        Visibility="{x:Bind ViewModel.SemEmpresas, Mode=OneWay}" />
+                <Button Grid.Column="1" Content="{x:Bind ViewModel.TextoVoltar}"
+                        Command="{x:Bind ViewModel.VoltarCommand}" />
+                <ProgressRing Grid.Column="2" Width="20" Height="20"
+                              IsActive="{x:Bind ViewModel.Ocupado, Mode=OneWay}" />
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Page>

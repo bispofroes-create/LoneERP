@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoPessoaisView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Label Text="Dados civis usados em crédito, contratos e no eSocial (funcionários). Tudo é opcional."
+               Style="{StaticResource Secundario}" />
+        <FlexLayout Wrap="Wrap">
+            <c:CampoEscolha Rotulo="Sexo (registro civil)" Itens="{Binding Formulario.Sexos}" Selecionado="{Binding Formulario.Sexo}" />
+            <c:CampoEscolha Rotulo="Identidade de gênero (opcional)" Itens="{Binding Formulario.Generos}"
+                            Selecionado="{Binding Formulario.Genero}" />
+            <c:CampoEscolha Rotulo="Estado civil" Itens="{Binding Formulario.EstadosCivis}" Selecionado="{Binding Formulario.EstadoCivil}" />
+            <c:CampoEscolha Rotulo="Escolaridade" Itens="{Binding Formulario.Escolaridades}" Selecionado="{Binding Formulario.Escolaridade}" />
+            <c:Campo Rotulo="Profissão" Texto="{Binding Formulario.Profissao}" />
+            <c:Campo Rotulo="Nacionalidade" Texto="{Binding Formulario.Nacionalidade}" Dica="Ex.: Brasileira" />
+            <c:Campo Rotulo="Nome da mãe" Texto="{Binding Formulario.NomeMae}" />
+            <c:Campo Rotulo="Nome do pai" Texto="{Binding Formulario.NomePai}" />
+        </FlexLayout>
+
+        <!-- Naturalidade: UF e município da tabela do IBGE (grava o código do município, nunca texto livre). -->
+        <Label Text="Naturalidade" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
+        <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Formulario.TemNaturalidadeACorrigir}" Stroke="{StaticResource Aviso}">
+            <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+                   Text="{Binding Formulario.NaturalidadeACorrigir, StringFormat='Informado antes: {0}. Escolha a UF e o município na lista para corrigir.'}" />
+        </Border>
+        <c:CampoMunicipio Rotulo="Município de nascimento" BindingContext="{Binding Formulario.Naturalidade}"
+                          MaximumWidthRequest="640" HorizontalOptions="Start" />
+
+        <!-- Dado sensível (LGPD): só funcionário e só com permissão. -->
+        <Border Style="{StaticResource Cartao}" Padding="16" IsVisible="{Binding Formulario.MostrarCorRaca}">
+            <VerticalStackLayout Spacing="4">
+                <c:CampoEscolha Rotulo="Cor/raça (IBGE)" Itens="{Binding Formulario.CoresRacas}" Selecionado="{Binding Formulario.CorRaca}"
+                                Padding="0" />
+                <Label Text="Dado pessoal sensível (LGPD, art. 11). Pedido pelo eSocial na admissão; visível só para quem tem a permissão de dados sensíveis."
+                       Style="{StaticResource Secundario}" />
+            </VerticalStackLayout>
+        </Border>
+    </VerticalStackLayout>
+</ContentView>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Lone.Views.EmConstrucaoPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Padding="24,16,24,24" Spacing="8">
+        <TextBlock x:Name="Titulo" Style="{StaticResource TitleTextBlockStyle}" />
+        <TextBlock Text="Este módulo ainda está em construção."
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+    </StackPanel>
+</Page>

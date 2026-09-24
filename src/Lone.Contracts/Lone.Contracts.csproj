@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- O que trafega entre o aplicativo e a API: DTOs, rotas, códigos de erro e catálogo de permissões. -->
+  <PropertyGroup>
+    <RootNamespace>Lone.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lone.Domain\Lone.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

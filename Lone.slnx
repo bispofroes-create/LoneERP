@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/Configuração/">
+    <File Path="src/Directory.Build.props" />
+    <File Path="src/Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Lone.Domain/Lone.Domain.csproj" />
+    <Project Path="src/Lone.Contracts/Lone.Contracts.csproj" />
+    <Project Path="src/Lone.Application/Lone.Application.csproj" />
+    <Project Path="src/Lone.Infrastructure/Lone.Infrastructure.csproj" />
+    <Project Path="src/Lone.Api/Lone.Api.csproj" />
+    <Project Path="src/Lone.Cliente/Lone.Cliente.csproj" />
+    <Project Path="src/Lone.App/Lone.App.csproj">
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lone.Tests/Lone.Tests.csproj" />
+  </Folder>
+</Solution>

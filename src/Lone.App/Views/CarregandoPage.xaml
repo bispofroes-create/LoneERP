@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Primeira tela: reabre a sessão guardada ou decide entre login e primeiro acesso. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Lone.App.Views.CarregandoPage"
+             Shell.NavBarIsVisible="False">
+    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="16">
+        <Label Text="Lone ERP" Style="{StaticResource Titulo}" HorizontalOptions="Center" />
+        <ActivityIndicator IsRunning="True" HorizontalOptions="Center" />
+        <Label Text="Conectando ao servidor..." Style="{StaticResource Secundario}" HorizontalOptions="Center" />
+    </VerticalStackLayout>
+</ContentPage>

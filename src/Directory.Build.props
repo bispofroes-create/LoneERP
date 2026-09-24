@@ -1,0 +1,12 @@
+<Project>
+  <!-- Configuração comum a todos os projetos do Lone (src/). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Company>Lone</Company>
+    <Product>Lone ERP</Product>
+    <NeutralLanguage>pt-BR</NeutralLanguage>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.InicioPage"
+             x:DataType="vm:InicioViewModel"
+             Title="Início">
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,20', Default='32,28'}" Spacing="20" MaximumWidthRequest="1100">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="{Binding Saudacao}" Style="{StaticResource Titulo}" />
+                <Label Text="{Binding Data}" Style="{StaticResource Secundario}" />
+            </VerticalStackLayout>
+
+            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+            <!-- Cartões lado a lado no computador; um embaixo do outro no celular. -->
+            <FlexLayout Wrap="Wrap" Direction="Row" JustifyContent="Start" AlignItems="Stretch">
+                <Border Style="{StaticResource Cartao}" Margin="0,0,16,16" WidthRequest="{OnIdiom Phone=-1, Default=320}"
+                        FlexLayout.Grow="{OnIdiom Phone=1, Default=0}" FlexLayout.Basis="{OnIdiom Phone='100%', Default='auto'}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Empresa ativa" Style="{StaticResource Rotulo}" />
+                        <Label Text="{Binding EmpresaAtiva}" FontSize="16" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Cartao}" Margin="0,0,16,16" WidthRequest="{OnIdiom Phone=-1, Default=320}"
+                        FlexLayout.Grow="{OnIdiom Phone=1, Default=0}" FlexLayout.Basis="{OnIdiom Phone='100%', Default='auto'}"
+                        IsVisible="{Binding PodeVerPessoas}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Clientes ativos" Style="{StaticResource Rotulo}" />
+                        <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                            <Label Text="{Binding ClientesAtivos}" Style="{StaticResource NumeroDestaque}" />
+                            <ActivityIndicator Grid.Column="1" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </FlexLayout>
+
+            <!-- Clientes por faixa etária -->
+            <Border Style="{StaticResource Cartao}" IsVisible="{Binding TemFaixasEtarias}" MaximumWidthRequest="672"
+                    HorizontalOptions="{OnIdiom Phone=Fill, Default=Start}" WidthRequest="{OnIdiom Phone=-1, Default=672}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Clientes por faixa etária" Style="{StaticResource Rotulo}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding FaixasEtarias}" Spacing="8">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FaixaEtariaItem">
+                                <Grid ColumnDefinitions="170,*,60" ColumnSpacing="12">
+                                    <Label Text="{Binding Faixa}" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                    <ProgressBar Grid.Column="1" Progress="{Binding Proporcao}" VerticalOptions="Center"
+                                                 ProgressColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                    <Label Grid.Column="2" Text="{Binding QuantidadeTexto}" FontAttributes="Bold"
+                                           HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Label Text="Pessoas físicas ativas com o papel de cliente." Style="{StaticResource Secundario}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

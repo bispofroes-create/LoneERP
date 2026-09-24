@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:emp="clr-namespace:Lone.Contracts.Empresas;assembly=Lone.Contracts"
+             x:Class="Lone.App.Views.EscolherEmpresaPage"
+             x:DataType="vm:EscolherEmpresaViewModel"
+             Title="Empresa">
+    <ScrollView>
+        <Border Style="{StaticResource CartaoEntrada}">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Escolha a empresa" Style="{StaticResource Titulo}" />
+                <Label Style="{StaticResource Secundario}" Margin="0,0,0,8">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="{Binding NomeUsuario}" />
+                            <Span Text=", em qual empresa você vai trabalhar agora?" />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
+
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                <Label IsVisible="{Binding SemEmpresas}" Style="{StaticResource Secundario}"
+                       Text="Nenhuma empresa disponível para o seu usuário. Cadastre a empresa em Pessoas com o papel &quot;Empresa do grupo&quot; ou peça ao administrador para liberar o acesso." />
+
+                <CollectionView ItemsSource="{Binding Empresas}" SelectionMode="Single"
+                                SelectedItem="{Binding Selecionada}" MaximumHeightRequest="360"
+                                SemanticProperties.Description="Empresas disponíveis">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="emp:EmpresaAtiva">
+                            <VerticalStackLayout Padding="12,10" Spacing="2">
+                                <Label Text="{Binding Nome}" FontAttributes="Bold" />
+                                <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,12,0,0">
+                    <Button Text="Entrar" Command="{Binding ConfirmarCommand}" IsVisible="{Binding TemEmpresas}" />
+                    <Button Text="Continuar sem empresa" Command="{Binding ContinuarSemEmpresaCommand}" IsVisible="{Binding SemEmpresas}" />
+                    <Button Grid.Column="1" Text="{Binding TextoVoltar}" Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding VoltarOuSairCommand}" />
+                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+    </ScrollView>
+</ContentPage>

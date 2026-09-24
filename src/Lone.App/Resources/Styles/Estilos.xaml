@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Estilos globais. Estilos sem x:Key valem para todos os controles do tipo;
+     os com x:Key são usados de propósito (ex.: Style="{StaticResource Cartao}"). -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:c="clr-namespace:Lone.App.Controles">
+
+    <!-- ===== Páginas ===== -->
+    <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Fundo}, Dark={StaticResource FundoEscuro}}" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource SuperficieEscuro}}" />
+        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
+        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
+        <Setter Property="Shell.FlyoutBackgroundColor" Value="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}" />
+    </Style>
+
+    <!-- ===== Texto ===== -->
+    <Style TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Texto}, Dark={StaticResource TextoEscuro}}" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <Style x:Key="Titulo" TargetType="Label">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Texto}, Dark={StaticResource TextoEscuro}}" />
+        <Setter Property="SemanticProperties.HeadingLevel" Value="Level1" />
+    </Style>
+
+    <Style x:Key="Subtitulo" TargetType="Label">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Texto}, Dark={StaticResource TextoEscuro}}" />
+        <Setter Property="SemanticProperties.HeadingLevel" Value="Level2" />
+    </Style>
+
+    <Style x:Key="Secundario" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+
+    <Style x:Key="Rotulo" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="Margin" Value="0,6,0,0" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+    </Style>
+
+    <Style x:Key="NumeroDestaque" TargetType="Label">
+        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+    </Style>
+
+    <!-- ===== Campos ===== -->
+    <Style TargetType="Entry">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Texto}, Dark={StaticResource TextoEscuro}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+
+    <!-- ===== Botões (mínimo de 44 px de altura: fácil de tocar no celular) ===== -->
+    <Style x:Key="BotaoBase" TargetType="Button">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="18,10" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource SobrePrimariaEscuro}}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Botão padrão (ação principal) -->
+    <Style TargetType="Button" BasedOn="{StaticResource BotaoBase}" />
+
+    <Style x:Key="BotaoSecundario" TargetType="Button" BasedOn="{StaticResource BotaoBase}">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+    </Style>
+
+    <Style x:Key="BotaoLink" TargetType="Button" BasedOn="{StaticResource BotaoBase}">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <!-- Sem borda: no Windows o botão desenha um contorno mesmo com fundo transparente. -->
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="BorderColor" Value="Transparent" />
+        <Setter Property="FontAttributes" Value="None" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalOptions" Value="Start" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+    </Style>
+
+    <Style TargetType="ActivityIndicator">
+        <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+        <Setter Property="WidthRequest" Value="24" />
+        <Setter Property="HeightRequest" Value="24" />
+    </Style>
+
+    <!-- ===== Cartões ===== -->
+    <Style x:Key="Cartao" TargetType="Border">
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}" />
+    </Style>
+
+    <!-- ===== Fichas ===== -->
+    <!-- Campos dentro de um FlexLayout: dois por linha no computador, um por linha no celular. -->
+    <Style TargetType="c:Campo">
+        <Setter Property="FlexLayout.Basis" Value="{OnIdiom Phone='100%', Default='50%'}" />
+        <Setter Property="Padding" Value="0,0,12,8" />
+    </Style>
+    <Style TargetType="c:CampoEscolha">
+        <Setter Property="FlexLayout.Basis" Value="{OnIdiom Phone='100%', Default='50%'}" />
+        <Setter Property="Padding" Value="0,0,12,8" />
+    </Style>
+    <Style TargetType="c:CaixaMarcar">
+        <Setter Property="FlexLayout.Basis" Value="{OnIdiom Phone='100%', Default='50%'}" />
+        <Setter Property="Padding" Value="0,0,12,4" />
+    </Style>
+
+    <!-- Cartão de um item de lista na ficha (endereço, contato, estabelecimento...). -->
+    <Style x:Key="CartaoItem" TargetType="Border" BasedOn="{StaticResource Cartao}">
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <!-- Cartão das telas de entrada: centralizado, largura limitada no computador, tela cheia no celular. -->
+    <Style x:Key="CartaoEntrada" TargetType="Border" BasedOn="{StaticResource Cartao}">
+        <Setter Property="Padding" Value="28" />
+        <Setter Property="Margin" Value="16,24" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="HorizontalOptions" Value="{OnIdiom Phone=Fill, Default=Center}" />
+        <Setter Property="WidthRequest" Value="{OnIdiom Phone=-1, Default=440}" />
+    </Style>
+</ResourceDictionary>

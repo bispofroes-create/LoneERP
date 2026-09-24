@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.TrocarSenhaPage"
+             x:DataType="vm:TrocarSenhaViewModel"
+             Title="Trocar senha">
+    <ScrollView>
+        <Border Style="{StaticResource CartaoEntrada}">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Trocar senha" Style="{StaticResource Titulo}" />
+                <Label Text="{Binding Explicacao}" Style="{StaticResource Secundario}" Margin="0,0,0,8" />
+
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                <Label Text="Senha atual" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding SenhaAtual}" IsPassword="True" SemanticProperties.Description="Senha atual" />
+
+                <Label Text="Nova senha" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding NovaSenha}" IsPassword="True" SemanticProperties.Description="Nova senha" />
+                <Label Text="Pelo menos 8 caracteres, com letras e números." Style="{StaticResource Secundario}" />
+
+                <Label Text="Confirme a nova senha" Style="{StaticResource Rotulo}" />
+                <Entry Text="{Binding Confirmacao}" IsPassword="True" ReturnType="Go" ReturnCommand="{Binding SalvarCommand}"
+                       SemanticProperties.Description="Confirmação da nova senha" />
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,12,0,0">
+                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
+                    <Button Grid.Column="1" Text="{Binding TextoCancelar}" Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding CancelarCommand}" />
+                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Regras do negócio: entidades, objetos de valor, validações. Sem banco, sem tela, sem HTTP.
+       Roda no servidor e no aparelho (validação offline). -->
+  <PropertyGroup>
+    <RootNamespace>Lone.Domain</RootNamespace>
+  </PropertyGroup>
+
+</Project>

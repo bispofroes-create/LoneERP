@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoRelacionamentoView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Label Text="Segmentação" Style="{StaticResource Subtitulo}" />
+        <FlexLayout Wrap="Wrap">
+            <c:CampoEscolha Rotulo="Como conheceu a empresa" Itens="{Binding Formulario.Origens}"
+                            Selecionado="{Binding Formulario.OrigemCadastro}" />
+            <c:Campo Rotulo="Primeiro contato" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.PrimeiroContatoEm}" />
+            <c:Campo Rotulo="Etiquetas" Texto="{Binding Formulario.Etiquetas}" Dica="Separe por vírgula. Ex.: VIP, Atacado"
+                     FlexLayout.Basis="100%" />
+        </FlexLayout>
+
+        <Label Text="Comunicações (LGPD)" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+        <Label Text="Marque só com a autorização da pessoa. A data de autorização ou de revogação é registrada ao salvar e fica no histórico."
+               Style="{StaticResource Secundario}" />
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Consentimentos}" Spacing="4">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:ConsentimentoFormulario">
+                    <Border Style="{StaticResource CartaoItem}" Margin="0,0,0,6">
+                        <FlexLayout Wrap="Wrap" AlignItems="Center">
+                            <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Concedido}"
+                                           FlexLayout.Basis="{OnIdiom Phone='100%', Default='25%'}" />
+                            <Label Text="{Binding Situacao}" Style="{StaticResource Secundario}" VerticalOptions="Center"
+                                   FlexLayout.Basis="{OnIdiom Phone='100%', Default='30%'}" Margin="0,0,12,0" />
+                            <c:Campo Rotulo="Como foi autorizado" Texto="{Binding Origem}" Dica="Ex.: Balcão, Site, Contrato"
+                                     FlexLayout.Basis="{OnIdiom Phone='100%', Default='45%'}" />
+                        </FlexLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

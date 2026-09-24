@@ -1,0 +1,139 @@
+### ============================================================================
+### Lone.Api — roteiro de teste pelo Visual Studio
+### Rode a API (perfil "https") e clique em "Enviar solicitação" acima de cada bloco, na ordem.
+### Os tokens de uma resposta são reaproveitados nas seguintes pelos nomes (@entrar, @primeiro...).
+### ============================================================================
+
+@api = https://localhost:7080
+@v1 = {{api}}/api/v1
+
+### 1. Saúde: API e banco no ar
+GET {{api}}/saude
+
+### 2. Situação: existe algum usuário? (false = fazer o primeiro acesso)
+GET {{v1}}/autenticacao/situacao
+
+### 3. Primeiro acesso (só funciona com o banco vazio): cria o administrador e já devolve a sessão
+# @name primeiro
+POST {{v1}}/autenticacao/primeiro-acesso
+Content-Type: application/json
+
+{
+  "nome": "Administrador",
+  "login": "admin",
+  "senha": "Lone2026erp",
+  "dispositivo": "Visual Studio (.http)"
+}
+
+### 4. Login (use depois do primeiro acesso, ou em qualquer outra vez)
+# @name entrar
+POST {{v1}}/autenticacao/entrar
+Content-Type: application/json
+
+{
+  "login": "admin",
+  "senha": "Lone2026erp",
+  "dispositivo": "Visual Studio (.http)"
+}
+
+@token = {{entrar.response.body.$.tokenAcesso}}
+@renovacao = {{entrar.response.body.$.tokenRenovacao}}
+
+### 5. Login com senha errada: 401 com "codigo": "login_recusado" e tentativas restantes
+POST {{v1}}/autenticacao/entrar
+Content-Type: application/json
+
+{ "login": "admin", "senha": "errada123" }
+
+### 6. Sem token: 401 com "codigo": "nao_autenticado"
+GET {{v1}}/pessoas
+
+### 7. Cadastrar a empresa do grupo (PJ com matriz). O Id vem de quem chama; aqui um fixo de exemplo.
+PUT {{v1}}/pessoas/0f7a4c1e-0000-0000-0000-0197a1b2c3d4
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "natureza": "Juridica",
+  "nome": "Minha Empresa Ltda",
+  "nomeExibicao": "Minha Empresa",
+  "estabelecimentos": [
+    { "cnpj": "11.222.333/0001-81", "principal": true, "indicadorIE": "NaoContribuinte" }
+  ],
+  "enderecos": [
+    {
+      "finalidades": "Principal, Fiscal",
+      "cep": "01310-100",
+      "logradouro": "Avenida Paulista",
+      "numero": "1000",
+      "bairro": "Bela Vista",
+      "cidade": "São Paulo",
+      "uf": "SP"
+    }
+  ],
+  "papeis": [ { "papel": "EmpresaDoGrupo" } ]
+}
+
+### 8. Renovar a sessão: a empresa cadastrada acima passa a ser a empresa ativa (é a única)
+# @name renovar
+POST {{v1}}/autenticacao/renovar
+Content-Type: application/json
+
+{ "tokenRenovacao": "{{renovacao}}" }
+
+@token2 = {{renovar.response.body.$.tokenAcesso}}
+
+### 9. Reusar o token de renovação antigo: 401, e TODAS as sessões do usuário são encerradas (proteção contra roubo)
+POST {{v1}}/autenticacao/renovar
+Content-Type: application/json
+
+{ "tokenRenovacao": "{{renovacao}}" }
+
+### 10. Depois do passo 9, entre de novo (passo 4) e siga daqui. Listar pessoas
+GET {{v1}}/pessoas?texto=empresa&incluirInativos=false
+Authorization: Bearer {{token}}
+
+### 11. Abrir o cadastro
+GET {{v1}}/pessoas/0f7a4c1e-0000-0000-0000-0197a1b2c3d4
+Authorization: Bearer {{token}}
+
+### 12. Histórico (auditoria) do cadastro
+GET {{v1}}/pessoas/0f7a4c1e-0000-0000-0000-0197a1b2c3d4/historico
+Authorization: Bearer {{token}}
+
+### 13. Regra de negócio: CPF inválido gera 400 com a lista "erros"
+PUT {{v1}}/pessoas/0f7a4c1e-0000-0000-0000-0197a1b2c3d5
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "natureza": "Fisica", "nome": "Fulano", "documentoPrincipal": "111.111.111-12" }
+
+### 14. Consultar CEP e CNPJ (a API chama os serviços externos)
+GET {{v1}}/consultas/cep/01310100
+Authorization: Bearer {{token}}
+
+###
+GET {{v1}}/consultas/cnpj/11222333000181
+Authorization: Bearer {{token}}
+
+### 15. Usuários, perfis disponíveis, catálogo de permissões e empresas do grupo
+GET {{v1}}/usuarios
+Authorization: Bearer {{token}}
+
+###
+GET {{v1}}/usuarios/perfis-disponiveis
+Authorization: Bearer {{token}}
+
+###
+GET {{v1}}/perfis/permissoes
+Authorization: Bearer {{token}}
+
+###
+GET {{v1}}/empresas
+Authorization: Bearer {{token}}
+
+### 16. Sair (revoga o token de renovação deste aparelho)
+POST {{v1}}/autenticacao/sair
+Content-Type: application/json
+
+{ "tokenRenovacao": "{{renovacao}}" }

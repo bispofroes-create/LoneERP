@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoEnderecosView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+            <Label Text="Um endereço é o principal; marque também para que cada um serve (fiscal, cobrança, entrega...)."
+                   Style="{StaticResource Secundario}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar endereço" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding AdicionarEnderecoCommand}" />
+        </Grid>
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Enderecos}">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhum endereço." Style="{StaticResource Secundario}" Margin="0,8" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:EnderecoFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding Resumo}" FontAttributes="Bold" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                            </Grid>
+
+                            <FlexLayout Wrap="Wrap">
+                                <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" Dica="Ex.: Depósito, Casa" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}">
+                                    <c:Campo Rotulo="CEP" Texto="{Binding Cep}" Mascara="Cep" Padding="0,0,0,8" />
+                                    <Button Grid.Column="1" Text="Buscar CEP" Style="{StaticResource BotaoSecundario}"
+                                            VerticalOptions="End" Margin="0,0,12,8" Command="{Binding BuscarCepCommand}" />
+                                </Grid>
+                                <c:Campo Rotulo="Logradouro" Texto="{Binding Logradouro}" FlexLayout.Basis="100%" />
+                                <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
+                                <c:Campo Rotulo="Complemento" Texto="{Binding Complemento}" />
+                                <c:Campo Rotulo="Bairro" Texto="{Binding Bairro}" />
+                                <c:CaixaMarcar Texto="Endereço no exterior" Marcado="{Binding NoExterior}" VerticalOptions="Center" />
+                            </FlexLayout>
+
+                            <!-- Brasil: UF e município da tabela do IBGE (o CEP já preenche). -->
+                            <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding TemMunicipioACorrigir}" Stroke="{StaticResource Aviso}">
+                                <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+                                       Text="{Binding MunicipioACorrigir, StringFormat='Cidade informada antes: {0}. Escolha a UF e o município na lista para corrigir.'}" />
+                            </Border>
+                            <ContentView IsVisible="{Binding NoBrasil}">
+                                <c:CampoMunicipio Rotulo="Município" BindingContext="{Binding Municipio}"
+                                                  MaximumWidthRequest="640" HorizontalOptions="Start" Margin="0,0,0,8" />
+                            </ContentView>
+
+                            <!-- Exterior: cidade e país digitados (fora da tabela do IBGE). -->
+                            <FlexLayout Wrap="Wrap" IsVisible="{Binding NoExterior}">
+                                <c:Campo Rotulo="Cidade" Texto="{Binding Cidade}" />
+                                <c:Campo Rotulo="País" Texto="{Binding Pais}" />
+                                <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" Mascara="Numero" />
+                            </FlexLayout>
+
+                            <Label Text="Serve para" Style="{StaticResource Rotulo}" />
+                            <FlexLayout Wrap="Wrap">
+                                <c:CaixaMarcar Texto="Principal" Marcado="{Binding Principal}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                                <c:CaixaMarcar Texto="Fiscal" Marcado="{Binding Fiscal}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                                <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                                <c:CaixaMarcar Texto="Entrega" Marcado="{Binding Entrega}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                                <c:CaixaMarcar Texto="Correspondência" Marcado="{Binding Correspondencia}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                                <c:CaixaMarcar Texto="Residencial" Marcado="{Binding Residencial}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                                <c:CaixaMarcar Texto="Comercial" Marcado="{Binding Comercial}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

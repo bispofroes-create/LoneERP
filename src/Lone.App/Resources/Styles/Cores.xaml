@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Paleta do Lone. Cada cor tem a versão clara e a escura; as telas usam AppThemeBinding
+     e seguem o tema do sistema (Windows/Android) automaticamente. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Marca -->
+    <Color x:Key="Primaria">#1F4E79</Color>
+    <Color x:Key="PrimariaEscuro">#6FA8DC</Color>
+    <Color x:Key="SobrePrimaria">#FFFFFF</Color>
+    <Color x:Key="SobrePrimariaEscuro">#0B1B2B</Color>
+
+    <!-- Fundos e superfícies -->
+    <Color x:Key="Fundo">#F4F6F9</Color>
+    <Color x:Key="FundoEscuro">#111418</Color>
+    <Color x:Key="Superficie">#FFFFFF</Color>
+    <Color x:Key="SuperficieEscuro">#1C2026</Color>
+    <Color x:Key="Borda">#D5DBE3</Color>
+    <Color x:Key="BordaEscuro">#323841</Color>
+
+    <!-- Texto -->
+    <Color x:Key="Texto">#1B2129</Color>
+    <Color x:Key="TextoEscuro">#E7EAEE</Color>
+    <Color x:Key="TextoSecundario">#5B6573</Color>
+    <Color x:Key="TextoSecundarioEscuro">#A3ACB8</Color>
+
+    <!-- Mensagens -->
+    <Color x:Key="Erro">#B3261E</Color>
+    <Color x:Key="ErroFundo">#FBE9E7</Color>
+    <Color x:Key="ErroFundoEscuro">#3A1E1C</Color>
+    <Color x:Key="Aviso">#8A5300</Color>
+    <Color x:Key="AvisoFundo">#FFF3E0</Color>
+    <Color x:Key="AvisoFundoEscuro">#3A2C14</Color>
+    <Color x:Key="Sucesso">#1E6B34</Color>
+    <Color x:Key="SucessoFundo">#E6F4EA</Color>
+    <Color x:Key="SucessoFundoEscuro">#16301F</Color>
+    <Color x:Key="Informacao">#1F4E79</Color>
+    <Color x:Key="InformacaoFundo">#E7F0F8</Color>
+    <Color x:Key="InformacaoFundoEscuro">#172A3C</Color>
+</ResourceDictionary>

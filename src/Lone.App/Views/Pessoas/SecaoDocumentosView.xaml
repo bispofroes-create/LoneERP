@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoDocumentosView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+            <Label Text="RG, CNH, passaporte e outros documentos da pessoa." Style="{StaticResource Secundario}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar documento" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding AdicionarDocumentoCommand}" />
+        </Grid>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Documentos}">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhum documento." Style="{StaticResource Secundario}" Margin="0,8" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:DocumentoFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout>
+                            <FlexLayout Wrap="Wrap">
+                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
+                                <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
+                                <c:Campo Rotulo="Órgão emissor" Texto="{Binding OrgaoEmissor}" />
+                                <c:Campo Rotulo="UF" Texto="{Binding Uf}" />
+                                <c:Campo Rotulo="Emitido em" Texto="{Binding EmitidoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Válido até" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
+                            </FlexLayout>
+                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

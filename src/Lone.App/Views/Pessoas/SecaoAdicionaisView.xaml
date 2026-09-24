@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Informações adicionais: campos personalizados criados pelo administrador (um controle por tipo). -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:pv="clr-namespace:Lone.App.Views.Pessoas"
+             x:Class="Lone.App.Views.Pessoas.SecaoAdicionaisView"
+             x:DataType="pes:PessoasViewModel">
+    <ContentView.Resources>
+        <DataTemplate x:Key="ModeloTexto" x:DataType="cad:CampoPersonalizadoFormulario">
+            <c:Campo Rotulo="{Binding Rotulo}" Texto="{Binding Texto}" Dica="{Binding Dica}" Mascara="{Binding Mascara}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ModeloTextoLongo" x:DataType="cad:CampoPersonalizadoFormulario">
+            <VerticalStackLayout Spacing="2" FlexLayout.Basis="100%" Padding="0,0,12,8">
+                <Label Text="{Binding Rotulo}" Style="{StaticResource Rotulo}" />
+                <Editor Text="{Binding Texto}" Placeholder="{Binding Dica}" AutoSize="TextChanges" MinimumHeightRequest="80" />
+            </VerticalStackLayout>
+        </DataTemplate>
+        <DataTemplate x:Key="ModeloEscolha" x:DataType="cad:CampoPersonalizadoFormulario">
+            <c:CampoEscolha Rotulo="{Binding Rotulo}" Itens="{Binding Opcoes}" Selecionado="{Binding Escolha}" />
+        </DataTemplate>
+        <pv:SeletorModeloCampo x:Key="SeletorModelo"
+                               Texto="{StaticResource ModeloTexto}"
+                               TextoLongo="{StaticResource ModeloTextoLongo}"
+                               Escolha="{StaticResource ModeloEscolha}" />
+    </ContentView.Resources>
+
+    <VerticalStackLayout Spacing="8">
+        <Label Text="Campos criados pelo administrador para este cadastro. Os marcados com * são obrigatórios."
+               Style="{StaticResource Secundario}" />
+        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.InformacoesAdicionais}"
+                    BindableLayout.ItemTemplateSelector="{StaticResource SeletorModelo}" />
+    </VerticalStackLayout>
+</ContentView>
