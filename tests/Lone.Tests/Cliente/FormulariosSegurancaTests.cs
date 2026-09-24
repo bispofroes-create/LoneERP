@@ -1,4 +1,4 @@
-using Lone.Cliente.ViewModels.Seguranca;
+﻿using Lone.Cliente.ViewModels.Seguranca;
 using Lone.Contracts.Seguranca;
 
 namespace Lone.Tests.Cliente;
@@ -60,7 +60,8 @@ public class FormulariosSegurancaTests
 
         var formulario = PerfilFormulario.De(dto, Permissoes.Todas);
 
-        Assert.Equal(new[] { "Pessoas", "Segurança" }, formulario.Grupos.Select(g => g.Modulo));
+        // Um grupo por módulo do catálogo, na ordem do catálogo (novos módulos entram sem mudar o teste).
+        Assert.Equal(Permissoes.Todas.Select(p => p.Modulo).Distinct(), formulario.Grupos.Select(g => g.Modulo));
         var marcadas = formulario.Grupos.SelectMany(g => g.Permissoes).Where(p => p.Marcada).Select(p => p.Codigo);
         Assert.Equal(new[] { Permissoes.Pessoas.Visualizar }, marcadas);
     }

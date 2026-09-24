@@ -1,4 +1,4 @@
-using Lone.Cliente.ViewModels.Comum;
+﻿using Lone.Cliente.ViewModels.Comum;
 using Lone.Cliente.ViewModels.Pessoas;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
@@ -123,7 +123,12 @@ public class PessoaFormularioTests
 
         var erros = f.ValidarLocalmente();
 
-        Assert.Equal(3, erros.Count);
+        Assert.Contains("Data de nascimento inválida (use dd/mm/aaaa).", erros);
+        Assert.Contains("Cliente: limite de crédito inválido.", erros);
+        Assert.Contains(erros, e => e.EndsWith(": validade inválida (use dd/mm/aaaa)."));
+        // O endereço principal da pessoa nova ainda não tem município: no Brasil isso também bloqueia (intencional).
+        Assert.Contains("Endereço 1: escolha a UF e o município na lista.", erros);
+        Assert.Equal(4, erros.Count);
     }
 
     [Fact]
