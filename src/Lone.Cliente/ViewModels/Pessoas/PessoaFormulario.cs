@@ -665,6 +665,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     public void AdicionarDocumento(DocumentoFormulario documento)
     {
         documento.DefinirCatalogo(_tiposDocumento);
+        documento.Acoes = AcoesAnexos;
         documento.MostrarSeInativo = MostrarDocumentosInativos;
         documento.AoRemover = () =>
         {
@@ -680,6 +681,9 @@ public sealed partial class PessoaFormulario : ObservableObject
         Documentos.Add(documento);
         AvisarDocumentos();
     }
+
+    /// <summary>Ações de anexos (enviar, abrir, remover), ligadas pela tela de pessoas.</summary>
+    public AcoesAnexos AcoesAnexos { get; } = new();
 
     /// <summary>Tipos de documento do cadastro (RG, CNH, Alvará...), com validade obrigatória e dias de aviso.</summary>
     private IReadOnlyList<TipoDocumentoDto> _tiposDocumento = [];

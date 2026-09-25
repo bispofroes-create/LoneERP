@@ -202,6 +202,9 @@ public sealed class DocumentoDto
     public DateOnly? EmitidoEm { get; set; }
     public DateOnly? ValidoAte { get; set; }
     public string? Observacoes { get; set; }
+
+    /// <summary>Somente leitura: arquivos anexados (enviados e removidos à parte, pelas rotas de anexos).</summary>
+    public List<Lone.Contracts.Documentos.AnexoDto> Anexos { get; set; } = new();
 }
 
 public sealed class PapelDto

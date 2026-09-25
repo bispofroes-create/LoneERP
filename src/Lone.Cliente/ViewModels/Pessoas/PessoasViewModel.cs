@@ -43,6 +43,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly TiposMeioContatoApi _tiposMeioApi;
     private readonly TiposEnderecoApi _tiposEnderecoApi;
     private readonly TiposDocumentoApi _tiposDocumentoApi;
+    private readonly AnexosApi _anexosApi;
+    private readonly IArquivos _arquivos;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
@@ -68,7 +70,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
                             PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi,
-                            TiposDocumentoApi tiposDocumentoApi, IDialogos dialogos)
+                            TiposDocumentoApi tiposDocumentoApi, AnexosApi anexosApi, IArquivos arquivos, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -83,6 +85,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _tiposMeioApi = tiposMeioApi;
         _tiposEnderecoApi = tiposEnderecoApi;
         _tiposDocumentoApi = tiposDocumentoApi;
+        _anexosApi = anexosApi;
+        _arquivos = arquivos;
     }
 
     protected override bool BuscaNoServidor => true;
@@ -297,6 +301,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.ConsultaCep = ConsultarCepAsync;
         newValue.ConsultaCnpj = ConsultarCnpjAsync;
         newValue.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
+        newValue.AcoesAnexos.Anexar = AnexarAsync;
+        newValue.AcoesAnexos.Abrir = AbrirAnexoAsync;
+        newValue.AcoesAnexos.AlterarAtivo = AlterarAnexoAsync;
         newValue.PropertyChanged += Formulario_PropertyChanged;
         foreach (var papel in newValue.Papeis) papel.PropertyChanged += Papel_PropertyChanged;
         AtualizarSecoes(manterAba: false);
@@ -307,6 +314,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         formulario.ConsultaCep = null;
         formulario.ConsultaCnpj = null;
         formulario.FonteMunicipios = null;
+        formulario.AcoesAnexos.Anexar = null;
+        formulario.AcoesAnexos.Abrir = null;
+        formulario.AcoesAnexos.AlterarAtivo = null;
         formulario.PropertyChanged -= Formulario_PropertyChanged;
         foreach (var papel in formulario.Papeis) papel.PropertyChanged -= Papel_PropertyChanged;
     }
@@ -563,6 +573,52 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
                     ? "A inscrição estadual também foi encontrada. Confira e salve."
                     : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar)."),
             TipoMensagem.Informacao);
+    }
+
+    // ---- Anexos dos documentos (gravados na hora, à parte do "Salvar" da ficha) ----
+
+    private async Task AnexarAsync(DocumentoFormulario documento)
+    {
+        if (Formulario is not { } ficha) return;
+        if (!documento.PodeAnexar)
+        {
+            Mostrar(documento.Gravado ? "Reative o documento para anexar arquivos." : "Salve o cadastro antes de anexar arquivos a este documento.",
+                TipoMensagem.Aviso);
+            return;
+        }
+
+        var arquivo = await _arquivos.EscolherAsync("Arquivo do documento (PDF, JPG ou PNG)");
+        if (arquivo is null) return;
+
+        AnexoDto? enviado = null;
+        if (!await ExecutarAsync(async () => enviado = await _anexosApi.EnviarAsync(ficha.Id, documento.Id, arquivo.Nome, arquivo.Conteudo)))
+            return;
+        documento.IncluirAnexo(enviado!);
+        Mostrar($"Arquivo \"{enviado!.NomeArquivo}\" anexado.", TipoMensagem.Sucesso);
+    }
+
+    private async Task AbrirAnexoAsync(AnexoFormulario anexo)
+    {
+        AnexoConteudoDto? arquivo = null;
+        if (!await ExecutarAsync(async () => arquivo = await _anexosApi.BaixarAsync(anexo.Id)))
+            return;
+        try
+        {
+            await _arquivos.AbrirAsync(arquivo!.NomeArquivo, arquivo.Conteudo);
+        }
+        catch (Exception ex)
+        {
+            Mostrar($"Não foi possível abrir o arquivo neste aparelho: {ex.Message}", TipoMensagem.Erro);
+        }
+    }
+
+    private async Task AlterarAnexoAsync(AnexoFormulario anexo, bool ativo)
+    {
+        AnexoDto? gravado = null;
+        if (!await ExecutarAsync(async () => gravado = ativo ? await _anexosApi.ReativarAsync(anexo.Id) : await _anexosApi.DesativarAsync(anexo.Id)))
+            return;
+        anexo.Atualizar(gravado!);
+        Mostrar(ativo ? "Anexo reativado." : "Anexo removido (continua guardado; aparece em \"Mostrar inativos\").", TipoMensagem.Sucesso);
     }
 
     private async Task ConsultarCepAsync(EnderecoFormulario endereco)

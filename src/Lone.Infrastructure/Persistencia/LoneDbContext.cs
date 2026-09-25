@@ -30,6 +30,7 @@ public class LoneDbContext : DbContext
     public DbSet<TipoMeioContato> TiposMeioContato => Set<TipoMeioContato>();
     public DbSet<TipoEndereco> TiposEndereco => Set<TipoEndereco>();
     public DbSet<TipoDocumentoCadastro> TiposDocumento => Set<TipoDocumentoCadastro>();
+    public DbSet<AnexoDocumento> AnexosDocumento => Set<AnexoDocumento>();
     public DbSet<OcupacaoCbo> OcupacoesCbo => Set<OcupacaoCbo>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
     public DbSet<CampoPersonalizado> CamposPersonalizados => Set<CampoPersonalizado>();

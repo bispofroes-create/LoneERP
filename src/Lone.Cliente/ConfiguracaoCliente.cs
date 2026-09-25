@@ -33,6 +33,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<TiposMeioContatoApi>();
         services.AddSingleton<TiposEnderecoApi>();
         services.AddSingleton<TiposDocumentoApi>();
+        services.AddSingleton<AnexosApi>();
         services.AddSingleton<FluxoDeEntrada>();
 
         // Um ViewModel novo a cada abertura de tela.

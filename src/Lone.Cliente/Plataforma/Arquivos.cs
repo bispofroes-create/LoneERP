@@ -8,4 +8,7 @@ public interface IArquivos
 {
     /// <summary>O arquivo escolhido, ou nulo se o usuário cancelou.</summary>
     Task<ArquivoEscolhido?> EscolherAsync(string titulo);
+
+    /// <summary>Abre um arquivo baixado com o aplicativo padrão do aparelho (PDF, imagem...).</summary>
+    Task AbrirAsync(string nome, byte[] conteudo);
 }

@@ -115,6 +115,21 @@ internal sealed class DialogosFalsos : IDialogos
     }
 }
 
+/// <summary>Arquivos do aparelho: devolve o arquivo configurado e guarda o que foi aberto.</summary>
+internal sealed class ArquivosFalsos : IArquivos
+{
+    public ArquivoEscolhido? Escolhido { get; set; }
+    public List<(string Nome, byte[] Conteudo)> Abertos { get; } = new();
+
+    public Task<ArquivoEscolhido?> EscolherAsync(string titulo) => Task.FromResult(Escolhido);
+
+    public Task AbrirAsync(string nome, byte[] conteudo)
+    {
+        Abertos.Add((nome, conteudo));
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>Monta o cliente completo (API, sessão, autenticação, fluxo) sobre o servidor falso.</summary>
 internal sealed class AmbienteCliente
 {
@@ -131,6 +146,7 @@ internal sealed class AmbienteCliente
     }
 
     public DialogosFalsos Dialogos { get; }
+    public ArquivosFalsos Arquivos { get; } = new();
 
     public ServidorFalso Servidor { get; }
     public CofreEmMemoria Cofre { get; }

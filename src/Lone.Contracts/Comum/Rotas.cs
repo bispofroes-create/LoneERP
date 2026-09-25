@@ -36,6 +36,16 @@ public static class Rotas
         public const string FaixasEtarias = Grupo + "/indicadores/faixas-etarias";
     }
 
+    /// <summary>Arquivos anexados aos documentos das pessoas. Nada é excluído: remover desativa.</summary>
+    public static class Anexos
+    {
+        public const string Grupo = Base + "/anexos";
+        public static string Enviar(Guid pessoaId, Guid documentoId) => $"{Pessoas.Grupo}/{pessoaId}/documentos/{documentoId}/anexos";
+        public static string Conteudo(Guid id) => $"{Grupo}/{id}/conteudo";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+    }
+
     /// <summary>Tipos de documento. Nada é excluído: desativa.</summary>
     public static class TiposDocumento
     {

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.ViewModels.Comum;
@@ -126,12 +127,53 @@ public sealed partial class DocumentoFormulario : ItemDeLista
     [RelayCommand]
     private void Reativar() => Ativo = true;
 
+    partial void OnAtivoChanged(bool value) => OnPropertyChanged(nameof(PodeAnexar));
+
+    partial void OnMostrarSeInativoChanged(bool value)
+    {
+        foreach (var a in Anexos) a.MostrarSeInativo = value;
+    }
+
+    // ---- Anexos (gravados na hora, à parte do "Salvar" da ficha) ----
+
+    private AcoesAnexos _acoes = new();
+
+    /// <summary>Definido pela ficha ao incluir o documento: as ações de anexos ligadas pela tela.</summary>
+    public AcoesAnexos Acoes
+    {
+        get => _acoes;
+        set
+        {
+            _acoes = value;
+            var dados = _anexosGravados;
+            Anexos.Clear();
+            foreach (var a in dados) Anexos.Add(new AnexoFormulario(a, value) { MostrarSeInativo = MostrarSeInativo });
+        }
+    }
+
+    private IReadOnlyList<AnexoDto> _anexosGravados = [];
+
+    public ObservableCollection<AnexoFormulario> Anexos { get; } = new();
+
+    /// <summary>Só documento já gravado e ativo recebe anexos (o arquivo precisa de um documento no banco).</summary>
+    public bool PodeAnexar => Gravado && Ativo;
+
+    public string DicaAnexos => Gravado ? string.Empty : "Salve o cadastro para anexar arquivos a este documento.";
+
+    [RelayCommand]
+    private Task AnexarAsync() => Acoes.Anexar?.Invoke(this) ?? Task.CompletedTask;
+
+    /// <summary>Chamado pela tela depois do envio.</summary>
+    public void IncluirAnexo(AnexoDto dados) =>
+        Anexos.Insert(0, new AnexoFormulario(dados, Acoes) { MostrarSeInativo = MostrarSeInativo });
+
     public static DocumentoFormulario De(DocumentoDto d)
     {
         var tipo = d.TipoDocumentoId != Guid.Empty ? d.TipoDocumentoId : TiposDocumentoSistema.Id(d.Tipo);
         var f = new DocumentoFormulario(d.Id, gravado: true)
         {
             _tipoGravado = tipo,
+            _anexosGravados = d.Anexos,
             Numero = d.Numero,
             OrgaoEmissor = d.OrgaoEmissor ?? string.Empty,
             Uf = d.Uf ?? string.Empty,

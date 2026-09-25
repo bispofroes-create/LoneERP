@@ -15,4 +15,17 @@ public sealed class ArquivosMaui : IArquivos
         await origem.CopyToAsync(memoria);
         return new ArquivoEscolhido(escolhido.FileName, memoria.ToArray());
     }
+
+    /// <summary>
+    /// Grava numa pasta própria dentro do cache do aplicativo (uma subpasta por abertura, para não misturar arquivos
+    /// de mesmo nome) e entrega ao aplicativo padrão. O cache é limpo pelo sistema quando precisa de espaço.
+    /// </summary>
+    public async Task AbrirAsync(string nome, byte[] conteudo)
+    {
+        var pasta = Path.Combine(FileSystem.CacheDirectory, "anexos", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(pasta);
+        var caminho = Path.Combine(pasta, Path.GetFileName(nome));
+        await File.WriteAllBytesAsync(caminho, conteudo);
+        await MainThread.InvokeOnMainThreadAsync(() => Launcher.Default.OpenAsync(new OpenFileRequest(nome, new ReadOnlyFile(caminho))));
+    }
 }

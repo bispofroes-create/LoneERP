@@ -1,4 +1,6 @@
+using Lone.Application.Documentos;
 using Lone.Application.Seguranca;
+using Lone.Infrastructure.Arquivos;
 using Lone.Infrastructure.Integracoes;
 using Lone.Infrastructure.Persistencia;
 using Lone.Infrastructure.Seguranca;
@@ -20,6 +22,12 @@ public static class ConfiguracaoInfraestrutura
 
         services.AddLoneDados(conexao);
         services.AddLoneIntegracoes();
+
+        // Anexos de documentos: pasta no servidor (seção "Anexos": Pasta, TamanhoMaximoMb).
+        var anexos = configuracao.GetSection(OpcoesAnexos.Secao).Get<OpcoesAnexos>() ?? new OpcoesAnexos();
+        if (anexos.TamanhoMaximoMb <= 0) anexos.TamanhoMaximoMb = Lone.Domain.Documentos.RegrasAnexo.TamanhoMaximoMbPadrao;
+        services.AddSingleton(anexos);
+        services.AddSingleton<IArmazenamentoAnexos, ArmazenamentoAnexosEmPasta>();
 
         services.AddOptions<OpcoesJwt>()
             .Bind(configuracao.GetSection(OpcoesJwt.Secao))

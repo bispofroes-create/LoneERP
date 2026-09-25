@@ -44,6 +44,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ITipoMeioContatoAppService, TipoMeioContatoAppService>();
         services.AddScoped<ITipoEnderecoAppService, TipoEnderecoAppService>();
         services.AddScoped<ITipoDocumentoAppService, TipoDocumentoAppService>();
+        services.AddScoped<IAnexoAppService, AnexoAppService>();
 
         return services;
     }

@@ -106,6 +106,26 @@ public class PessoaDocumentoConfiguration : IEntityTypeConfiguration<PessoaDocum
     }
 }
 
+public class AnexoDocumentoConfiguration : IEntityTypeConfiguration<AnexoDocumento>
+{
+    public void Configure(EntityTypeBuilder<AnexoDocumento> b)
+    {
+        b.ToTable("AnexosDocumento");
+        b.HasKey(a => a.Id);
+        b.Property(a => a.NomeArquivo).IsRequired().HasMaxLength(AnexoDocumento.TamanhoMaximoNome);
+        b.Property(a => a.TipoConteudo).IsRequired().HasMaxLength(100).IsUnicode(false);
+        b.Property(a => a.Hash).IsRequired().HasMaxLength(64).IsFixedLength().IsUnicode(false);
+        b.Property(a => a.Caminho).IsRequired().HasMaxLength(260);
+        b.Property(a => a.EnviadoPor).IsRequired().HasMaxLength(100);
+
+        // Sem exclusão em cascata: nem pessoa nem documento são apagados, e o anexo nunca some junto.
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(a => a.PessoaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<PessoaDocumento>().WithMany().HasForeignKey(a => a.PessoaDocumentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(a => a.PessoaId);
+        b.HasIndex(a => a.PessoaDocumentoId);
+    }
+}
+
 public class TipoDocumentoCadastroConfiguration : IEntityTypeConfiguration<TipoDocumentoCadastro>
 {
     public void Configure(EntityTypeBuilder<TipoDocumentoCadastro> b)

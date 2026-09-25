@@ -1,7 +1,9 @@
 using Lone.Api.Erros;
+using Lone.Application.Documentos;
 using Lone.Application.Pessoas;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
+using Lone.Contracts.Documentos;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
 
@@ -60,6 +62,17 @@ public static class PessoasEndpoints
 
         grupo.MapGet("{id:guid}/historico",
             (Guid id, IPessoaAppService servico, CancellationToken ct) => servico.ListarHistoricoAsync(id, ct));
+
+        // Anexos de documentos (D7): cada envio é gravado na hora, à parte da ficha. Conteúdo em base64 no JSON
+        // (limite por arquivo em "Anexos:TamanhoMaximoMb", padrão 10 MB; o Kestrel aceita até 30 MB por requisição).
+        grupo.MapPost("{pessoaId:guid}/documentos/{documentoId:guid}/anexos",
+            (Guid pessoaId, Guid documentoId, EnviarAnexoRequisicao requisicao, IAnexoAppService servico, CancellationToken ct) =>
+                servico.EnviarAsync(pessoaId, documentoId, requisicao, ct));
+
+        var anexos = app.MapGroup(Rotas.Anexos.Grupo).WithTags("Anexos").RequireAuthorization();
+        anexos.MapGet("{id:guid}/conteudo", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.BaixarAsync(id, ct));
+        anexos.MapPost("{id:guid}/desativar", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.DesativarAsync(id, ct));
+        anexos.MapPost("{id:guid}/reativar", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.ReativarAsync(id, ct));
 
         return app;
     }

@@ -45,13 +45,14 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ITipoMeioContatoRepositorio _tiposMeio;
     private readonly ITipoEnderecoRepositorio _tiposEndereco;
     private readonly ITipoDocumentoRepositorio _tiposDocumento;
+    private readonly IAnexoRepositorio _anexos;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
                             IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
                             ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
-                            ITipoDocumentoRepositorio tiposDocumento, TimeProvider relogio)
+                            ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -64,6 +65,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _tiposMeio = tiposMeio;
         _tiposEndereco = tiposEndereco;
         _tiposDocumento = tiposDocumento;
+        _anexos = anexos;
         _relogio = relogio;
     }
 
@@ -101,6 +103,14 @@ public sealed class PessoaAppService : IPessoaAppService
                 UfOriginal = p.UfOriginal,
                 Observacao = p.Observacao
             }).ToList();
+
+        // Anexos dos documentos (só os dados; o conteúdo é baixado sob demanda).
+        if (dto.Documentos.Count > 0)
+        {
+            var anexos = (await _anexos.ListarPorPessoaAsync(pessoa.Id, ct)).ToLookup(a => a.PessoaDocumentoId);
+            foreach (var documento in dto.Documentos)
+                documento.Anexos = anexos[documento.Id].Select(AnexoAppService.ParaDto).ToList();
+        }
 
         OcultarDadosSensiveis(dto);
         return dto;

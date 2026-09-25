@@ -166,6 +166,17 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.LigarDocumentosAosTipos);` depois de criar
     `TiposDocumento` + dados de sistema e as colunas novas de `PessoaDocumentos`, e **antes** da FK
     `FK_PessoaDocumentos_TiposDocumento_TipoDocumentoId` (a coluna nasce com Guid vazio).
+- **Fase 4b — Anexos de documentos (D7; código entregue em 25/09/2026; sem teste por fase):**
+  - Tabela `AnexosDocumento` (PessoaId, PessoaDocumentoId, nome, tipo, tamanho, SHA-256, caminho, enviado por, ativo);
+    faz parte do histórico da pessoa. Conteúdo numa pasta do servidor da API: `{Anexos:Pasta}/{ano}/{mês}/{id}.bin`
+    (padrão `C:\ProgramData\Lone\Anexos`); caminho gerado só com o Id, nunca com o nome enviado.
+  - Aceita PDF, JPG e PNG conferidos pelo conteúdo (assinatura), extensão coerente, até `Anexos:TamanhoMaximoMb` (10).
+    Integridade conferida pelo hash ao baixar. Nada é apagado: remover desativa; o arquivo fica.
+  - Rotas: `POST pessoas/{id}/documentos/{docId}/anexos` (JSON base64), `GET anexos/{id}/conteudo`,
+    `POST anexos/{id}/desativar|reativar`. Enviar/remover = `PESSOAS.EDITAR`; baixar = `PESSOAS.VISUALIZAR`.
+  - Envio é imediato (não depende do Salvar); só documento já gravado e ativo recebe anexo. A ficha traz os anexos em
+    `DocumentoDto.Anexos` (somente leitura). O aplicativo abre o arquivo com o programa padrão do aparelho.
+  - **Backup:** a pasta de anexos precisa entrar no backup junto com o banco.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

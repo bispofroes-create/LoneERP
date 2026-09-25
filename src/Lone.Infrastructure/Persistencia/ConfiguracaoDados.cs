@@ -43,6 +43,7 @@ public static class ConfiguracaoDados
         services.AddScoped<ITipoMeioContatoRepositorio, TipoMeioContatoRepositorio>();
         services.AddScoped<ITipoEnderecoRepositorio, TipoEnderecoRepositorio>();
         services.AddScoped<ITipoDocumentoRepositorio, TipoDocumentoRepositorio>();
+        services.AddScoped<IAnexoRepositorio, AnexoRepositorio>();
 
         return services;
     }

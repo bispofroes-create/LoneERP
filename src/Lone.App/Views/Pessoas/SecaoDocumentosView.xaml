@@ -38,7 +38,29 @@
                                 <c:Campo Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
                             </FlexLayout>
+                            <!-- Anexos: enviados e removidos na hora (não dependem do Salvar da ficha). -->
+                            <Label Text="Anexos" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Anexos}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="pes:AnexoFormulario">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" IsVisible="{Binding Visivel}">
+                                            <VerticalStackLayout VerticalOptions="Center">
+                                                <Label Text="{Binding NomeArquivo}" LineBreakMode="MiddleTruncation" />
+                                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1" Text="Abrir" Style="{StaticResource BotaoLink}" Command="{Binding AbrirCommand}" />
+                                            <Button Grid.Column="2" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                                    IsVisible="{Binding Ativo}" />
+                                            <Button Grid.Column="3" Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
+                                                    IsVisible="{Binding Inativo}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="{Binding DicaAnexos}" Style="{StaticResource Secundario}" />
                             <HorizontalStackLayout Spacing="12">
+                                <Button Text="Anexar arquivo" Style="{StaticResource BotaoLink}" Command="{Binding AnexarCommand}"
+                                        IsVisible="{Binding PodeAnexar}" />
                                 <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
                                         IsVisible="{Binding Ativo}" />
                                 <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
