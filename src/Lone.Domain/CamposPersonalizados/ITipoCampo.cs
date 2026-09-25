@@ -30,5 +30,5 @@ public interface ITipoCampo
     /// Deixa o valor no formato gravado (ex.: e-mail em minúsculas, decimal arredondado) e devolve o problema,
     /// se houver, sem o nome do campo (ex.: "use um número inteiro"). Nulo = válido.
     /// </summary>
-    string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor);
+    string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor);
 }

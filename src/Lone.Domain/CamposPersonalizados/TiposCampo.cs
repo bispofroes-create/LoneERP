@@ -21,7 +21,9 @@ public static class TiposCampo
         new TipoData(TipoCampoPersonalizado.DataHora, "Data e hora", comHora: true),
         new TipoLista(),
         new TipoEmail(),
-        new TipoTelefone()
+        new TipoTelefone(),
+        new TipoDocumentoFiscal(TipoCampoPersonalizado.Cpf, "CPF"),
+        new TipoDocumentoFiscal(TipoCampoPersonalizado.Cnpj, "CNPJ")
     }.ToDictionary(t => t.Tipo);
 
     /// <summary>Tamanho da coluna ValorTexto (o maior texto aceito por qualquer tipo).</summary>
@@ -46,7 +48,7 @@ internal sealed class TipoTexto(TipoCampoPersonalizado tipo, string nome, int ma
     public string Nome => nome;
     public ColunaValor Coluna => ColunaValor.Texto;
 
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor)
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
     {
         valor.ValorTexto = TiposCampo.Texto(valor.ValorTexto);
         return valor.ValorTexto is { Length: var n } && n > maximo ? $"no máximo {maximo} caracteres" : null;
@@ -59,7 +61,7 @@ internal sealed class TipoNumero(TipoCampoPersonalizado tipo, string nome, int? 
     public string Nome => nome;
     public ColunaValor Coluna => ColunaValor.Numero;
 
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor)
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
     {
         if (valor.ValorNumero is not { } numero) return null;
 
@@ -84,7 +86,7 @@ internal sealed class TipoSimNao : ITipoCampo
     public TipoCampoPersonalizado Tipo => TipoCampoPersonalizado.SimNao;
     public string Nome => "Sim/Não";
     public ColunaValor Coluna => ColunaValor.Logico;
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor) => null;
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor) => null;
 }
 
 internal sealed class TipoData(TipoCampoPersonalizado tipo, string nome, bool comHora) : ITipoCampo
@@ -97,7 +99,7 @@ internal sealed class TipoData(TipoCampoPersonalizado tipo, string nome, bool co
     public ColunaValor Coluna => ColunaValor.Data;
 
     /// <summary>Data e hora "de parede" (como digitada), sem fuso; só data = meia-noite.</summary>
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor)
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
     {
         if (valor.ValorData is not { } data) return null;
         data = DateTime.SpecifyKind(comHora ? data.AddTicks(-(data.Ticks % TimeSpan.TicksPerMinute)) : data.Date, DateTimeKind.Unspecified);
@@ -113,7 +115,7 @@ internal sealed class TipoHora : ITipoCampo
     public string Nome => "Hora";
     public ColunaValor Coluna => ColunaValor.Texto;
 
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor)
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
     {
         var texto = TiposCampo.Texto(valor.ValorTexto);
         if (texto is null)
@@ -135,7 +137,7 @@ internal sealed class TipoLista : ITipoCampo
     public ColunaValor Coluna => ColunaValor.Opcao;
 
     /// <summary>A opção precisa ser deste campo. Opção desativada só vale se já era a gravada (conferido pelo validador).</summary>
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor) =>
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor) =>
         valor.OpcaoId is { } id && campo.Opcoes.All(o => o.Id != id) ? "opção inexistente" : null;
 }
 
@@ -145,7 +147,7 @@ internal sealed class TipoEmail : ITipoCampo
     public string Nome => "E-mail";
     public ColunaValor Coluna => ColunaValor.Texto;
 
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor)
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
     {
         var texto = TiposCampo.Texto(valor.ValorTexto);
         valor.ValorTexto = texto;
@@ -162,7 +164,7 @@ internal sealed class TipoTelefone : ITipoCampo
     public string Nome => "Telefone";
     public ColunaValor Coluna => ColunaValor.Texto;
 
-    public string? Normalizar(CampoPersonalizado campo, PessoaValorPersonalizado valor)
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
     {
         var texto = TiposCampo.Texto(valor.ValorTexto);
         valor.ValorTexto = texto;
@@ -170,5 +172,27 @@ internal sealed class TipoTelefone : ITipoCampo
         if (!Telefone.TentarCriar(texto, out var telefone)) return "telefone inválido (informe com DDD)";
         valor.ValorTexto = telefone!.Normalizado;
         return null;
+    }
+}
+
+/// <summary>
+/// CPF ou CNPJ: guardado sem máscara (só letras e números, em maiúsculas — o CNPJ alfanumérico de 2026 tem letras),
+/// para busca e índice iguais com ou sem máscara; dígitos verificadores conferidos.
+/// </summary>
+internal sealed class TipoDocumentoFiscal(TipoCampoPersonalizado tipo, string nome) : ITipoCampo
+{
+    public TipoCampoPersonalizado Tipo => tipo;
+    public string Nome => nome;
+    public ColunaValor Coluna => ColunaValor.Texto;
+
+    public string? Normalizar(CampoPersonalizado campo, ValorPersonalizado valor)
+    {
+        var texto = TiposCampo.Texto(valor.ValorTexto);
+        var normalizado = Validacao.Documento.Normalizar(texto);
+        valor.ValorTexto = normalizado.Length == 0 ? null : normalizado;
+        if (valor.ValorTexto is not { } digitos) return null;
+        return tipo == TipoCampoPersonalizado.Cpf
+            ? Validacao.Documento.CpfValido(digitos) ? null : "CPF inválido"
+            : Validacao.Documento.CnpjValido(digitos) ? null : "CNPJ inválido";
     }
 }

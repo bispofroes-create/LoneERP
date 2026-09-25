@@ -18,8 +18,20 @@ public class CampoPersonalizado : AgregadoRaiz
     [DisplayName("Cadastro")]
     public EntidadePersonalizavel Entidade { get; set; } = EntidadePersonalizavel.Pessoa;
 
+    /// <summary>Só no cadastro Documento: o tipo de documento a que o campo pertence (ex.: CNH).</summary>
+    [DisplayName("Tipo de documento")]
+    public Guid? TipoDocumentoId { get; set; }
+
     [DisplayName("Nome")]
     public string Nome { get; set; } = string.Empty;
+
+    /// <summary>Aparece na ficha. Oculto = guardado (importações, integrações), mas não editado na tela.</summary>
+    [DisplayName("Visível")]
+    public bool Visivel { get; set; } = true;
+
+    /// <summary>Entra na busca da lista de pessoas (só tipos de texto: texto, e-mail, telefone, CPF, CNPJ).</summary>
+    [DisplayName("Pesquisável")]
+    public bool Pesquisavel { get; set; }
 
     [DisplayName("Tipo")]
     public TipoCampoPersonalizado Tipo { get; set; } = TipoCampoPersonalizado.Texto;

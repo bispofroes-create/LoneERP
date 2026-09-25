@@ -28,11 +28,12 @@ public class CampoPersonalizadoRepositorio : ServicoDadosBase, ICampoPersonaliza
         return await db.CamposPersonalizados.AsNoTracking().Include(c => c.Opcoes).FirstOrDefaultAsync(c => c.Id == id, ct);
     }
 
-    public async Task<bool> NomeEmUsoAsync(EntidadePersonalizavel entidade, string nome, Guid ignorarId, CancellationToken ct)
+    public async Task<bool> NomeEmUsoAsync(EntidadePersonalizavel entidade, Guid? tipoDocumentoId, string nome, Guid ignorarId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
         // A ordenação do banco (padrão do SQL Server) já ignora maiúsculas/minúsculas.
-        return await db.CamposPersonalizados.AnyAsync(c => c.Entidade == entidade && c.Nome == nome && c.Id != ignorarId, ct);
+        return await db.CamposPersonalizados.AnyAsync(
+            c => c.Entidade == entidade && c.TipoDocumentoId == tipoDocumentoId && c.Nome == nome && c.Id != ignorarId, ct);
     }
 
     public async Task<HashSet<Guid>> ComValoresAsync(IReadOnlyCollection<Guid> campoIds, CancellationToken ct)
@@ -41,7 +42,9 @@ public class CampoPersonalizadoRepositorio : ServicoDadosBase, ICampoPersonaliza
         await using var db = await AbrirAsync(ct);
         var ids = campoIds.ToList();
         var usados = await db.PessoaValoresPersonalizados.AsNoTracking()
-            .Where(v => ids.Contains(v.CampoId)).Select(v => v.CampoId).Distinct().ToListAsync(ct);
+            .Where(v => ids.Contains(v.CampoId)).Select(v => v.CampoId)
+            .Union(db.PessoaDocumentoValoresPersonalizados.AsNoTracking().Where(v => ids.Contains(v.CampoId)).Select(v => v.CampoId))
+            .Distinct().ToListAsync(ct);
         return usados.ToHashSet();
     }
 

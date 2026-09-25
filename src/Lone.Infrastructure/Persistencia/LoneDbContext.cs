@@ -33,6 +33,7 @@ public class LoneDbContext : DbContext
     public DbSet<AnexoDocumento> AnexosDocumento => Set<AnexoDocumento>();
     public DbSet<OcupacaoCbo> OcupacoesCbo => Set<OcupacaoCbo>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
+    public DbSet<DocumentoValorPersonalizado> PessoaDocumentoValoresPersonalizados => Set<DocumentoValorPersonalizado>();
     public DbSet<CampoPersonalizado> CamposPersonalizados => Set<CampoPersonalizado>();
     public DbSet<CampoPersonalizadoOpcao> CampoPersonalizadoOpcoes => Set<CampoPersonalizadoOpcao>();
     public DbSet<Municipio> Municipios => Set<Municipio>();

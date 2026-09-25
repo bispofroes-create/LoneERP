@@ -73,6 +73,6 @@ public sealed class CamposPersonalizadosApi
     public Task<CampoPersonalizadoDto> ReativarAsync(Guid id, byte[]? versao, CancellationToken ct = default) =>
         _api.PostAsync<CampoPersonalizadoDto>(Rotas.CamposPersonalizados.Reativar(id), new AlterarSituacaoRequisicao { Versao = versao }, ct: ct);
 
-    public Task ReordenarAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default) =>
-        _api.PutSemRespostaAsync(Rotas.CamposPersonalizados.Ordem, ids, ct);
+    public Task ReordenarAsync(IReadOnlyList<Guid> ids, EntidadePersonalizavel entidade = EntidadePersonalizavel.Pessoa, CancellationToken ct = default) =>
+        _api.PutSemRespostaAsync(Rotas.CamposPersonalizados.OrdemDe(entidade), ids, ct);
 }

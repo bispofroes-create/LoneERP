@@ -21,6 +21,7 @@ public class AnexosTelaTests
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Contatos.TipoMeioContatoDto>())
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Enderecos.TipoEnderecoDto>())
             .Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>())
+            .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>())
             .Responder(HttpStatusCode.OK, new List<PessoaResumo>());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

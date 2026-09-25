@@ -5,12 +5,12 @@ using Lone.Domain.CamposPersonalizados;
 namespace Lone.Domain.Entidades;
 
 /// <summary>
-/// Valor de um campo personalizado para uma pessoa. Uma coluna por natureza de dado (texto, número, data,
-/// sim/não, opção): o valor fica tipado no banco, dá para filtrar e ordenar com índice e sem conversões.
-/// Qual coluna cada tipo usa é decidido pela classe do tipo (ITipoCampo). Sem linha = não informado.
+/// Valor de um campo personalizado. Uma coluna por natureza de dado (texto, número, data, sim/não, opção): o valor
+/// fica tipado no banco, dá para filtrar e ordenar com índice e sem conversões. Qual coluna cada tipo usa é decidido
+/// pela classe do tipo (ITipoCampo). Sem linha = não informado. Base comum dos valores da pessoa e dos documentos
+/// (D4: o mesmo motor serve aos dois; cada um tem sua tabela).
 /// </summary>
-[DisplayName("Informação adicional")]
-public class PessoaValorPersonalizado : EntidadePessoaFilha, IValorAuditavel
+public abstract class ValorPersonalizado : EntidadePessoaFilha, IValorAuditavel
 {
     /// <summary>Prefixo gravado em Auditoria.Campo; a consulta do histórico troca pelo nome atual do campo.</summary>
     public const string PrefixoAuditoria = "CampoPersonalizado:";
@@ -35,4 +35,20 @@ public class PessoaValorPersonalizado : EntidadePessoaFilha, IValorAuditavel
             coluna(nameof(ValorData)) as DateTime?,
             coluna(nameof(ValorLogico)) as bool?,
             coluna(nameof(OpcaoId)) as Guid?);
+
+    /// <summary>Cópia com todos os dados (inclusive os da classe filha, como o documento).</summary>
+    public ValorPersonalizado Clonar() => (ValorPersonalizado)MemberwiseClone();
+}
+
+/// <summary>Valor de um campo personalizado da pessoa (aba "Informações adicionais").</summary>
+[DisplayName("Informação adicional")]
+public class PessoaValorPersonalizado : ValorPersonalizado
+{
+}
+
+/// <summary>Valor de um campo personalizado de um documento da pessoa (ex.: "Categoria" da CNH).</summary>
+[DisplayName("Informação do documento")]
+public class DocumentoValorPersonalizado : ValorPersonalizado
+{
+    public Guid PessoaDocumentoId { get; set; }
 }

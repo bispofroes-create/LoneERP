@@ -34,4 +34,15 @@ public static class SqlMigracaoCadastroGeral
         IF (SELECT COUNT(*) FROM PessoaDocumentos d JOIN TiposDocumento t ON t.Id = d.TipoDocumentoId WHERE d.Ativo = 1) <> @total
             THROW 50007, N'Migração de documentos: a ligação aos tipos não conferiu. Nada foi alterado.', 1;
         """;
+
+    /// <summary>
+    /// Fase 5 — depois de criar CamposPersonalizados.Visivel (nasce 0): os campos que já existem continuam aparecendo
+    /// na ficha. Os índices (Entidade, TipoDocumentoId, Nome) e as colunas ValorTextoBusca são criados pelo EF.
+    /// </summary>
+    public const string CamposVisiveis = """
+        SET NOCOUNT ON;
+        UPDATE CamposPersonalizados SET Visivel = 1;
+        IF EXISTS (SELECT 1 FROM CamposPersonalizados WHERE Visivel = 0)
+            THROW 50008, N'Migração de campos personalizados: a marcação de visível não conferiu. Nada foi alterado.', 1;
+        """;
 }

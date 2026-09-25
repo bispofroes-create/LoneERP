@@ -39,6 +39,7 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>()); // tipos de telefone/e-mail
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoEnderecoDto>()); // tipos de endereço
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>()); // tipos de documento
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos dos documentos
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>
         {
             new() { Id = Guid.NewGuid(), Codigo = 1, Nome = "Ana", Natureza = NaturezaPessoa.Fisica }
@@ -166,6 +167,7 @@ public class PessoasViewModelCepTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoEnderecoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

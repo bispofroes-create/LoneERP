@@ -62,8 +62,13 @@ public sealed partial class CampoPersonalizadoFormulario : ObservableObject
         TipoCampoPersonalizado.Telefone => TipoMascara.Telefone,
         TipoCampoPersonalizado.Inteiro or TipoCampoPersonalizado.Decimal or TipoCampoPersonalizado.Moeda => TipoMascara.Numero,
         TipoCampoPersonalizado.Email => TipoMascara.Email,
+        TipoCampoPersonalizado.Cpf => TipoMascara.Cpf,
+        TipoCampoPersonalizado.Cnpj => TipoMascara.Cnpj,
         _ => TipoMascara.Nenhuma
     };
+
+    /// <summary>Onde o campo aparece, para as mensagens (ex.: "informações adicionais", "documento CNH").</summary>
+    public string Onde { get; set; } = "informações adicionais";
 
     /// <summary>Texto digitado (tipos de texto, número, data e hora).</summary>
     [ObservableProperty] private string _texto = string.Empty;
@@ -100,6 +105,9 @@ public sealed partial class CampoPersonalizadoFormulario : ObservableObject
             case TipoCampoPersonalizado.DataHora:
                 f.Texto = TextoTela.DataHora(valor.Data);
                 break;
+            case TipoCampoPersonalizado.Cpf or TipoCampoPersonalizado.Cnpj:
+                f.Texto = Lone.Domain.Validacao.Documento.Formatar(valor.Texto);
+                break;
             default:
                 f.Texto = valor.Texto ?? string.Empty;
                 break;
@@ -127,7 +135,7 @@ public sealed partial class CampoPersonalizadoFormulario : ObservableObject
     {
         var vazio = Visual == VisualCampo.Escolha ? Escolha == OpcaoEscolha.Nenhuma || Escolha is null : string.IsNullOrWhiteSpace(Texto);
         if (vazio)
-            return Definicao.Obrigatorio ? $"Informe \"{Definicao.Nome}\" (informações adicionais)." : null;
+            return Definicao.Obrigatorio ? $"Informe \"{Definicao.Nome}\" ({Onde})." : null;
 
         return Tipo switch
         {
@@ -137,6 +145,8 @@ public sealed partial class CampoPersonalizadoFormulario : ObservableObject
             TipoCampoPersonalizado.DataHora when !TextoTela.TentarDataHora(Texto, out _) => $"{Definicao.Nome}: data e hora inválidas (use dd/mm/aaaa hh:mm).",
             TipoCampoPersonalizado.Hora when !TimeOnly.TryParseExact(Texto.Trim(), ["H:mm", "HH:mm"], TextoTela.Brasil, System.Globalization.DateTimeStyles.None, out _)
                 => $"{Definicao.Nome}: hora inválida (use hh:mm).",
+            TipoCampoPersonalizado.Cpf when !Lone.Domain.Validacao.Documento.CpfValido(Texto) => $"{Definicao.Nome}: CPF inválido.",
+            TipoCampoPersonalizado.Cnpj when !Lone.Domain.Validacao.Documento.CnpjValido(Texto) => $"{Definicao.Nome}: CNPJ inválido.",
             _ => null
         };
     }

@@ -49,6 +49,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
 
+    /// <summary>Campos personalizados dos documentos (ativos; cada um de um tipo de documento).</summary>
+    private IReadOnlyList<CampoPersonalizadoDto> _camposDocumento = [];
+
     /// <summary>Cadastro de etiquetas, com as desativadas (lido ao abrir a tela; a ficha oferece só as ativas).</summary>
     private List<EtiquetaDto> _etiquetas = [];
 
@@ -178,6 +181,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Sem os tipos de documento, a ficha oferece os de sistema e o tipo gravado volta intacto.
         try { _tiposDocumento = await _tiposDocumentoApi.ListarAsync(incluirInativos: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposDocumento = []; }
+
+        // Sem os campos dos documentos, a ficha não os mostra e os valores gravados voltam intactos.
+        try { _camposDocumento = await _camposApi.ListarAsync(EntidadePersonalizavel.Documento, incluirInativos: false); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _camposDocumento = []; }
     }
 
     private void AtualizarFiltrosPapel()
@@ -262,12 +269,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento);
         return Task.CompletedTask;
     }
 
@@ -286,7 +293,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 

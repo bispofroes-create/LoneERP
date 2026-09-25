@@ -8,7 +8,12 @@ public sealed class CampoPersonalizadoDto
     public Guid Id { get; set; }
     public byte[]? Versao { get; set; }
     public EntidadePersonalizavel Entidade { get; set; } = EntidadePersonalizavel.Pessoa;
+
+    /// <summary>Só no cadastro Documento: o tipo de documento do campo.</summary>
+    public Guid? TipoDocumentoId { get; set; }
     public string Nome { get; set; } = string.Empty;
+    public bool Visivel { get; set; } = true;
+    public bool Pesquisavel { get; set; }
     public TipoCampoPersonalizado Tipo { get; set; } = TipoCampoPersonalizado.Texto;
     public bool Obrigatorio { get; set; }
     public bool Ativo { get; set; } = true;

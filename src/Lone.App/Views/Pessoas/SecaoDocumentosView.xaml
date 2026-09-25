@@ -2,9 +2,30 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:pv="clr-namespace:Lone.App.Views.Pessoas"
              x:Class="Lone.App.Views.Pessoas.SecaoDocumentosView"
              x:DataType="pes:PessoasViewModel">
+    <!-- Campos personalizados do tipo de documento: os mesmos controles da aba "Informações adicionais". -->
+    <ContentView.Resources>
+        <DataTemplate x:Key="ModeloTexto" x:DataType="cad:CampoPersonalizadoFormulario">
+            <c:Campo Rotulo="{Binding Rotulo}" Texto="{Binding Texto}" Dica="{Binding Dica}" Mascara="{Binding Mascara}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ModeloTextoLongo" x:DataType="cad:CampoPersonalizadoFormulario">
+            <VerticalStackLayout Spacing="2" FlexLayout.Basis="100%" Padding="0,0,12,8">
+                <Label Text="{Binding Rotulo}" Style="{StaticResource Rotulo}" />
+                <Editor Text="{Binding Texto}" Placeholder="{Binding Dica}" AutoSize="TextChanges" MinimumHeightRequest="80" />
+            </VerticalStackLayout>
+        </DataTemplate>
+        <DataTemplate x:Key="ModeloEscolha" x:DataType="cad:CampoPersonalizadoFormulario">
+            <c:CampoEscolha Rotulo="{Binding Rotulo}" Itens="{Binding Opcoes}" Selecionado="{Binding Escolha}" />
+        </DataTemplate>
+        <pv:SeletorModeloCampo x:Key="SeletorModelo"
+                               Texto="{StaticResource ModeloTexto}"
+                               TextoLongo="{StaticResource ModeloTextoLongo}"
+                               Escolha="{StaticResource ModeloEscolha}" />
+    </ContentView.Resources>
     <VerticalStackLayout Spacing="8">
         <!-- Remover um documento já gravado só desativa (fica no histórico; volta em "Mostrar inativos"). -->
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
@@ -38,6 +59,9 @@
                                 <c:Campo Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
                             </FlexLayout>
+                            <FlexLayout Wrap="Wrap" IsVisible="{Binding TemCamposPersonalizados}"
+                                        BindableLayout.ItemsSource="{Binding CamposPersonalizados}"
+                                        BindableLayout.ItemTemplateSelector="{StaticResource SeletorModelo}" />
                             <!-- Anexos: enviados e removidos na hora (não dependem do Salvar da ficha). -->
                             <Label Text="Anexos" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Anexos}">

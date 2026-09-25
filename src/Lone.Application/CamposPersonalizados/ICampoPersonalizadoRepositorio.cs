@@ -11,7 +11,8 @@ public interface ICampoPersonalizadoRepositorio
 
     Task<CampoPersonalizado?> ObterAsync(Guid id, CancellationToken ct);
 
-    Task<bool> NomeEmUsoAsync(EntidadePersonalizavel entidade, string nome, Guid ignorarId, CancellationToken ct);
+    /// <summary>Nome já usado no mesmo cadastro (e, nos documentos, no mesmo tipo de documento).</summary>
+    Task<bool> NomeEmUsoAsync(EntidadePersonalizavel entidade, Guid? tipoDocumentoId, string nome, Guid ignorarId, CancellationToken ct);
 
     /// <summary>Ids dos campos (da lista) que já têm algum valor gravado.</summary>
     Task<HashSet<Guid>> ComValoresAsync(IReadOnlyCollection<Guid> campoIds, CancellationToken ct);

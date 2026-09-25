@@ -9,10 +9,22 @@ public static class RegrasCampoPersonalizado
 {
     public const int MaximoOpcoes = 100;
 
+    /// <summary>Tipos que podem entrar na busca da lista (guardados como texto curto).</summary>
+    public static readonly IReadOnlySet<TipoCampoPersonalizado> Pesquisaveis = new HashSet<TipoCampoPersonalizado>
+    {
+        TipoCampoPersonalizado.Texto, TipoCampoPersonalizado.Email, TipoCampoPersonalizado.Telefone,
+        TipoCampoPersonalizado.Cpf, TipoCampoPersonalizado.Cnpj
+    };
+
     public static void Normalizar(CampoPersonalizado c)
     {
         c.Nome = TiposCampo.Texto(c.Nome) ?? string.Empty;
         c.Dica = TiposCampo.Texto(c.Dica);
+
+        if (c.Entidade != EntidadePersonalizavel.Documento) c.TipoDocumentoId = null;
+        if (c.TipoDocumentoId == Guid.Empty) c.TipoDocumentoId = null;
+        // Busca só por texto (o índice é sobre o texto); oculto nunca é obrigatório (ninguém conseguiria preencher).
+        if (!Pesquisaveis.Contains(c.Tipo)) c.Pesquisavel = false;
 
         if (c.Tipo != TipoCampoPersonalizado.Decimal) c.CasasDecimais = null;
         if (c.Tipo is not (TipoCampoPersonalizado.Inteiro or TipoCampoPersonalizado.Decimal or TipoCampoPersonalizado.Moeda))
@@ -36,6 +48,10 @@ public static class RegrasCampoPersonalizado
             erros.Add($"O nome pode ter no máximo {CampoPersonalizado.TamanhoMaximoNome} caracteres.");
 
         if (!TiposCampo.Existe(c.Tipo)) erros.Add("Tipo de campo inválido.");
+        if (c.Entidade == EntidadePersonalizavel.Documento && c.TipoDocumentoId is null)
+            erros.Add("Escolha o tipo de documento a que o campo pertence.");
+        if (c.Obrigatorio && !c.Visivel)
+            erros.Add("Um campo oculto não pode ser obrigatório (ninguém conseguiria preenchê-lo na ficha).");
         if (c.Dica is { Length: > CampoPersonalizado.TamanhoMaximoDica })
             erros.Add($"A dica pode ter no máximo {CampoPersonalizado.TamanhoMaximoDica} caracteres.");
         if (c.CasasDecimais is > TiposCampo.MaximoCasasDecimais)

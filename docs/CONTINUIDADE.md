@@ -177,6 +177,18 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Envio é imediato (não depende do Salvar); só documento já gravado e ativo recebe anexo. A ficha traz os anexos em
     `DocumentoDto.Anexos` (somente leitura). O aplicativo abre o arquivo com o programa padrão do aparelho.
   - **Backup:** a pasta de anexos precisa entrar no backup junto com o banco.
+- **Fase 5 — Campos personalizados de documentos (D4; código entregue em 25/09/2026; sem teste por fase):**
+  - Mesmo motor (ITipoCampo, colunas tipadas): base `ValorPersonalizado` com `PessoaValorPersonalizado` (tabela antiga) e
+    `DocumentoValorPersonalizado` (tabela nova `PessoaDocumentoValoresPersonalizados`, com `PessoaDocumentoId`).
+  - `CamposPersonalizados` ganhou `TipoDocumentoId` (escopo `Documento`), `Visivel` e `Pesquisavel`; nome único por
+    (cadastro, tipo de documento). Tipos novos CPF e CNPJ (guardados sem máscara, dígitos conferidos; CNPJ alfanumérico).
+  - Oculto: não aparece na ficha e mantém o gravado; não pode ser obrigatório. Pesquisável (só tipos de texto): entra na
+    busca da lista pelo começo do texto, com índice `(CampoId, ValorTextoBusca)` — coluna calculada persistida com os
+    200 primeiros caracteres (o texto inteiro passa do limite de chave de índice). A busca também acha número de documento.
+  - Documento que muda de tipo descarta os valores dos campos do tipo antigo; documento inativo mantém os gravados.
+  - Tela "Campos personalizados" com escolha "Pessoas / Documentos" e o tipo de documento na ficha do campo.
+  - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.CamposVisiveis);` depois de criar
+    `CamposPersonalizados.Visivel`.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

@@ -5,6 +5,7 @@ using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Infrastructure.Persistencia.Configuracoes;
 using Lone.Infrastructure.Persistencia.Servicos;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,7 +38,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
         // Etapa 4 troca esta busca por tabela de termos + paginação por chave.
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
-            consulta = AplicarBusca(consulta, filtro.Texto.Trim());
+            consulta = AplicarBusca(consulta, filtro.Texto.Trim(), db);
 
         return await consulta
             .OrderBy(p => p.NomeExibicao ?? p.NomeSocial ?? p.Nome)
@@ -68,12 +69,19 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .ToListAsync(ct);
     }
 
-    private static IQueryable<Pessoa> AplicarBusca(IQueryable<Pessoa> consulta, string termo)
+    private static IQueryable<Pessoa> AplicarBusca(IQueryable<Pessoa> consulta, string termo, LoneDbContext db)
     {
         var documento = termo.Any(char.IsAsciiDigit) ? Documento.Normalizar(termo) : string.Empty;
         var digitos = Documento.SomenteDigitos(termo);
         var buscaDigitos = digitos.Length >= 4;
         var codigo = int.TryParse(termo, out var c) ? c : -1;
+
+        // Campos personalizados marcados como pesquisáveis (da pessoa e dos documentos): começo do texto, pelo índice
+        // (CampoId, ValorTextoBusca). CPF/CNPJ ficam gravados sem máscara: procura também pelo termo normalizado.
+        var inicio = termo.Length > ConfiguracaoValorPersonalizado.TamanhoBusca ? termo[..ConfiguracaoValorPersonalizado.TamanhoBusca] : termo;
+        var inicioDocumento = documento.Length > 0 ? documento : inicio;
+        var pesquisaveis = db.CamposPersonalizados.Where(x => x.Pesquisavel && x.Ativo).Select(x => x.Id);
+        var numeroDocumento = termo.Trim().ToUpperInvariant();
 
         return consulta.Where(p =>
             p.Nome.Contains(termo) ||
@@ -86,6 +94,13 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                 (e.NomeFantasia != null && e.NomeFantasia.Contains(termo)) ||
                 (documento != "" && e.Cnpj != null && e.Cnpj.Contains(documento))) ||
             p.MeiosContato.Any(m => m.Valor.Contains(termo) || (buscaDigitos && m.Valor.Contains(digitos))) ||
+            p.Documentos.Any(d => d.Numero.StartsWith(numeroDocumento)) ||
+            p.ValoresPersonalizados.Any(v => pesquisaveis.Contains(v.CampoId) &&
+                (EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicio) ||
+                 EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicioDocumento))) ||
+            p.ValoresDocumentos.Any(v => pesquisaveis.Contains(v.CampoId) &&
+                (EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicio) ||
+                 EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicioDocumento))) ||
             p.Contatos.Any(x =>
                 x.Nome.Contains(termo) ||
                 (x.Email != null && x.Email.Contains(termo)) ||
@@ -109,6 +124,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Consentimentos)
             .Include(p => p.Etiquetas)
             .Include(p => p.ValoresPersonalizados)
+            .Include(p => p.ValoresDocumentos)
             .Include(p => p.Bloqueios)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -251,6 +267,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Consentimentos)
             .Include(p => p.Etiquetas)
             .Include(p => p.ValoresPersonalizados)
+            .Include(p => p.ValoresDocumentos)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == dados.Id, ct)
             ?? throw new ConflitoDeEdicaoException();
@@ -287,6 +304,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // Um valor por campo personalizado: casa pelo campo, e a mudança aparece no histórico como alteração.
         ReaproveitarIds(atual.ValoresPersonalizados, dados.ValoresPersonalizados, v => v.CampoId);
         SincronizarFilhos(db, atual.Id, atual.ValoresPersonalizados, dados.ValoresPersonalizados);
+        ReaproveitarIds(atual.ValoresDocumentos, dados.ValoresDocumentos, v => (v.PessoaDocumentoId, v.CampoId));
+        SincronizarFilhos(db, atual.Id, atual.ValoresDocumentos, dados.ValoresDocumentos);
 
         // Eventos de negócio (ex.: desativação) foram registrados na instância editada: vão com a gravada.
         atual.ReceberEventosDe(dados);

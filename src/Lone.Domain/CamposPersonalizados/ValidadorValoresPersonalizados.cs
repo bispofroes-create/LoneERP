@@ -3,19 +3,21 @@ using Lone.Domain.Entidades;
 namespace Lone.Domain.CamposPersonalizados;
 
 /// <summary>
-/// Confere os valores personalizados de uma pessoa contra as definições dos campos. Não acessa banco.
-/// Regras: campo desconhecido é recusado; campo desativado não é editável (mantém o gravado); obrigatório só
-/// vale para campo ativo; opção desativada só é aceita se já era a gravada; vazio = sem linha.
+/// Confere os valores personalizados (da pessoa ou de um documento) contra as definições dos campos. Não acessa banco.
+/// Regras: campo desconhecido é recusado; campo desativado ou oculto não é editável (mantém o gravado); obrigatório só
+/// vale para campo ativo e visível; opção desativada só é aceita se já era a gravada; vazio = sem linha.
 /// </summary>
 public static class ValidadorValoresPersonalizados
 {
     /// <param name="valores">Enviados pelo cadastro (serão normalizados e filtrados aqui).</param>
-    /// <param name="campos">Definições do cadastro (ativas e inativas), com as opções.</param>
-    /// <param name="gravados">Valores que a pessoa já tinha (vazio se for nova).</param>
-    public static List<string> Aplicar(
-        List<PessoaValorPersonalizado> valores,
+    /// <param name="campos">Definições que valem para estes valores (ativas e inativas), com as opções.</param>
+    /// <param name="gravados">Valores que já estavam gravados (vazio se for novo).</param>
+    /// <param name="onde">Onde o valor aparece, para as mensagens (ex.: "informações adicionais", "Documento 2 (CNH)").</param>
+    public static List<string> Aplicar<T>(
+        List<T> valores,
         IReadOnlyCollection<CampoPersonalizado> campos,
-        IReadOnlyCollection<PessoaValorPersonalizado> gravados)
+        IReadOnlyCollection<T> gravados,
+        string onde = "informações adicionais") where T : ValorPersonalizado
     {
         var erros = new List<string>();
         var porId = campos.ToDictionary(c => c.Id);
@@ -26,19 +28,19 @@ public static class ValidadorValoresPersonalizados
             valores.Remove(repetido);
         foreach (var desconhecido in valores.Where(v => !porId.ContainsKey(v.CampoId)).ToList())
         {
-            erros.Add("Informação adicional de um campo que não existe mais. Reabra o cadastro e tente de novo.");
+            erros.Add($"{Maiuscula(onde)}: campo que não existe mais (ou não vale para este tipo). Reabra o cadastro e tente de novo.");
             valores.Remove(desconhecido);
         }
 
-        // Campo desativado: vale o que estava gravado, seja o que for que o aparelho mandou.
-        valores.RemoveAll(v => !porId[v.CampoId].Ativo);
-        foreach (var gravado in gravados.Where(g => porId.TryGetValue(g.CampoId, out var c) && !c.Ativo))
-            valores.Add(Copia(gravado));
+        // Campo desativado ou oculto: vale o que estava gravado, seja o que for que o aparelho mandou.
+        valores.RemoveAll(v => !Editavel(porId[v.CampoId]));
+        foreach (var gravado in gravados.Where(g => porId.TryGetValue(g.CampoId, out var c) && !Editavel(c)))
+            valores.Add((T)gravado.Clonar());
 
         foreach (var valor in valores.ToList())
         {
             var campo = porId[valor.CampoId];
-            if (!campo.Ativo) continue;
+            if (!Editavel(campo)) continue;
 
             LimparOutrasColunas(valor, campo.Definicao.Coluna);
             if (campo.Definicao.Normalizar(campo, valor) is { } problema)
@@ -50,14 +52,25 @@ public static class ValidadorValoresPersonalizados
             if (valor.Vazio) valores.Remove(valor);
         }
 
-        foreach (var campo in campos.Where(c => c.Ativo && c.Obrigatorio).OrderBy(c => c.Ordem))
+        foreach (var campo in campos.Where(c => Editavel(c) && c.Obrigatorio).OrderBy(c => c.Ordem))
             if (valores.All(v => v.CampoId != campo.Id))
-                erros.Add($"Informe \"{campo.Nome}\" (informações adicionais).");
+                erros.Add($"Informe \"{campo.Nome}\" ({onde}).");
 
         return erros;
     }
 
-    private static void LimparOutrasColunas(PessoaValorPersonalizado v, ColunaValor coluna)
+    /// <summary>Documento removido (inativo): os valores ficam exatamente como estavam gravados.</summary>
+    public static void ManterGravados<T>(List<T> valores, IEnumerable<T> gravados) where T : ValorPersonalizado
+    {
+        valores.Clear();
+        valores.AddRange(gravados.Select(g => (T)g.Clonar()));
+    }
+
+    private static bool Editavel(CampoPersonalizado c) => c.Ativo && c.Visivel;
+
+    private static string Maiuscula(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private static void LimparOutrasColunas(ValorPersonalizado v, ColunaValor coluna)
     {
         if (coluna != ColunaValor.Texto) v.ValorTexto = null;
         if (coluna != ColunaValor.Numero) v.ValorNumero = null;
@@ -65,16 +78,4 @@ public static class ValidadorValoresPersonalizados
         if (coluna != ColunaValor.Logico) v.ValorLogico = null;
         if (coluna != ColunaValor.Opcao) v.OpcaoId = null;
     }
-
-    private static PessoaValorPersonalizado Copia(PessoaValorPersonalizado g) => new()
-    {
-        Id = g.Id,
-        PessoaId = g.PessoaId,
-        CampoId = g.CampoId,
-        ValorTexto = g.ValorTexto,
-        ValorNumero = g.ValorNumero,
-        ValorData = g.ValorData,
-        ValorLogico = g.ValorLogico,
-        OpcaoId = g.OpcaoId
-    };
 }

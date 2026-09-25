@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Lone.Cliente.ViewModels.Cadastros;
+using Lone.Contracts.CamposPersonalizados;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Documentos;
 using Lone.Contracts.Pessoas;
@@ -75,6 +77,39 @@ public sealed partial class DocumentoFormulario : ItemDeLista
         if (gravado != Guid.Empty && sistema.All(o => o.Valor != gravado))
             sistema.Insert(0, new Opcao<Guid>(gravado, "(tipo gravado)"));
         return [.. sistema];
+    }
+
+    // ---- Campos personalizados do tipo do documento (D4) ----
+
+    private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
+    private IReadOnlyList<ValorPersonalizadoDto> _valoresGravados = [];
+
+    /// <summary>Campos do tipo escolhido (mudam quando o tipo muda; o que já foi digitado num campo é mantido).</summary>
+    public ObservableCollection<CampoPersonalizadoFormulario> CamposPersonalizados { get; } = new();
+
+    public bool TemCamposPersonalizados => CamposPersonalizados.Count > 0;
+
+    /// <summary>Chamado pela ficha ao incluir o documento: os campos personalizados de documentos (ativos).</summary>
+    public void DefinirCampos(IReadOnlyList<CampoPersonalizadoDto> campos)
+    {
+        _campos = campos;
+        MontarCampos();
+    }
+
+    partial void OnTipoChanged(Opcao<Guid> value) => MontarCampos();
+
+    private void MontarCampos()
+    {
+        var digitados = CamposPersonalizados.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList();
+        var valores = digitados.Concat(_valoresGravados.Where(g => digitados.All(d => d.CampoId != g.CampoId))).ToList();
+        CamposPersonalizados.Clear();
+        foreach (var campo in _campos.Where(c => c.Ativo && c.Visivel && c.TipoDocumentoId == Tipo.Valor).OrderBy(c => c.Ordem))
+        {
+            var formulario = CampoPersonalizadoFormulario.Criar(campo, valores.FirstOrDefault(v => v.CampoId == campo.Id));
+            formulario.Onde = "documento " + Tipo.Texto;
+            CamposPersonalizados.Add(formulario);
+        }
+        OnPropertyChanged(nameof(TemCamposPersonalizados));
     }
 
     private TipoDocumentoDto? TipoDoCadastro => _catalogo.FirstOrDefault(t => t.Id == Tipo.Valor);
@@ -174,6 +209,7 @@ public sealed partial class DocumentoFormulario : ItemDeLista
         {
             _tipoGravado = tipo,
             _anexosGravados = d.Anexos,
+            _valoresGravados = d.ValoresPersonalizados,
             Numero = d.Numero,
             OrgaoEmissor = d.OrgaoEmissor ?? string.Empty,
             Uf = d.Uf ?? string.Empty,
@@ -194,6 +230,9 @@ public sealed partial class DocumentoFormulario : ItemDeLista
         if (!TextoTela.TentarData(EmitidoEm, out _)) yield return $"{nome}: data de emissão inválida (use dd/mm/aaaa).";
         if (!TextoTela.TentarData(ValidoAte, out var validade)) yield return $"{nome}: validade inválida (use dd/mm/aaaa).";
         else if (Ativo && ExigeValidade && validade is null) yield return $"{nome}: informe a validade.";
+        if (!Ativo) yield break;
+        foreach (var problema in CamposPersonalizados.Select(c => c.Validar()).OfType<string>())
+            yield return problema;
     }
 
     public DocumentoDto ParaDto()
@@ -214,7 +253,11 @@ public sealed partial class DocumentoFormulario : ItemDeLista
             Uf = TextoTela.Nulo(Uf),
             EmitidoEm = emitido,
             ValidoAte = valido,
-            Observacoes = TextoTela.Nulo(Observacoes)
+            Observacoes = TextoTela.Nulo(Observacoes),
+            // Sem a lista de campos (falha ao ler), os valores gravados voltam intactos.
+            ValoresPersonalizados = _campos.Count == 0
+                ? [.. _valoresGravados]
+                : CamposPersonalizados.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList()
         };
     }
 }

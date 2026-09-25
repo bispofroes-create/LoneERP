@@ -224,6 +224,12 @@ public sealed class PessoaAppService : IPessoaAppService
             (anterior?.Documentos ?? []).ToDictionary(d => d.Id, d => d.TipoDocumentoId),
             await _tiposDocumento.ObterVariosAsync(dados.Documentos.Select(d => d.TipoDocumentoId).Distinct().ToList(), ct)));
 
+        // Campos personalizados dos documentos (D4): cada documento só com os campos do seu tipo.
+        erros.AddRange(AplicarValoresDocumentos(dados, anterior,
+            dados.Documentos.Count == 0 && (anterior?.ValoresDocumentos.Count ?? 0) == 0
+                ? new List<CampoPersonalizado>()
+                : await _campos.ListarAsync(EntidadePersonalizavel.Documento, incluirInativos: true, ct)));
+
         // Profissão: do cadastro de profissões; uma desativada só continua em quem já a tinha.
         if (RegrasProfissao.ValidarEscolhida(
                 dados.ProfissaoId,
@@ -255,6 +261,45 @@ public sealed class PessoaAppService : IPessoaAppService
         // Relê do banco: volta com o código, a versão nova e tudo como ficou gravado.
         var salva = await _repositorio.ObterAsync(dados.Id, ct) ?? throw new ConflitoDeEdicaoException();
         return new ResultadoSalvarPessoa { Pessoa = await ParaTelaAsync(salva, ct), Avisos = avisos };
+    }
+
+    /// <summary>
+    /// Confere os valores de cada documento contra os campos do tipo dele. Valor de campo de outro tipo (o documento
+    /// mudou de tipo) é descartado sem erro; documento removido (inativo) ou que não veio mantém o que estava gravado.
+    /// </summary>
+    private static List<string> AplicarValoresDocumentos(Pessoa dados, Pessoa? anterior, IReadOnlyCollection<CampoPersonalizado> campos)
+    {
+        var erros = new List<string>();
+        var gravados = anterior?.ValoresDocumentos ?? [];
+        var idsDeCampos = campos.Select(c => c.Id).ToHashSet();
+        var resultado = new List<DocumentoValorPersonalizado>();
+
+        for (var i = 0; i < dados.Documentos.Count; i++)
+        {
+            var documento = dados.Documentos[i];
+            var valores = dados.ValoresDocumentos.Where(v => v.PessoaDocumentoId == documento.Id).ToList();
+            var gravadosDoDocumento = gravados.Where(v => v.PessoaDocumentoId == documento.Id).ToList();
+            if (!documento.Ativo)
+            {
+                ValidadorValoresPersonalizados.ManterGravados(valores, gravadosDoDocumento);
+            }
+            else
+            {
+                var doTipo = campos.Where(c => c.TipoDocumentoId == documento.TipoDocumentoId).ToList();
+                var idsDoTipo = doTipo.Select(c => c.Id).ToHashSet();
+                valores.RemoveAll(v => idsDeCampos.Contains(v.CampoId) && !idsDoTipo.Contains(v.CampoId));
+                gravadosDoDocumento.RemoveAll(v => !idsDoTipo.Contains(v.CampoId));
+                erros.AddRange(ValidadorValoresPersonalizados.Aplicar(valores, doTipo, gravadosDoDocumento, $"documento {i + 1}"));
+            }
+            resultado.AddRange(valores);
+        }
+
+        // Documento que não veio na lista fica como está no banco (nunca é apagado), com os valores dele.
+        var enviados = dados.Documentos.Select(d => d.Id).ToHashSet();
+        resultado.AddRange(gravados.Where(v => !enviados.Contains(v.PessoaDocumentoId)).Select(v => (DocumentoValorPersonalizado)v.Clonar()));
+
+        dados.ValoresDocumentos = resultado;
+        return erros;
     }
 
     public Task<PessoaDto> DesativarAsync(Guid id, AlterarSituacaoRequisicao requisicao, CancellationToken ct = default) =>

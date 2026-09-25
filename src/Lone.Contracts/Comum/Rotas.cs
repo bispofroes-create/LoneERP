@@ -138,6 +138,8 @@ public static class Rotas
         /// <summary>Nova ordem (lista de Ids).</summary>
         public const string Ordem = Grupo + "/ordem";
 
+        public static string OrdemDe(Lone.Domain.Enums.EntidadePersonalizavel entidade) => $"{Ordem}?entidade={entidade}";
+
         /// <summary>?entidade=Pessoa&amp;incluirInativos=true</summary>
         public static string Listar(Lone.Domain.Enums.EntidadePersonalizavel entidade, bool incluirInativos) =>
             $"{Grupo}?entidade={entidade}" + (incluirInativos ? "&incluirInativos=true" : string.Empty);

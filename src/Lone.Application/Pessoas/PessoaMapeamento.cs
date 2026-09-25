@@ -52,7 +52,7 @@ public static class PessoaMapeamento
         Enderecos = p.Enderecos.OrderBy(e => e.Ordem).Select(ParaDto).ToList(),
         MeiosContato = p.MeiosContato.Select(ParaDto).ToList(),
         Contatos = p.Contatos.OrderByDescending(c => c.Principal).ThenBy(c => c.Nome).Select(ParaDto).ToList(),
-        Documentos = p.Documentos.Select(ParaDto).ToList(),
+        Documentos = p.Documentos.Select(x => ParaDto(x, p.ValoresDocumentos)).ToList(),
         Papeis = p.Papeis.OrderBy(x => x.InicioEm).Select(ParaDto).ToList(),
         ContasCliente = p.ContasCliente.Select(ParaDto).ToList(),
         ContasFornecedor = p.ContasFornecedor.Select(ParaDto).ToList(),
@@ -66,7 +66,7 @@ public static class PessoaMapeamento
     public static Pessoa ParaEntidade(PessoaDto d)
     {
         var pessoaId = IdOuNovo(d.Id);
-        return new Pessoa
+        var pessoa = new Pessoa
         {
             Id = pessoaId,
             Versao = d.Versao,
@@ -110,6 +110,12 @@ public static class PessoaMapeamento
             ContasCliente = d.ContasCliente.Select(c => ParaEntidade(c, pessoaId)).ToList(),
             ContasFornecedor = d.ContasFornecedor.Select(f => ParaEntidade(f, pessoaId)).ToList()
         };
+
+        // Valores dos campos dos documentos: ligados ao Id já definitivo de cada documento (mesma ordem da lista).
+        for (var i = 0; i < d.Documentos.Count; i++)
+            foreach (var v in d.Documentos[i].ValoresPersonalizados)
+                pessoa.ValoresDocumentos.Add(ParaValorDocumento(v, pessoaId, pessoa.Documentos[i].Id));
+        return pessoa;
     }
 
     private static Guid IdOuNovo(Guid id) => id == Guid.Empty ? IdSequencial.Novo() : id;
@@ -201,7 +207,7 @@ public static class PessoaMapeamento
 
     // ---------------------------------------------------------------- Campos personalizados
 
-    private static ValorPersonalizadoDto ParaDto(PessoaValorPersonalizado v) => new()
+    private static ValorPersonalizadoDto ParaDto(ValorPersonalizado v) => new()
     {
         CampoId = v.CampoId,
         Texto = v.ValorTexto,
@@ -216,6 +222,19 @@ public static class PessoaMapeamento
     {
         Id = IdSequencial.Novo(),
         PessoaId = pessoaId,
+        CampoId = v.CampoId,
+        ValorTexto = v.Texto,
+        ValorNumero = v.Numero,
+        ValorData = v.Data is { } data ? DateTime.SpecifyKind(data, DateTimeKind.Unspecified) : null,
+        ValorLogico = v.Logico,
+        OpcaoId = v.OpcaoId
+    };
+
+    private static DocumentoValorPersonalizado ParaValorDocumento(ValorPersonalizadoDto v, Guid pessoaId, Guid documentoId) => new()
+    {
+        Id = IdSequencial.Novo(),
+        PessoaId = pessoaId,
+        PessoaDocumentoId = documentoId,
         CampoId = v.CampoId,
         ValorTexto = v.Texto,
         ValorNumero = v.Numero,
@@ -337,8 +356,9 @@ public static class PessoaMapeamento
         PessoaVinculadaId = c.PessoaVinculadaId
     };
 
-    private static DocumentoDto ParaDto(PessoaDocumento x) => new()
+    private static DocumentoDto ParaDto(PessoaDocumento x, IEnumerable<DocumentoValorPersonalizado> valores) => new()
     {
+        ValoresPersonalizados = valores.Where(v => v.PessoaDocumentoId == x.Id).Select(ParaDto).ToList(),
         Id = x.Id,
         TipoDocumentoId = x.TipoDocumentoId,
         Tipo = x.Tipo,

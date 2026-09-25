@@ -12,7 +12,14 @@ namespace Lone.Cliente.ViewModels.Cadastros;
 /// <summary>Linha da tabela de campos personalizados (Campo · Tipo · Obrigatório · Ativo).</summary>
 public sealed class LinhaCampoPersonalizado
 {
-    public LinhaCampoPersonalizado(CampoPersonalizadoDto campo) => Campo = campo;
+    public LinhaCampoPersonalizado(CampoPersonalizadoDto campo, string? tipoDocumento = null)
+    {
+        Campo = campo;
+        TipoDocumento = tipoDocumento ?? string.Empty;
+    }
+
+    /// <summary>Nos campos de documentos: o tipo de documento (ex.: "CNH").</summary>
+    public string TipoDocumento { get; }
 
     public CampoPersonalizadoDto Campo { get; }
     public Guid Id => Campo.Id;
@@ -21,7 +28,12 @@ public sealed class LinhaCampoPersonalizado
     public string Obrigatorio => Campo.Obrigatorio ? "Sim" : "Não";
     public string Ativo => Campo.Ativo ? "Sim" : "Não";
     public bool Inativo => !Campo.Ativo;
-    public string Detalhe => $"{Tipo} · {(Campo.Obrigatorio ? "obrigatório" : "opcional")}{(Campo.Ativo ? string.Empty : " · desativado")}";
+    public string Detalhe => string.Join(" · ", new[]
+    {
+        TipoDocumento, Tipo, Campo.Obrigatorio ? "obrigatório" : "opcional",
+        Campo.Visivel ? string.Empty : "oculto", Campo.Pesquisavel ? "pesquisável" : string.Empty,
+        Campo.Ativo ? string.Empty : "desativado"
+    }.Where(s => s.Length > 0));
 }
 
 /// <summary>Uma opção de campo do tipo lista. Opção já gravada não é apagada: é desativada.</summary>
@@ -56,11 +68,46 @@ public sealed partial class CampoPersonalizadoEdicao : ObservableObject
     public static readonly Opcao<TipoCampoPersonalizado>[] Tipos =
         [.. TiposCampo.Todos.OrderBy(t => t.Tipo).Select(t => new Opcao<TipoCampoPersonalizado>(t.Tipo, t.Nome))];
 
-    private CampoPersonalizadoEdicao(Guid id, bool nova)
+    private CampoPersonalizadoEdicao(Guid id, bool nova, EntidadePersonalizavel entidade)
     {
         Id = id;
         Nova = nova;
+        Entidade = entidade;
     }
+
+    /// <summary>Cadastro do campo (pessoas ou documentos). Não muda depois de criado.</summary>
+    public EntidadePersonalizavel Entidade { get; }
+    public bool DeDocumento => Entidade == EntidadePersonalizavel.Documento;
+
+    /// <summary>Tipos de documento para escolher (só nos campos de documentos). Array: o Picker precisa de IList.</summary>
+    [ObservableProperty] private Opcao<Guid?>[] _tiposDocumento = [new(null, "—")];
+
+    [ObservableProperty] private Opcao<Guid?> _tipoDocumento = new(null, "—");
+
+    private Guid? _tipoDocumentoGravado;
+
+    /// <summary>Chamado pela tela: os tipos de documento ativos (mais o gravado, se desativado).</summary>
+    public void DefinirTiposDocumento(IReadOnlyList<Lone.Contracts.Documentos.TipoDocumentoDto> tipos)
+    {
+        TiposDocumento =
+        [
+            new(null, "—"),
+            .. tipos.Where(t => t.Ativo || t.Id == _tipoDocumentoGravado)
+                .OrderBy(t => t.Ordem).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
+                .Select(t => new Opcao<Guid?>(t.Id, t.Ativo ? t.Nome : t.Nome + " (desativado)"))
+        ];
+        TipoDocumento = TiposDocumento.FirstOrDefault(o => o.Valor == _tipoDocumentoGravado) ?? TiposDocumento[0];
+    }
+
+    /// <summary>Com valores gravados, o campo não muda de tipo de documento.</summary>
+    public bool PodeMudarTipoDocumento => !TemValores;
+
+    [ObservableProperty] private bool _visivel = true;
+
+    [ObservableProperty] private bool _pesquisavel;
+
+    /// <summary>Busca só por texto (texto, e-mail, telefone, CPF, CNPJ).</summary>
+    public bool PodeSerPesquisavel => RegrasCampoPersonalizado.Pesquisaveis.Contains(Tipo.Valor);
 
     public Guid Id { get; }
     public bool Nova { get; }
@@ -75,7 +122,7 @@ public sealed partial class CampoPersonalizadoEdicao : ObservableObject
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo))] private string _nome = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(UsaOpcoes), nameof(UsaCasas), nameof(UsaLimites))]
+    [NotifyPropertyChangedFor(nameof(UsaOpcoes), nameof(UsaCasas), nameof(UsaLimites), nameof(PodeSerPesquisavel))]
     private Opcao<TipoCampoPersonalizado> _tipo = Tipos[0];
 
     [ObservableProperty] private bool _obrigatorio;
@@ -97,12 +144,16 @@ public sealed partial class CampoPersonalizadoEdicao : ObservableObject
     public static string NomeDoTipo(TipoCampoPersonalizado tipo) =>
         TiposCampo.Existe(tipo) ? TiposCampo.Obter(tipo).Nome : tipo.ToString();
 
-    public static CampoPersonalizadoEdicao Novo() => new(IdSequencial.Novo(), nova: true);
+    public static CampoPersonalizadoEdicao Novo(EntidadePersonalizavel entidade = EntidadePersonalizavel.Pessoa) =>
+        new(IdSequencial.Novo(), nova: true, entidade);
 
     public static CampoPersonalizadoEdicao De(CampoPersonalizadoDto c)
     {
-        var f = new CampoPersonalizadoEdicao(c.Id, nova: false)
+        var f = new CampoPersonalizadoEdicao(c.Id, nova: false, c.Entidade)
         {
+            _tipoDocumentoGravado = c.TipoDocumentoId,
+            Visivel = c.Visivel,
+            Pesquisavel = c.Pesquisavel,
             Versao = c.Versao,
             Ordem = c.Ordem,
             Ativo = c.Ativo,
@@ -137,6 +188,8 @@ public sealed partial class CampoPersonalizadoEdicao : ObservableObject
     {
         var erros = new List<string>();
         if (string.IsNullOrWhiteSpace(Nome)) erros.Add("Informe o nome do campo.");
+        if (DeDocumento && TipoDocumento.Valor is null && _tipoDocumentoGravado is null) erros.Add("Escolha o tipo de documento.");
+        if (Obrigatorio && !Visivel) erros.Add("Um campo oculto não pode ser obrigatório.");
         if (UsaCasas && !(byte.TryParse(CasasDecimais, out var casas) && casas <= TiposCampo.MaximoCasasDecimais))
             erros.Add($"Casas decimais: use um número de 0 a {TiposCampo.MaximoCasasDecimais}.");
         if (UsaLimites && (!TextoTela.TentarDecimal(Minimo, out _) || !TextoTela.TentarDecimal(Maximo, out _)))
@@ -154,7 +207,11 @@ public sealed partial class CampoPersonalizadoEdicao : ObservableObject
         {
             Id = Id,
             Versao = Versao,
-            Entidade = EntidadePersonalizavel.Pessoa,
+            Entidade = Entidade,
+            // Sem a lista de tipos (falha ao ler), o tipo gravado volta intacto.
+            TipoDocumentoId = !DeDocumento ? null : TiposDocumento.Length > 1 ? TipoDocumento.Valor : _tipoDocumentoGravado,
+            Visivel = Visivel,
+            Pesquisavel = PodeSerPesquisavel && Pesquisavel,
             Nome = Nome.Trim(),
             Tipo = Tipo.Valor,
             Obrigatorio = Obrigatorio,

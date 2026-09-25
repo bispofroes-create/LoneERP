@@ -138,6 +138,9 @@ public class Pessoa : AgregadoRaiz
     /// <summary>Informações adicionais: valores dos campos personalizados criados pelo administrador.</summary>
     public List<PessoaValorPersonalizado> ValoresPersonalizados { get; set; } = new();
 
+    /// <summary>Valores dos campos personalizados dos documentos (cada um com o Id do documento).</summary>
+    public List<DocumentoValorPersonalizado> ValoresDocumentos { get; set; } = new();
+
     /// <summary>Gravados só pelas operações de bloquear/liberar (não pelo formulário de cadastro).</summary>
     public List<Bloqueio> Bloqueios { get; set; } = new();
 

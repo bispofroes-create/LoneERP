@@ -222,10 +222,12 @@ public sealed partial class PessoaFormulario : ObservableObject
     public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
                                              IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
                                              IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null,
-                                             IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null)
+                                             IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null,
+                                             IReadOnlyList<CampoPersonalizadoDto>? camposDocumento = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
+            _camposDocumento = camposDocumento ?? [],
             _tiposMeio = tiposMeio ?? [],
             _tiposEndereco = tiposEndereco ?? [],
             _tiposDocumento = tiposDocumento ?? [],
@@ -244,7 +246,8 @@ public sealed partial class PessoaFormulario : ObservableObject
     public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
                                       IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
                                       IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null,
-                                      IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null)
+                                      IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null,
+                                      IReadOnlyList<CampoPersonalizadoDto>? camposDocumento = null)
     {
         var opcoesPapel = MontarPapeis(papeis, p.Papeis, out var papeisDesconhecidos);
         var f = new PessoaFormulario(p.Id, nova: false)
@@ -283,6 +286,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             _tiposMeio = tiposMeio ?? [],
             _tiposEndereco = tiposEndereco ?? [],
             _tiposDocumento = tiposDocumento ?? [],
+            _camposDocumento = camposDocumento ?? [],
             _papeisDesconhecidos = papeisDesconhecidos,
             Sexo = Opcao.De(OpcoesPessoa.Sexos, p.Sexo),
             Genero = Opcao.De(OpcoesPessoa.Generos, p.IdentidadeGenero),
@@ -495,7 +499,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     private static List<CampoPersonalizadoFormulario> MontarInformacoesAdicionais(
         IReadOnlyList<CampoPersonalizadoDto>? campos, IReadOnlyList<ValorPersonalizadoDto> valores) =>
         (campos ?? [])
-            .Where(c => c.Ativo)
+            .Where(c => c.Ativo && c.Visivel) // oculto: o servidor mantém o valor gravado
             .OrderBy(c => c.Ordem)
             .Select(c => CampoPersonalizadoFormulario.Criar(c, valores.FirstOrDefault(v => v.CampoId == c.Id)))
             .ToList();
@@ -665,6 +669,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     public void AdicionarDocumento(DocumentoFormulario documento)
     {
         documento.DefinirCatalogo(_tiposDocumento);
+        documento.DefinirCampos(_camposDocumento);
         documento.Acoes = AcoesAnexos;
         documento.MostrarSeInativo = MostrarDocumentosInativos;
         documento.AoRemover = () =>
@@ -681,6 +686,9 @@ public sealed partial class PessoaFormulario : ObservableObject
         Documentos.Add(documento);
         AvisarDocumentos();
     }
+
+    /// <summary>Campos personalizados dos documentos (cada um vale para um tipo de documento).</summary>
+    private IReadOnlyList<CampoPersonalizadoDto> _camposDocumento = [];
 
     /// <summary>Ações de anexos (enviar, abrir, remover), ligadas pela tela de pessoas.</summary>
     public AcoesAnexos AcoesAnexos { get; } = new();

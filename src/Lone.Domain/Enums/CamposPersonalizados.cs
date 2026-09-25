@@ -14,11 +14,16 @@ public enum TipoCampoPersonalizado : byte
     Lista = 8,
     Moeda = 9,
     Email = 10,
-    Telefone = 11
+    Telefone = 11,
+    Cpf = 12,
+    Cnpj = 13
 }
 
-/// <summary>Cadastro que recebe campos personalizados. Hoje, só pessoas; outros entram aqui (produtos, pedidos...).</summary>
+/// <summary>Cadastro que recebe campos personalizados (produtos, pedidos... entram aqui depois).</summary>
 public enum EntidadePersonalizavel : byte
 {
-    Pessoa = 0
+    Pessoa = 0,
+
+    /// <summary>Documentos da pessoa: cada campo vale para um tipo de documento (ex.: "Categoria" da CNH).</summary>
+    Documento = 1
 }

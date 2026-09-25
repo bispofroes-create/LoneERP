@@ -203,6 +203,9 @@ public sealed class DocumentoDto
     public DateOnly? ValidoAte { get; set; }
     public string? Observacoes { get; set; }
 
+    /// <summary>Valores dos campos personalizados do tipo deste documento.</summary>
+    public List<Lone.Contracts.CamposPersonalizados.ValorPersonalizadoDto> ValoresPersonalizados { get; set; } = new();
+
     /// <summary>Somente leitura: arquivos anexados (enviados e removidos à parte, pelas rotas de anexos).</summary>
     public List<Lone.Contracts.Documentos.AnexoDto> Anexos { get; set; } = new();
 }

@@ -2,24 +2,53 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
 using Lone.Cliente.Plataforma;
+using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
+using Lone.Contracts.Documentos;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
 /// <summary>
-/// Administração dos campos personalizados do cadastro de pessoas: tabela (campo, tipo, obrigatório, ativo) e
+/// Administração dos campos personalizados das pessoas e dos documentos (escolhidos no topo): tabela (campo, tipo, obrigatório, ativo) e
 /// ficha para criar, alterar, ordenar, desativar e reativar. Campos nunca são excluídos: desativar preserva os
 /// valores gravados e o histórico.
 /// </summary>
 public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBase<LinhaCampoPersonalizado>
 {
     private readonly CamposPersonalizadosApi _api;
+    private readonly TiposDocumentoApi _tiposDocumentoApi;
+    private List<TipoDocumentoDto> _tiposDocumento = [];
 
-    public CamposPersonalizadosViewModel(CamposPersonalizadosApi api, IDialogos dialogos) : base(dialogos)
+    public CamposPersonalizadosViewModel(CamposPersonalizadosApi api, TiposDocumentoApi tiposDocumentoApi, IDialogos dialogos) : base(dialogos)
     {
         _api = api;
+        _tiposDocumentoApi = tiposDocumentoApi;
+    }
+
+    public static readonly Opcao<EntidadePersonalizavel>[] Escopos =
+    [
+        new(EntidadePersonalizavel.Pessoa, "Pessoas (aba Informações adicionais)"),
+        new(EntidadePersonalizavel.Documento, "Documentos (por tipo de documento)")
+    ];
+
+    public IReadOnlyList<Opcao<EntidadePersonalizavel>> ListaEscopos => Escopos;
+
+    /// <summary>De qual cadastro são os campos mostrados (pessoas ou documentos).</summary>
+    [ObservableProperty] private Opcao<EntidadePersonalizavel> _escopo = Escopos[0];
+
+    private EntidadePersonalizavel Entidade => Escopo.Valor;
+
+    partial void OnEscopoChanged(Opcao<EntidadePersonalizavel> value)
+    {
+        if (TemAlteracoes)
+        {
+            Mostrar("Salve ou descarte as alterações do campo aberto antes de trocar o cadastro.", TipoMensagem.Aviso);
+            return;
+        }
+        Formulario = null;
+        _ = CarregarCommand.ExecuteAsync(null);
     }
 
     [ObservableProperty]
@@ -31,20 +60,31 @@ public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBas
 
     protected override string TextoDeBusca(LinhaCampoPersonalizado item) => item.Nome;
 
-    protected override async Task<IReadOnlyList<LinhaCampoPersonalizado>> ListarAsync() =>
-        (await _api.ListarAsync(EntidadePersonalizavel.Pessoa, incluirInativos: true))
+    protected override async Task<IReadOnlyList<LinhaCampoPersonalizado>> ListarAsync()
+    {
+        if (Entidade == EntidadePersonalizavel.Documento)
+            _tiposDocumento = await _tiposDocumentoApi.ListarAsync(incluirInativos: true);
+        var nomes = _tiposDocumento.ToDictionary(t => t.Id, t => t.Nome);
+        return (await _api.ListarAsync(Entidade, incluirInativos: true))
             .OrderBy(c => c.Ordem).ThenBy(c => c.Nome)
-            .Select(c => new LinhaCampoPersonalizado(c)).ToList();
+            .Select(c => new LinhaCampoPersonalizado(c, c.TipoDocumentoId is { } t ? nomes.GetValueOrDefault(t) : null)).ToList();
+    }
+
+    private CampoPersonalizadoEdicao Preparar(CampoPersonalizadoEdicao f)
+    {
+        if (f.DeDocumento) f.DefinirTiposDocumento(_tiposDocumento);
+        return f;
+    }
 
     protected override async Task AbrirAsync(LinhaCampoPersonalizado item)
     {
         var dto = await _api.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este campo não existe mais."]);
-        Formulario = CampoPersonalizadoEdicao.De(dto);
+        Formulario = Preparar(CampoPersonalizadoEdicao.De(dto));
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = CampoPersonalizadoEdicao.Novo();
+        Formulario = Preparar(CampoPersonalizadoEdicao.Novo(Entidade));
         return Task.CompletedTask;
     }
 
@@ -55,7 +95,7 @@ public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBas
     {
         if (Formulario is not { Nova: false } formulario) return;
         var dto = await _api.ObterAsync(formulario.Id) ?? throw new ValidacaoException(["Este campo não existe mais."]);
-        Formulario = CampoPersonalizadoEdicao.De(dto);
+        Formulario = Preparar(CampoPersonalizadoEdicao.De(dto));
     }
 
     [RelayCommand]
@@ -72,10 +112,12 @@ public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBas
         if (!await ExecutarAsync(async () => salvo = await _api.SalvarAsync(formulario.ParaDto())))
             return;
 
-        Formulario = CampoPersonalizadoEdicao.De(salvo!);
+        Formulario = Preparar(CampoPersonalizadoEdicao.De(salvo!));
         MarcarFichaSemAlteracoes();
         Mostrar(formulario.Nova
-                ? "Campo criado. Ele já aparece na aba \"Informações adicionais\" do cadastro de pessoas (reabra a tela de Pessoas)."
+                ? (formulario.DeDocumento
+                    ? "Campo criado. Ele já aparece nos documentos deste tipo (reabra a tela de Pessoas)."
+                    : "Campo criado. Ele já aparece na aba \"Informações adicionais\" do cadastro de pessoas (reabra a tela de Pessoas).")
                 : "Alterações salvas.",
             TipoMensagem.Sucesso);
         await AtualizarListaAposGravarAsync();
@@ -108,7 +150,7 @@ public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBas
                 : await _api.ReativarAsync(formulario.Id, formulario.Versao)))
             return;
 
-        Formulario = CampoPersonalizadoEdicao.De(gravado!);
+        Formulario = Preparar(CampoPersonalizadoEdicao.De(gravado!));
         MarcarFichaSemAlteracoes();
         Mostrar(desativar ? "Campo desativado." : "Campo reativado.", TipoMensagem.Sucesso);
         await AtualizarListaAposGravarAsync();
@@ -139,7 +181,7 @@ public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBas
         // A ordem muda a versão dos campos: a ficha aberta é relida para não dar conflito ao salvar depois.
         if (!await ExecutarAsync(async () =>
             {
-                await _api.ReordenarAsync(ordem.Select(l => l.Id).ToList());
+                await _api.ReordenarAsync(ordem.Select(l => l.Id).ToList(), Entidade);
                 await RecarregarFichaAsync();
             }))
             return;
