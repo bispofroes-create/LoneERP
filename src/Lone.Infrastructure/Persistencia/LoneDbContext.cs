@@ -56,6 +56,7 @@ public class LoneDbContext : DbContext
     public DbSet<MetaFaixa> MetaFaixas => Set<MetaFaixa>();
     public DbSet<MetaParticipante> MetaParticipantes => Set<MetaParticipante>();
     public DbSet<MetaAlvo> MetaAlvos => Set<MetaAlvo>();
+    public DbSet<FiltroSalvo> FiltrosSalvos => Set<FiltroSalvo>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
     public DbSet<DocumentoValorPersonalizado> PessoaDocumentoValoresPersonalizados => Set<DocumentoValorPersonalizado>();
     public DbSet<CampoPersonalizado> CamposPersonalizados => Set<CampoPersonalizado>();

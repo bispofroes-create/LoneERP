@@ -256,6 +256,21 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     papel Cliente / interações. **Filial usa a empresa da filial** até a lotação ter estabelecimento.
   - Migração final: tabelas novas + HasData dos indicadores de sistema; nenhum SQL de dados.
   - Pendente: fontes de vendas/faturamento quando o módulo de vendas existir; ligação do prêmio com comissões.
+- **Fase 12 — Consulta avançada de pessoas (código entregue em 25/09/2026; sem teste por fase):**
+  - Tela própria "Consulta avançada" (menu, `PESSOAS.VISUALIZAR`). Critérios tipados (`CriteriosPessoas`): texto,
+    natureza, situação, papéis, etiquetas, UF/município, CNAE (código ou começo, só principal), regime, produtor rural,
+    carteira de hoje (vendedor ou sem carteira), relacionamento (mesma regra dos parâmetros), sem interação há N dias,
+    bloqueio ativo, documentos vencidos / vencendo em N dias, campo personalizado pesquisável, período de cadastro.
+    Cada critério vira um Where do LINQ (sem SQL dinâmico). `POST pessoas/consulta` (critérios no corpo, não na URL).
+  - Paginação por chave (Nome + Id, "Carregar mais"); total contado só na primeira página. A lista de pessoas
+    (`PessoaRepositorio.Resumir`) e a busca por texto (`AplicarBusca`) são as mesmas da tela de cadastro.
+  - Filtros salvos (`FiltrosSalvos`, critérios em JSON de tipo fechado): do usuário, opção "compartilhar com todos",
+    só o autor altera/remove (desativa).
+  - Exportar CSV (`;`, UTF-8 com BOM, fórmulas neutralizadas) com permissão `PESSOAS.EXPORTAR`, até 50.000 linhas;
+    cada exportação vira evento na auditoria (Entidade `ConsultaPessoas`, critérios na descrição).
+  - Índices novos: `PessoaDocumentos (ValidoAte, PessoaId)` filtrado, `PessoaEnderecos (Uf, MunicipioId)`, `Pessoas (CriadoEm)`.
+  - Migração final: tabela `FiltrosSalvos` + índices; nenhum SQL de dados.
+  - Pendente: abrir a ficha a partir do resultado (hoje a consulta só lista); várias escolhas por lista na tela (a API já aceita).
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

@@ -10,6 +10,7 @@ using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
 using Lone.Application.Situacoes;
 using Lone.Application.Metas;
+using Lone.Application.Consultas;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -67,6 +68,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IEquipeAppService, EquipeAppService>();
         services.AddScoped<IIndicadorAppService, IndicadorAppService>();
         services.AddScoped<IMetaAppService, MetaAppService>();
+        services.AddScoped<IConsultaPessoasAppService, ConsultaPessoasAppService>();
 
         return services;
     }

@@ -20,6 +20,7 @@ public static class Permissoes
         public const string Bloquear = "PESSOAS.BLOQUEAR";
         public const string Desbloquear = "PESSOAS.DESBLOQUEAR";
         public const string RegistrarInteracao = "PESSOAS.INTERACOES";
+        public const string Exportar = "PESSOAS.EXPORTAR";
     }
 
     public static class Cadastros
@@ -65,6 +66,7 @@ public static class Permissoes
         new(Pessoas.Desbloquear, "Pessoas", "Liberar bloqueios de pessoas"),
         new(Pessoas.RegistrarInteracao, "Pessoas", "Registrar interações (ligações, visitas, e-mails) com as pessoas"),
         new(Pessoas.Colaborador, "Pessoas", "Ver e alterar os dados de colaborador (vínculos, matrícula, admissão, lotação)"),
+        new(Pessoas.Exportar, "Pessoas", "Exportar o resultado da consulta avançada (CSV); cada exportação fica na auditoria"),
         new(Cadastros.CamposPersonalizados, "Cadastros", "Criar, alterar, ordenar e desativar campos personalizados"),
         new(Cadastros.TabelasOficiais, "Cadastros", "Atualizar tabelas oficiais (municípios do IBGE, ocupações da CBO)"),
         new(Cadastros.Etiquetas, "Cadastros", "Criar, alterar, mesclar e desativar etiquetas"),

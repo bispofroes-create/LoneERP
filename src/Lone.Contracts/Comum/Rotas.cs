@@ -42,6 +42,14 @@ public static class Rotas
 
         /// <summary>Pessoas físicas ativas por faixa etária (?papel=Cliente opcional).</summary>
         public const string FaixasEtarias = Grupo + "/indicadores/faixas-etarias";
+
+        /// <summary>Consulta avançada (critérios tipados no corpo, paginação por chave), exportação e filtros salvos.</summary>
+        public const string Consulta = Grupo + "/consulta";
+        public const string Exportar = Consulta + "/exportar";
+        public const string OpcoesConsulta = Consulta + "/opcoes";
+        public const string FiltrosSalvos = Consulta + "/filtros";
+        public static string FiltroSalvo(Guid id) => $"{FiltrosSalvos}/{id}";
+        public static string DesativarFiltro(Guid id) => $"{FiltrosSalvos}/{id}/desativar";
     }
 
     /// <summary>Arquivos anexados aos documentos das pessoas. Nada é excluído: remover desativa.</summary>

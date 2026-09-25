@@ -61,6 +61,7 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
             .IsUnique()
             .HasFilter($"[DocumentoPrincipal] IS NOT NULL AND [Natureza] <> {(byte)NaturezaPessoa.Estrangeiro}");
         b.HasIndex(p => p.Nome);
+        b.HasIndex(p => p.CriadoEm); // filtro avançado: cadastrados no período
 
         b.HasOne<GrupoEconomico>().WithMany().HasForeignKey(p => p.GrupoEconomicoId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne<Pessoa>().WithMany().HasForeignKey(p => p.MescladaEmId).OnDelete(DeleteBehavior.NoAction);

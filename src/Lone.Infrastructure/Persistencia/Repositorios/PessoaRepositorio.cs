@@ -40,9 +40,16 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
             consulta = AplicarBusca(consulta, filtro.Texto.Trim(), db);
 
-        return await consulta
+        return await Resumir(consulta
             .OrderBy(p => p.NomeExibicao ?? p.NomeSocial ?? p.Nome)
-            .Take(filtro.Limite)
+            .Take(filtro.Limite), db)
+            .ToListAsync(ct);
+    }
+
+
+    /// <summary>Linha da lista (compartilhada com a consulta avançada: uma só definição do resumo).</summary>
+    internal static IQueryable<PessoaResumo> Resumir(IQueryable<Pessoa> consulta, LoneDbContext db) =>
+        consulta
             .Select(p => new PessoaResumo
             {
                 Id = p.Id,
@@ -65,11 +72,9 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                     .Where(e => (e.Finalidades & FinalidadeEndereco.Principal) != FinalidadeEndereco.Nenhuma)
                     .Select(e => e.Uf).FirstOrDefault(),
                 MunicipioACorrigir = db.PendenciasMunicipio.Any(x => x.PessoaId == p.Id && x.ResolvidaEm == null)
-            })
-            .ToListAsync(ct);
-    }
+            });
 
-    private static IQueryable<Pessoa> AplicarBusca(IQueryable<Pessoa> consulta, string termo, LoneDbContext db)
+    internal static IQueryable<Pessoa> AplicarBusca(IQueryable<Pessoa> consulta, string termo, LoneDbContext db)
     {
         var documento = termo.Any(char.IsAsciiDigit) ? Documento.Normalizar(termo) : string.Empty;
         var digitos = Documento.SomenteDigitos(termo);

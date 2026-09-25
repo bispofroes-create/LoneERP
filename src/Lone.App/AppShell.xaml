@@ -29,6 +29,10 @@
         <ShellContent Title="Pessoas" ContentTemplate="{DataTemplate views:PessoasPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Consulta avançada" Route="consulta-pessoas" IsVisible="{Binding PodeVerPessoas}">
+        <ShellContent Title="Consulta avançada" ContentTemplate="{DataTemplate views:ConsultaPessoasPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Campos personalizados" Route="campos-personalizados" IsVisible="{Binding PodeGerenciarCampos}">
         <ShellContent Title="Campos personalizados" ContentTemplate="{DataTemplate views:CamposPersonalizadosPage}" />
     </FlyoutItem>

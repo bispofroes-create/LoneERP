@@ -12,6 +12,7 @@ using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
 using Lone.Application.Situacoes;
 using Lone.Application.Metas;
+using Lone.Application.Consultas;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -66,6 +67,8 @@ public static class ConfiguracaoDados
         services.AddScoped<IMetaRepositorio, MetaRepositorio>();
         services.AddScoped<IMetaConsultas, MetaConsultas>();
         services.AddScoped<IFonteIndicadores, FonteIndicadoresCadastro>();
+        services.AddScoped<IConsultaPessoas, ConsultaPessoas>();
+        services.AddScoped<IFiltroSalvoRepositorio, FiltroSalvoRepositorio>();
 
         return services;
     }

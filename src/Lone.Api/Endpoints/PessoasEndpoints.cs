@@ -1,4 +1,5 @@
 using Lone.Api.Erros;
+using Lone.Application.Consultas;
 using Lone.Application.Documentos;
 using Lone.Application.Pessoas;
 using Lone.Application.Situacoes;
@@ -30,6 +31,29 @@ public static class PessoasEndpoints
                     MunicipioACorrigir = municipioACorrigir ?? false,
                     Limite = limite ?? FiltroPessoas.LimiteMaximo
                 }, ct));
+
+        // Consulta avançada: critérios tipados no corpo (POST para não expor dados pessoais na URL).
+        grupo.MapPost("consulta", (ConsultaPessoasRequisicao requisicao, IConsultaPessoasAppService servico, CancellationToken ct) =>
+            servico.ConsultarAsync(requisicao, ct));
+
+        grupo.MapPost("consulta/exportar", (CriteriosPessoas criterios, IConsultaPessoasAppService servico, CancellationToken ct) =>
+            servico.ExportarAsync(criterios, ct));
+
+        grupo.MapGet("consulta/opcoes", (IConsultaPessoasAppService servico, CancellationToken ct) => servico.OpcoesAsync(ct));
+
+        grupo.MapPut("consulta/filtros/{filtroId:guid}", async (Guid filtroId, FiltroSalvoDto filtro, IConsultaPessoasAppService servico, CancellationToken ct) =>
+        {
+            if (filtro.Id != Guid.Empty && filtro.Id != filtroId)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            filtro.Id = filtroId;
+            return Results.Ok(await servico.SalvarFiltroAsync(filtro, ct));
+        });
+
+        grupo.MapPost("consulta/filtros/{filtroId:guid}/desativar", async (Guid filtroId, IConsultaPessoasAppService servico, CancellationToken ct) =>
+        {
+            await servico.DesativarFiltroAsync(filtroId, ct);
+            return Results.NoContent();
+        });
 
         grupo.MapGet("indicadores/faixas-etarias",
             (TipoPapel? papel, IPessoaAppService servico, CancellationToken ct) => servico.ListarFaixasEtariasAsync(papel, ct));

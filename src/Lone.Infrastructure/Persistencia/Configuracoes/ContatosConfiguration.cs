@@ -103,6 +103,7 @@ public class PessoaDocumentoConfiguration : IEntityTypeConfiguration<PessoaDocum
         // Tipo do cadastro; índice com a validade para a consulta de vencidos / a vencer por tipo.
         b.HasOne<TipoDocumentoCadastro>().WithMany().HasForeignKey(d => d.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(d => new { d.TipoDocumentoId, d.ValidoAte }).HasFilter("[Ativo] = 1");
+        b.HasIndex(d => new { d.ValidoAte, d.PessoaId }).HasFilter("[Ativo] = 1 AND [ValidoAte] IS NOT NULL"); // filtro avançado: vencidos / a vencer
     }
 }
 

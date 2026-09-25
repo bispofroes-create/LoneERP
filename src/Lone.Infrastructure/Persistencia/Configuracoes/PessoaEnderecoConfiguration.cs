@@ -28,6 +28,7 @@ public class PessoaEnderecoConfiguration : IEntityTypeConfiguration<PessoaEndere
         b.HasOne<TipoEndereco>().WithMany().HasForeignKey(e => e.TipoEnderecoId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(e => e.TipoEnderecoId);
         b.HasIndex(e => new { e.PessoaId, e.Ordem });
+        b.HasIndex(e => new { e.Uf, e.MunicipioId }); // filtro avançado por UF / município
 
         // Município da tabela do IBGE (relatórios, filtros e NF-e por município).
         b.HasOne<Municipio>().WithMany().HasForeignKey(e => e.MunicipioId).OnDelete(DeleteBehavior.Restrict);

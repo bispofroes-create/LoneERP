@@ -130,3 +130,18 @@ public class MetaAlvoConfiguration : IEntityTypeConfiguration<MetaAlvo>
         b.HasIndex(x => new { x.MetaId, x.ParticipanteId, x.ItemId }).IsUnique();
     }
 }
+
+/// <summary>Filtros salvos da consulta avançada de pessoas (critérios em JSON de tipo fechado).</summary>
+public class FiltroSalvoConfiguration : IEntityTypeConfiguration<FiltroSalvo>
+{
+    public void Configure(EntityTypeBuilder<FiltroSalvo> b)
+    {
+        b.ToTable("FiltrosSalvos");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Nome).IsRequired().HasMaxLength(FiltroSalvo.TamanhoMaximoNome).UseCollation(EtiquetaConfiguration.CollationNome);
+        b.Property(x => x.Autor).IsRequired().HasMaxLength(100);
+        b.Property(x => x.Criterios).IsRequired().HasMaxLength(FiltroSalvo.TamanhoMaximoCriterios);
+        b.HasIndex(x => new { x.UsuarioId, x.Ativo });
+        b.HasIndex(x => x.Compartilhado).HasFilter("[Compartilhado] = 1");
+    }
+}
