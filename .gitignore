@@ -17,3 +17,6 @@ ARM64/
 *.msix
 *.log
 TestResults/
+
+# Scripts Python das ferramentas
+__pycache__/
