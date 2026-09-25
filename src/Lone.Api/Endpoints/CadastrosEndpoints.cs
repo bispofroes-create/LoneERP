@@ -3,12 +3,14 @@ using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
+using Lone.Application.Contatos;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
+using Lone.Contracts.Contatos;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -23,6 +25,7 @@ public static class CadastrosEndpoints
         MapEtiquetas(app);
         MapProfissoes(app);
         MapPapeis(app);
+        MapTiposMeioContato(app);
         return app;
     }
 
@@ -36,6 +39,35 @@ public static class CadastrosEndpoints
         grupo.MapGet("situacao", (IMunicipioAppService servico, CancellationToken ct) => servico.ObterSituacaoAsync(ct));
 
         grupo.MapPost("atualizar", (IMunicipioAppService servico, CancellationToken ct) => servico.AtualizarAsync(ct));
+    }
+
+    private static void MapTiposMeioContato(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.TiposMeioContato.Grupo).WithTags("Tipos de telefone/e-mail").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ITipoMeioContatoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ITipoMeioContatoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } tipo
+                ? Results.Ok(tipo)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este tipo não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, TipoMeioContatoDto tipo, ITipoMeioContatoAppService servico, CancellationToken ct) =>
+        {
+            if (tipo.Id != Guid.Empty && tipo.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id do tipo enviado."));
+            tipo.Id = id;
+            return Results.Ok(await servico.SalvarAsync(tipo, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoMeioContatoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoMeioContatoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
     }
 
     private static void MapPapeis(IEndpointRouteBuilder app)

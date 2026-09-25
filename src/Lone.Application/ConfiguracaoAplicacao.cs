@@ -2,6 +2,7 @@ using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
+using Lone.Application.Contatos;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -38,6 +39,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IProfissaoAppService, ProfissaoAppService>();
         services.AddScoped<IOcupacaoCboAppService, OcupacaoCboAppService>();
         services.AddScoped<IPapelAppService, PapelAppService>();
+        services.AddScoped<ITipoMeioContatoAppService, TipoMeioContatoAppService>();
 
         return services;
     }

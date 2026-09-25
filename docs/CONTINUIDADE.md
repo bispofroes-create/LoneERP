@@ -136,6 +136,14 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     começa outro período. Início/encerramento viram frase no histórico da pessoa.
   - Filtro da lista por `papelId`; a lista mostra os nomes do cadastro.
   - Migração `CadastroPapeis`: gerada pelo usuário e **reordenada à mão** (SQL em `SqlMigracaoPapeis.cs`).
+- **Fase 3a — Telefones e e-mails (código entregue em 25/09/2026, aguardando migração e testes):**
+  - Decisões: DDD dentro do número (coluna calculada `Ddd`, persistida e indexada, só para filtro); WhatsApp virou
+    marcação (tipo WhatsApp antigo → Celular + WhatsApp); remover desativa e esconde ("Mostrar inativos" + "Reativar").
+  - `PessoaMeiosContato` ganhou `TipoMeioContatoId` (classificação), `Ramal`, `WhatsApp`, `Sms`, `Finalidades`
+    (financeiro, cobrança, NF-e, marketing) e `Ativo`. Nunca apagados (`apagarAusentes: false`).
+  - Cadastro `TiposMeioContato` (categoria telefone/e-mail, nome único por categoria, ordem, ativo; 5 iniciais com Ids fixos).
+    Permissão `CADASTROS.TIPOS` (servirá também para tipos de endereço e de documento). Menu "Tipos de telefone/e-mail".
+  - Migração `MeiosContatoETipos`: no fim do `Up`, `migrationBuilder.Sql(SqlMigracaoMeiosContato.AtivarEConverterWhatsApp);`.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

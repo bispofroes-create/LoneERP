@@ -30,6 +30,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<EtiquetasApi>();
         services.AddSingleton<ProfissoesApi>();
         services.AddSingleton<PapeisApi>();
+        services.AddSingleton<TiposMeioContatoApi>();
         services.AddSingleton<FluxoDeEntrada>();
 
         // Um ViewModel novo a cada abertura de tela.
@@ -46,6 +47,7 @@ public static class ConfiguracaoCliente
         services.AddTransient<EtiquetasViewModel>();
         services.AddTransient<ProfissoesViewModel>();
         services.AddTransient<PapeisViewModel>();
+        services.AddTransient<TiposMeioContatoViewModel>();
 
         return services;
     }

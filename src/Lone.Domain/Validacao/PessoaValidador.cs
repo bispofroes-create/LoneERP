@@ -1,3 +1,4 @@
+using Lone.Domain.Contatos;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
@@ -187,6 +188,8 @@ public static class PessoaValidador
             erros.Add($"{rotulo}: e-mail inválido.");
         else if (m.Tipo is TipoContato.Telefone or TipoContato.Celular or TipoContato.WhatsApp && !Telefone.EhValido(m.Valor))
             erros.Add($"{rotulo}: telefone inválido. Informe com DDD, ou com + e o código do país se for do exterior.");
+        if (m.Ramal is { Length: > RegrasMeioContato.TamanhoMaximoRamal })
+            erros.Add($"{rotulo}: o ramal pode ter no máximo {RegrasMeioContato.TamanhoMaximoRamal} dígitos.");
     }
 
     private static void ValidarContato(Contato c, string rotulo, List<string> erros)

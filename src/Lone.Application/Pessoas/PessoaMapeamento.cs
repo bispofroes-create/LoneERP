@@ -272,9 +272,15 @@ public static class PessoaMapeamento
         Id = m.Id,
         Tipo = m.Tipo,
         Valor = m.Valor,
+        TipoMeioContatoId = m.TipoMeioContatoId,
+        Ramal = m.Ramal,
+        WhatsApp = m.WhatsApp,
+        Sms = m.Sms,
+        Finalidades = m.Finalidades,
         Descricao = m.Descricao,
         Principal = m.Principal,
-        PermiteComunicacao = m.PermiteComunicacao
+        PermiteComunicacao = m.PermiteComunicacao,
+        Ativo = m.Ativo
     };
 
     private static MeioContato ParaEntidade(MeioContatoDto m, Guid pessoaId) => new()
@@ -283,9 +289,15 @@ public static class PessoaMapeamento
         PessoaId = pessoaId,
         Tipo = m.Tipo,
         Valor = m.Valor ?? string.Empty,
+        TipoMeioContatoId = m.TipoMeioContatoId,
+        Ramal = m.Ramal,
+        WhatsApp = m.WhatsApp,
+        Sms = m.Sms,
+        Finalidades = m.Finalidades,
         Descricao = m.Descricao,
         Principal = m.Principal,
-        PermiteComunicacao = m.PermiteComunicacao
+        PermiteComunicacao = m.PermiteComunicacao,
+        Ativo = m.Ativo
     };
 
     private static ContatoDto ParaDto(Contato c) => new()

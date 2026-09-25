@@ -6,10 +6,12 @@
              x:Class="Lone.App.Views.Pessoas.SecaoContatosView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
-        <!-- Telefones e e-mails da própria pessoa -->
-        <Grid ColumnDefinitions="*,Auto">
+        <!-- Telefones e e-mails da própria pessoa. Remover um já gravado só desativa (fica no histórico). -->
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
             <Label Text="Telefones e e-mails" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarMeioCommand}" />
+            <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarMeiosInativos}"
+                           IsVisible="{Binding Formulario.TemMeiosInativos}" VerticalOptions="Center" />
+            <Button Grid.Column="2" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarMeioCommand}" />
         </Grid>
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">
             <BindableLayout.EmptyView>
@@ -17,15 +19,31 @@
             </BindableLayout.EmptyView>
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:MeioContatoFormulario">
-                    <Border Style="{StaticResource CartaoItem}">
-                        <FlexLayout Wrap="Wrap" AlignItems="End">
-                            <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
-                            <c:Campo Rotulo="Número ou e-mail" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
-                            <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" Dica="Ex.: Financeiro" />
-                            <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
-                            <c:CaixaMarcar Texto="Aceita comunicações" Marcado="{Binding PermiteComunicacao}" />
-                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
-                        </FlexLayout>
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Visivel}">
+                        <VerticalStackLayout>
+                            <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
+                            <FlexLayout Wrap="Wrap" AlignItems="End">
+                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
+                                <c:Campo Rotulo="Número ou e-mail" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
+                                <c:Campo Rotulo="Ramal" Texto="{Binding Ramal}" Mascara="Numero" IsVisible="{Binding EhFixo}" />
+                                <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
+                                                IsVisible="{Binding TemClassificacao}" />
+                                <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: falar com a recepção" />
+                                <c:CaixaMarcar Texto="WhatsApp" Marcado="{Binding WhatsApp}" IsVisible="{Binding EhTelefone}" />
+                                <c:CaixaMarcar Texto="SMS" Marcado="{Binding Sms}" IsVisible="{Binding EhTelefone}" />
+                                <c:CaixaMarcar Texto="Financeiro" Marcado="{Binding Financeiro}" IsVisible="{Binding EhEmail}" />
+                                <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" IsVisible="{Binding EhEmail}" />
+                                <c:CaixaMarcar Texto="NF-e" Marcado="{Binding Nfe}" IsVisible="{Binding EhEmail}" />
+                                <c:CaixaMarcar Texto="Marketing" Marcado="{Binding Marketing}" IsVisible="{Binding EhEmail}" />
+                                <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
+                                <c:CaixaMarcar Texto="Aceita comunicações" Marcado="{Binding PermiteComunicacao}" />
+                                <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                        IsVisible="{Binding Ativo}" />
+                                <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
+                                        IsVisible="{Binding Inativo}" />
+                            </FlexLayout>
+                        </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
             </BindableLayout.ItemTemplate>

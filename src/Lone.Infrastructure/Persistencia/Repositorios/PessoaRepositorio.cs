@@ -152,7 +152,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         return await db.Pessoas.AsNoTracking()
             .Where(p => p.Id != ignorarId &&
                         (p.Nome == nome ||
-                         p.MeiosContato.Any(m => valores.Contains(m.Valor)) ||
+                         p.MeiosContato.Any(m => m.Ativo && valores.Contains(m.Valor)) ||
                          p.Contatos.Any(x => (x.Telefone != null && valores.Contains(x.Telefone)) ||
                                              (x.Celular != null && valores.Contains(x.Celular)) ||
                                              (x.Email != null && valores.Contains(x.Email)))))
@@ -270,7 +270,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         SincronizarFilhos(db, atual.Id, atual.Enderecos, dados.Enderecos);
         SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos);
         SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos);
-        SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato);
+        SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Contatos, dados.Contatos);
         SincronizarFilhos(db, atual.Id, atual.Papeis, dados.Papeis, apagarAusentes: false); // períodos nunca são apagados
         SincronizarFilhos(db, atual.Id, atual.ContasCliente, dados.ContasCliente);

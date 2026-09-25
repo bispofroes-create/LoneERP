@@ -41,8 +41,7 @@ public static class OpcoesPessoa
     public static Opcao<TipoContato>[] TiposContato { get; } =
     [
         new(TipoContato.Celular, "Celular"),
-        new(TipoContato.WhatsApp, "WhatsApp"),
-        new(TipoContato.Telefone, "Telefone"),
+        new(TipoContato.Telefone, "Telefone fixo"),
         new(TipoContato.Email, "E-mail"),
         new(TipoContato.Outro, "Outro")
     ];

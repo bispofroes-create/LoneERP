@@ -8,6 +8,7 @@ using Lone.Contracts.Comum;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
+using Lone.Contracts.Contatos;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
 
@@ -18,7 +19,8 @@ public class PessoasViewModelTests
     internal static PessoasViewModel NovaTela(AmbienteCliente ambiente) =>
         new(new PessoasApi(ambiente.Api), new ConsultasApi(ambiente.Api), ambiente.Sessao, ambiente.Autenticacao,
             new MunicipiosApi(ambiente.Api), new CamposPersonalizadosApi(ambiente.Api), new EtiquetasApi(ambiente.Api),
-            new ProfissoesApi(ambiente.Api), new PapeisApi(ambiente.Api), ambiente.Dialogos);
+            new ProfissoesApi(ambiente.Api), new PapeisApi(ambiente.Api),
+            new TiposMeioContatoApi(ambiente.Api), ambiente.Dialogos);
 
     internal static readonly EtiquetaDto Vip = new() { Id = Guid.NewGuid(), Nome = "VIP", Ativo = true };
     internal static readonly ProfissaoDto Advogado = new() { Id = Guid.NewGuid(), Nome = "Advogado", Ativo = true };
@@ -31,6 +33,7 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos personalizados
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto> { Advogado }); // cadastro de profissões
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>()); // cadastro de papéis (vazio: usa os de sistema)
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>()); // tipos de telefone/e-mail
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>
         {
             new() { Id = Guid.NewGuid(), Codigo = 1, Nome = "Ana", Natureza = NaturezaPessoa.Fisica }
@@ -155,6 +158,7 @@ public class PessoasViewModelCepTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

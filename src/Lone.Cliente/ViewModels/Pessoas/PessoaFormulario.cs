@@ -7,6 +7,7 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
+using Lone.Contracts.Contatos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Municipios;
 using Lone.Contracts.Pessoas;
@@ -217,10 +218,12 @@ public sealed partial class PessoaFormulario : ObservableObject
     // ---- Criação e conversão ----
 
     public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
-                                             IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null)
+                                             IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
+                                             IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
+            _tiposMeio = tiposMeio ?? [],
             Papeis = MontarPapeis(papeis, [], out _),
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, []),
             Etiquetas = EtiquetasFormulario.Criar(etiquetas, [])
@@ -234,7 +237,8 @@ public sealed partial class PessoaFormulario : ObservableObject
     }
 
     public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
-                                      IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null)
+                                      IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
+                                      IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null)
     {
         var opcoesPapel = MontarPapeis(papeis, p.Papeis, out var papeisDesconhecidos);
         var f = new PessoaFormulario(p.Id, nova: false)
@@ -270,6 +274,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             TextoBloqueios = string.Join(Environment.NewLine, p.Bloqueios.Where(b => b.Ativo).Select(b =>
                 $"{b.Escopo} desde {b.InicioEm.ToLocalTime().ToString("dd/MM/yyyy", TextoTela.Brasil)} por {b.InicioPor}: {b.Motivo}")),
             Papeis = opcoesPapel,
+            _tiposMeio = tiposMeio ?? [],
             _papeisDesconhecidos = papeisDesconhecidos,
             Sexo = Opcao.De(OpcoesPessoa.Sexos, p.Sexo),
             Genero = Opcao.De(OpcoesPessoa.Generos, p.IdentidadeGenero),
@@ -307,7 +312,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             f.AdicionarEstabelecimento();
         f.MarcarPrincipal();
 
-        foreach (var m in p.MeiosContato.OrderBy(m => m.Tipo).ThenByDescending(m => m.Principal))
+        foreach (var m in p.MeiosContato.OrderByDescending(m => m.Ativo).ThenBy(m => m.Tipo).ThenByDescending(m => m.Principal))
             f.AdicionarMeio(MeioContatoFormulario.De(m));
         foreach (var c in p.Contatos.OrderByDescending(c => c.Principal).ThenBy(c => c.Nome))
             f.AdicionarContato(ContatoFormulario.De(c));
@@ -583,8 +588,34 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public void AdicionarMeio(MeioContatoFormulario meio)
     {
-        meio.AoRemover = () => MeiosContato.Remove(meio);
+        meio.DefinirCatalogo(_tiposMeio);
+        meio.MostrarSeInativo = MostrarMeiosInativos;
+        meio.AoRemover = () =>
+        {
+            // Já gravado: fica gravado como inativo (histórico e busca por número antigo). Novo: sai da lista.
+            if (meio.Gravado) meio.Ativo = false;
+            else MeiosContato.Remove(meio);
+            OnPropertyChanged(nameof(TemMeiosInativos));
+        };
+        meio.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MeioContatoFormulario.Ativo)) OnPropertyChanged(nameof(TemMeiosInativos));
+        };
         MeiosContato.Add(meio);
+        OnPropertyChanged(nameof(TemMeiosInativos));
+    }
+
+    /// <summary>Tipos de telefone/e-mail do cadastro (Comercial, Residencial...).</summary>
+    private IReadOnlyList<TipoMeioContatoDto> _tiposMeio = [];
+
+    /// <summary>Mostra também os telefones/e-mails removidos (inativos), para consultar ou reativar.</summary>
+    [ObservableProperty] private bool _mostrarMeiosInativos;
+
+    public bool TemMeiosInativos => MeiosContato.Any(m => !m.Ativo);
+
+    partial void OnMostrarMeiosInativosChanged(bool value)
+    {
+        foreach (var m in MeiosContato) m.MostrarSeInativo = value;
     }
 
     public void AdicionarContato(ContatoFormulario contato)

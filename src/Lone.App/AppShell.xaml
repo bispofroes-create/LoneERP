@@ -41,6 +41,10 @@
         <ShellContent Title="Profissões" ContentTemplate="{DataTemplate views:ProfissoesPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Tipos de telefone/e-mail" Route="tipos-meio-contato" IsVisible="{Binding PodeGerenciarTipos}">
+        <ShellContent Title="Tipos de telefone/e-mail" ContentTemplate="{DataTemplate views:TiposMeioContatoPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>

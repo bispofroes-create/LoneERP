@@ -3,26 +3,46 @@ using Lone.Domain.Enums;
 
 namespace Lone.Domain.Entidades;
 
-/// <summary>Telefone ou e-mail da própria pessoa (os de pessoas de contato ficam no Contato).</summary>
+/// <summary>
+/// Telefone ou e-mail da própria pessoa. O número guarda o DDD junto (ex.: 31987654321). Não é apagado: removido na
+/// ficha, fica inativo (histórico e busca por número antigo).
+/// </summary>
 [DisplayName("Telefone/e-mail")]
 public class MeioContato : EntidadePessoaFilha
 {
+    /// <summary>Formato (telefone fixo, celular, e-mail, outro): define máscara e validação.</summary>
     [DisplayName("Tipo")]
     public TipoContato Tipo { get; set; } = TipoContato.Celular;
 
-    /// <summary>Telefone só com dígitos (ou "+" e dígitos se internacional), ou e-mail em minúsculas.</summary>
     [DisplayName("Número/e-mail")]
     public string Valor { get; set; } = string.Empty;
 
-    /// <summary>Ex.: "Financeiro", "NF-e", "Recepção".</summary>
-    [DisplayName("Descrição")]
+    /// <summary>Classificação do cadastro de tipos (Comercial, Residencial...); opcional.</summary>
+    [DisplayName("Classificação")]
+    public Guid? TipoMeioContatoId { get; set; }
+
+    [DisplayName("Ramal")]
+    public string? Ramal { get; set; }
+
+    [DisplayName("WhatsApp")]
+    public bool WhatsApp { get; set; }
+
+    [DisplayName("SMS")]
+    public bool Sms { get; set; }
+
+    /// <summary>E-mail: financeiro, cobrança, NF-e, marketing.</summary>
+    [DisplayName("Finalidades")]
+    public FinalidadeEmail Finalidades { get; set; }
+
+    [DisplayName("Observação")]
     public string? Descricao { get; set; }
 
-    /// <summary>Principal do seu tipo (um telefone principal, um e-mail principal...).</summary>
     [DisplayName("Principal")]
     public bool Principal { get; set; }
 
-    /// <summary>A pessoa autorizou receber comunicações por este meio (LGPD).</summary>
     [DisplayName("Permite comunicação")]
     public bool PermiteComunicacao { get; set; } = true;
+
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
 }

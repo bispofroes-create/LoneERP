@@ -3,6 +3,7 @@ using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
+using Lone.Application.Contatos;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -16,6 +17,7 @@ using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
 using Lone.Domain.Profissoes;
 using Lone.Domain.Papeis;
+using Lone.Domain.Contatos;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -36,11 +38,13 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IEtiquetaRepositorio _etiquetas;
     private readonly IProfissaoRepositorio _profissoes;
     private readonly IPapelRepositorio _papeis;
+    private readonly ITipoMeioContatoRepositorio _tiposMeio;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
-                            IProfissaoRepositorio profissoes, IPapelRepositorio papeis, TimeProvider relogio)
+                            IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
+                            ITipoMeioContatoRepositorio tiposMeio, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -50,6 +54,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _etiquetas = etiquetas;
         _profissoes = profissoes;
         _papeis = papeis;
+        _tiposMeio = tiposMeio;
         _relogio = relogio;
     }
 
@@ -179,6 +184,13 @@ public sealed class PessoaAppService : IPessoaAppService
             (anterior?.Etiquetas ?? []).Select(e => e.EtiquetaId).ToHashSet(),
             await _etiquetas.ObterVariasAsync(dados.Etiquetas.Select(e => e.EtiquetaId).ToList(), ct)));
 
+        // Telefones/e-mails: a classificação vem do cadastro de tipos (mesma categoria; desativado só se já era o dele).
+        var tiposEscolhidos = dados.MeiosContato.Select(m => m.TipoMeioContatoId).OfType<Guid>().Distinct().ToList();
+        erros.AddRange(RegrasMeioContato.ValidarTipos(
+            dados.MeiosContato,
+            (anterior?.MeiosContato ?? []).ToDictionary(m => m.Id, m => m.TipoMeioContatoId),
+            await _tiposMeio.ObterVariosAsync(tiposEscolhidos, ct)));
+
         // Profissão: do cadastro de profissões; uma desativada só continua em quem já a tinha.
         if (RegrasProfissao.ValidarEscolhida(
                 dados.ProfissaoId,
@@ -286,7 +298,7 @@ public sealed class PessoaAppService : IPessoaAppService
     /// <summary>Nome, telefone ou e-mail iguais geram aviso, mas não impedem a gravação.</summary>
     private async Task<List<string>> BuscarAvisosDeDuplicidadeAsync(Pessoa p, CancellationToken ct)
     {
-        var contatos = p.MeiosContato.Select(m => m.Valor)
+        var contatos = p.MeiosContato.Where(m => m.Ativo).Select(m => m.Valor)
             .Concat(p.Contatos.SelectMany(c => new[] { c.Telefone, c.Celular, c.Email }))
             .OfType<string>()
             .Where(v => v.Length > 0)

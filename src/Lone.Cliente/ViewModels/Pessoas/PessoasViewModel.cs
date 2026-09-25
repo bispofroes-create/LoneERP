@@ -11,6 +11,7 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
+using Lone.Contracts.Contatos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
@@ -37,6 +38,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly EtiquetasApi _etiquetasApi;
     private readonly ProfissoesApi _profissoesApi;
     private readonly PapeisApi _papeisApi;
+    private readonly TiposMeioContatoApi _tiposMeioApi;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
@@ -50,9 +52,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Cadastro de papéis, com os desativados (a ficha oferece os ativos e mostra os que a pessoa tem).</summary>
     private List<PapelCadastroDto> _papeis = [];
 
+    /// <summary>Tipos de telefone/e-mail (Comercial, Residencial...), com os desativados.</summary>
+    private List<TipoMeioContatoDto> _tiposMeio = [];
+
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
-                            PapeisApi papeisApi, IDialogos dialogos)
+                            PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -64,6 +69,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _etiquetasApi = etiquetasApi;
         _profissoesApi = profissoesApi;
         _papeisApi = papeisApi;
+        _tiposMeioApi = tiposMeioApi;
     }
 
     protected override bool BuscaNoServidor => true;
@@ -143,6 +149,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             AtualizarFiltrosPapel();
         }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _papeis = []; }
+
+        // Sem os tipos, os telefones/e-mails ficam sem classificação na tela, mas a gravada volta intacta.
+        try { _tiposMeio = await _tiposMeioApi.ListarAsync(incluirInativos: true); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposMeio = []; }
     }
 
     private void AtualizarFiltrosPapel()
@@ -227,12 +237,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio);
         return Task.CompletedTask;
     }
 
@@ -251,7 +261,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 

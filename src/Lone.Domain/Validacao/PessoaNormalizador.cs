@@ -1,4 +1,5 @@
 using Lone.Domain.Comum;
+using Lone.Domain.Contatos;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.ObjetosDeValor;
@@ -122,12 +123,28 @@ public static class PessoaNormalizador
     {
         foreach (var m in meios)
         {
+            // "WhatsApp" deixou de ser tipo: é um celular com a marcação WhatsApp.
+            if (m.Tipo == TipoContato.WhatsApp)
+            {
+                m.Tipo = TipoContato.Celular;
+                m.WhatsApp = true;
+            }
+
             m.Valor = NormalizarValor(m.Tipo, m.Valor) ?? string.Empty;
             m.Descricao = Texto(m.Descricao);
+
+            var telefone = RegrasMeioContato.EhTelefone(m.Tipo);
+            if (!telefone) m.WhatsApp = m.Sms = false;
+            m.Ramal = m.Tipo == TipoContato.Telefone && Texto(m.Ramal) is { } ramal ? new string(ramal.Where(char.IsAsciiDigit).ToArray()) : null;
+            if (m.Ramal is { Length: 0 }) m.Ramal = null;
+            if (m.Tipo != TipoContato.Email) m.Finalidades = FinalidadeEmail.Nenhuma;
+            if (RegrasMeioContato.Categoria(m.Tipo) is null) m.TipoMeioContatoId = null;
+            if (m.TipoMeioContatoId == Guid.Empty) m.TipoMeioContatoId = null;
+            if (!m.Ativo) m.Principal = false; // inativo nunca é o principal
         }
 
-        // Um principal por tipo.
-        foreach (var grupo in meios.GroupBy(m => m.Tipo))
+        // Um principal por tipo, entre os ativos.
+        foreach (var grupo in meios.Where(m => m.Ativo).GroupBy(m => m.Tipo))
             MarcarUm(grupo.ToList(), m => m.Principal, (m, v) => m.Principal = v);
     }
 

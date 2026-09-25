@@ -145,9 +145,21 @@ public sealed class MeioContatoDto
     public Guid Id { get; set; }
     public TipoContato Tipo { get; set; } = TipoContato.Celular;
     public string Valor { get; set; } = string.Empty;
+
+    /// <summary>Classificação do cadastro de tipos (Comercial, Residencial...); nula = sem classificação.</summary>
+    public Guid? TipoMeioContatoId { get; set; }
+    public string? Ramal { get; set; }
+    public bool WhatsApp { get; set; }
+    public bool Sms { get; set; }
+    public FinalidadeEmail Finalidades { get; set; }
+
+    /// <summary>Observação.</summary>
     public string? Descricao { get; set; }
     public bool Principal { get; set; }
     public bool PermiteComunicacao { get; set; } = true;
+
+    /// <summary>Falso = removido na ficha (fica gravado, fora da lista principal).</summary>
+    public bool Ativo { get; set; } = true;
 }
 
 public sealed class ContatoDto
