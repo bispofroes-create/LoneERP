@@ -164,8 +164,12 @@ public static class PessoaNormalizador
 
     private static void NormalizarPapeis(List<PessoaPapel> papeis, DateOnly hoje)
     {
-        // Um registro por papel.
-        foreach (var repetido in papeis.GroupBy(p => p.Papel).SelectMany(g => g.Skip(1)).ToList())
+        // Um período ativo por papel (os encerrados ficam todos: são o histórico).
+        // Sem o Id do cadastro, mas com o papel de sistema (chamadas antigas): usa o Id fixo do papel de sistema.
+        foreach (var p in papeis.Where(p => p.PapelId == Guid.Empty && p.Papel is not null))
+            p.PapelId = global::Lone.Domain.Papeis.PapeisSistema.Id(p.Papel!.Value);
+        papeis.RemoveAll(p => p.PapelId == Guid.Empty);
+        foreach (var repetido in papeis.Where(p => p.Ativo).GroupBy(p => p.PapelId).SelectMany(g => g.Skip(1)).ToList())
             papeis.Remove(repetido);
 
         foreach (var p in papeis)

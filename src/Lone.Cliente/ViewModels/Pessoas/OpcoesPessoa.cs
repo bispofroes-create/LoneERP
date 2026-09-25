@@ -56,24 +56,6 @@ public static class OpcoesPessoa
         new(TipoDocumento.Outro, "Outro")
     ];
 
-    /// <summary>Filtro da lista (nulo = todos os papéis).</summary>
-    public static Opcao<TipoPapel?>[] FiltrosPapel { get; } =
-    [
-        new(null, "Todos"),
-        new(TipoPapel.Cliente, "Clientes"),
-        new(TipoPapel.Fornecedor, "Fornecedores"),
-        new(TipoPapel.EmpresaDoGrupo, "Empresas do grupo"),
-        new(TipoPapel.Transportadora, "Transportadoras"),
-        new(TipoPapel.Vendedor, "Vendedores")
-    ];
-
-    /// <summary>Ordem em que os papéis aparecem na ficha.</summary>
-    public static TipoPapel[] PapeisNaTela { get; } =
-    [
-        TipoPapel.Cliente, TipoPapel.Fornecedor, TipoPapel.Vendedor, TipoPapel.Transportadora,
-        TipoPapel.Representante, TipoPapel.PrestadorServico, TipoPapel.Funcionario, TipoPapel.EmpresaDoGrupo
-    ];
-
     public static Opcao<SexoRegistro>[] Sexos { get; } =
         [.. Enum.GetValues<SexoRegistro>().Select(v => new Opcao<SexoRegistro>(v, NomesPessoa.Sexo(v)))];
 

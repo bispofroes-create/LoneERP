@@ -3,12 +3,19 @@ using Lone.Domain.Enums;
 
 namespace Lone.Domain.Entidades;
 
-/// <summary>Papel que a pessoa exerce. Desligar um papel só o inativa, para não perder o histórico.</summary>
+/// <summary>
+/// Um período de um papel na pessoa (ex.: cliente de 01/2024 a 06/2025). Não é apagado: ao desmarcar, o período é
+/// encerrado (Ativo = falso, Fim preenchido); ao marcar de novo, começa outro período. Só um ativo por papel.
+/// </summary>
 [DisplayName("Papel")]
 public class PessoaPapel : EntidadePessoaFilha
 {
     [DisplayName("Papel")]
-    public TipoPapel Papel { get; set; }
+    public Guid PapelId { get; set; }
+
+    /// <summary>Cópia do papel de sistema (enum) do cadastro de papéis, usada pelas regras e consultas; nula nos papéis do usuário.</summary>
+    [DisplayName("Papel de sistema")]
+    public TipoPapel? Papel { get; set; }
 
     [DisplayName("Ativo")]
     public bool Ativo { get; set; } = true;

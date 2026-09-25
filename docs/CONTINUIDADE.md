@@ -126,6 +126,16 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Ficha da pessoa: autocompletar (`SeletorDeLista` + controle `CampoLista`, reutilizáveis) e atalho "Nova profissão".
   - Decisão do usuário: cadastros auxiliares **um por um** (sem base comum); o `SeletorDeLista` é só um componente de tela.
   - Migração `CadastroProfissoes`: no fim do `Up`, `migrationBuilder.Sql(SqlMigracaoProfissoes.CriarProfissoesELigarPessoas);`.
+- **Fase 2c — Papéis (código entregue em 25/09/2026, aguardando migração e testes):**
+  - Cadastro `Papeis` (código imutável, nome único CI_AI, descrição, ordem, ativo, `PapelSistema` ligado ao enum `TipoPapel`).
+    Os 8 de sistema nascem pela migração com Ids fixos (`PapeisSistema`); Cliente, Fornecedor, Empresa do grupo e Funcionário
+    não podem ser desativados (regras no código). Permissão `CADASTROS.PAPEIS`, menu "Papéis".
+  - `PessoaPapeis.PapelId` (FK); `Papel` (enum) virou cópia do papel de sistema, sobrescrita pelo cadastro ao gravar (o aplicativo
+    não consegue se promover a empresa do grupo). Índice único só entre os ativos: **vários períodos do mesmo papel**.
+  - Períodos de papel **nunca são apagados** (`SincronizarFilhos(..., apagarAusentes: false)`): desmarcar encerra, marcar de novo
+    começa outro período. Início/encerramento viram frase no histórico da pessoa.
+  - Filtro da lista por `papelId`; a lista mostra os nomes do cadastro.
+  - Migração `CadastroPapeis`: gerada pelo usuário e **reordenada à mão** (SQL em `SqlMigracaoPapeis.cs`).
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

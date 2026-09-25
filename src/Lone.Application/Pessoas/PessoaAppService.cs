@@ -2,6 +2,7 @@ using Lone.Application.Auditoria;
 using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
+using Lone.Application.Papeis;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -14,6 +15,7 @@ using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
 using Lone.Domain.Profissoes;
+using Lone.Domain.Papeis;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -33,11 +35,12 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ICampoPersonalizadoRepositorio _campos;
     private readonly IEtiquetaRepositorio _etiquetas;
     private readonly IProfissaoRepositorio _profissoes;
+    private readonly IPapelRepositorio _papeis;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
-                            IProfissaoRepositorio profissoes, TimeProvider relogio)
+                            IProfissaoRepositorio profissoes, IPapelRepositorio papeis, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -46,6 +49,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _campos = campos;
         _etiquetas = etiquetas;
         _profissoes = profissoes;
+        _papeis = papeis;
         _relogio = relogio;
     }
 
@@ -140,6 +144,13 @@ public sealed class PessoaAppService : IPessoaAppService
             throw new ValidacaoException(["Cadastro arquivado é somente leitura."]);
 
         var dados = PessoaMapeamento.ParaEntidade(dto);
+
+        // Papéis: ligados ao cadastro de papéis antes de tudo, porque as regras seguintes (empresa do grupo,
+        // dados de funcionário) usam o papel de sistema copiado de lá, nunca o que veio do aplicativo.
+        RegrasPapel.CompletarIds(dados);
+        var papeisAnteriores = (anterior?.Papeis ?? []).Where(p => p.Ativo).Select(p => p.PapelId).ToHashSet();
+        var cadastroPapeis = await _papeis.ObterVariosAsync(dados.Papeis.Select(p => p.PapelId).Concat(papeisAnteriores).ToList(), ct);
+        var errosPapeis = RegrasPapel.Aplicar(dados, papeisAnteriores, cadastroPapeis);
         if (nova) dados.Codigo = 0; // o código é dado pelo banco
 
         ManterSituacao(dados, anterior);
@@ -153,6 +164,7 @@ public sealed class PessoaAppService : IPessoaAppService
         ExigirPermissoes(dados, anterior);
 
         var erros = PessoaValidador.Validar(dados);
+        erros.AddRange(errosPapeis);
 
         // Municípios só da tabela do IBGE: confere os Ids e copia nome, UF e código para o endereço.
         erros.AddRange(ReferenciasMunicipio.Aplicar(dados, await _municipios.ObterAsync(ReferenciasMunicipio.Ids(dados).ToList(), ct)));
@@ -185,6 +197,11 @@ public sealed class PessoaAppService : IPessoaAppService
 
         if (erros.Count > 0)
             throw new ValidacaoException(erros);
+
+        // Papel que começou ou terminou vira frase no histórico (os períodos em si também ficam gravados).
+        if (anterior is not null)
+            foreach (var mudanca in RegrasPapel.Mudancas(papeisAnteriores, dados.Papeis, cadastroPapeis))
+                dados.RegistrarEvento(mudanca);
 
         var avisos = await BuscarAvisosDeDuplicidadeAsync(dados, ct);
         avisos.AddRange(ConferenciaInscricaoEstadual.Avisos(dados));

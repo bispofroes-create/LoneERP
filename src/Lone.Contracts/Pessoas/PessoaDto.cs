@@ -180,7 +180,12 @@ public sealed class DocumentoDto
 public sealed class PapelDto
 {
     public Guid Id { get; set; }
-    public TipoPapel Papel { get; set; }
+
+    /// <summary>O papel do cadastro de papéis.</summary>
+    public Guid PapelId { get; set; }
+
+    /// <summary>Somente leitura: o papel de sistema (enum) do cadastro; nulo nos papéis criados pelo usuário.</summary>
+    public TipoPapel? Papel { get; set; }
     public bool Ativo { get; set; } = true;
     public DateOnly InicioEm { get; set; }
     public DateOnly? FimEm { get; set; }

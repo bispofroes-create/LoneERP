@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Cadastro de papéis: tabela à esquerda, ficha ao lado. Papéis não são excluídos: são desativados (os de sistema com regra, nem isso). -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.PapeisPage"
+             x:DataType="cad:PapeisViewModel"
+             Title="Papéis">
+
+    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+
+        <!-- ===== Tabela ===== -->
+        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar papel" />
+                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
+            </Grid>
+
+            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            </ContentView>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,72,40" Padding="12,0">
+                <Label Text="Papel (⚙ = de sistema)" Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="1" Text="Cadastros" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
+                <Label Grid.Column="2" Text="Ativo" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
+            </Grid>
+
+            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhum papel. Clique em Novo." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="cad:LinhaPapel">
+                        <Grid ColumnDefinitions="*,72,40" Padding="12,8">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Codigo}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding Cadastros}" Style="{StaticResource Secundario}"
+                                   HorizontalOptions="End" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Ativo}" Style="{StaticResource Secundario}"
+                                   HorizontalOptions="End" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
+                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
+                             HorizontalOptions="Center" Spacing="6" Padding="24">
+            <Label Text="Nenhum papel aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="Os papéis são marcados na aba &quot;Geral&quot; do cadastro de pessoas, com o período de cada um, e servem de filtro na lista."
+                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Ficha ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+            <ScrollView>
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
+                                     HorizontalOptions="Fill">
+                    <Button Text="‹ Papéis" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                            IsVisible="{Binding ModoCompacto}" />
+                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                    <FlexLayout Wrap="Wrap">
+                        <c:Campo Rotulo="Nome do papel" Texto="{Binding Formulario.Nome}" Dica="Ex.: Parceiro" />
+                        <c:Campo Rotulo="Código" Texto="{Binding Formulario.Codigo}" Dica="Vazio = gerado do nome (ex.: PARCEIRO)"
+                                 IsEnabled="{Binding Formulario.PodeMudarCodigo}" />
+                        <c:Campo Rotulo="Ordem na ficha" Texto="{Binding Formulario.Ordem}" Mascara="Numero" Dica="Vazio = no fim" />
+                        <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Formulario.Descricao}"
+                                 Dica="Quando usar este papel" FlexLayout.Basis="100%" />
+                    </FlexLayout>
+                    <Label Text="O código não muda depois de criado (integrações e relatórios podem usá-lo). Maiúsculas e acentos não contam no nome."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <!-- Situação -->
+                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                        <Button Text="Desativar papel" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                        <Button Text="Reativar papel" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
+                    </HorizontalStackLayout>
+
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

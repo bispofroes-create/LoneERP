@@ -1,4 +1,5 @@
 using Lone.Domain.Entidades;
+using Lone.Domain.Papeis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,8 +15,40 @@ public class PessoaPapelConfiguration : IEntityTypeConfiguration<PessoaPapel>
         b.Property(p => p.Papel).HasConversion<byte>();
         b.Property(p => p.Observacoes).HasMaxLength(500);
 
-        b.HasIndex(p => new { p.PessoaId, p.Papel }).IsUnique();
-        b.HasIndex(p => new { p.Papel, p.Ativo }); // filtro "só clientes", "só fornecedores"...
+        b.HasOne<Papel>().WithMany().HasForeignKey(p => p.PapelId).OnDelete(DeleteBehavior.Restrict);
+        // Um período ativo por papel; os encerrados ficam (histórico), por isso o índice único só olha os ativos.
+        b.HasIndex(p => new { p.PessoaId, p.PapelId }).IsUnique().HasFilter("[Ativo] = 1");
+        b.HasIndex(p => new { p.PapelId, p.Ativo }); // filtro da lista por papel e contagem de uso
+        b.HasIndex(p => new { p.Papel, p.Ativo });   // regras que usam o papel de sistema (empresas do grupo, clientes ativos)
+    }
+}
+
+public class PapelConfiguration : IEntityTypeConfiguration<Papel>
+{
+    public void Configure(EntityTypeBuilder<Papel> b)
+    {
+        b.ToTable("Papeis");
+        b.HasKey(p => p.Id);
+        b.Property(p => p.Codigo).IsRequired().HasMaxLength(Papel.TamanhoMaximoCodigo).IsUnicode(false);
+        b.Property(p => p.Nome).IsRequired().HasMaxLength(Papel.TamanhoMaximoNome).UseCollation(EtiquetaConfiguration.CollationNome);
+        b.Property(p => p.Descricao).HasMaxLength(Papel.TamanhoMaximoDescricao);
+        b.Property(p => p.PapelSistema).HasConversion<byte?>();
+        b.HasIndex(p => p.Codigo).IsUnique();
+        b.HasIndex(p => p.Nome).IsUnique();
+        b.HasIndex(p => p.PapelSistema).IsUnique().HasFilter("[PapelSistema] IS NOT NULL");
+
+        // Os oito papéis de sistema nascem com a base, com Ids fixos (os mesmos em todo banco do Lone).
+        var criacao = new DateTime(2026, 9, 25, 0, 0, 0, DateTimeKind.Utc);
+        b.HasData(PapeisSistema.Todos.Select(p => new Papel
+        {
+            Id = p.Id,
+            Codigo = p.Codigo,
+            Nome = p.Nome,
+            Ordem = p.Ordem,
+            Ativo = true,
+            PapelSistema = p.Tipo,
+            CriadoEm = criacao
+        }).ToArray());
     }
 }
 

@@ -36,6 +36,16 @@ public static class Rotas
         public const string FaixasEtarias = Grupo + "/indicadores/faixas-etarias";
     }
 
+    /// <summary>Cadastro de papéis. Nada é excluído: desativa (os de sistema com regra não podem ser desativados).</summary>
+    public static class Papeis
+    {
+        public const string Grupo = Base + "/papeis";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+        public static string Listar(bool incluirInativos) => incluirInativos ? Grupo + "?incluirInativos=true" : Grupo;
+    }
+
     /// <summary>Cadastro de profissões e tabela oficial da CBO. Nada é excluído: desativa ou mescla.</summary>
     public static class Profissoes
     {

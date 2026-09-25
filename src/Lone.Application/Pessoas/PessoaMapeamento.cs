@@ -53,7 +53,7 @@ public static class PessoaMapeamento
         MeiosContato = p.MeiosContato.Select(ParaDto).ToList(),
         Contatos = p.Contatos.OrderByDescending(c => c.Principal).ThenBy(c => c.Nome).Select(ParaDto).ToList(),
         Documentos = p.Documentos.Select(ParaDto).ToList(),
-        Papeis = p.Papeis.OrderBy(x => x.Papel).Select(ParaDto).ToList(),
+        Papeis = p.Papeis.OrderBy(x => x.InicioEm).Select(ParaDto).ToList(),
         ContasCliente = p.ContasCliente.Select(ParaDto).ToList(),
         ContasFornecedor = p.ContasFornecedor.Select(ParaDto).ToList(),
         Bloqueios = p.Bloqueios.OrderByDescending(b => b.InicioEm).Select(ParaDto).ToList()
@@ -349,6 +349,7 @@ public static class PessoaMapeamento
     private static PapelDto ParaDto(PessoaPapel x) => new()
     {
         Id = x.Id,
+        PapelId = x.PapelId,
         Papel = x.Papel,
         Ativo = x.Ativo,
         InicioEm = x.InicioEm,
@@ -360,7 +361,8 @@ public static class PessoaMapeamento
     {
         Id = IdOuNovo(x.Id),
         PessoaId = pessoaId,
-        Papel = x.Papel,
+        PapelId = x.PapelId,
+        Papel = x.Papel, // conferido e sobrescrito pelo cadastro de papéis ao gravar (RegrasPapel.Aplicar)
         Ativo = x.Ativo,
         InicioEm = x.InicioEm,
         FimEm = x.FimEm,

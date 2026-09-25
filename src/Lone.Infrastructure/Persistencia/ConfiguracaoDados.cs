@@ -3,6 +3,7 @@ using Lone.Application.Empresas;
 using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
+using Lone.Application.Papeis;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -35,6 +36,7 @@ public static class ConfiguracaoDados
         services.AddScoped<IEtiquetaRepositorio, EtiquetaRepositorio>();
         services.AddScoped<IProfissaoRepositorio, ProfissaoRepositorio>();
         services.AddScoped<IOcupacaoCboRepositorio, OcupacaoCboRepositorio>();
+        services.AddScoped<IPapelRepositorio, PapelRepositorio>();
 
         return services;
     }

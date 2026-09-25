@@ -79,6 +79,7 @@ public class AlteracoesPendentesTests
                 new() { Id = Guid.NewGuid(), Nome = "Time que torce", Tipo = TipoCampoPersonalizado.Texto, Ativo = true }
             })
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Profissoes.ProfissaoDto>())
+            .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Papeis.PapelCadastroDto>())
             .Responder(HttpStatusCode.OK, new List<PessoaResumo>());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

@@ -10,6 +10,7 @@ using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
+using Lone.Contracts.Papeis;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
@@ -35,6 +36,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly CamposPersonalizadosApi _camposApi;
     private readonly EtiquetasApi _etiquetasApi;
     private readonly ProfissoesApi _profissoesApi;
+    private readonly PapeisApi _papeisApi;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
@@ -45,8 +47,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Cadastro de profissões, com as desativadas (a ficha oferece só as ativas e mostra a gravada).</summary>
     private List<ProfissaoDto> _profissoes = [];
 
+    /// <summary>Cadastro de papéis, com os desativados (a ficha oferece os ativos e mostra os que a pessoa tem).</summary>
+    private List<PapelCadastroDto> _papeis = [];
+
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
-                            MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi, IDialogos dialogos)
+                            MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
+                            PapeisApi papeisApi, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -57,15 +63,21 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _camposApi = camposApi;
         _etiquetasApi = etiquetasApi;
         _profissoesApi = profissoesApi;
+        _papeisApi = papeisApi;
     }
 
     protected override bool BuscaNoServidor => true;
 
     // ---- Lista ----
 
-    public IReadOnlyList<Opcao<TipoPapel?>> FiltrosPapel => OpcoesPessoa.FiltrosPapel;
+    /// <summary>"Todos" e cada papel do cadastro (antes de ler o cadastro, os de sistema).</summary>
+    public ObservableCollection<Opcao<Guid?>> FiltrosPapel { get; } =
+        new(global::Lone.Domain.Papeis.PapeisSistema.Todos.OrderBy(p => p.Ordem)
+            .Select(p => new Opcao<Guid?>(p.Id, p.Nome)).Prepend(TodosPapeis).ToList());
 
-    [ObservableProperty] private Opcao<TipoPapel?> _filtroPapel = OpcoesPessoa.FiltrosPapel[0];
+    private static readonly Opcao<Guid?> TodosPapeis = new(null, "Todos os papéis");
+
+    [ObservableProperty] private Opcao<Guid?> _filtroPapel = TodosPapeis;
     [ObservableProperty] private bool _mostrarInativos;
 
     /// <summary>Só cadastros com município antigo (texto) a escolher na tabela do IBGE.</summary>
@@ -84,7 +96,16 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     public bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
 
-    partial void OnFiltroPapelChanged(Opcao<TipoPapel?> value) => _ = RecarregarAsync();
+    partial void OnFiltroPapelChanged(Opcao<Guid?> value)
+    {
+        // A lista de escolha manda nulo quando o item escolhido sai dela: volta para "todos".
+        if (value is null)
+        {
+            FiltroPapel = TodosPapeis;
+            return;
+        }
+        _ = RecarregarAsync();
+    }
     partial void OnMostrarInativosChanged(bool value) => _ = RecarregarAsync();
     partial void OnSomenteMunicipioACorrigirChanged(bool value) => _ = RecarregarAsync();
     partial void OnFiltroEtiquetaChanged(Opcao<Guid?> value)
@@ -114,6 +135,24 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Sem a lista, a ficha mostra a profissão vazia, mas a gravada volta intacta ao salvar.
         try { _profissoes = await _profissoesApi.ListarAsync(incluirInativas: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _profissoes = []; }
+
+        // Sem o cadastro de papéis, a ficha usa os papéis de sistema e os outros períodos voltam intactos.
+        try
+        {
+            _papeis = await _papeisApi.ListarAsync(incluirInativos: true);
+            AtualizarFiltrosPapel();
+        }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _papeis = []; }
+    }
+
+    private void AtualizarFiltrosPapel()
+    {
+        var escolhido = FiltroPapel?.Valor;
+        while (FiltrosPapel.Count > 1) FiltrosPapel.RemoveAt(1);
+        foreach (var p in _papeis.OrderBy(p => !p.Ativo).ThenBy(p => p.Ordem))
+            FiltrosPapel.Add(new Opcao<Guid?>(p.Id, p.Ativo ? p.Nome : p.Nome + " (desativado)"));
+        var mesmo = FiltrosPapel.FirstOrDefault(o => o.Valor == escolhido) ?? TodosPapeis;
+        if (!ReferenceEquals(mesmo, FiltroPapel)) FiltroPapel = mesmo;
     }
 
     private async Task AtualizarEtiquetasAsync()
@@ -142,7 +181,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         await _pessoas.ListarAsync(new FiltroPessoas
         {
             Texto = Busca,
-            Papel = FiltroPapel.Valor,
+            PapelId = FiltroPapel?.Valor,
             IncluirInativos = MostrarInativos,
             MunicipioACorrigir = SomenteMunicipioACorrigir,
             EtiquetaId = FiltroEtiqueta?.Valor
@@ -188,12 +227,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis);
         return Task.CompletedTask;
     }
 
@@ -212,7 +251,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 

@@ -14,14 +14,14 @@ public static class PessoasEndpoints
     {
         var grupo = app.MapGroup(Rotas.Pessoas.Grupo).WithTags("Pessoas").RequireAuthorization();
 
-        // ?texto=...&papel=Cliente&etiquetaId=...&incluirInativos=true&municipioACorrigir=true&limite=100 (todos opcionais)
+        // ?texto=...&papelId=...&etiquetaId=...&incluirInativos=true&municipioACorrigir=true&limite=100 (todos opcionais)
         grupo.MapGet(string.Empty,
-            (string? texto, TipoPapel? papel, Guid? etiquetaId, bool? incluirInativos, bool? municipioACorrigir, int? limite,
+            (string? texto, Guid? papelId, Guid? etiquetaId, bool? incluirInativos, bool? municipioACorrigir, int? limite,
              IPessoaAppService servico, CancellationToken ct) =>
                 servico.ListarAsync(new FiltroPessoas
                 {
                     Texto = texto,
-                    Papel = papel,
+                    PapelId = papelId,
                     EtiquetaId = etiquetaId,
                     IncluirInativos = incluirInativos ?? false,
                     MunicipioACorrigir = municipioACorrigir ?? false,

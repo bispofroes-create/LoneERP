@@ -24,6 +24,7 @@ public static class Permissoes
         public const string TabelasOficiais = "CADASTROS.TABELAS_OFICIAIS";
         public const string Etiquetas = "CADASTROS.ETIQUETAS";
         public const string Profissoes = "CADASTROS.PROFISSOES";
+        public const string Papeis = "CADASTROS.PAPEIS";
     }
 
     public static class Seguranca
@@ -48,6 +49,7 @@ public static class Permissoes
         new(Cadastros.TabelasOficiais, "Cadastros", "Atualizar tabelas oficiais (municípios do IBGE, ocupações da CBO)"),
         new(Cadastros.Etiquetas, "Cadastros", "Criar, alterar, mesclar e desativar etiquetas"),
         new(Cadastros.Profissoes, "Cadastros", "Criar, alterar, mesclar e desativar profissões"),
+        new(Cadastros.Papeis, "Cadastros", "Criar, alterar, ordenar e desativar papéis (cliente, fornecedor...)"),
         new(Seguranca.GerenciarUsuarios, "Segurança", "Cadastrar usuários, redefinir senhas e desbloquear acessos"),
         new(Seguranca.GerenciarPerfis, "Segurança", "Criar perfis e escolher suas permissões"),
         new(Seguranca.VisualizarAuditoria, "Segurança", "Consultar a auditoria completa do sistema")

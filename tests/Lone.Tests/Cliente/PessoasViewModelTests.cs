@@ -7,6 +7,7 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
+using Lone.Contracts.Papeis;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
 
@@ -17,7 +18,7 @@ public class PessoasViewModelTests
     internal static PessoasViewModel NovaTela(AmbienteCliente ambiente) =>
         new(new PessoasApi(ambiente.Api), new ConsultasApi(ambiente.Api), ambiente.Sessao, ambiente.Autenticacao,
             new MunicipiosApi(ambiente.Api), new CamposPersonalizadosApi(ambiente.Api), new EtiquetasApi(ambiente.Api),
-            new ProfissoesApi(ambiente.Api), ambiente.Dialogos);
+            new ProfissoesApi(ambiente.Api), new PapeisApi(ambiente.Api), ambiente.Dialogos);
 
     internal static readonly EtiquetaDto Vip = new() { Id = Guid.NewGuid(), Nome = "VIP", Ativo = true };
     internal static readonly ProfissaoDto Advogado = new() { Id = Guid.NewGuid(), Nome = "Advogado", Ativo = true };
@@ -29,6 +30,7 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto> { Vip }); // cadastro de etiquetas (ficha e filtro)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos personalizados
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto> { Advogado }); // cadastro de profissões
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>()); // cadastro de papéis (vazio: usa os de sistema)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>
         {
             new() { Id = Guid.NewGuid(), Codigo = 1, Nome = "Ana", Natureza = NaturezaPessoa.Fisica }
@@ -43,8 +45,9 @@ public class PessoasViewModelTests
     public void Filtro_da_lista_vira_query_string_so_com_o_que_foi_informado()
     {
         Assert.Equal(string.Empty, PessoasApi.Consulta(new FiltroPessoas()));
-        Assert.Equal("?texto=Jo%C3%A3o%20Silva&papel=Cliente&incluirInativos=true",
-            PessoasApi.Consulta(new FiltroPessoas { Texto = " João Silva ", Papel = TipoPapel.Cliente, IncluirInativos = true }));
+        var cliente = Lone.Domain.Papeis.PapeisSistema.Id(TipoPapel.Cliente);
+        Assert.Equal($"?texto=Jo%C3%A3o%20Silva&papelId={cliente}&incluirInativos=true",
+            PessoasApi.Consulta(new FiltroPessoas { Texto = " João Silva ", PapelId = cliente, IncluirInativos = true }));
     }
 
     [Fact]
@@ -151,6 +154,7 @@ public class PessoasViewModelCepTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

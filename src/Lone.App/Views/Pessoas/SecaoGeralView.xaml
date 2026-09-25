@@ -35,13 +35,15 @@
         </Grid>
 
         <Label Text="Papéis" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
-        <Label Text="O que esta pessoa é para a empresa. Um mesmo cadastro pode ser cliente e fornecedor."
+        <Label Text="O que esta pessoa é para a empresa. Um mesmo cadastro pode ser cliente e fornecedor. Desmarcar encerra o período (fica no histórico)."
                Style="{StaticResource Secundario}" />
         <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Papeis}">
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:PapelOpcao">
-                    <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Ativo}"
-                                   FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                    <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" Margin="0,0,0,4">
+                        <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Ativo}" />
+                        <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" Margin="32,-6,0,0" />
+                    </VerticalStackLayout>
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
         </FlexLayout>

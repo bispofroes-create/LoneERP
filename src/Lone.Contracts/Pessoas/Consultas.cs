@@ -11,8 +11,8 @@ public sealed class FiltroPessoas
     /// <summary>Nome, código, CPF/CNPJ, telefone ou e-mail.</summary>
     public string? Texto { get; set; }
 
-    /// <summary>Só pessoas com este papel ativo. Nulo = todas.</summary>
-    public TipoPapel? Papel { get; set; }
+    /// <summary>Só pessoas com este papel ativo (Id do cadastro de papéis). Nulo = todas.</summary>
+    public Guid? PapelId { get; set; }
 
     public bool IncluirInativos { get; set; }
 
@@ -42,7 +42,8 @@ public sealed class PessoaResumo
     public string? CnpjPrincipal { get; set; }
     public int QuantidadeEstabelecimentos { get; set; }
     public SituacaoPessoa Situacao { get; set; }
-    public List<TipoPapel> Papeis { get; set; } = new();
+    /// <summary>Nomes dos papéis ativos, na ordem do cadastro de papéis.</summary>
+    public List<string> Papeis { get; set; } = new();
     public string? Cidade { get; set; }
     public string? Uf { get; set; }
 
@@ -59,7 +60,7 @@ public sealed class PessoaResumo
         _ => DocumentoPrincipal ?? string.Empty
     };
 
-    public string PapeisTexto => string.Join(" · ", Papeis.OrderBy(p => p).Select(NomesPessoa.Papel));
+    public string PapeisTexto => string.Join(" · ", Papeis);
 
     public string Local => Cidade is null ? string.Empty : Uf is null ? Cidade : $"{Cidade}/{Uf}";
 

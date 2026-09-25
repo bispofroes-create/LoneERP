@@ -26,8 +26,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         if (!filtro.IncluirInativos)
             consulta = consulta.Where(p => p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise);
 
-        if (filtro.Papel is TipoPapel papel)
-            consulta = consulta.Where(p => p.Papeis.Any(x => x.Papel == papel && x.Ativo));
+        if (filtro.PapelId is Guid papel)
+            consulta = consulta.Where(p => p.Papeis.Any(x => x.PapelId == papel && x.Ativo)); // índice (PapelId, Ativo)
 
         if (filtro.MunicipioACorrigir)
             consulta = consulta.Where(p => db.PendenciasMunicipio.Any(x => x.PessoaId == p.Id && x.ResolvidaEm == null));
@@ -52,7 +52,11 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                 CnpjPrincipal = p.Estabelecimentos.Where(e => e.Principal).Select(e => e.Cnpj).FirstOrDefault(),
                 QuantidadeEstabelecimentos = p.Estabelecimentos.Count,
                 Situacao = p.Situacao,
-                Papeis = p.Papeis.Where(x => x.Ativo).Select(x => x.Papel).ToList(),
+                Papeis = db.Papeis
+                    .Where(cadastro => p.Papeis.Any(x => x.Ativo && x.PapelId == cadastro.Id))
+                    .OrderBy(cadastro => cadastro.Ordem)
+                    .Select(cadastro => cadastro.Nome)
+                    .ToList(),
                 Cidade = p.Enderecos
                     .Where(e => (e.Finalidades & FinalidadeEndereco.Principal) != FinalidadeEndereco.Nenhuma)
                     .Select(e => e.Cidade).FirstOrDefault(),
@@ -268,7 +272,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos);
         SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato);
         SincronizarFilhos(db, atual.Id, atual.Contatos, dados.Contatos);
-        SincronizarFilhos(db, atual.Id, atual.Papeis, dados.Papeis);
+        SincronizarFilhos(db, atual.Id, atual.Papeis, dados.Papeis, apagarAusentes: false); // períodos nunca são apagados
         SincronizarFilhos(db, atual.Id, atual.ContasCliente, dados.ContasCliente);
         SincronizarFilhos(db, atual.Id, atual.ContasFornecedor, dados.ContasFornecedor);
         SincronizarFilhos(db, atual.Id, atual.Socios, dados.Socios);
@@ -301,14 +305,18 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
     }
 
     /// <summary>Inclui os novos, altera os existentes e remove os que saíram da lista.</summary>
-    private static void SincronizarFilhos<T>(LoneDbContext db, Guid pessoaId, List<T> atuais, List<T> novos)
+    /// <param name="apagarAusentes">
+    /// Falso = o que não veio fica como está no banco (registros históricos, como os períodos de papel, nunca são apagados).
+    /// </param>
+    private static void SincronizarFilhos<T>(LoneDbContext db, Guid pessoaId, List<T> atuais, List<T> novos, bool apagarAusentes = true)
         where T : EntidadePessoaFilha
     {
-        foreach (var removido in atuais.Where(a => novos.All(n => n.Id != a.Id)).ToList())
-        {
-            atuais.Remove(removido);
-            db.Remove(removido);
-        }
+        if (apagarAusentes)
+            foreach (var removido in atuais.Where(a => novos.All(n => n.Id != a.Id)).ToList())
+            {
+                atuais.Remove(removido);
+                db.Remove(removido);
+            }
 
         foreach (var novo in novos)
         {

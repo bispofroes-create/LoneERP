@@ -6,6 +6,7 @@ using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
+using Lone.Contracts.Papeis;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Municipios;
 using Lone.Contracts.Pessoas;
@@ -216,11 +217,11 @@ public sealed partial class PessoaFormulario : ObservableObject
     // ---- Criação e conversão ----
 
     public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
-                                             IReadOnlyList<ProfissaoDto>? profissoes = null)
+                                             IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
-            Papeis = OpcoesPessoa.PapeisNaTela.Select(p => new PapelOpcao(p)).ToList(),
+            Papeis = MontarPapeis(papeis, [], out _),
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, []),
             Etiquetas = EtiquetasFormulario.Criar(etiquetas, [])
         };
@@ -233,8 +234,9 @@ public sealed partial class PessoaFormulario : ObservableObject
     }
 
     public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
-                                      IReadOnlyList<ProfissaoDto>? profissoes = null)
+                                      IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null)
     {
+        var opcoesPapel = MontarPapeis(papeis, p.Papeis, out var papeisDesconhecidos);
         var f = new PessoaFormulario(p.Id, nova: false)
         {
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, p.ValoresPersonalizados),
@@ -267,7 +269,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             ContaFornecedor = ContaFornecedorFormulario.De(p.ContasFornecedor.FirstOrDefault(c => c.EmpresaId is null)),
             TextoBloqueios = string.Join(Environment.NewLine, p.Bloqueios.Where(b => b.Ativo).Select(b =>
                 $"{b.Escopo} desde {b.InicioEm.ToLocalTime().ToString("dd/MM/yyyy", TextoTela.Brasil)} por {b.InicioPor}: {b.Motivo}")),
-            Papeis = OpcoesPessoa.PapeisNaTela.Select(papel => PapelOpcao.De(papel, p.Papeis.FirstOrDefault(x => x.Papel == papel))).ToList(),
+            Papeis = opcoesPapel,
+            _papeisDesconhecidos = papeisDesconhecidos,
             Sexo = Opcao.De(OpcoesPessoa.Sexos, p.Sexo),
             Genero = Opcao.De(OpcoesPessoa.Generos, p.IdentidadeGenero),
             CorRaca = Opcao.De(OpcoesPessoa.CoresRacas, p.CorRaca),
@@ -374,7 +377,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             MeiosContato = MeiosContato.Select(m => m.ParaDto()).ToList(),
             Contatos = Contatos.Select(c => c.ParaDto()).ToList(),
             Documentos = Documentos.Select(d => d.ParaDto()).ToList(),
-            Papeis = Papeis.Select(p => p.ParaDto()).OfType<PapelDto>().ToList(),
+            Papeis = [.. Papeis.SelectMany(p => p.ParaDtos()), .. _papeisDesconhecidos],
             Sexo = Sexo.Valor,
             IdentidadeGenero = Genero.Valor,
             CorRaca = CorRaca.Valor,
@@ -409,6 +412,35 @@ public sealed partial class PessoaFormulario : ObservableObject
     }
 
     // ---- Apoio ----
+
+    // ---- Papéis ----
+
+    /// <summary>Períodos de papéis fora do cadastro lido (ex.: o cadastro não pôde ser lido): voltam intactos.</summary>
+    private List<PapelDto> _papeisDesconhecidos = [];
+
+    /// <summary>
+    /// Um item por papel: os ativos do cadastro de papéis (na ordem dele) e os desativados que a pessoa tem ativos.
+    /// Sem o cadastro (falha ao ler), usa os papéis de sistema. Os de sistema sempre aparecem (as regras da ficha usam).
+    /// </summary>
+    private static List<PapelOpcao> MontarPapeis(IReadOnlyList<PapelCadastroDto>? cadastro, IReadOnlyList<PapelDto> periodos,
+                                                 out List<PapelDto> desconhecidos)
+    {
+        var itens = (cadastro ?? []).Select(c => (c.Id, c.PapelSistema, c.Nome, c.Ativo, c.Ordem)).ToList();
+        foreach (var sistema in global::Lone.Domain.Papeis.PapeisSistema.Todos.Where(s => itens.All(i => i.PapelSistema != s.Tipo)))
+            itens.Add((sistema.Id, sistema.Tipo, sistema.Nome, true, sistema.Ordem));
+
+        // Período sem o Id do cadastro (dado antigo) é reconhecido pelo papel de sistema.
+        bool DoPapel(PapelDto periodo, Guid id, TipoPapel? sistema) =>
+            periodo.PapelId == id || (periodo.PapelId == Guid.Empty && periodo.Papel is not null && periodo.Papel == sistema);
+
+        var opcoes = itens
+            .Where(i => i.Ativo || periodos.Any(p => p.Ativo && DoPapel(p, i.Id, i.PapelSistema)))
+            .OrderBy(i => i.Ordem).ThenBy(i => i.Nome, StringComparer.CurrentCultureIgnoreCase)
+            .Select(i => new PapelOpcao(i.Id, i.PapelSistema, i.Nome, i.Ativo, periodos.Where(p => DoPapel(p, i.Id, i.PapelSistema))))
+            .ToList();
+        desconhecidos = periodos.Where(p => !opcoes.Any(o => DoPapel(p, o.PapelId, o.Papel))).ToList();
+        return opcoes;
+    }
 
     // ---- Profissão ----
 
