@@ -16,6 +16,17 @@ public class PessoaEndereco : EntidadePessoaFilha
     [DisplayName("Descrição")]
     public string? Descricao { get; set; }
 
+    /// <summary>Classificação do cadastro de tipos de endereço (Sede, Depósito...); opcional.</summary>
+    [DisplayName("Tipo")]
+    public Guid? TipoEnderecoId { get; set; }
+
+    [DisplayName("Observações")]
+    public string? Observacoes { get; set; }
+
+    /// <summary>Falso = removido na ficha: fica gravado (histórico), não é principal nem endereço fiscal.</summary>
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
+
     [DisplayName("Finalidades")]
     public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Comercial;
 

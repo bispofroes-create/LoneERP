@@ -113,8 +113,15 @@ public static class PessoaNormalizador
             }
         }
 
-        // Exatamente um endereço principal (se houver endereços).
-        MarcarUm(enderecos,
+        foreach (var e in enderecos)
+        {
+            e.Observacoes = Texto(e.Observacoes);
+            if (e.TipoEnderecoId == Guid.Empty) e.TipoEnderecoId = null;
+            if (!e.Ativo) e.Finalidades &= ~FinalidadeEndereco.Principal; // inativo nunca é o principal
+        }
+
+        // Exatamente um endereço principal entre os ativos (se houver).
+        MarcarUm(enderecos.Where(e => e.Ativo).ToList(),
             e => e.Tem(FinalidadeEndereco.Principal),
             (e, v) => e.Finalidades = v ? e.Finalidades | FinalidadeEndereco.Principal : e.Finalidades & ~FinalidadeEndereco.Principal);
     }

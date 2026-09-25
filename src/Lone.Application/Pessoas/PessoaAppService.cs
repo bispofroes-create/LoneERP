@@ -4,6 +4,7 @@ using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
+using Lone.Application.Enderecos;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -18,6 +19,7 @@ using Lone.Domain.Etiquetas;
 using Lone.Domain.Profissoes;
 using Lone.Domain.Papeis;
 using Lone.Domain.Contatos;
+using Lone.Domain.Enderecos;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -39,12 +41,13 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IProfissaoRepositorio _profissoes;
     private readonly IPapelRepositorio _papeis;
     private readonly ITipoMeioContatoRepositorio _tiposMeio;
+    private readonly ITipoEnderecoRepositorio _tiposEndereco;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
                             IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
-                            ITipoMeioContatoRepositorio tiposMeio, TimeProvider relogio)
+                            ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -55,6 +58,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _profissoes = profissoes;
         _papeis = papeis;
         _tiposMeio = tiposMeio;
+        _tiposEndereco = tiposEndereco;
         _relogio = relogio;
     }
 
@@ -190,6 +194,12 @@ public sealed class PessoaAppService : IPessoaAppService
             dados.MeiosContato,
             (anterior?.MeiosContato ?? []).ToDictionary(m => m.Id, m => m.TipoMeioContatoId),
             await _tiposMeio.ObterVariosAsync(tiposEscolhidos, ct)));
+
+        // Endereços: o tipo vem do cadastro de tipos de endereço (desativado só se já era o dele).
+        erros.AddRange(RegrasEndereco.ValidarTipos(
+            dados.Enderecos,
+            (anterior?.Enderecos ?? []).ToDictionary(e => e.Id, e => e.TipoEnderecoId),
+            await _tiposEndereco.ObterVariosAsync(dados.Enderecos.Select(e => e.TipoEnderecoId).OfType<Guid>().Distinct().ToList(), ct)));
 
         // Profissão: do cadastro de profissões; uma desativada só continua em quem já a tinha.
         if (RegrasProfissao.ValidarEscolhida(

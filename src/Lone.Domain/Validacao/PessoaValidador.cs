@@ -1,4 +1,5 @@
 using Lone.Domain.Contatos;
+using Lone.Domain.Enderecos;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
@@ -136,9 +137,11 @@ public static class PessoaValidador
             var rotulo = p.Natureza == NaturezaPessoa.Juridica ? $"Estabelecimento {i + 1}" : "Fiscal";
             ValidarFiscal(e, rotulo, erros);
 
-            // O endereço fiscal precisa ser um dos endereços desta mesma pessoa.
+            // O endereço fiscal precisa ser um dos endereços (ativos) desta mesma pessoa.
             if (e.EnderecoFiscalId is Guid enderecoId && !idsEnderecos.Contains(enderecoId))
                 erros.Add($"{rotulo}: o endereço fiscal escolhido não está entre os endereços do cadastro.");
+            else if (e.EnderecoFiscalId is Guid fiscalId && p.Enderecos.First(x => x.Id == fiscalId) is { Ativo: false })
+                erros.Add($"{rotulo}: o endereço fiscal foi removido (inativo). Escolha outro endereço ou use o principal.");
         }
     }
 
@@ -158,6 +161,11 @@ public static class PessoaValidador
     {
         if (e.Logradouro.Length == 0)
             erros.Add($"{rotulo}: informe o logradouro.");
+        if (e.Observacoes is { Length: > RegrasEndereco.TamanhoMaximoObservacoes })
+            erros.Add($"{rotulo}: as observações podem ter no máximo {RegrasEndereco.TamanhoMaximoObservacoes} caracteres.");
+
+        // Endereço removido (inativo) fica como estava: dados antigos não impedem a gravação.
+        if (!e.Ativo) return;
 
         if (e.EhBrasil)
         {

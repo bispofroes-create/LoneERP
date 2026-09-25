@@ -45,6 +45,10 @@
         <ShellContent Title="Tipos de telefone/e-mail" ContentTemplate="{DataTemplate views:TiposMeioContatoPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Tipos de endereço" Route="tipos-endereco" IsVisible="{Binding PodeGerenciarTipos}">
+        <ShellContent Title="Tipos de endereço" ContentTemplate="{DataTemplate views:TiposEnderecoPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>

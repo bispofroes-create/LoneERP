@@ -3,6 +3,7 @@ using Lone.Application.Etiquetas;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
+using Lone.Application.Enderecos;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -40,6 +41,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IOcupacaoCboAppService, OcupacaoCboAppService>();
         services.AddScoped<IPapelAppService, PapelAppService>();
         services.AddScoped<ITipoMeioContatoAppService, TipoMeioContatoAppService>();
+        services.AddScoped<ITipoEnderecoAppService, TipoEnderecoAppService>();
 
         return services;
     }

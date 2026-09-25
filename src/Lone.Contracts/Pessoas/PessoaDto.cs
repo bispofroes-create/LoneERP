@@ -121,6 +121,13 @@ public sealed class EnderecoDto
 {
     public Guid Id { get; set; }
     public string? Descricao { get; set; }
+
+    /// <summary>Classificação do cadastro de tipos de endereço (Sede, Depósito...); nula = sem tipo.</summary>
+    public Guid? TipoEnderecoId { get; set; }
+    public string? Observacoes { get; set; }
+
+    /// <summary>Falso = removido na ficha (fica gravado, fora da lista principal).</summary>
+    public bool Ativo { get; set; } = true;
     public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Comercial;
     public int Ordem { get; set; }
     public string? Cep { get; set; }

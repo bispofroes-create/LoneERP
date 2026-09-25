@@ -42,6 +42,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ProfissoesPage>();
         builder.Services.AddTransient<PapeisPage>();
         builder.Services.AddTransient<TiposMeioContatoPage>();
+        builder.Services.AddTransient<TiposEnderecoPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

@@ -12,6 +12,7 @@ using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
 using Lone.Contracts.Contatos;
+using Lone.Contracts.Enderecos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
@@ -39,6 +40,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly ProfissoesApi _profissoesApi;
     private readonly PapeisApi _papeisApi;
     private readonly TiposMeioContatoApi _tiposMeioApi;
+    private readonly TiposEnderecoApi _tiposEnderecoApi;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
@@ -55,9 +57,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Tipos de telefone/e-mail (Comercial, Residencial...), com os desativados.</summary>
     private List<TipoMeioContatoDto> _tiposMeio = [];
 
+    /// <summary>Tipos de endereço (Sede, Depósito...), com os desativados.</summary>
+    private List<TipoEnderecoDto> _tiposEndereco = [];
+
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
-                            PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, IDialogos dialogos)
+                            PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -70,6 +75,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _profissoesApi = profissoesApi;
         _papeisApi = papeisApi;
         _tiposMeioApi = tiposMeioApi;
+        _tiposEnderecoApi = tiposEnderecoApi;
     }
 
     protected override bool BuscaNoServidor => true;
@@ -153,6 +159,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Sem os tipos, os telefones/e-mails ficam sem classificação na tela, mas a gravada volta intacta.
         try { _tiposMeio = await _tiposMeioApi.ListarAsync(incluirInativos: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposMeio = []; }
+
+        // Idem para os endereços: sem a lista, o tipo gravado volta intacto.
+        try { _tiposEndereco = await _tiposEnderecoApi.ListarAsync(incluirInativos: true); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposEndereco = []; }
     }
 
     private void AtualizarFiltrosPapel()
@@ -237,12 +247,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco);
         return Task.CompletedTask;
     }
 
@@ -261,7 +271,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 
@@ -450,7 +460,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     [RelayCommand]
     private void AdicionarEndereco()
     {
-        if (Formulario is { } f) f.AdicionarEndereco(new EnderecoFormulario { Principal = f.Enderecos.Count == 0 });
+        if (Formulario is { } f) f.AdicionarEndereco(new EnderecoFormulario { Principal = !f.Enderecos.Any(e => e.Ativo) });
     }
 
     [RelayCommand]

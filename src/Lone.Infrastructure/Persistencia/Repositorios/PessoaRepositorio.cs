@@ -221,7 +221,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             {
                 var endereco = pessoa.Enderecos.FirstOrDefault(e => e.Id == pendencia.RegistroId);
                 municipio = endereco?.MunicipioId;
-                corrigida = endereco is null || municipio is not null || !endereco.EhBrasil;
+                corrigida = endereco is null || municipio is not null || !endereco.EhBrasil || !endereco.Ativo;
             }
 
             if (!corrigida) continue;
@@ -267,7 +267,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
         // Os Ids já vêm definidos (inclusive dos endereços novos), então o endereço fiscal de um
         // estabelecimento aponta direto para o Id; o EF grava os endereços antes dos estabelecimentos.
-        SincronizarFilhos(db, atual.Id, atual.Enderecos, dados.Enderecos);
+        SincronizarFilhos(db, atual.Id, atual.Enderecos, dados.Enderecos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos);
         SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos);
         SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato, apagarAusentes: false); // removidos ficam inativos

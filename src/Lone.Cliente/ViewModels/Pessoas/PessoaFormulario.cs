@@ -8,6 +8,7 @@ using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
 using Lone.Contracts.Contatos;
+using Lone.Contracts.Enderecos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Municipios;
 using Lone.Contracts.Pessoas;
@@ -219,11 +220,12 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
                                              IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
-                                             IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null)
+                                             IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
             _tiposMeio = tiposMeio ?? [],
+            _tiposEndereco = tiposEndereco ?? [],
             Papeis = MontarPapeis(papeis, [], out _),
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, []),
             Etiquetas = EtiquetasFormulario.Criar(etiquetas, [])
@@ -238,7 +240,7 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
                                       IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
-                                      IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null)
+                                      IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null)
     {
         var opcoesPapel = MontarPapeis(papeis, p.Papeis, out var papeisDesconhecidos);
         var f = new PessoaFormulario(p.Id, nova: false)
@@ -275,6 +277,7 @@ public sealed partial class PessoaFormulario : ObservableObject
                 $"{b.Escopo} desde {b.InicioEm.ToLocalTime().ToString("dd/MM/yyyy", TextoTela.Brasil)} por {b.InicioPor}: {b.Motivo}")),
             Papeis = opcoesPapel,
             _tiposMeio = tiposMeio ?? [],
+            _tiposEndereco = tiposEndereco ?? [],
             _papeisDesconhecidos = papeisDesconhecidos,
             Sexo = Opcao.De(OpcoesPessoa.Sexos, p.Sexo),
             Genero = Opcao.De(OpcoesPessoa.Generos, p.IdentidadeGenero),
@@ -337,8 +340,9 @@ public sealed partial class PessoaFormulario : ObservableObject
             erros.Add(naturalidade);
         if (EhFisica && Profissao.Validar("Profissão") is { } profissao)
             erros.Add(profissao);
+        // Endereço inativo não é mais conferido (pode ser antigo, de antes da tabela do IBGE).
         for (var i = 0; i < Enderecos.Count; i++)
-            if (Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
+            if (Enderecos[i].Ativo && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
                 erros.Add(endereco);
         erros.AddRange(Documentos.SelectMany(d => d.Validar()));
         erros.AddRange(InformacoesAdicionais.Select(c => c.Validar()).OfType<string>());
@@ -518,24 +522,53 @@ public sealed partial class PessoaFormulario : ObservableObject
     public void AdicionarEndereco(EnderecoFormulario endereco)
     {
         endereco.Municipio.Fonte = _fonteMunicipios;
+        endereco.DefinirCatalogo(_tiposEndereco);
+        endereco.MostrarSeInativo = MostrarEnderecosInativos;
         endereco.AoRemover = () => RemoverEndereco(endereco);
         endereco.AoBuscarCep = e => ConsultaCep?.Invoke(e) ?? Task.CompletedTask;
         endereco.PropertyChanged += Endereco_PropertyChanged;
         Enderecos.Add(endereco);
+        OnPropertyChanged(nameof(TemEnderecosInativos));
     }
 
+    /// <summary>
+    /// Já gravado: fica gravado como inativo (histórico; notas e pedidos antigos apontam para ele). Novo: sai da lista.
+    /// Nos dois casos, filiais que o usavam como endereço fiscal ficam sem (a lista não pode "pular" para outro).
+    /// </summary>
     public void RemoverEndereco(EnderecoFormulario endereco)
     {
-        // Antes de tirar da lista: a lista de escolha da filial não pode "pular" para outro endereço.
         foreach (var e in Estabelecimentos.Where(e => e.EnderecoFiscal == endereco))
             e.EnderecoFiscal = null;
-        endereco.PropertyChanged -= Endereco_PropertyChanged;
-        Enderecos.Remove(endereco);
+        if (endereco.Gravado)
+        {
+            endereco.Principal = false;
+            endereco.Ativo = false;
+        }
+        else
+        {
+            endereco.PropertyChanged -= Endereco_PropertyChanged;
+            Enderecos.Remove(endereco);
+        }
+        OnPropertyChanged(nameof(TemEnderecosInativos));
+    }
+
+    /// <summary>Tipos de endereço do cadastro (Sede, Depósito...).</summary>
+    private IReadOnlyList<TipoEnderecoDto> _tiposEndereco = [];
+
+    /// <summary>Mostra também os endereços removidos (inativos), para consultar ou reativar.</summary>
+    [ObservableProperty] private bool _mostrarEnderecosInativos;
+
+    public bool TemEnderecosInativos => Enderecos.Any(e => !e.Ativo);
+
+    partial void OnMostrarEnderecosInativosChanged(bool value)
+    {
+        foreach (var e in Enderecos) e.MostrarSeInativo = value;
     }
 
     /// <summary>Só um endereço principal: marcar um desmarca os outros.</summary>
     private void Endereco_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(EnderecoFormulario.Ativo)) OnPropertyChanged(nameof(TemEnderecosInativos));
         if (e.PropertyName != nameof(EnderecoFormulario.Principal) || sender is not EnderecoFormulario { Principal: true } marcado)
             return;
         foreach (var outro in Enderecos.Where(x => !ReferenceEquals(x, marcado)))
@@ -641,7 +674,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (ReferenceEquals(estabelecimento, Principal))
         {
             if (d.RazaoSocial.Length > 0) Nome = d.RazaoSocial;
-            endereco = Enderecos.FirstOrDefault(e => e.Principal) ?? Enderecos.FirstOrDefault();
+            endereco = Enderecos.FirstOrDefault(e => e.Ativo && e.Principal) ?? Enderecos.FirstOrDefault(e => e.Ativo);
             if (endereco is null)
             {
                 endereco = new EnderecoFormulario { Principal = true, Fiscal = true };

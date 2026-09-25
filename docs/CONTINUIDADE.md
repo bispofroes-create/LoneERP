@@ -144,6 +144,16 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Cadastro `TiposMeioContato` (categoria telefone/e-mail, nome único por categoria, ordem, ativo; 5 iniciais com Ids fixos).
     Permissão `CADASTROS.TIPOS` (servirá também para tipos de endereço e de documento). Menu "Tipos de telefone/e-mail".
   - Migração `MeiosContatoETipos`: no fim do `Up`, `migrationBuilder.Sql(SqlMigracaoMeiosContato.AtivarEConverterWhatsApp);`.
+- **Fase 3b — Endereços (código entregue em 25/09/2026; sem teste por fase — tudo será testado no fim):**
+  - D3: finalidades mantidas; `PessoaEnderecos` ganhou `TipoEnderecoId` (FK, cadastro parametrizável), `Observacoes` (250) e `Ativo`.
+  - Cadastro `TiposEndereco` (nome único CI_AI, ordem, ativo; Sede, Filial, Depósito, Residência com Ids fixos). Permissão
+    `CADASTROS.TIPOS`, menu "Tipos de endereço".
+  - Endereços nunca apagados (`apagarAusentes: false`): remover um gravado desativa (perde "principal", fica fora da lista;
+    "Mostrar inativos" + "Reativar"). Inativo não é conferido (município antigo não trava) e não pode ser o endereço fiscal
+    de uma filial. Pendência de município de endereço inativo é considerada resolvida.
+  - **Migração única final** (gerada pelo usuário depois de todas as fases): logo depois da criação da coluna
+    `PessoaEnderecos.Ativo`, inserir `migrationBuilder.Sql(SqlMigracaoCadastroGeral.AtivarEnderecos);`.
+  - Tradução dos Ids novos no histórico (tipo de telefone, tipo de endereço) fica para a fase 6.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

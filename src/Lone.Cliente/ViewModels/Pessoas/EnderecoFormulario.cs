@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.ViewModels.Comum;
+using Lone.Contracts.Enderecos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
@@ -10,14 +11,23 @@ using CepValor = Lone.Domain.ObjetosDeValor.Cep;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
 
-/// <summary>Um endereço da pessoa, com as finalidades marcáveis (principal, fiscal, cobrança...).</summary>
+/// <summary>
+/// Um endereço da pessoa, com as finalidades marcáveis (principal, fiscal, cobrança...) e o tipo do cadastro
+/// (Sede, Depósito...). Remover um endereço já gravado só o desativa (histórico de entregas, notas antigas);
+/// ele volta em "Mostrar inativos". Um endereço ainda não gravado sai da lista.
+/// </summary>
 public sealed partial class EnderecoFormulario : ItemDeLista
 {
-    public EnderecoFormulario() : this(IdSequencial.Novo()) { }
+    private IReadOnlyList<TipoEnderecoDto> _catalogo = [];
+    private Guid? _tipoGravado;
+    private bool _catalogoDefinido;
 
-    private EnderecoFormulario(Guid id)
+    public EnderecoFormulario() : this(IdSequencial.Novo(), gravado: false) { }
+
+    private EnderecoFormulario(Guid id, bool gravado)
     {
         Id = id;
+        Gravado = gravado;
         Municipio.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(SeletorMunicipio.Selecionado) or nameof(SeletorMunicipio.Uf))
@@ -34,6 +44,50 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     /// <summary>Gerado no aparelho: um estabelecimento pode apontar para este endereço antes de gravar.</summary>
     public Guid Id { get; }
+
+    /// <summary>Já existe no banco: remover desativa em vez de tirar da lista.</summary>
+    public bool Gravado { get; }
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Visivel), nameof(Inativo), nameof(Resumo))]
+    private bool _ativo = true;
+
+    /// <summary>Ligado pela ficha em "Mostrar inativos".</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Visivel))]
+    private bool _mostrarSeInativo;
+
+    public bool Visivel => Ativo || MostrarSeInativo;
+    public bool Inativo => !Ativo;
+
+    [RelayCommand]
+    private void Reativar() => Ativo = true;
+
+    [ObservableProperty] private string _observacoes = string.Empty;
+
+    // ---- Tipo (cadastro de tipos de endereço: Sede, Depósito...) ----
+
+    public static readonly Opcao<Guid?> SemTipo = new(null, "—");
+
+    /// <summary>"—" e os tipos ativos (mais o gravado, se desativado). Array: o Picker precisa de IList.</summary>
+    [ObservableProperty] private Opcao<Guid?>[] _tipos = [SemTipo];
+
+    [ObservableProperty] private Opcao<Guid?> _tipo = SemTipo;
+
+    /// <summary>Chamado pela ficha ao incluir o item: a lista de tipos do cadastro.</summary>
+    public void DefinirCatalogo(IReadOnlyList<TipoEnderecoDto> catalogo)
+    {
+        _catalogo = catalogo;
+        var atual = _catalogoDefinido ? Tipo?.Valor : _tipoGravado;
+        Tipos =
+        [
+            SemTipo,
+            .. catalogo
+                .Where(t => t.Ativo || t.Id == _tipoGravado)
+                .OrderBy(t => t.Ordem).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
+                .Select(t => new Opcao<Guid?>(t.Id, t.Ativo ? t.Nome : t.Nome + " (desativado)"))
+        ];
+        Tipo = Tipos.FirstOrDefault(o => o.Valor == atual) ?? SemTipo;
+        _catalogoDefinido = true;
+    }
 
     /// <summary>Definido pela ficha: consulta o CEP digitado e preenche o endereço.</summary>
     public Func<EnderecoFormulario, Task>? AoBuscarCep { get; set; }
@@ -101,7 +155,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
                 : Municipio.Selecionado is { } m ? $"{m.Nome}/{m.Uf}" : Municipio.Uf ?? string.Empty;
             var texto = string.Join(" - ", new[] { linha, local }.Where(s => s.Length > 0));
             if (texto.Length == 0) texto = "(endereço sem logradouro)";
-            return string.IsNullOrWhiteSpace(Descricao) ? texto : $"{Descricao}: {texto}";
+            if (!string.IsNullOrWhiteSpace(Descricao)) texto = $"{Descricao}: {texto}";
+            return Ativo ? texto : texto + " (inativo)";
         }
     }
 
@@ -135,10 +190,13 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         return f;
     }
 
-    private static EnderecoFormulario Criar(EnderecoDto e) => new(e.Id)
+    private static EnderecoFormulario Criar(EnderecoDto e) => new(e.Id, gravado: true)
     {
         _cepConhecido = Digitos(e.Cep),
+        _tipoGravado = e.TipoEnderecoId,
         Descricao = e.Descricao ?? string.Empty,
+        Observacoes = e.Observacoes ?? string.Empty,
+        Ativo = e.Ativo,
         Principal = e.Finalidades.HasFlag(FinalidadeEndereco.Principal),
         Fiscal = e.Finalidades.HasFlag(FinalidadeEndereco.Fiscal),
         Cobranca = e.Finalidades.HasFlag(FinalidadeEndereco.Cobranca),
@@ -161,7 +219,12 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     {
         Id = Id,
         Descricao = TextoTela.Nulo(Descricao),
-        Finalidades = Finalidades(),
+        // Sem a lista de tipos (falha ao ler), o tipo gravado volta intacto.
+        TipoEnderecoId = _catalogo.Count > 0 ? Tipo?.Valor : _tipoGravado,
+        Observacoes = TextoTela.Nulo(Observacoes),
+        Ativo = Ativo,
+        // Inativo não é principal (o servidor também garante).
+        Finalidades = Ativo ? Finalidades() : Finalidades() & ~FinalidadeEndereco.Principal,
         Ordem = ordem,
         Cep = TextoTela.Nulo(Cep),
         Logradouro = Logradouro,
