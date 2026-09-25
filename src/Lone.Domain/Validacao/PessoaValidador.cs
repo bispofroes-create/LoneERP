@@ -1,5 +1,6 @@
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
+using Lone.Domain.Etiquetas;
 using Lone.Domain.ObjetosDeValor;
 
 namespace Lone.Domain.Validacao;
@@ -90,8 +91,8 @@ public static class PessoaValidador
             erros.Add("A data do primeiro contato não pode ser no futuro.");
         Limite(p.OrigemCadastro, 60, "A origem do cadastro", erros);
 
-        if (p.Etiquetas.Count > global::Lone.Domain.Etiquetas.RegrasEtiqueta.MaximoPorPessoa)
-            erros.Add($"Use no máximo {global::Lone.Domain.Etiquetas.RegrasEtiqueta.MaximoPorPessoa} etiquetas por cadastro.");
+        if (p.Etiquetas.Count > RegrasEtiqueta.MaximoPorPessoa)
+            erros.Add($"Use no máximo {RegrasEtiqueta.MaximoPorPessoa} etiquetas por cadastro.");
     }
 
     private static void Limite(string? texto, int maximo, string campo, List<string> erros)
