@@ -1,11 +1,10 @@
-using Lone.Cliente.ViewModels.Comum;
 using Lone.Cliente.ViewModels.Pessoas;
 using Lone.Domain.Enums;
 
 namespace Lone.Tests.Cliente;
 
-/// <summary>Idade calculada, CPF/CNPJ conferidos no campo e vários endereços (revisão do cadastro de pessoas).</summary>
-public class IdentificacaoFormularioTests
+/// <summary>R1 da revisão de Pessoas: idade sempre calculada da data e os cenários de vários endereços no formulário.</summary>
+public class RevisaoPessoasR1Tests
 {
     private static PessoaFormulario Pf(DateOnly hoje)
     {
@@ -59,83 +58,6 @@ public class IdentificacaoFormularioTests
         Assert.Equal(3, avisos.Count(p => p == nameof(PessoaFormulario.Idade))); // a tela é avisada a cada mudança
     }
 
-    [Fact]
-    public void Data_invalida_mostra_erro_junto_do_campo_e_bloqueia_o_envio()
-    {
-        var f = Pf(new DateOnly(2026, 9, 25));
-        f.Nome = "Ana";
-        f.DataNascimento = "31/02/1990";
-
-        Assert.Equal("Data inválida (dd/mm/aaaa).", f.ErroDataNascimento);
-        Assert.Contains(f.ValidarLocalmente(), e => e.Contains("nascimento"));
-    }
-
-    // ---------------------------------------------------------------- CPF / CNPJ
-
-    [Fact]
-    public void CPF_invalido_completo_acusa_na_hora_e_impede_o_envio()
-    {
-        var f = PessoaFormulario.NovaPessoa();
-        f.Nome = "Ana";
-        f.Documento = "529.982.247-24";
-
-        Assert.Equal("CPF inválido: confira os dígitos.", f.ErroDocumento);
-        Assert.False(f.DocumentoValido);
-        Assert.Contains("CPF inválido: confira os dígitos.", f.ValidarLocalmente());
-    }
-
-    [Fact]
-    public void CPF_incompleto_so_acusa_ao_sair_do_campo()
-    {
-        var f = PessoaFormulario.NovaPessoa();
-        f.Documento = "529.982";
-        Assert.Equal(string.Empty, f.ErroDocumento); // ainda digitando
-
-        f.ConferirDocumentoCommand.Execute(null);      // foco saiu
-
-        Assert.Equal("CPF incompleto: são 11 dígitos.", f.ErroDocumento);
-    }
-
-    [Fact]
-    public void CPF_valido_fica_marcado_como_valido_e_sem_erro()
-    {
-        var f = PessoaFormulario.NovaPessoa();
-        f.Documento = "529.982.247-25";
-        f.ConferirDocumentoCommand.Execute(null);
-
-        Assert.Equal(string.Empty, f.ErroDocumento);
-        Assert.True(f.DocumentoValido);
-        Assert.DoesNotContain(f.ValidarLocalmente(), e => e.Contains("CPF"));
-    }
-
-    [Fact]
-    public void CNPJ_invalido_acusa_no_estabelecimento_e_valido_passa()
-    {
-        var f = PessoaFormulario.NovaPessoa();
-        f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
-        f.Nome = "Empresa";
-        f.Principal.Cnpj = "11.222.333/0001-80";
-
-        Assert.Equal("CNPJ inválido: confira os dígitos.", f.Principal.ErroCnpj);
-        Assert.Contains(f.ValidarLocalmente(), e => e.Contains("CNPJ inválido"));
-
-        f.Principal.Cnpj = "11.222.333/0001-81";
-        Assert.Equal(string.Empty, f.Principal.ErroCnpj);
-        Assert.True(f.Principal.CnpjValido);
-    }
-
-    [Fact]
-    public void Pessoa_fisica_nao_confere_CNPJ_e_juridica_nao_confere_CPF()
-    {
-        var f = PessoaFormulario.NovaPessoa();
-        f.Principal.Cnpj = "123";
-        Assert.Equal(string.Empty, f.Principal.ErroCnpj);
-
-        f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
-        f.Documento = "111";
-        Assert.Equal(string.Empty, f.ErroDocumento);
-    }
-
     // ---------------------------------------------------------------- Vários endereços
 
     [Fact]
@@ -177,24 +99,5 @@ public class IdentificacaoFormularioTests
         Assert.Equal(new[] { primeiro, terceiro }, f.Enderecos);
         Assert.True(terceiro.Principal);
         Assert.Single(f.ParaDto().Enderecos, e => e.Finalidades.HasFlag(FinalidadeEndereco.Principal));
-    }
-
-    [Fact]
-    public void Seletor_de_endereco_fiscal_usa_opcoes_estaveis_e_acompanha_os_enderecos()
-    {
-        var f = PessoaFormulario.NovaPessoa();
-        f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
-        var filial = f.AdicionarEstabelecimento();
-        var antes = filial.OpcoesEnderecoFiscal;
-
-        var novo = new EnderecoFormulario { Logradouro = "Rua do Depósito", Principal = false };
-        f.AdicionarEndereco(novo);
-        f.AdicionarEndereco(new EnderecoFormulario { Logradouro = "Rua 3", Principal = false });
-
-        Assert.NotSame(antes, filial.OpcoesEnderecoFiscal);       // array novo, nunca a coleção viva
-        Assert.Equal(4, filial.OpcoesEnderecoFiscal.Length);      // "principal da pessoa" + 3 endereços
-        filial.EnderecoFiscalOpcao = filial.OpcoesEnderecoFiscal.First(o => o.Valor == novo.Id);
-        Assert.Same(novo, filial.EnderecoFiscal);
-        Assert.Equal(novo.Id, f.ParaDto().Estabelecimentos[1].EnderecoFiscalId);
     }
 }

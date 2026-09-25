@@ -123,3 +123,20 @@ Testes de ViewModel (xUnit, sem interface): idade (aniversário já ocorrido/nã
 inválida, vazia, mudança, remoção), CPF/CNPJ válido/inválido no campo, 1/2/3 endereços, editar/remover o 2º, trocar
 o principal, finalidades diferentes, vários telefones/e-mails, papéis e etiquetas pelo componente múltiplo, abas
 PF×PJ, Comercial com/sem cliente, campos personalizados; importação da CBO (pré-visualização e gravação) no domínio.
+
+## 10. Ajustes do usuário à análise (aprovada como base)
+
+1. **Unicidade de documentos:** por tipo de documento + número (+ país emissor quando aplicável). CPF e CNPJ mantêm as
+   regras próprias; passaporte, documento estrangeiro e identificação fiscal estrangeira também terão regra de
+   unicidade. Estrangeiro não libera duplicidade.
+2. **País:** antes de criar colunas de país, verificar se já existe cadastro de países e reutilizar a referência
+   (sem código e nome soltos que possam divergir).
+3. **Segmentação:** `Segmentos` + `PessoaSegmentos`; um principal por pessoa hoje, estrutura pronta para vários;
+   nunca dois principais — regra no negócio e índice único filtrado no banco.
+4. **R1 / endereços:** não corrigir por hipótese. Reproduzir (1, 2, 3 endereços; editar e remover o 2º; finalidades
+   diferentes; trocar o principal), capturar exceção e pilha, identificar a causa e só então corrigir.
+5. **R2 / validação:** erro junto do campo, estado visual de erro, mensagem clara, validação ao digitar quando fizer
+   sentido, carregando em consultas externas; **sem** ícone verde em todo campo válido.
+6. **R7 / Comercial:** contextual ao papel Cliente; tirar o papel **não apaga** os dados comerciais (preservados).
+7. **Histórico:** o que deixa de valer é desativado/encerrado, nunca apagado.
+8. **Execução:** uma etapa por vez, começando pelo R1; nada fora do escopo sem avisar antes.

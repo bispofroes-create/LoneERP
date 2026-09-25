@@ -14,7 +14,7 @@ public static class Idade
         return anos;
     }
 
-    /// <summary>"42 anos", "1 ano", "Menos de 1 ano", "Data no futuro"; sem data = vazio (nunca guarda idade antiga).</summary>
+    /// <summary>"43 anos", "1 ano", "Menos de 1 ano", "Data no futuro"; sem data = vazio (nunca fica idade antiga).</summary>
     public static string Texto(DateOnly? nascimento, DateOnly hoje)
     {
         if (nascimento is not { } n) return string.Empty;

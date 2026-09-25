@@ -11,6 +11,9 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        // Diagnóstico de falhas: grava a exceção real (pilha completa) antes de o app fechar.
+        RegistroFalhas.Ligar();
+
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
 

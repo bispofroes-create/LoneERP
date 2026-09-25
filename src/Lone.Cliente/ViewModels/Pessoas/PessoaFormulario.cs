@@ -65,8 +65,7 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EhFisica), nameof(EhJuridica), nameof(EhEstrangeiro), nameof(NaoEhJuridica),
-                              nameof(RotuloNome), nameof(RotuloDocumento), nameof(MascaraDocumento), nameof(MostrarCorRaca),
-                              nameof(ErroDocumento), nameof(DocumentoValido))]
+                              nameof(RotuloNome), nameof(RotuloDocumento), nameof(MascaraDocumento), nameof(MostrarCorRaca))]
     private Opcao<NaturezaPessoa> _natureza = OpcoesPessoa.Naturezas[0];
 
     /// <summary>Ativo ou em análise (o formulário só alterna entre os dois).</summary>
@@ -94,24 +93,10 @@ public sealed partial class PessoaFormulario : ObservableObject
     [ObservableProperty] private string _apelido = string.Empty;
 
     /// <summary>CPF (PF) ou identificação do estrangeiro. Na PJ, o CNPJ fica nos estabelecimentos.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ErroDocumento), nameof(DocumentoValido))]
-    private string _documento = string.Empty;
-
-    /// <summary>O foco já saiu do campo CPF: número incompleto também vira erro.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ErroDocumento), nameof(DocumentoValido))]
-    private bool _documentoConferido;
-
-    /// <summary>Erro do CPF junto do campo (só PF; a identificação estrangeira é livre).</summary>
-    public string ErroDocumento => EhFisica ? ConferenciaDocumento.ErroCpf(Documento, DocumentoConferido) : string.Empty;
-    public bool DocumentoValido => EhFisica && ConferenciaDocumento.CpfValido(Documento);
-
-    [CommunityToolkit.Mvvm.Input.RelayCommand]
-    private void ConferirDocumento() => DocumentoConferido = true;
+    [ObservableProperty] private string _documento = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Idade), nameof(ErroDataNascimento))]
+    [NotifyPropertyChangedFor(nameof(Idade))]
     private string _dataNascimento = string.Empty;
     [ObservableProperty] private string _observacoes = string.Empty;
 
@@ -224,16 +209,10 @@ public sealed partial class PessoaFormulario : ObservableObject
     public DateOnly Hoje { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
     /// <summary>
-    /// Calculada da data de nascimento, nunca gravada (ex.: "42 anos"). Só com a data completa (dd/mm/aaaa): enquanto se
-    /// digita "13/05/19" não aparece idade de 2019. Data apagada ou inválida = idade vazia na hora.
+    /// Calculada da data de nascimento, nunca gravada (ex.: "43 anos"). Só com a data completa (dd/mm/aaaa): enquanto
+    /// se digita "13/05/19" não aparece a idade de quem nasceu em 2019. Data apagada ou inválida = idade vazia na hora.
     /// </summary>
     public string Idade => global::Lone.Domain.Comum.Idade.Texto(TextoTela.DataCompleta(DataNascimento), Hoje);
-
-    /// <summary>Erro da data de nascimento, mostrado junto do campo (vazio = sem erro).</summary>
-    public string ErroDataNascimento =>
-        DataNascimento.Trim().Length == 0 ? string.Empty
-        : TextoTela.DataCompleta(DataNascimento) is not { } d ? (DataNascimento.Trim().Length < 10 ? string.Empty : "Data inválida (dd/mm/aaaa).")
-        : d > Hoje ? "A data de nascimento está no futuro." : string.Empty;
     public string Titulo => string.IsNullOrWhiteSpace(Nome) ? "Nova pessoa" : Nome;
     public string CodigoTexto => Nova ? "Novo cadastro" : $"Código {Codigo:000000}";
 
@@ -369,14 +348,6 @@ public sealed partial class PessoaFormulario : ObservableObject
     public IReadOnlyList<string> ValidarLocalmente()
     {
         var erros = new List<string>();
-        // CPF/CNPJ inválidos não seguem para a API (que também confere): a mensagem fica junto do campo e no topo.
-        DocumentoConferido = true;
-        if (ErroDocumento is { Length: > 0 } erroCpf) erros.Add(erroCpf);
-        foreach (var e in Estabelecimentos.Where(e => e.DaPessoaJuridica))
-        {
-            e.CnpjConferido = true;
-            if (e.ErroCnpj is { Length: > 0 } erroCnpj) erros.Add($"{e.Titulo}: {erroCnpj}");
-        }
         if (EhFisica)
         {
             if (!TextoTela.TentarData(DataNascimento, out var nascimento))
@@ -625,8 +596,6 @@ public sealed partial class PessoaFormulario : ObservableObject
     private void Endereco_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(EnderecoFormulario.Ativo)) OnPropertyChanged(nameof(TemEnderecosInativos));
-        if (e.PropertyName is nameof(EnderecoFormulario.Ativo) or nameof(EnderecoFormulario.Resumo))
-            foreach (var estabelecimento in Estabelecimentos) estabelecimento.AtualizarOpcoesEndereco();
         if (e.PropertyName != nameof(EnderecoFormulario.Principal) || sender is not EnderecoFormulario { Principal: true } marcado)
             return;
         foreach (var outro in Enderecos.Where(x => !ReferenceEquals(x, marcado)))

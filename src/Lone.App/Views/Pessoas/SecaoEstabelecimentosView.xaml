@@ -61,8 +61,7 @@
                             <FlexLayout Wrap="Wrap">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding DaPessoaJuridica}"
                                       FlexLayout.Basis="100%">
-                                    <c:Campo Rotulo="CNPJ" Texto="{Binding Cnpj}" Mascara="Cnpj" Erro="{Binding ErroCnpj}" Valido="{Binding CnpjValido}"
-                                             AoSair="{Binding ConferirCnpjCommand}" />
+                                    <c:Campo Rotulo="CNPJ" Texto="{Binding Cnpj}" Mascara="Cnpj" />
                                     <Button Grid.Column="1" Text="Consultar CNPJ" Style="{StaticResource BotaoSecundario}"
                                             VerticalOptions="End" Margin="0,0,12,8" Command="{Binding ConsultarCnpjCommand}" />
                                 </Grid>
@@ -95,8 +94,8 @@
 
                             <!-- Filial: endereço fiscal próprio ou o principal da pessoa. -->
                             <VerticalStackLayout IsVisible="{Binding FilialDaPJ}" Spacing="2">
-                                <c:CampoEscolha Rotulo="Endereço fiscal da filial" Itens="{Binding OpcoesEnderecoFiscal}"
-                                                Selecionado="{Binding EnderecoFiscalOpcao}" />
+                                <c:CampoEscolha Rotulo="Endereço fiscal da filial" Itens="{Binding EnderecosDisponiveis}"
+                                                Selecionado="{Binding EnderecoFiscal}" Dica="Endereço principal da pessoa" />
                                 <Button Text="Usar o endereço principal da pessoa" Style="{StaticResource BotaoLink}"
                                         Command="{Binding UsarEnderecoPrincipalCommand}" IsVisible="{Binding TemEnderecoProprio}" />
                             </VerticalStackLayout>
