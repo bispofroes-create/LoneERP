@@ -271,6 +271,17 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Índices novos: `PessoaDocumentos (ValidoAte, PessoaId)` filtrado, `PessoaEnderecos (Uf, MunicipioId)`, `Pessoas (CriadoEm)`.
   - Migração final: tabela `FiltrosSalvos` + índices; nenhum SQL de dados.
   - Pendente: abrir a ficha a partir do resultado (hoje a consulta só lista); várias escolhas por lista na tela (a API já aceita).
+    A ordem é por `Nome` (índice); a linha mostra o nome de exibição — quem tem nome de exibição/social pode parecer fora de ordem.
+- **Fase 13 — Revisão (25/09/2026, por leitura; sem compilar):** corrigidos: propriedade duplicada `Situacoes` na ficha
+  (a lista de situação de uso virou `SituacoesDeUso`), `using` faltando no `SituacaoRepositorio`, validação da primeira
+  lotação de vínculo novo (vazio = começa na admissão), FK de `HistoricoFiscal` para estabelecimento removida (remover
+  estabelecimento da ficha quebrava no banco; histórico fica), índice único dos campos personalizados sem filtro,
+  filiais nas metas (filtro antes da projeção), contagens das metas pelos períodos (encerrado tem Ativo = falso),
+  limites de texto das metas validados, permissão conferida antes na mudança de situação da meta.
+- **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados
+  acima, os SQL de `SqlMigracaoCadastroGeral`: `AtivarEnderecos`, `LigarDocumentosAosTipos` (antes da FK dos
+  documentos para `TiposDocumento`), `CamposVisiveis`, `CarteiraDosVendedoresPadrao` (depois do insert de
+  `TiposCarteira`), `HistoricoFiscalECnaes`. Depois: compilar, rodar todos os testes e testar o app.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

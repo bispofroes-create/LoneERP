@@ -22,6 +22,8 @@ public sealed record ResultadoParticipante(Guid ParticipanteId, decimal Nota, Me
 public static class RegrasMeta
 {
     public const decimal Tolerancia = 0.01m;
+    public const int TamanhoMaximoNomeFaixa = 60;
+    public const int TamanhoMaximoDescricao = 1000;
 
     public static string? Texto(string? s) => string.IsNullOrWhiteSpace(s) ? null : string.Join(' ', s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
@@ -47,6 +49,8 @@ public static class RegrasMeta
 
         if (m.Faixas.Count == 0) erros.Add("Inclua ao menos uma faixa de desempenho (ex.: a partir de 100%: Atingida).");
         if (m.Faixas.Any(f => string.IsNullOrWhiteSpace(f.Nome))) erros.Add("Dê um nome a cada faixa.");
+        if (m.Faixas.Any(f => f.Nome.Length > TamanhoMaximoNomeFaixa)) erros.Add($"O nome da faixa pode ter no máximo {TamanhoMaximoNomeFaixa} caracteres.");
+        if (m.Descricao is { Length: > TamanhoMaximoDescricao }) erros.Add($"A descrição pode ter no máximo {TamanhoMaximoDescricao} caracteres.");
         if (m.Faixas.Any(f => f.InicioPercentual < 0)) erros.Add("As faixas começam em 0% ou mais.");
         if (m.Faixas.Any(f => f.PercentualPremio is < 0 or > 1000)) erros.Add("O prêmio de cada faixa fica entre 0% e 1.000%.");
         if (m.Faixas.GroupBy(f => f.InicioPercentual).Any(g => g.Count() > 1)) erros.Add("Duas faixas começam no mesmo percentual.");

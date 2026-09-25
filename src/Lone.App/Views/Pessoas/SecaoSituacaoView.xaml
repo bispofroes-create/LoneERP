@@ -20,7 +20,7 @@
         </Border>
 
         <!-- Ativo ou em análise (cadastro incompleto ou aguardando aprovação: não movimenta). -->
-        <c:CampoEscolha Rotulo="Situação de uso" Itens="{Binding Formulario.Situacoes}" Selecionado="{Binding Formulario.Situacao}"
+        <c:CampoEscolha Rotulo="Situação de uso" Itens="{Binding Formulario.SituacoesDeUso}" Selecionado="{Binding Formulario.Situacao}"
                         IsVisible="{Binding Formulario.PodeEscolherSituacao}" MaximumWidthRequest="360" HorizontalOptions="Start" />
 
         <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"

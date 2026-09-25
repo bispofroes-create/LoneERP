@@ -93,6 +93,7 @@ public sealed class MetaAppService : IMetaAppService
 
     public async Task<MetaDto> AlterarSituacaoAsync(Guid id, AlterarSituacaoMetaRequisicao requisicao, CancellationToken ct = default)
     {
+        _autorizacao.Exigir(Permissoes.Metas.Visualizar);
         var meta = await _repositorio.ObterAsync(id, ct) ?? throw new ValidacaoException(["Esta meta não existe mais."]);
         var de = meta.Situacao;
         var para = requisicao.Situacao;

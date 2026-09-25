@@ -39,7 +39,7 @@ public class HistoricoFiscalConfiguration : IEntityTypeConfiguration<HistoricoFi
         b.Property(h => h.IndicadorIE).HasConversion<byte>();
         b.Property(h => h.InscricaoEstadual).HasMaxLength(14).IsUnicode(false);
         b.Property(h => h.SituacaoReceita).HasMaxLength(40);
-        b.HasOne<Estabelecimento>().WithMany().HasForeignKey(h => h.EstabelecimentoId).OnDelete(DeleteBehavior.NoAction);
+        // Sem FK para o estabelecimento: o histórico fica mesmo se o estabelecimento sair da ficha (é histórico).
         b.HasIndex(h => new { h.EstabelecimentoId, h.InicioEm });
         b.HasIndex(h => h.PessoaId);
     }

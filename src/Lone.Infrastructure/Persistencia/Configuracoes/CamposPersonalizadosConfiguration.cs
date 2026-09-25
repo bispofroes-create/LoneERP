@@ -22,7 +22,8 @@ public class CampoPersonalizadoConfiguration : IEntityTypeConfiguration<CampoPer
 
         // Nome único por cadastro — e, nos documentos, por tipo de documento ("Categoria" pode existir na CNH e em outro
         // tipo) —, inclusive entre os desativados, para o histórico não ficar ambíguo.
-        b.HasIndex(c => new { c.Entidade, c.TipoDocumentoId, c.Nome }).IsUnique();
+        // Sem filtro: o EF filtraria "TipoDocumentoId IS NOT NULL" e os campos da pessoa (nulo) ficariam sem unicidade.
+        b.HasIndex(c => new { c.Entidade, c.TipoDocumentoId, c.Nome }).IsUnique().HasFilter(null);
         b.HasOne<TipoDocumentoCadastro>().WithMany().HasForeignKey(c => c.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(c => new { c.Entidade, c.Ativo, c.Ordem });
 

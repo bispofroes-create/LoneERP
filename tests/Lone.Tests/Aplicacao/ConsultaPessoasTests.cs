@@ -11,7 +11,7 @@ public class ConsultaPessoasTests
     [InlineData("=SOMA(A1)", "'=SOMA(A1)")]      // fórmula vira texto no Excel
     [InlineData("-10", "'-10")]
     [InlineData("a;b", "\"a;b\"")]
-    [InlineData("diz \"oi\"", "diz \"oi\"")]
+    [InlineData("diz \"oi\"", "\"diz \"\"oi\"\"\"")]
     [InlineData("x\"; y", "\"x\"\"; y\"")]
     public void Celula_do_csv_e_segura(string valor, string esperado) =>
         Assert.Equal(esperado, ConsultaPessoasAppService.Celula(valor));

@@ -63,7 +63,7 @@ public class MetaConfiguration : IEntityTypeConfiguration<Meta>
         b.ToTable("Metas");
         b.HasKey(x => x.Id);
         b.Property(x => x.Nome).IsRequired().HasMaxLength(Meta.TamanhoMaximoNome);
-        b.Property(x => x.Descricao).HasMaxLength(1000);
+        b.Property(x => x.Descricao).HasMaxLength(RegrasMeta.TamanhoMaximoDescricao);
         b.Property(x => x.Situacao).HasConversion<byte>();
         b.Property(x => x.LimiteAtingimento).HasPrecision(7, 2);
         b.Property(x => x.FechadaPor).HasMaxLength(100);
@@ -93,7 +93,7 @@ public class MetaFaixaConfiguration : IEntityTypeConfiguration<MetaFaixa>
     {
         b.ToTable("MetaFaixas");
         b.HasKey(x => x.Id);
-        b.Property(x => x.Nome).IsRequired().HasMaxLength(60);
+        b.Property(x => x.Nome).IsRequired().HasMaxLength(RegrasMeta.TamanhoMaximoNomeFaixa);
         b.Property(x => x.InicioPercentual).HasPrecision(7, 2);
         b.Property(x => x.PercentualPremio).HasPrecision(7, 2);
     }

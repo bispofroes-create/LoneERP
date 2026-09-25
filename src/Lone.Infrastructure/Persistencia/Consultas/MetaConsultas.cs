@@ -36,7 +36,7 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
 
         var filiais = Ids(NivelParticipante.Filial);
         if (filiais.Count > 0)
-            foreach (var f in await Filiais(db).Where(f => filiais.Contains(f.Id)).ToListAsync(ct))
+            foreach (var f in await Filiais(db, filiais))
                 resultado[(NivelParticipante.Filial, f.Id)] = f.Nome;
 
         var departamentos = Ids(NivelParticipante.Departamento);
@@ -52,13 +52,17 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
         return resultado;
     }
 
-    /// <summary>Filial = estabelecimento de uma empresa do grupo ("Nome fantasia" ou nome da empresa + final do CNPJ).</summary>
-    private static IQueryable<ParticipanteOpcaoDto> Filiais(LoneDbContext db) =>
+    /// <summary>
+    /// Filial = estabelecimento de uma empresa do grupo ("Nome fantasia" ou nome da empresa + final do CNPJ). Filtra
+    /// pelos Ids antes de projetar (o EF não filtra sobre um record criado pelo construtor).
+    /// </summary>
+    private static Task<List<ParticipanteOpcaoDto>> Filiais(LoneDbContext db, List<Guid> ids) =>
         db.Pessoas.AsNoTracking()
             .Where(p => p.Papeis.Any(x => x.Papel == TipoPapel.EmpresaDoGrupo))
-            .SelectMany(p => p.Estabelecimentos.Select(e => new ParticipanteOpcaoDto(
+            .SelectMany(p => p.Estabelecimentos.Where(e => ids.Contains(e.Id)).Select(e => new ParticipanteOpcaoDto(
                 NivelParticipante.Filial, e.Id,
-                (e.NomeFantasia ?? p.NomeExibicao ?? p.Nome) + (e.Cnpj != null && e.Cnpj.Length == 14 ? " (" + e.Cnpj.Substring(8, 4) + ")" : ""))));
+                (e.NomeFantasia ?? p.NomeExibicao ?? p.Nome) + (e.Cnpj != null && e.Cnpj.Length == 14 ? " (" + e.Cnpj.Substring(8, 4) + ")" : ""))))
+            .ToListAsync();
 
     public async Task<List<ParticipanteOpcaoDto>> OpcoesAsync(DateOnly hoje, CancellationToken ct)
     {
@@ -135,22 +139,23 @@ public class FonteIndicadoresCadastro : ServicoDadosBase, IFonteIndicadores
                 .Select(c => c.PessoaId)
                 .Distinct();
 
-            var periodos = db.PessoaPapeis.AsNoTracking().Where(x => x.PapelId == papelCliente && x.Ativo && clientes.Contains(x.PessoaId));
+            var periodos = db.PessoaPapeis.AsNoTracking().Where(x => x.PapelId == papelCliente && clientes.Contains(x.PessoaId));
+            // Só datas: período encerrado fica com Ativo = falso e o fim preenchido (é histórico, conta).
             resultado[p.Id] = fonte switch
             {
                 // Primeiro período de cliente começou dentro da meta.
                 FonteIndicador.NovosClientes => await periodos
                     .Where(x => x.InicioEm >= inicio && x.InicioEm <= fim &&
-                                !db.PessoaPapeis.Any(y => y.PessoaId == x.PessoaId && y.PapelId == papelCliente && y.Ativo && y.InicioEm < inicio))
+                                !db.PessoaPapeis.Any(y => y.PessoaId == x.PessoaId && y.PapelId == papelCliente && y.InicioEm < inicio))
                     .Select(x => x.PessoaId).Distinct().CountAsync(ct),
-                // Era cliente em algum momento do período.
+                // Cliente no fim do período.
                 FonteIndicador.ClientesAtivos => await periodos
-                    .Where(x => x.InicioEm <= fim && (x.FimEm == null || x.FimEm >= inicio))
+                    .Where(x => x.InicioEm <= fim && (x.FimEm == null || x.FimEm >= fim))
                     .Select(x => x.PessoaId).Distinct().CountAsync(ct),
                 // Voltou a ser cliente no período depois de um período anterior encerrado.
                 FonteIndicador.ClientesReativados => await periodos
                     .Where(x => x.InicioEm >= inicio && x.InicioEm <= fim &&
-                                db.PessoaPapeis.Any(y => y.PessoaId == x.PessoaId && y.PapelId == papelCliente && y.Ativo &&
+                                db.PessoaPapeis.Any(y => y.PessoaId == x.PessoaId && y.PapelId == papelCliente &&
                                                          y.InicioEm < inicio && y.FimEm != null && y.FimEm < x.InicioEm))
                     .Select(x => x.PessoaId).Distinct().CountAsync(ct),
                 FonteIndicador.InteracoesRegistradas => await db.Interacoes.AsNoTracking()

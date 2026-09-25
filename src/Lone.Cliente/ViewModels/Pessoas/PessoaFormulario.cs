@@ -183,7 +183,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     // ---- Calculados ----
 
     public IReadOnlyList<Opcao<NaturezaPessoa>> Naturezas => OpcoesPessoa.Naturezas;
-    public IReadOnlyList<Opcao<SituacaoPessoa>> Situacoes => OpcoesPessoa.SituacoesEditaveis;
+    public IReadOnlyList<Opcao<SituacaoPessoa>> SituacoesDeUso => OpcoesPessoa.SituacoesEditaveis;
 
     /// <summary>Campos personalizados ativos (aba "Informações adicionais"), na ordem definida pelo administrador.</summary>
     public IReadOnlyList<CampoPersonalizadoFormulario> InformacoesAdicionais { get; private set; } = [];

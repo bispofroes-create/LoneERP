@@ -1,5 +1,6 @@
 using Lone.Application.Seguranca;
 using Lone.Application.Situacoes;
+using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;

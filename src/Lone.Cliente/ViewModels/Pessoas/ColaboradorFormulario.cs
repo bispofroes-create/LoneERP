@@ -142,9 +142,11 @@ public sealed partial class LotacaoFormulario : ItemDeLista
         Setor = Escolher(Setores, setorAtual);
     }
 
-    public IEnumerable<string> Validar(string rotulo)
+    /// <param name="inicioOpcional">Primeira lotação de um vínculo com admissão: vazio = começa na admissão.</param>
+    public IEnumerable<string> Validar(string rotulo, bool inicioOpcional = false)
     {
-        if (!TextoTela.TentarData(InicioEm, out var inicio) || inicio is null) yield return $"{rotulo}: informe o início da lotação (dd/mm/aaaa).";
+        if (!TextoTela.TentarData(InicioEm, out var inicio) || (inicio is null && !inicioOpcional))
+            yield return $"{rotulo}: informe o início da lotação (dd/mm/aaaa).";
         if (!TextoTela.TentarData(FimEm, out _)) yield return $"{rotulo}: fim da lotação inválido (use dd/mm/aaaa).";
     }
 
@@ -307,7 +309,8 @@ public sealed partial class VinculoFormulario : ItemDeLista
         if (!TextoTela.TentarData(AdmissaoEm, out var admissao) || admissao is null) yield return $"{rotulo}: informe a admissão (dd/mm/aaaa).";
         if (!TextoTela.TentarData(DesligamentoEm, out _)) yield return $"{rotulo}: desligamento inválido (use dd/mm/aaaa).";
         if (!TextoTela.TentarDecimal(JornadaSemanal, out _)) yield return $"{rotulo}: jornada semanal inválida.";
-        foreach (var erro in Lotacoes.SelectMany(l => l.Validar(rotulo)))
+        var primeira = Lotacoes.Count > 0 ? Lotacoes[^1] : null;
+        foreach (var erro in Lotacoes.SelectMany(l => l.Validar(rotulo, inicioOpcional: ReferenceEquals(l, primeira) && admissao is not null)))
             yield return erro;
     }
 
