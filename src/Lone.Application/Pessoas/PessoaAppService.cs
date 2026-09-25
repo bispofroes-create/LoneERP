@@ -1,5 +1,6 @@
 using Lone.Application.Auditoria;
 using Lone.Application.CamposPersonalizados;
+using Lone.Application.Etiquetas;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -10,6 +11,7 @@ using Lone.Domain.CamposPersonalizados;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
+using Lone.Domain.Etiquetas;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -27,16 +29,19 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IAutorizacao _autorizacao;
     private readonly IMunicipioRepositorio _municipios;
     private readonly ICampoPersonalizadoRepositorio _campos;
+    private readonly IEtiquetaRepositorio _etiquetas;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
-                            IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, TimeProvider relogio)
+                            IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
+                            TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
         _autorizacao = autorizacao;
         _municipios = municipios;
         _campos = campos;
+        _etiquetas = etiquetas;
         _relogio = relogio;
     }
 
@@ -84,12 +89,6 @@ public sealed class PessoaAppService : IPessoaAppService
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
         var nascimentos = await _repositorio.ListarNascimentosAsync(papel, ct);
         return FaixasEtarias.Contar(nascimentos, DateOnly.FromDateTime(DateTime.Today));
-    }
-
-    public Task<List<string>> ListarEtiquetasAsync(CancellationToken ct = default)
-    {
-        _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
-        return _repositorio.ListarEtiquetasAsync(ct);
     }
 
     /// <summary>
@@ -157,6 +156,12 @@ public sealed class PessoaAppService : IPessoaAppService
         // Informações adicionais: conferidas contra as definições (desativado mantém o gravado).
         var campos = await _campos.ListarAsync(EntidadePersonalizavel.Pessoa, incluirInativos: true, ct);
         erros.AddRange(ValidadorValoresPersonalizados.Aplicar(dados.ValoresPersonalizados, campos, anterior?.ValoresPersonalizados ?? []));
+
+        // Etiquetas: do cadastro de etiquetas; uma desativada só continua em quem já a tinha.
+        erros.AddRange(RegrasEtiqueta.ValidarMarcadas(
+            dados.Etiquetas,
+            (anterior?.Etiquetas ?? []).Select(e => e.EtiquetaId).ToHashSet(),
+            await _etiquetas.ObterVariasAsync(dados.Etiquetas.Select(e => e.EtiquetaId).ToList(), ct)));
 
         if (dados.DocumentoPrincipal is not null && dados.Natureza != NaturezaPessoa.Estrangeiro)
         {

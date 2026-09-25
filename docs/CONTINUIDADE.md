@@ -107,6 +107,15 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   `PessoaMeiosContato`; endereço com finalidades + tipo parametrizável; campos de documentos no motor atual de campos
   personalizados; carteira em tabela própria `CarteiraClientes`; metas com estrutura agora e realizado do cadastro ou
   informado; anexos em pasta no servidor da API.
+- **Fase 2a — Etiquetas (código entregue em 24/09/2026, aguardando migração e testes):**
+  - Cadastro `Etiquetas` (nome único sem maiúsculas/acentos via collation `Latin1_General_CI_AI`, descrição, ativa), permissão
+    `CADASTROS.ETIQUETAS`, menu "Etiquetas" com mesclagem (move os cadastros e desativa a origem, com histórico em cada pessoa).
+  - `PessoaEtiquetas.EtiquetaId` (FK, índices `(PessoaId, EtiquetaId)` único e `(EtiquetaId, PessoaId)`); a coluna `Texto` fica como
+    cópia do dado antigo (propriedade de sombra, não usada).
+  - Ficha da pessoa: lista de marcar com busca e atalho "Nova etiqueta"; filtro da lista por `EtiquetaId`. O endpoint
+    `pessoas/etiquetas` saiu (substituído por `api/v1/etiquetas`).
+  - Migração `CadastroEtiquetas`: gerada pelo usuário e **reordenada à mão** (SQL em `SqlMigracaoEtiquetas.cs`). Se for
+    gerada de novo, a ordem das operações precisa ser refeita.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

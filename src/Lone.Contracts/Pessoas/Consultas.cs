@@ -17,7 +17,7 @@ public sealed class FiltroPessoas
     public bool IncluirInativos { get; set; }
 
     /// <summary>Só pessoas com esta etiqueta. Nulo = todas.</summary>
-    public string? Etiqueta { get; set; }
+    public Guid? EtiquetaId { get; set; }
 
     /// <summary>Só cadastros com município antigo (texto) ainda por escolher na tabela do IBGE.</summary>
     public bool MunicipioACorrigir { get; set; }

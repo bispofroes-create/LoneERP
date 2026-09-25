@@ -15,8 +15,6 @@ public interface IPessoaAppService
     /// <summary>Pessoas físicas ativas por faixa de idade (todas, ou só as de um papel).</summary>
     Task<List<QuantidadePorFaixaEtaria>> ListarFaixasEtariasAsync(TipoPapel? papel, CancellationToken ct = default);
 
-    Task<List<string>> ListarEtiquetasAsync(CancellationToken ct = default);
-
     /// <summary>
     /// Inclui ou altera (Id desconhecido = inclusão, inclusive quando o aparelho gerou o Id).
     /// Lança ValidacaoException (regra), AcessoNegadoException (permissão) ou ConflitoDeEdicaoException.

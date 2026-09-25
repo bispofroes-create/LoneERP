@@ -42,6 +42,7 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
 
         await TraduzirCamposPersonalizadosAsync(db, registros, ct);
         await TraduzirMunicipiosAsync(db, registros, ct);
+        await TraduzirEtiquetasAsync(db, registros, ct);
 
         // Gravado em UTC; marcado como tal para o aplicativo converter para o fuso do aparelho.
         foreach (var r in registros)
@@ -80,6 +81,30 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
         Guid.TryParse(valor[ValorCampo.PrefixoOpcao.Length..], out var id)
             ? opcoes.GetValueOrDefault(id, "(opção)")
             : valor;
+
+    /// <summary>Etiqueta marcada/desmarcada: o valor gravado é o Id da etiqueta; mostra o nome (mesmo renomeada, o nome atual).</summary>
+    private static async Task TraduzirEtiquetasAsync(LoneDbContext db, List<RegistroHistorico> registros, CancellationToken ct)
+    {
+        var alvo = registros
+            .Where(r => r.Entidade == nameof(PessoaEtiqueta) && r.Campo == nameof(PessoaEtiqueta.EtiquetaId))
+            .ToList();
+        if (alvo.Count == 0) return;
+
+        var ids = alvo.SelectMany(r => new[] { r.ValorAnterior, r.ValorNovo })
+            .Select(v => Guid.TryParse(v, out var id) ? id : (Guid?)null)
+            .OfType<Guid>().Distinct().ToList();
+        var nomes = await db.Etiquetas.AsNoTracking()
+            .Where(e => ids.Contains(e.Id)).ToDictionaryAsync(e => e.Id, e => e.Nome, ct);
+
+        foreach (var r in alvo)
+        {
+            r.ValorAnterior = Nome(r.ValorAnterior);
+            r.ValorNovo = Nome(r.ValorNovo);
+        }
+
+        string? Nome(string? valor) =>
+            Guid.TryParse(valor, out var id) ? nomes.GetValueOrDefault(id, "(etiqueta)") : valor;
+    }
 
     private static async Task TraduzirMunicipiosAsync(LoneDbContext db, List<RegistroHistorico> registros, CancellationToken ct)
     {

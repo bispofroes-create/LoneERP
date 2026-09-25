@@ -1,6 +1,7 @@
 using Lone.Application.Auditoria;
 using Lone.Application.Empresas;
 using Lone.Application.CamposPersonalizados;
+using Lone.Application.Etiquetas;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -30,6 +31,7 @@ public static class ConfiguracaoDados
         services.AddScoped<ITokenRenovacaoRepositorio, TokenRenovacaoRepositorio>();
         services.AddScoped<IMunicipioRepositorio, MunicipioRepositorio>();
         services.AddScoped<ICampoPersonalizadoRepositorio, CampoPersonalizadoRepositorio>();
+        services.AddScoped<IEtiquetaRepositorio, EtiquetaRepositorio>();
 
         return services;
     }

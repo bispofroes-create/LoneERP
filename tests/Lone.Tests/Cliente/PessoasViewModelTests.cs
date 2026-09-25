@@ -5,6 +5,7 @@ using Lone.Cliente.ViewModels.Comum;
 using Lone.Cliente.ViewModels.Pessoas;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
+using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
 
@@ -14,13 +15,15 @@ public class PessoasViewModelTests
 {
     internal static PessoasViewModel NovaTela(AmbienteCliente ambiente) =>
         new(new PessoasApi(ambiente.Api), new ConsultasApi(ambiente.Api), ambiente.Sessao, ambiente.Autenticacao,
-            new MunicipiosApi(ambiente.Api), new CamposPersonalizadosApi(ambiente.Api), ambiente.Dialogos);
+            new MunicipiosApi(ambiente.Api), new CamposPersonalizadosApi(ambiente.Api), new EtiquetasApi(ambiente.Api), ambiente.Dialogos);
+
+    internal static readonly EtiquetaDto Vip = new() { Id = Guid.NewGuid(), Nome = "VIP", Ativo = true };
 
     private static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente)> AbrirTelaAsync()
     {
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao()); // administrador: pode tudo
-        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<string> { "VIP" }); // etiquetas do filtro
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto> { Vip }); // cadastro de etiquetas (ficha e filtro)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos personalizados
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>
         {
@@ -74,8 +77,7 @@ public class PessoasViewModelTests
         gravada.Codigo = 7;
         ambiente.Servidor
             .Responder(HttpStatusCode.OK, new ResultadoSalvarPessoa { Pessoa = gravada, Avisos = ["Já existe \"Carlos\" com o mesmo nome."] })
-            .Responder(HttpStatusCode.OK, new List<PessoaResumo>())
-            .Responder(HttpStatusCode.OK, new List<string> { "VIP" });
+            .Responder(HttpStatusCode.OK, new List<PessoaResumo>());
 
         await tela.SalvarCommand.ExecuteAsync(null);
 
@@ -142,7 +144,7 @@ public class PessoasViewModelCepTests
     {
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
-        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<string>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>());
         var tela = PessoasViewModelTests.NovaTela(ambiente);

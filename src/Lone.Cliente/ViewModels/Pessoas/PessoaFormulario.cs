@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
+using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Municipios;
 using Lone.Contracts.Pessoas;
@@ -135,8 +136,8 @@ public sealed partial class PessoaFormulario : ObservableObject
     [ObservableProperty] private string _origemCadastro = OpcoesPessoa.Origens[0];
     [ObservableProperty] private string _primeiroContatoEm = string.Empty;
 
-    /// <summary>Etiquetas separadas por vírgula (ex.: "VIP, Atacado").</summary>
-    [ObservableProperty] private string _etiquetas = string.Empty;
+    /// <summary>Etiquetas do cadastro de etiquetas, para marcar.</summary>
+    public EtiquetasFormulario Etiquetas { get; private set; } = EtiquetasFormulario.Criar([], []);
 
     /// <summary>Um item por canal (e-mail, WhatsApp, SMS, ligações, correspondência).</summary>
     public IReadOnlyList<ConsentimentoFormulario> Consentimentos { get; private set; } =
@@ -212,12 +213,13 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     // ---- Criação e conversão ----
 
-    public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null)
+    public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
             Papeis = OpcoesPessoa.PapeisNaTela.Select(p => new PapelOpcao(p)).ToList(),
-            InformacoesAdicionais = MontarInformacoesAdicionais(campos, [])
+            InformacoesAdicionais = MontarInformacoesAdicionais(campos, []),
+            Etiquetas = EtiquetasFormulario.Criar(etiquetas, [])
         };
         f.PapelCliente.Ativo = true;
         f.OuvirPapeis();
@@ -226,11 +228,12 @@ public sealed partial class PessoaFormulario : ObservableObject
         return f;
     }
 
-    public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null)
+    public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null)
     {
         var f = new PessoaFormulario(p.Id, nova: false)
         {
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, p.ValoresPersonalizados),
+            Etiquetas = EtiquetasFormulario.Criar(etiquetas, p.EtiquetaIds),
             SituacaoGravada = p.Situacao,
             SituacaoMotivo = p.SituacaoMotivo,
             SituacaoAlteradaEm = p.SituacaoAlteradaEm,
@@ -274,7 +277,6 @@ public sealed partial class PessoaFormulario : ObservableObject
             Porte = p.Porte ?? string.Empty,
             CapitalSocial = TextoTela.Decimal(p.CapitalSocial),
             PrimeiroContatoEm = TextoTela.Data(p.PrimeiroContatoEm),
-            Etiquetas = string.Join(", ", p.Etiquetas),
             Consentimentos = OpcoesPessoa.Canais
                 .Select(canal => p.Consentimentos.FirstOrDefault(c => c.Canal == canal) is { } c
                     ? ConsentimentoFormulario.De(c)
@@ -383,7 +385,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             OrigemCadastro = OrigemCadastro == OpcoesPessoa.Origens[0] ? null : TextoTela.Nulo(OrigemCadastro),
             PrimeiroContatoEm = primeiroContato,
             Consentimentos = Consentimentos.Select(c => c.ParaDto()).OfType<ConsentimentoDto>().ToList(),
-            Etiquetas = Etiquetas.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(),
+            EtiquetaIds = Etiquetas.Marcadas.ToList(),
             ValoresPersonalizados = InformacoesAdicionais.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList()
         };
 

@@ -1,19 +1,22 @@
 using Lone.Api.Erros;
 using Lone.Application.CamposPersonalizados;
+using Lone.Application.Etiquetas;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
+using Lone.Contracts.Etiquetas;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
 
-/// <summary>Tabelas de apoio dos cadastros: municípios do IBGE e campos personalizados. Permissões nos AppServices.</summary>
+/// <summary>Tabelas de apoio dos cadastros: municípios do IBGE, campos personalizados e etiquetas. Permissões nos AppServices.</summary>
 public static class CadastrosEndpoints
 {
     public static IEndpointRouteBuilder MapCadastros(this IEndpointRouteBuilder app)
     {
         MapMunicipios(app);
         MapCamposPersonalizados(app);
+        MapEtiquetas(app);
         return app;
     }
 
@@ -27,6 +30,41 @@ public static class CadastrosEndpoints
         grupo.MapGet("situacao", (IMunicipioAppService servico, CancellationToken ct) => servico.ObterSituacaoAsync(ct));
 
         grupo.MapPost("atualizar", (IMunicipioAppService servico, CancellationToken ct) => servico.AtualizarAsync(ct));
+    }
+
+    private static void MapEtiquetas(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Etiquetas.Grupo).WithTags("Etiquetas").RequireAuthorization();
+
+        // Lista pequena (dezenas a centenas): vem inteira e o aplicativo filtra no aparelho.
+        grupo.MapGet(string.Empty, (bool? incluirInativas, IEtiquetaAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativas ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IEtiquetaAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } etiqueta
+                ? Results.Ok(etiqueta)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Esta etiqueta não existe.")));
+
+        // Inclui ou altera (o Id vem do aparelho).
+        grupo.MapPut("{id:guid}", async (Guid id, EtiquetaDto etiqueta, IEtiquetaAppService servico, CancellationToken ct) =>
+        {
+            if (etiqueta.Id != Guid.Empty && etiqueta.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id da etiqueta enviada."));
+            etiqueta.Id = id;
+            return Results.Ok(await servico.SalvarAsync(etiqueta, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IEtiquetaAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IEtiquetaAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/mesclar",
+            (Guid id, MesclarEtiquetaRequisicao requisicao, IEtiquetaAppService servico, CancellationToken ct) =>
+                servico.MesclarAsync(id, requisicao, ct));
     }
 
     private static void MapCamposPersonalizados(IEndpointRouteBuilder app)

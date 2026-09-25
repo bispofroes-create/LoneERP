@@ -260,11 +260,11 @@ public static class PessoaNormalizador
     /// Sem espaços sobrando, sem vazias e sem repetidas (maiúsculas e minúsculas contam como iguais, com a
     /// mesma comparação usada pelo repositório ao casar etiquetas gravadas).
     /// </summary>
+    /// <summary>Sem referência vazia e sem a mesma etiqueta duas vezes.</summary>
     private static void NormalizarEtiquetas(List<PessoaEtiqueta> etiquetas)
     {
-        foreach (var e in etiquetas) e.Texto = Texto(e.Texto) ?? string.Empty;
-        etiquetas.RemoveAll(e => e.Texto.Length == 0);
-        foreach (var repetida in etiquetas.GroupBy(e => e.Texto.ToUpperInvariant()).SelectMany(g => g.Skip(1)).ToList())
+        etiquetas.RemoveAll(e => e.EtiquetaId == Guid.Empty);
+        foreach (var repetida in etiquetas.GroupBy(e => e.EtiquetaId).SelectMany(g => g.Skip(1)).ToList())
             etiquetas.Remove(repetida);
     }
 

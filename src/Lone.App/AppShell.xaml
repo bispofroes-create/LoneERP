@@ -33,6 +33,10 @@
         <ShellContent Title="Campos personalizados" ContentTemplate="{DataTemplate views:CamposPersonalizadosPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
+        <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Usuários" Route="usuarios" IsVisible="{Binding PodeGerenciarUsuarios}">
         <ShellContent Title="Usuários" ContentTemplate="{DataTemplate views:UsuariosPage}" />
     </FlyoutItem>

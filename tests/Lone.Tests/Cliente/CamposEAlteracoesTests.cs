@@ -73,7 +73,7 @@ public class AlteracoesPendentesTests
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
         ambiente.Servidor
-            .Responder(HttpStatusCode.OK, new List<string>())
+            .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Etiquetas.EtiquetaDto>())
             .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>
             {
                 new() { Id = Guid.NewGuid(), Nome = "Time que torce", Tipo = TipoCampoPersonalizado.Texto, Ativo = true }

@@ -1,4 +1,4 @@
-﻿using Lone.Cliente.ViewModels.Seguranca;
+using Lone.Cliente.ViewModels.Seguranca;
 using Lone.Contracts.Seguranca;
 
 namespace Lone.Tests.Cliente;

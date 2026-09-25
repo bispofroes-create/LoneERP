@@ -1,4 +1,5 @@
 using Lone.Application.CamposPersonalizados;
+using Lone.Application.Etiquetas;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -31,6 +32,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ServicoMunicipios>();
         services.AddScoped<IMunicipioAppService, MunicipioAppService>();
         services.AddScoped<ICampoPersonalizadoAppService, CampoPersonalizadoAppService>();
+        services.AddScoped<IEtiquetaAppService, EtiquetaAppService>();
 
         return services;
     }

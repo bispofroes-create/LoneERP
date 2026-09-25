@@ -26,9 +26,6 @@ public sealed class PessoasApi
     public Task<List<QuantidadePorFaixaEtaria>> ListarFaixasEtariasAsync(TipoPapel? papel, CancellationToken ct = default) =>
         _api.GetAsync<List<QuantidadePorFaixaEtaria>>(Rotas.Pessoas.FaixasEtarias + (papel is { } p ? "?papel=" + p : string.Empty), ct);
 
-    public Task<List<string>> ListarEtiquetasAsync(CancellationToken ct = default) =>
-        _api.GetAsync<List<string>>(Rotas.Pessoas.Etiquetas, ct);
-
     public Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default) =>
         _api.GetOuNuloAsync<PessoaDto>(Rotas.Pessoas.PorId(id), ct);
 
@@ -51,7 +48,7 @@ public sealed class PessoasApi
         var partes = new List<string>();
         if (!string.IsNullOrWhiteSpace(filtro.Texto)) partes.Add("texto=" + Uri.EscapeDataString(filtro.Texto.Trim()));
         if (filtro.Papel is { } papel) partes.Add("papel=" + papel);
-        if (!string.IsNullOrWhiteSpace(filtro.Etiqueta)) partes.Add("etiqueta=" + Uri.EscapeDataString(filtro.Etiqueta.Trim()));
+        if (filtro.EtiquetaId is { } etiqueta) partes.Add("etiquetaId=" + etiqueta);
         if (filtro.IncluirInativos) partes.Add("incluirInativos=true");
         if (filtro.MunicipioACorrigir) partes.Add("municipioACorrigir=true");
         if (filtro.Limite != FiltroPessoas.LimiteMaximo) partes.Add("limite=" + filtro.Limite);

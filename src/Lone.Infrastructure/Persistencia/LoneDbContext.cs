@@ -24,6 +24,7 @@ public class LoneDbContext : DbContext
     public DbSet<PessoaSocio> PessoaSocios => Set<PessoaSocio>();
     public DbSet<PessoaConsentimento> PessoaConsentimentos => Set<PessoaConsentimento>();
     public DbSet<PessoaEtiqueta> PessoaEtiquetas => Set<PessoaEtiqueta>();
+    public DbSet<Etiqueta> Etiquetas => Set<Etiqueta>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
     public DbSet<CampoPersonalizado> CamposPersonalizados => Set<CampoPersonalizado>();
     public DbSet<CampoPersonalizadoOpcao> CampoPersonalizadoOpcoes => Set<CampoPersonalizadoOpcao>();

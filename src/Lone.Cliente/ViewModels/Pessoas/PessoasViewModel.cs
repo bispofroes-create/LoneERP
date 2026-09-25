@@ -8,9 +8,11 @@ using Lone.Cliente.Sessao;
 using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
+using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
+using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.ObjetosDeValor;
 using Lone.Domain.Validacao;
@@ -30,12 +32,16 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly ServicoAutenticacao _autenticacao;
     private readonly MunicipiosApi _municipios;
     private readonly CamposPersonalizadosApi _camposApi;
+    private readonly EtiquetasApi _etiquetasApi;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
 
+    /// <summary>Cadastro de etiquetas, com as desativadas (lido ao abrir a tela; a ficha oferece só as ativas).</summary>
+    private List<EtiquetaDto> _etiquetas = [];
+
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
-                            MunicipiosApi municipios, CamposPersonalizadosApi camposApi, IDialogos dialogos)
+                            MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -44,6 +50,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _autenticacao = autenticacao;
         _municipios = municipios;
         _camposApi = camposApi;
+        _etiquetasApi = etiquetasApi;
     }
 
     protected override bool BuscaNoServidor => true;
@@ -58,17 +65,20 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Só cadastros com município antigo (texto) a escolher na tabela do IBGE.</summary>
     [ObservableProperty] private bool _somenteMunicipioACorrigir;
 
-    /// <summary>"Todas" e cada etiqueta em uso (relida ao abrir a tela e depois de gravar).</summary>
-    public ObservableCollection<string> FiltrosEtiqueta { get; } = new() { TodasEtiquetas };
-    [ObservableProperty] private string _filtroEtiqueta = TodasEtiquetas;
-    private const string TodasEtiquetas = "Todas as etiquetas";
+    /// <summary>"Todas" e cada etiqueta do cadastro (as desativadas também: podem estar em cadastros antigos).</summary>
+    public ObservableCollection<Opcao<Guid?>> FiltrosEtiqueta { get; } = new() { TodasEtiquetas };
+    [ObservableProperty] private Opcao<Guid?> _filtroEtiqueta = TodasEtiquetas;
+    private static readonly Opcao<Guid?> TodasEtiquetas = new(null, "Todas as etiquetas");
+
+    /// <summary>Atalho "Nova etiqueta" na ficha: só para quem gerencia etiquetas (a API confere de novo).</summary>
+    public bool PodeCriarEtiqueta => _sessao.Possui(Permissoes.Cadastros.Etiquetas);
 
     public bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
 
     partial void OnFiltroPapelChanged(Opcao<TipoPapel?> value) => _ = RecarregarAsync();
     partial void OnMostrarInativosChanged(bool value) => _ = RecarregarAsync();
     partial void OnSomenteMunicipioACorrigirChanged(bool value) => _ = RecarregarAsync();
-    partial void OnFiltroEtiquetaChanged(string value)
+    partial void OnFiltroEtiquetaChanged(Opcao<Guid?> value)
     {
         // A lista de escolha manda nulo quando o item escolhido sai dela: volta para "todas".
         if (value is null)
@@ -80,7 +90,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     }
 
     /// <summary>
-    /// Falha ao ler as etiquetas não impede a lista de aparecer (só o filtro fica sem opções). Falha ao ler os
+    /// Falha ao ler as etiquetas não impede a lista de aparecer (o filtro e a ficha ficam sem opções, e as já
+    /// marcadas numa pessoa voltam intactas ao salvar). Falha ao ler os
     /// campos personalizados também não: a ficha abre sem a aba "Informações adicionais" e avisa.
     /// </summary>
     protected override async Task AntesDeListarAsync()
@@ -94,10 +105,22 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     private async Task AtualizarEtiquetasAsync()
     {
-        var etiquetas = await _pessoas.ListarEtiquetasAsync();
-        foreach (var velha in FiltrosEtiqueta.Skip(1).Except(etiquetas).ToList()) FiltrosEtiqueta.Remove(velha);
-        foreach (var nova in etiquetas.Except(FiltrosEtiqueta)) FiltrosEtiqueta.Add(nova);
-        if (!FiltrosEtiqueta.Contains(FiltroEtiqueta)) FiltroEtiqueta = TodasEtiquetas; // a escolhida deixou de existir
+        _etiquetas = await _etiquetasApi.ListarAsync(incluirInativas: true);
+        AtualizarFiltrosEtiqueta();
+    }
+
+    private void AtualizarFiltrosEtiqueta()
+    {
+        var escolhida = FiltroEtiqueta?.Valor;
+        var opcoes = _etiquetas
+            .OrderBy(e => !e.Ativo).ThenBy(e => e.Nome, StringComparer.CurrentCultureIgnoreCase)
+            .Select(e => new Opcao<Guid?>(e.Id, e.Ativo ? e.Nome : e.Nome + " (desativada)"))
+            .ToList();
+        while (FiltrosEtiqueta.Count > 1) FiltrosEtiqueta.RemoveAt(1);
+        foreach (var opcao in opcoes) FiltrosEtiqueta.Add(opcao);
+        // Mesma escolha se ela ainda existir (outra instância, mesmo valor); senão, "todas".
+        var mesma = FiltrosEtiqueta.FirstOrDefault(o => o.Valor == escolhida) ?? TodasEtiquetas;
+        if (!ReferenceEquals(mesma, FiltroEtiqueta)) FiltroEtiqueta = mesma;
     }
 
     protected override string TextoDeBusca(PessoaResumo item) => item.Nome;
@@ -109,7 +132,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             Papel = FiltroPapel.Valor,
             IncluirInativos = MostrarInativos,
             MunicipioACorrigir = SomenteMunicipioACorrigir,
-            Etiqueta = FiltroEtiqueta == TodasEtiquetas ? null : FiltroEtiqueta
+            EtiquetaId = FiltroEtiqueta?.Valor
         });
 
     // ---- Ficha ----
@@ -152,12 +175,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas);
         return Task.CompletedTask;
     }
 
@@ -176,7 +199,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 
@@ -294,8 +317,6 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             await AtualizarEmpresasDaSessaoAsync();
 
         await AtualizarListaAposGravarAsync();
-        try { await AtualizarEtiquetasAsync(); }
-        catch (Exception) { /* só o filtro fica desatualizado até a próxima abertura */ }
     }
 
     private async Task AtualizarEmpresasDaSessaoAsync()
@@ -384,6 +405,32 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     [RelayCommand]
     private void AdicionarDocumento() => Formulario?.AdicionarDocumento(new DocumentoFormulario());
+
+    /// <summary>
+    /// Atalho da ficha: cria a etiqueta no cadastro (fica disponível para todos) e já a marca nesta pessoa.
+    /// A pessoa só é gravada ao salvar a ficha.
+    /// </summary>
+    [RelayCommand]
+    private async Task NovaEtiquetaAsync()
+    {
+        if (Formulario is not { } formulario) return;
+        var nome = await PerguntarAsync(
+            "Nova etiqueta",
+            "Nome da etiqueta. Ela fica disponível para todos os cadastros:",
+            "Criar", "Cancelar", "Ex.: Cliente VIP", global::Lone.Domain.Entidades.Etiqueta.TamanhoMaximoNome);
+        if (string.IsNullOrWhiteSpace(nome)) return;
+
+        EtiquetaDto? criada = null;
+        if (!await ExecutarAsync(async () =>
+                criada = await _etiquetasApi.SalvarAsync(new EtiquetaDto { Id = IdSequencial.Novo(), Nome = nome.Trim() })))
+            return;
+
+        var etiqueta = criada!;
+        _etiquetas.Add(etiqueta);
+        FiltrosEtiqueta.Add(new Opcao<Guid?>(etiqueta.Id, etiqueta.Nome));
+        formulario.Etiquetas.Incluir(etiqueta, marcar: true);
+        Mostrar($"Etiqueta \"{etiqueta.Nome}\" criada e marcada. Salve o cadastro para gravar a marcação.", TipoMensagem.Sucesso);
+    }
 
     // ---- Consultas externas ----
 

@@ -37,6 +37,7 @@ public static class MauiProgram
         builder.Services.AddTransient<PerfisPage>();
         builder.Services.AddTransient<PessoasPage>();
         builder.Services.AddTransient<CamposPersonalizadosPage>();
+        builder.Services.AddTransient<EtiquetasPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

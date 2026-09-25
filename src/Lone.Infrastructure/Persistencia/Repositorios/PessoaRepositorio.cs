@@ -32,11 +32,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         if (filtro.MunicipioACorrigir)
             consulta = consulta.Where(p => db.PendenciasMunicipio.Any(x => x.PessoaId == p.Id && x.ResolvidaEm == null));
 
-        if (!string.IsNullOrWhiteSpace(filtro.Etiqueta))
-        {
-            var etiqueta = filtro.Etiqueta.Trim();
-            consulta = consulta.Where(p => p.Etiquetas.Any(e => e.Texto == etiqueta));
-        }
+        if (filtro.EtiquetaId is Guid etiqueta)
+            consulta = consulta.Where(p => p.Etiquetas.Any(e => e.EtiquetaId == etiqueta)); // índice (EtiquetaId, PessoaId)
 
         // Etapa 4 troca esta busca por tabela de termos + paginação por chave.
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
@@ -130,12 +127,6 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         if (papel is { } tipo)
             consulta = consulta.Where(p => p.Papeis.Any(x => x.Papel == tipo && x.Ativo));
         return await consulta.Select(p => p.DataNascimento).ToListAsync(ct);
-    }
-
-    public async Task<List<string>> ListarEtiquetasAsync(CancellationToken ct)
-    {
-        await using var db = await AbrirAsync(ct);
-        return await db.PessoaEtiquetas.AsNoTracking().Select(e => e.Texto).Distinct().OrderBy(t => t).ToListAsync(ct);
     }
 
     public async Task<PessoaIdentificacao?> BuscarPorDocumentoAsync(
@@ -282,10 +273,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         SincronizarFilhos(db, atual.Id, atual.ContasFornecedor, dados.ContasFornecedor);
         SincronizarFilhos(db, atual.Id, atual.Socios, dados.Socios);
 
-        // Consentimento e etiqueta são únicos por canal / por texto: casa pelo que os identifica, não pelo Id,
+        // Consentimento e etiqueta são únicos por canal / por etiqueta: casa pelo que os identifica, não pelo Id,
         // para não apagar e incluir de novo o mesmo registro (histórico limpo e sem conflito no índice único).
         ReaproveitarIds(atual.Consentimentos, dados.Consentimentos, c => c.Canal);
-        ReaproveitarIds(atual.Etiquetas, dados.Etiquetas, e => e.Texto.ToUpperInvariant());
+        ReaproveitarIds(atual.Etiquetas, dados.Etiquetas, e => e.EtiquetaId);
         SincronizarFilhos(db, atual.Id, atual.Consentimentos, dados.Consentimentos);
         SincronizarFilhos(db, atual.Id, atual.Etiquetas, dados.Etiquetas);
 

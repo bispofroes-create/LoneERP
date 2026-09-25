@@ -31,12 +31,18 @@ public class PessoaConsentimentoConfiguration : IEntityTypeConfiguration<PessoaC
 
 public class PessoaEtiquetaConfiguration : IEntityTypeConfiguration<PessoaEtiqueta>
 {
+    public const string ColunaTextoAntigo = "Texto";
+
     public void Configure(EntityTypeBuilder<PessoaEtiqueta> b)
     {
         b.ToTable("PessoaEtiquetas");
         b.HasKey(e => e.Id);
-        b.Property(e => e.Texto).IsRequired().HasMaxLength(PessoaEtiqueta.TamanhoMaximo);
-        b.HasIndex(e => new { e.PessoaId, e.Texto }).IsUnique();
-        b.HasIndex(e => e.Texto); // filtro da lista por etiqueta
+
+        // Texto livre de antes do cadastro de etiquetas: fica só como cópia do dado original (não é mais usado).
+        b.Property<string?>(ColunaTextoAntigo).HasMaxLength(Etiqueta.TamanhoMaximoNome);
+
+        b.HasOne<Etiqueta>().WithMany().HasForeignKey(e => e.EtiquetaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(e => new { e.PessoaId, e.EtiquetaId }).IsUnique(); // a mesma etiqueta uma vez por pessoa
+        b.HasIndex(e => new { e.EtiquetaId, e.PessoaId }); // filtro da lista por etiqueta e contagem de uso
     }
 }

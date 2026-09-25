@@ -72,15 +72,17 @@ public class DadosComplementaresTests
     }
 
     [Fact]
-    public void Etiquetas_sem_vazias_e_sem_repetir_maiusculas_e_minusculas()
+    public void Etiquetas_sem_referencia_vazia_e_sem_repetir()
     {
         var p = PessoaFisica();
-        foreach (var texto in new[] { " VIP ", "vip", "", "Atacado" })
-            p.Etiquetas.Add(new PessoaEtiqueta { Id = Guid.NewGuid(), Texto = texto });
+        var vip = Guid.NewGuid();
+        var atacado = Guid.NewGuid();
+        foreach (var id in new[] { vip, vip, Guid.Empty, atacado })
+            p.Etiquetas.Add(new PessoaEtiqueta { Id = Guid.NewGuid(), EtiquetaId = id });
 
         PessoaNormalizador.Normalizar(p, Hoje, Agora);
 
-        Assert.Equal(new[] { "VIP", "Atacado" }, p.Etiquetas.Select(e => e.Texto));
+        Assert.Equal(new[] { vip, atacado }, p.Etiquetas.Select(e => e.EtiquetaId));
     }
 
     [Fact]

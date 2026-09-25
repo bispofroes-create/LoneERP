@@ -20,9 +20,6 @@ public interface IPessoaRepositorio
     /// <summary>Datas de nascimento das pessoas físicas ativas (nula = não informada), opcionalmente de um papel.</summary>
     Task<List<DateOnly?>> ListarNascimentosAsync(TipoPapel? papel, CancellationToken ct);
 
-    /// <summary>Etiquetas em uso, em ordem alfabética.</summary>
-    Task<List<string>> ListarEtiquetasAsync(CancellationToken ct);
-
     /// <summary>Outra pessoa da mesma natureza com o mesmo documento principal (CPF, ou raiz do CNPJ).</summary>
     Task<PessoaIdentificacao?> BuscarPorDocumentoAsync(NaturezaPessoa natureza, string documento, Guid ignorarId, CancellationToken ct);
 

@@ -34,9 +34,17 @@ public static class Rotas
 
         /// <summary>Pessoas físicas ativas por faixa etária (?papel=Cliente opcional).</summary>
         public const string FaixasEtarias = Grupo + "/indicadores/faixas-etarias";
+    }
 
-        /// <summary>Etiquetas já usadas (para sugerir e filtrar).</summary>
-        public const string Etiquetas = Grupo + "/etiquetas";
+    /// <summary>Cadastro de etiquetas (reutilizáveis nas pessoas). Nada é excluído: desativa ou mescla.</summary>
+    public static class Etiquetas
+    {
+        public const string Grupo = Base + "/etiquetas";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+        public static string Mesclar(Guid origemId) => $"{Grupo}/{origemId}/mesclar";
+        public static string Listar(bool incluirInativas) => incluirInativas ? Grupo + "?incluirInativas=true" : Grupo;
     }
 
     /// <summary>Tabela de municípios do IBGE (referência para naturalidade e endereços).</summary>

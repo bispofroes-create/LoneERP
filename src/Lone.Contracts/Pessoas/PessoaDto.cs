@@ -68,7 +68,8 @@ public sealed class PessoaDto
     public string? OrigemCadastro { get; set; }
     public DateOnly? PrimeiroContatoEm { get; set; }
     public List<ConsentimentoDto> Consentimentos { get; set; } = new();
-    public List<string> Etiquetas { get; set; } = new();
+    /// <summary>Etiquetas marcadas (Ids do cadastro de etiquetas).</summary>
+    public List<Guid> EtiquetaIds { get; set; } = new();
 
     public List<EstabelecimentoDto> Estabelecimentos { get; set; } = new();
     public List<EnderecoDto> Enderecos { get; set; } = new();

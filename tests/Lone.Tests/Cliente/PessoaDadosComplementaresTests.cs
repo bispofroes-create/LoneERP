@@ -1,5 +1,6 @@
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Cliente.ViewModels.Pessoas;
+using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
@@ -107,16 +108,20 @@ public class PessoaDadosComplementaresTests
     }
 
     [Fact]
-    public void Etiquetas_e_origem_vao_limpas_e_origem_fora_da_lista_e_mantida()
+    public void Etiquetas_marcadas_vao_pelo_id_e_origem_fora_da_lista_e_mantida()
     {
-        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Ana", OrigemCadastro = "Rádio", Etiquetas = ["VIP"] });
+        var vip = new EtiquetaDto { Id = Guid.NewGuid(), Nome = "VIP", Ativo = true };
+        var atacado = new EtiquetaDto { Id = Guid.NewGuid(), Nome = "Atacado", Ativo = true };
+        var f = PessoaFormulario.De(
+            new PessoaDto { Id = Guid.NewGuid(), Nome = "Ana", OrigemCadastro = "Rádio", EtiquetaIds = [vip.Id] },
+            etiquetas: [vip, atacado]);
         Assert.Contains("Rádio", f.Origens);
-        Assert.Equal("VIP", f.Etiquetas);
+        Assert.Equal("VIP", f.Etiquetas.Resumo);
 
-        f.Etiquetas = " VIP , Atacado ,, ";
+        f.Etiquetas.Visiveis.Single(e => e.Id == atacado.Id).Marcada = true;
         var dto = f.ParaDto();
 
-        Assert.Equal(new[] { "VIP", "Atacado" }, dto.Etiquetas);
+        Assert.Equal(new[] { vip.Id, atacado.Id }, dto.EtiquetaIds);
         Assert.Equal("Rádio", dto.OrigemCadastro);
 
         f.OrigemCadastro = OpcoesPessoa.Origens[0]; // "Não informada"

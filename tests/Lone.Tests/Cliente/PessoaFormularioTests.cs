@@ -1,4 +1,4 @@
-﻿using Lone.Cliente.ViewModels.Comum;
+using Lone.Cliente.ViewModels.Comum;
 using Lone.Cliente.ViewModels.Pessoas;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;

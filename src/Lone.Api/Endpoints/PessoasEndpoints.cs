@@ -14,15 +14,15 @@ public static class PessoasEndpoints
     {
         var grupo = app.MapGroup(Rotas.Pessoas.Grupo).WithTags("Pessoas").RequireAuthorization();
 
-        // ?texto=...&papel=Cliente&etiqueta=VIP&incluirInativos=true&municipioACorrigir=true&limite=100 (todos opcionais)
+        // ?texto=...&papel=Cliente&etiquetaId=...&incluirInativos=true&municipioACorrigir=true&limite=100 (todos opcionais)
         grupo.MapGet(string.Empty,
-            (string? texto, TipoPapel? papel, string? etiqueta, bool? incluirInativos, bool? municipioACorrigir, int? limite,
+            (string? texto, TipoPapel? papel, Guid? etiquetaId, bool? incluirInativos, bool? municipioACorrigir, int? limite,
              IPessoaAppService servico, CancellationToken ct) =>
                 servico.ListarAsync(new FiltroPessoas
                 {
                     Texto = texto,
                     Papel = papel,
-                    Etiqueta = etiqueta,
+                    EtiquetaId = etiquetaId,
                     IncluirInativos = incluirInativos ?? false,
                     MunicipioACorrigir = municipioACorrigir ?? false,
                     Limite = limite ?? FiltroPessoas.LimiteMaximo
@@ -30,8 +30,6 @@ public static class PessoasEndpoints
 
         grupo.MapGet("indicadores/faixas-etarias",
             (TipoPapel? papel, IPessoaAppService servico, CancellationToken ct) => servico.ListarFaixasEtariasAsync(papel, ct));
-
-        grupo.MapGet("etiquetas", (IPessoaAppService servico, CancellationToken ct) => servico.ListarEtiquetasAsync(ct));
 
         grupo.MapGet("indicadores/clientes-ativos",
             (IPessoaAppService servico, CancellationToken ct) => servico.ContarClientesAtivosAsync(ct));

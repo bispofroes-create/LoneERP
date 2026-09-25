@@ -90,10 +90,8 @@ public static class PessoaValidador
             erros.Add("A data do primeiro contato não pode ser no futuro.");
         Limite(p.OrigemCadastro, 60, "A origem do cadastro", erros);
 
-        if (p.Etiquetas.Count > 20)
-            erros.Add("Use no máximo 20 etiquetas por cadastro.");
-        if (p.Etiquetas.Any(e => e.Texto.Length > PessoaEtiqueta.TamanhoMaximo))
-            erros.Add($"Cada etiqueta pode ter no máximo {PessoaEtiqueta.TamanhoMaximo} caracteres.");
+        if (p.Etiquetas.Count > global::Lone.Domain.Etiquetas.RegrasEtiqueta.MaximoPorPessoa)
+            erros.Add($"Use no máximo {global::Lone.Domain.Etiquetas.RegrasEtiqueta.MaximoPorPessoa} etiquetas por cadastro.");
     }
 
     private static void Limite(string? texto, int maximo, string campo, List<string> erros)
