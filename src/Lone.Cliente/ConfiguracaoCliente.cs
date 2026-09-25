@@ -3,6 +3,7 @@ using Lone.Cliente.Navegacao;
 using Lone.Cliente.Sessao;
 using Lone.Cliente.ViewModels;
 using Lone.Cliente.ViewModels.Cadastros;
+using Lone.Cliente.ViewModels.Metas;
 using Lone.Cliente.ViewModels.Pessoas;
 using Lone.Cliente.ViewModels.Seguranca;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +37,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<AnexosApi>();
         services.AddSingleton<ColaboradoresApi>();
         services.AddSingleton<ComercialApi>();
+        services.AddSingleton<MetasApi>();
         services.AddSingleton<FluxoDeEntrada>();
 
         // Um ViewModel novo a cada abertura de tela.
@@ -57,6 +59,9 @@ public static class ConfiguracaoCliente
         services.AddTransient<TiposDocumentoViewModel>();
         services.AddTransient<CargosViewModel>();
         services.AddTransient<DepartamentosViewModel>();
+        services.AddTransient<EquipesViewModel>();
+        services.AddTransient<IndicadoresViewModel>();
+        services.AddTransient<MetasViewModel>();
         services.AddTransient<SetoresViewModel>();
         services.AddTransient<CentrosCustoViewModel>();
         services.AddTransient<PerfisComerciaisViewModel>();

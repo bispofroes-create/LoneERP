@@ -388,3 +388,12 @@ O erro de compilação pendente foi resolvido pelo usuário.
 | Perfil comercial | Cadastro de perfis com padrões; o cliente recebe um perfil; exceção individual por campo, com vigência. Vale: exceção vigente → perfil → valor da conta |
 | Tipos da carteira de clientes | Cadastro parametrizável; um tipo é o "principal": o vendedor principal vigente é copiado para `ContaCliente.VendedorPadraoId` (D5) |
 | Condição de pagamento | Cadastro com parcelas em dias (ex.: 0/30/60) e acréscimo/desconto %; o texto antigo da conta fica guardado |
+
+### Decisões da Fase 11 — Motor de Metas (25/09/2026)
+
+| Pergunta | Escolha |
+|---|---|
+| Equipe | Cadastro próprio: nome, líder, departamento e membros com vigência |
+| Faixas de desempenho | Classificação + % de prêmio por faixa (contrato para as comissões; sem valores em R$ agora) |
+| Fluxo | Rascunho → Publicada (valores travados) → Em apuração → Fechada (aprovada, resultado congelado); reabrir exige permissão e motivo |
+| Realizado informado | Lançamento manual e importação CSV (participante;valor), com conferência antes de gravar e auditoria |

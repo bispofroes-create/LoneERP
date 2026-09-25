@@ -239,6 +239,23 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     `CADASTROS.PARAMETROS`). A ficha traz `Relacionamento` (última interação, situação, 50 mais recentes).
   - Pendente: tela para editar os parâmetros de inatividade (hoje só pela API); "última compra" quando houver vendas.
   - Migração final: tabelas novas + dado inicial de `ParametrosRelacionamento` (HasData); nenhum SQL de dados.
+- **Fase 11 — Motor de metas (código entregue em 25/09/2026; sem teste por fase; decisões no DIAGNÓSTICO):**
+  - Cadastros: `Equipes` (+ `MembrosEquipe` com entrada/saída, nunca apagados) e `Indicadores` (código e fonte
+    imutáveis; 4 de sistema com Ids fixos 7a9e1c06-…-01..04 via HasData: novos clientes, clientes ativos, reativados,
+    interações; os criados pelo usuário são "Informado"). Permissões `METAS.VISUALIZAR`, `METAS.GERENCIAR`,
+    `METAS.LANCAR_REALIZADO`, `METAS.FECHAR`; menus "Metas", "Indicadores", "Equipes".
+  - `Metas` + `MetaItens` (peso, soma 100), `MetaFaixas` (a partir de %, nome, % de prêmio), `MetaParticipantes`
+    (Empresa/Filial/Departamento/Equipe/Colaborador; sem FK na referência) e `MetaAlvos` (alvo, realizado, origem).
+  - Fluxo: rascunho (estrutura editável) → publicada (lança realizado informado; volta a rascunho só sem realizado)
+    → em apuração → fechada (aprovação `METAS.FECHAR`: congela realizado calculado, nota, faixa e prêmio). Reabrir
+    exige `METAS.FECHAR` + motivo (vai para a coluna de auditoria) e limpa só o calculado congelado. Rascunho pode
+    ser cancelado (desativado). Nota = Σ peso × atingimento (teto por item, padrão 150%; "menor melhor" = alvo/realizado).
+  - Realizado: manual na ficha ou CSV `participante;valor` (conferir → gravar; nome sem acento/maiúsculas).
+  - Realizado calculado (`FonteIndicadoresCadastro`, contado no banco): participante → vendedores (colaborador; membros
+    da equipe; lotações do departamento; vínculos da empresa) no período → clientes da carteira deles → períodos do
+    papel Cliente / interações. **Filial usa a empresa da filial** até a lotação ter estabelecimento.
+  - Migração final: tabelas novas + HasData dos indicadores de sistema; nenhum SQL de dados.
+  - Pendente: fontes de vendas/faturamento quando o módulo de vendas existir; ligação do prêmio com comissões.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

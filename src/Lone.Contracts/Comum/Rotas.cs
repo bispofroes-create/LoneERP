@@ -87,6 +87,21 @@ public static class Rotas
         public static string Buscar(string texto) => $"{Grupo}?texto={Uri.EscapeDataString(texto)}";
     }
 
+    /// <summary>Motor de metas: equipes, indicadores, metas, realizado e apuração.</summary>
+    public static class Metas
+    {
+        public const string Grupo = Base + "/metas";
+        public const string Equipes = Base + "/equipes";
+        public const string Indicadores = Base + "/indicadores";
+        public const string Opcoes = Grupo + "/opcoes";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Situacao(Guid id) => $"{Grupo}/{id}/situacao";
+        public static string Realizado(Guid id) => $"{Grupo}/{id}/realizado";
+        public static string Importar(Guid id) => $"{Grupo}/{id}/realizado/importar";
+        public static string Apuracao(Guid id) => $"{Grupo}/{id}/apuracao";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+    }
+
     public static class Colaboradores
     {
         public const string Grupo = Base + "/colaboradores";

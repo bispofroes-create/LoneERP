@@ -57,6 +57,8 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeGerenciarTipos => _sessao.Possui(Permissoes.Cadastros.Tipos);
     public bool PodeGerenciarEstrutura => _sessao.Possui(Permissoes.Cadastros.EstruturaOrganizacional);
     public bool PodeGerenciarComercial => _sessao.Possui(Permissoes.Cadastros.Comercial);
+    public bool PodeVerMetas => _sessao.Possui(Permissoes.Metas.Visualizar);
+    public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);
     public bool PodeVerSeguranca => PodeGerenciarUsuarios || PodeGerenciarPerfis;
 
     [RelayCommand]

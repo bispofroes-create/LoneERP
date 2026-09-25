@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Metas: rascunho → publicada → em apuração → fechada (aprovada). Nada é excluído: rascunho é cancelado. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:m="clr-namespace:Lone.Cliente.ViewModels.Metas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.MetasPage"
+             x:DataType="m:MetasViewModel"
+             Title="Metas">
+
+    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+
+        <!-- ===== Tabela ===== -->
+        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar" />
+                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeNovo}" />
+            </Grid>
+
+            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            </ContentView>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,110" Padding="12,0">
+                <Label Text="Meta" Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="1" Text="Situação" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
+            </Grid>
+
+            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhum cadastro. Clique em Novo." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="m:LinhaMeta">
+                        <Grid ColumnDefinitions="*,110" Padding="12,8">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding Situacao}" Style="{StaticResource Secundario}" HorizontalOptions="End" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
+                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
+                             HorizontalOptions="Center" Spacing="6" Padding="24">
+            <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="Monte a meta (indicadores com peso, faixas e participantes com alvos), publique, lance o realizado dos itens informados e feche a apuração para congelar o resultado."
+                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Ficha ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+            <ScrollView>
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
+                                     HorizontalOptions="Fill">
+                    <Button Text="‹ Metas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                            IsVisible="{Binding ModoCompacto}" />
+                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Formulario.FechadaTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                    <!-- Situação -->
+                    <FlexLayout Wrap="Wrap">
+                        <Button Text="Publicar" Command="{Binding PublicarCommand}" IsVisible="{Binding PodePublicar}" IsEnabled="{Binding Livre}" Margin="0,0,8,8" />
+                        <Button Text="Voltar a rascunho" Style="{StaticResource BotaoSecundario}" Command="{Binding VoltarRascunhoCommand}"
+                                IsVisible="{Binding PodeVoltarRascunho}" IsEnabled="{Binding Livre}" Margin="0,0,8,8" />
+                        <Button Text="Iniciar apuração" Command="{Binding IniciarApuracaoCommand}" IsVisible="{Binding PodeIniciarApuracao}"
+                                IsEnabled="{Binding Livre}" Margin="0,0,8,8" />
+                        <Button Text="Fechar (aprovar)" Command="{Binding FecharMetaCommand}" IsVisible="{Binding PodeFecharMeta}"
+                                IsEnabled="{Binding Livre}" Margin="0,0,8,8" />
+                        <Button Text="Reabrir apuração" Style="{StaticResource BotaoSecundario}" Command="{Binding ReabrirCommand}"
+                                IsVisible="{Binding PodeReabrir}" IsEnabled="{Binding Livre}" Margin="0,0,8,8" />
+                        <Button Text="Cancelar meta" Style="{StaticResource BotaoSecundario}" Command="{Binding CancelarMetaCommand}"
+                                IsVisible="{Binding PodeCancelar}" IsEnabled="{Binding Livre}" Margin="0,0,8,8" />
+                    </FlexLayout>
+
+                    <!-- Dados -->
+                    <FlexLayout Wrap="Wrap">
+                        <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Metas de outubro" IsEnabled="{Binding Formulario.EditarEstrutura}" />
+                        <c:Campo Rotulo="Início" Texto="{Binding Formulario.InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" IsEnabled="{Binding Formulario.EditarEstrutura}" />
+                        <c:Campo Rotulo="Fim" Texto="{Binding Formulario.FimEm}" Dica="dd/mm/aaaa" Mascara="Data" IsEnabled="{Binding Formulario.EditarEstrutura}" />
+                        <c:Campo Rotulo="Teto por item (%)" Texto="{Binding Formulario.Limite}" Mascara="Numero" Dica="Ex.: 150" IsEnabled="{Binding Formulario.EditarEstrutura}" />
+                        <c:Campo Rotulo="Descrição" Texto="{Binding Formulario.Descricao}" FlexLayout.Basis="100%" IsEnabled="{Binding Formulario.EditarEstrutura}" />
+                    </FlexLayout>
+
+                    <!-- Itens -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Label Text="Indicadores e pesos (soma 100)" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Adicionar indicador" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarItemCommand}"
+                                IsVisible="{Binding Formulario.EditarEstrutura}" />
+                    </Grid>
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Itens}" Spacing="6">
+                        <BindableLayout.EmptyView>
+                            <Label Text="Nenhum indicador." Style="{StaticResource Secundario}" Margin="0,8" />
+                        </BindableLayout.EmptyView>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="m:MetaItemFormulario">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <FlexLayout Wrap="Wrap">
+                                        <c:CampoEscolha Rotulo="Indicador" Itens="{Binding Indicadores}" Selecionado="{Binding Indicador}" IsEnabled="{Binding Editavel}" />
+                                        <c:Campo Rotulo="Peso (%)" Texto="{Binding Peso}" Mascara="Numero" IsEnabled="{Binding Editavel}" />
+                                    </FlexLayout>
+                                    <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                            IsVisible="{Binding Editavel}" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Faixas -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Label Text="Faixas de desempenho" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Adicionar faixa" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarFaixaCommand}"
+                                IsVisible="{Binding Formulario.EditarEstrutura}" />
+                    </Grid>
+                    <Label Text="A nota é a soma de peso × atingimento de cada item (limitado pelo teto). Vale a faixa de maior início que a nota alcança."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Faixas}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="m:MetaFaixaFormulario">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <FlexLayout Wrap="Wrap">
+                                        <c:Campo Rotulo="A partir de (%)" Texto="{Binding Inicio}" Mascara="Numero" IsEnabled="{Binding Editavel}" />
+                                        <c:Campo Rotulo="Nome" Texto="{Binding Nome}" Dica="Ex.: Ouro" IsEnabled="{Binding Editavel}" />
+                                        <c:Campo Rotulo="Prêmio (%)" Texto="{Binding Premio}" Mascara="Numero" IsEnabled="{Binding Editavel}" />
+                                    </FlexLayout>
+                                    <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                            IsVisible="{Binding Editavel}" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Participantes e alvos -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Label Text="Participantes, alvos e realizado" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Adicionar participante" Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding AdicionarParticipanteCommand}" IsVisible="{Binding Formulario.EditarEstrutura}" />
+                    </Grid>
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Participantes}" Spacing="8">
+                        <BindableLayout.EmptyView>
+                            <Label Text="Nenhum participante." Style="{StaticResource Secundario}" Margin="0,8" />
+                        </BindableLayout.EmptyView>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="m:MetaParticipanteFormulario">
+                                <Border Style="{StaticResource CartaoItem}">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="{Binding Titulo}" FontAttributes="Bold" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                            <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                                    IsVisible="{Binding Editavel}" />
+                                        </Grid>
+                                        <Label Text="{Binding Resultado}" IsVisible="{Binding TemResultado}" Style="{StaticResource Secundario}" />
+                                        <FlexLayout Wrap="Wrap" IsVisible="{Binding Editavel}">
+                                            <c:CampoEscolha Rotulo="Nível" Itens="{Binding ListaNiveis}" Selecionado="{Binding Nivel}" />
+                                            <c:CampoEscolha Rotulo="Participante" Itens="{Binding Referencias}" Selecionado="{Binding Referencia}" />
+                                        </FlexLayout>
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alvos}" Spacing="2">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="m:MetaAlvoFormulario">
+                                                    <VerticalStackLayout>
+                                                        <FlexLayout Wrap="Wrap">
+                                                            <Label Text="{Binding Indicador}" VerticalOptions="Center" WidthRequest="200" LineBreakMode="TailTruncation" />
+                                                            <c:Campo Rotulo="Alvo" Texto="{Binding Alvo}" Mascara="Numero" IsEnabled="{Binding PodeEditarAlvo}" />
+                                                            <c:Campo Rotulo="Realizado" Texto="{Binding Realizado}" Mascara="Numero" IsVisible="{Binding PodeLancar}" />
+                                                        </FlexLayout>
+                                                        <Label Text="{Binding RealizadoInfo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                                    </VerticalStackLayout>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Importação do realizado -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding PodeLancar}" Margin="0,12,0,0">
+                        <Label Text="Importar realizado (CSV)" Style="{StaticResource Subtitulo}" />
+                        <Label Text="Uma linha por participante: nome;valor (ex.: Ana Souza;12500,00). O nome é comparado sem acentos e sem diferenciar maiúsculas. Primeiro confira; nada é gravado até &quot;Gravar importação&quot;."
+                               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                        <c:CampoEscolha Rotulo="Indicador" Itens="{Binding Formulario.ItensInformados}" Selecionado="{Binding ItemImportacao}" />
+                        <Editor Text="{Binding ConteudoImportacao}" HeightRequest="120" Placeholder="participante;valor" />
+                        <HorizontalStackLayout Spacing="12">
+                            <Button Text="Conferir" Style="{StaticResource BotaoSecundario}" Command="{Binding ConferirImportacaoCommand}" IsEnabled="{Binding Livre}" />
+                            <Button Text="Gravar importação" Command="{Binding GravarImportacaoCommand}" IsEnabled="{Binding ImportacaoConferida}" />
+                        </HorizontalStackLayout>
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding LinhasImportacao}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- Apuração -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0" IsVisible="{Binding MostrarApuracao}">
+                        <Label Text="Apuração" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Apurar agora" Style="{StaticResource BotaoSecundario}" Command="{Binding ApurarCommand}" IsEnabled="{Binding Livre}" />
+                    </Grid>
+                    <Label Text="{Binding ApuracaoAvisos}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Apuracao}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="m:LinhaApuracao">
+                                <Border Style="{StaticResource CartaoItem}">
+                                    <VerticalStackLayout>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                            <Label Grid.Column="1" Text="{Binding Nota}" FontAttributes="Bold" />
+                                        </Grid>
+                                        <Label Text="{Binding Faixa}" Style="{StaticResource Secundario}" />
+                                        <Label Text="{Binding Itens}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Salvar rascunho" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
+                    <Button Text="Gravar realizado" Command="{Binding LancarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeLancar}" />
+                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

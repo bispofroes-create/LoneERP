@@ -11,6 +11,7 @@ using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
 using Lone.Application.Situacoes;
+using Lone.Application.Metas;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -60,6 +61,11 @@ public static class ConfiguracaoDados
         services.AddScoped<IComercialConsultas, ComercialConsultas>();
         services.AddScoped<ICnaeRepositorio, CnaeRepositorio>();
         services.AddScoped<ISituacaoRepositorio, SituacaoRepositorio>();
+        services.AddScoped<IEquipeRepositorio, EquipeRepositorio>();
+        services.AddScoped<IIndicadorRepositorio, IndicadorRepositorio>();
+        services.AddScoped<IMetaRepositorio, MetaRepositorio>();
+        services.AddScoped<IMetaConsultas, MetaConsultas>();
+        services.AddScoped<IFonteIndicadores, FonteIndicadoresCadastro>();
 
         return services;
     }

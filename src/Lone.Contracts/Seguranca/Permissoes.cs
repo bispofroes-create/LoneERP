@@ -35,6 +35,14 @@ public static class Permissoes
         public const string Parametros = "CADASTROS.PARAMETROS";
     }
 
+    public static class Metas
+    {
+        public const string Visualizar = "METAS.VISUALIZAR";
+        public const string Gerenciar = "METAS.GERENCIAR";
+        public const string LancarRealizado = "METAS.LANCAR_REALIZADO";
+        public const string Fechar = "METAS.FECHAR";
+    }
+
     public static class Seguranca
     {
         public const string GerenciarUsuarios = "SEGURANCA.USUARIOS";
@@ -66,6 +74,10 @@ public static class Permissoes
         new(Cadastros.EstruturaOrganizacional, "Cadastros", "Criar, alterar e desativar cargos, departamentos, setores e centros de custo"),
         new(Cadastros.Parametros, "Cadastros", "Alterar parâmetros do cadastro (regras de inatividade do relacionamento)"),
         new(Cadastros.Comercial, "Cadastros", "Criar, alterar e desativar perfis comerciais, condições de pagamento e tipos de carteira"),
+        new(Metas.Visualizar, "Metas", "Ver metas, participantes e resultados"),
+        new(Metas.Gerenciar, "Metas", "Criar e alterar metas, indicadores e equipes; publicar e iniciar a apuração"),
+        new(Metas.LancarRealizado, "Metas", "Lançar e importar o realizado informado das metas"),
+        new(Metas.Fechar, "Metas", "Fechar (aprovar) e reabrir a apuração das metas"),
         new(Seguranca.GerenciarUsuarios, "Segurança", "Cadastrar usuários, redefinir senhas e desbloquear acessos"),
         new(Seguranca.GerenciarPerfis, "Segurança", "Criar perfis e escolher suas permissões"),
         new(Seguranca.VisualizarAuditoria, "Segurança", "Consultar a auditoria completa do sistema")

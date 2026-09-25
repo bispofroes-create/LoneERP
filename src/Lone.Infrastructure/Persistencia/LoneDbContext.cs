@@ -48,6 +48,14 @@ public class LoneDbContext : DbContext
     public DbSet<Interacao> Interacoes => Set<Interacao>();
     public DbSet<ParametrosRelacionamento> ParametrosRelacionamento => Set<ParametrosRelacionamento>();
     public DbSet<OcupacaoCbo> OcupacoesCbo => Set<OcupacaoCbo>();
+    public DbSet<Equipe> Equipes => Set<Equipe>();
+    public DbSet<MembroEquipe> MembrosEquipe => Set<MembroEquipe>();
+    public DbSet<Indicador> Indicadores => Set<Indicador>();
+    public DbSet<Meta> Metas => Set<Meta>();
+    public DbSet<MetaItem> MetaItens => Set<MetaItem>();
+    public DbSet<MetaFaixa> MetaFaixas => Set<MetaFaixa>();
+    public DbSet<MetaParticipante> MetaParticipantes => Set<MetaParticipante>();
+    public DbSet<MetaAlvo> MetaAlvos => Set<MetaAlvo>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
     public DbSet<DocumentoValorPersonalizado> PessoaDocumentoValoresPersonalizados => Set<DocumentoValorPersonalizado>();
     public DbSet<CampoPersonalizado> CamposPersonalizados => Set<CampoPersonalizado>();

@@ -81,6 +81,18 @@
         <ShellContent Title="Tipos de carteira" ContentTemplate="{DataTemplate views:TiposCarteiraPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Metas" Route="metas" IsVisible="{Binding PodeVerMetas}">
+        <ShellContent Title="Metas" ContentTemplate="{DataTemplate views:MetasPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Indicadores" Route="indicadores" IsVisible="{Binding PodeGerenciarMetas}">
+        <ShellContent Title="Indicadores" ContentTemplate="{DataTemplate views:IndicadoresPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Equipes" Route="equipes" IsVisible="{Binding PodeGerenciarMetas}">
+        <ShellContent Title="Equipes" ContentTemplate="{DataTemplate views:EquipesPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>
