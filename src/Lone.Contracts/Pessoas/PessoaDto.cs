@@ -56,7 +56,8 @@ public sealed class PessoaDto
     public string? NaturalidadeUf { get; set; }
     public string? NomeMae { get; set; }
     public string? NomePai { get; set; }
-    public string? Profissao { get; set; }
+    /// <summary>Profissão do cadastro de profissões (nula = não informada).</summary>
+    public Guid? ProfissaoId { get; set; }
 
     // ---- Dados da empresa (PJ) ----
     public DateOnly? DataAbertura { get; set; }

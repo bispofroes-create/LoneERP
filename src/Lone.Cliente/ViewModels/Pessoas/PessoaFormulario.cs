@@ -5,6 +5,7 @@ using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
+using Lone.Contracts.Profissoes;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Municipios;
 using Lone.Contracts.Pessoas;
@@ -110,7 +111,8 @@ public sealed partial class PessoaFormulario : ObservableObject
     public bool TemNaturalidadeACorrigir => NaturalidadeACorrigir.Length > 0;
     [ObservableProperty] private string _nomeMae = string.Empty;
     [ObservableProperty] private string _nomePai = string.Empty;
-    [ObservableProperty] private string _profissao = string.Empty;
+    /// <summary>Profissão do cadastro de profissões (autocompletar; só vale o que for escolhido da lista).</summary>
+    public SeletorDeLista Profissao { get; } = new();
 
     /// <summary>A API escondeu a cor/raça (sem permissão): a ficha não mostra o campo e a gravação mantém o valor.</summary>
     public bool CorRacaOculta { get; private set; }
@@ -213,7 +215,8 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     // ---- Criação e conversão ----
 
-    public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null)
+    public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
+                                             IReadOnlyList<ProfissaoDto>? profissoes = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
@@ -221,6 +224,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, []),
             Etiquetas = EtiquetasFormulario.Criar(etiquetas, [])
         };
+        f.DefinirProfissoes(profissoes, null);
         f.PapelCliente.Ativo = true;
         f.OuvirPapeis();
         f.AdicionarEndereco(new EnderecoFormulario { Principal = true });
@@ -228,7 +232,8 @@ public sealed partial class PessoaFormulario : ObservableObject
         return f;
     }
 
-    public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null)
+    public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
+                                      IReadOnlyList<ProfissaoDto>? profissoes = null)
     {
         var f = new PessoaFormulario(p.Id, nova: false)
         {
@@ -272,7 +277,6 @@ public sealed partial class PessoaFormulario : ObservableObject
             Nacionalidade = p.Nacionalidade ?? string.Empty,
             NomeMae = p.NomeMae ?? string.Empty,
             NomePai = p.NomePai ?? string.Empty,
-            Profissao = p.Profissao ?? string.Empty,
             DataAbertura = TextoTela.Data(p.DataAbertura),
             Porte = p.Porte ?? string.Empty,
             CapitalSocial = TextoTela.Decimal(p.CapitalSocial),
@@ -285,6 +289,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         };
 
         f.Naturalidade.Definir(p.NaturalidadeMunicipioId, p.NaturalidadeNome, p.NaturalidadeUf);
+        f.DefinirProfissoes(profissoes, p.ProfissaoId);
         f.DefinirOrigem(p.OrigemCadastro);
         foreach (var socio in p.Socios) f.Socios.Add(socio);
 
@@ -322,6 +327,8 @@ public sealed partial class PessoaFormulario : ObservableObject
         }
         if (EhFisica && Naturalidade.Validar("Naturalidade") is { } naturalidade)
             erros.Add(naturalidade);
+        if (EhFisica && Profissao.Validar("Profissão") is { } profissao)
+            erros.Add(profissao);
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
                 erros.Add(endereco);
@@ -377,7 +384,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             NaturalidadeMunicipioId = EhFisica ? Naturalidade.MunicipioId : null,
             NomeMae = TextoTela.Nulo(NomeMae),
             NomePai = TextoTela.Nulo(NomePai),
-            Profissao = TextoTela.Nulo(Profissao),
+            ProfissaoId = EhFisica ? ProfissaoEscolhida() : null,
             DataAbertura = abertura,
             Porte = TextoTela.Nulo(Porte),
             CapitalSocial = capital,
@@ -402,6 +409,42 @@ public sealed partial class PessoaFormulario : ObservableObject
     }
 
     // ---- Apoio ----
+
+    // ---- Profissão ----
+
+    /// <summary>Gravada, mas fora da lista lida (a lista não pôde ser lida): volta intacta ao salvar.</summary>
+    private Guid? _profissaoDesconhecida;
+
+    /// <summary>
+    /// Oferece as profissões ativas e mostra a gravada (mesmo desativada). Sem a lista (falha ao ler), a gravada
+    /// é mantida sem ser mostrada pelo nome.
+    /// </summary>
+    private void DefinirProfissoes(IReadOnlyList<ProfissaoDto>? profissoes, Guid? gravada)
+    {
+        var lista = profissoes ?? [];
+        Profissao.DefinirItens(lista.Where(x => x.Ativo).OrderBy(x => x.Nome, StringComparer.CurrentCultureIgnoreCase)
+            .Select(ItemDe).ToList());
+        var atual = gravada is { } id ? lista.FirstOrDefault(x => x.Id == id) : null;
+        _profissaoDesconhecida = gravada is not null && atual is null ? gravada : null;
+        Profissao.Definir(atual is null ? null : ItemDe(atual));
+    }
+
+    /// <summary>Profissão criada agora pelo atalho da ficha: entra na lista e já fica escolhida.</summary>
+    public void IncluirProfissao(ProfissaoDto profissao)
+    {
+        var item = ItemDe(profissao);
+        Profissao.DefinirItens([.. Profissao.Itens.Where(i => i.Chave != item.Chave), item]);
+        _profissaoDesconhecida = null;
+        Profissao.Definir(item);
+    }
+
+    private static ItemSeletor ItemDe(ProfissaoDto p) => new(p.Id.ToString(), p.Ativo ? p.Nome : p.Nome + " (desativada)");
+
+    /// <summary>A escolhida; sem escolha e sem texto, a gravada que não veio na lista (se houver) continua.</summary>
+    private Guid? ProfissaoEscolhida() =>
+        Guid.TryParse(Profissao.Chave, out var id) ? id
+        : string.IsNullOrWhiteSpace(Profissao.Texto) ? _profissaoDesconhecida
+        : null;
 
     private static List<CampoPersonalizadoFormulario> MontarInformacoesAdicionais(
         IReadOnlyList<CampoPersonalizadoDto>? campos, IReadOnlyList<ValorPersonalizadoDto> valores) =>

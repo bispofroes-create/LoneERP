@@ -1,6 +1,7 @@
 using Lone.Application.Auditoria;
 using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
+using Lone.Application.Profissoes;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -12,6 +13,7 @@ using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
+using Lone.Domain.Profissoes;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -30,11 +32,12 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IMunicipioRepositorio _municipios;
     private readonly ICampoPersonalizadoRepositorio _campos;
     private readonly IEtiquetaRepositorio _etiquetas;
+    private readonly IProfissaoRepositorio _profissoes;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
-                            TimeProvider relogio)
+                            IProfissaoRepositorio profissoes, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -42,6 +45,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _municipios = municipios;
         _campos = campos;
         _etiquetas = etiquetas;
+        _profissoes = profissoes;
         _relogio = relogio;
     }
 
@@ -162,6 +166,13 @@ public sealed class PessoaAppService : IPessoaAppService
             dados.Etiquetas,
             (anterior?.Etiquetas ?? []).Select(e => e.EtiquetaId).ToHashSet(),
             await _etiquetas.ObterVariasAsync(dados.Etiquetas.Select(e => e.EtiquetaId).ToList(), ct)));
+
+        // Profissão: do cadastro de profissões; uma desativada só continua em quem já a tinha.
+        if (RegrasProfissao.ValidarEscolhida(
+                dados.ProfissaoId,
+                anterior?.ProfissaoId,
+                dados.ProfissaoId is { } profissaoId ? await _profissoes.ObterAsync(profissaoId, ct) : null) is { } erroProfissao)
+            erros.Add(erroProfissao);
 
         if (dados.DocumentoPrincipal is not null && dados.Natureza != NaturezaPessoa.Estrangeiro)
         {

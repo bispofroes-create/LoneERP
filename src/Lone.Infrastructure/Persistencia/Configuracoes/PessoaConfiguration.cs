@@ -9,6 +9,7 @@ namespace Lone.Infrastructure.Persistencia.Configuracoes;
 public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
 {
     public const string SequenciaCodigo = "SeqPessoaCodigo";
+    public const string ColunaProfissaoAntiga = "Profissao";
 
     public void Configure(EntityTypeBuilder<Pessoa> b)
     {
@@ -42,7 +43,10 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         b.HasOne<Municipio>().WithMany().HasForeignKey(p => p.NaturalidadeMunicipioId).OnDelete(DeleteBehavior.Restrict);
         b.Property(p => p.NomeMae).HasMaxLength(150);
         b.Property(p => p.NomePai).HasMaxLength(150);
-        b.Property(p => p.Profissao).HasMaxLength(80);
+        // Texto livre de antes do cadastro de profissões: fica só como cópia do dado original (não é mais usado).
+        b.Property<string?>(ColunaProfissaoAntiga).HasMaxLength(80);
+        b.HasOne<Profissao>().WithMany().HasForeignKey(p => p.ProfissaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(p => p.ProfissaoId);
 
         // Dados da empresa (PJ)
         b.Property(p => p.Porte).HasMaxLength(60);

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Escolha de um item de uma lista com autocompletar (profissão, ocupação CBO...). O BindingContext é um SeletorDeLista. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:comum="clr-namespace:Lone.Cliente.ViewModels.Comum;assembly=Lone.Cliente"
+             x:Class="Lone.App.Controles.CampoLista"
+             x:DataType="comum:SeletorDeLista">
+    <VerticalStackLayout Spacing="2">
+        <Label x:Name="RotuloCampo" Style="{StaticResource Rotulo}" />
+        <Grid ColumnDefinitions="*,Auto">
+            <Entry Text="{Binding Texto}" Placeholder="{Binding Dica}" ClearButtonVisibility="WhileEditing" />
+            <Label Grid.Column="1" Text="✓" TextColor="{StaticResource Sucesso}" FontAttributes="Bold"
+                   VerticalOptions="Center" Margin="6,0" IsVisible="{Binding Escolhido}" />
+        </Grid>
+
+        <Label Text="{Binding Aviso}" IsVisible="{Binding TemAviso}" Style="{StaticResource Secundario}" TextColor="{StaticResource Aviso}" />
+
+        <!-- Sugestões: tocar escolhe (só vale item da lista). -->
+        <Border IsVisible="{Binding MostrarSugestoes}" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}">
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sugestoes}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="comum:ItemSeletor">
+                        <Button Text="{Binding Texto}" Style="{StaticResource BotaoLink}" HorizontalOptions="Fill"
+                                Clicked="Sugestao_Clicked" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </Border>
+    </VerticalStackLayout>
+</ContentView>

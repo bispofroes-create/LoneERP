@@ -116,6 +116,16 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     `pessoas/etiquetas` saiu (substituído por `api/v1/etiquetas`).
   - Migração `CadastroEtiquetas`: gerada pelo usuário e **reordenada à mão** (SQL em `SqlMigracaoEtiquetas.cs`). Se for
     gerada de novo, a ordem das operações precisa ser refeita.
+- **Fase 2b — Profissões e CBO (código entregue em 25/09/2026, aguardando migração e testes):**
+  - Cadastro `Profissoes` (nome único CI_AI, descrição, ocupação CBO opcional, ativa), permissão `CADASTROS.PROFISSOES`,
+    menu "Profissões" com mesclagem (move as pessoas e desativa a origem; histórico em cada pessoa).
+  - Tabela oficial `OcupacoesCbo` (Id = código CBO de 6 dígitos, mesma regra dos municípios). Sem API pública estável:
+    importa o arquivo "CBO2002 - Ocupacao.csv" do site da CBO pelo botão "Importar CBO" (permissão `CADASTROS.TABELAS_OFICIAIS`;
+    recusa arquivo com menos de 2.000 ocupações; nunca apaga, desativa).
+  - `Pessoas.ProfissaoId` (FK); a coluna `Profissao` (texto) fica como cópia do dado antigo (propriedade de sombra).
+  - Ficha da pessoa: autocompletar (`SeletorDeLista` + controle `CampoLista`, reutilizáveis) e atalho "Nova profissão".
+  - Decisão do usuário: cadastros auxiliares **um por um** (sem base comum); o `SeletorDeLista` é só um componente de tela.
+  - Migração `CadastroProfissoes`: no fim do `Up`, `migrationBuilder.Sql(SqlMigracaoProfissoes.CriarProfissoesELigarPessoas);`.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

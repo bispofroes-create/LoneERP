@@ -87,8 +87,9 @@ public class Pessoa : AgregadoRaiz
     [DisplayName("Nome do pai")]
     public string? NomePai { get; set; }
 
+    /// <summary>Profissão do cadastro de profissões. O texto livre de antes fica no banco só como cópia (coluna Profissao).</summary>
     [DisplayName("Profissão")]
-    public string? Profissao { get; set; }
+    public Guid? ProfissaoId { get; set; }
 
     // ---- Dados da empresa (pessoa jurídica, vindos da Receita) ----
 

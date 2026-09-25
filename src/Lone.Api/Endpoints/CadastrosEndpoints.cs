@@ -1,10 +1,12 @@
 using Lone.Api.Erros;
 using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
+using Lone.Application.Profissoes;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Etiquetas;
+using Lone.Contracts.Profissoes;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -17,6 +19,7 @@ public static class CadastrosEndpoints
         MapMunicipios(app);
         MapCamposPersonalizados(app);
         MapEtiquetas(app);
+        MapProfissoes(app);
         return app;
     }
 
@@ -30,6 +33,47 @@ public static class CadastrosEndpoints
         grupo.MapGet("situacao", (IMunicipioAppService servico, CancellationToken ct) => servico.ObterSituacaoAsync(ct));
 
         grupo.MapPost("atualizar", (IMunicipioAppService servico, CancellationToken ct) => servico.AtualizarAsync(ct));
+    }
+
+    private static void MapProfissoes(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Profissoes.Grupo).WithTags("Profissões").RequireAuthorization();
+
+        // Lista pequena (dezenas a centenas): vem inteira e o aplicativo filtra no aparelho.
+        grupo.MapGet(string.Empty, (bool? incluirInativas, IProfissaoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativas ?? false, ct));
+
+        // Tabela oficial da CBO (rotas fixas antes das que têm {id}).
+        grupo.MapGet("cbo", (IOcupacaoCboAppService servico, CancellationToken ct) => servico.ListarAsync(ct));
+        grupo.MapGet("cbo/situacao", (IOcupacaoCboAppService servico, CancellationToken ct) => servico.ObterSituacaoAsync(ct));
+        grupo.MapPost("cbo/importar", (ImportarCboRequisicao requisicao, IOcupacaoCboAppService servico, CancellationToken ct) =>
+            servico.ImportarAsync(requisicao, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IProfissaoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } profissao
+                ? Results.Ok(profissao)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Esta profissão não existe.")));
+
+        // Inclui ou altera (o Id vem do aparelho).
+        grupo.MapPut("{id:guid}", async (Guid id, ProfissaoDto profissao, IProfissaoAppService servico, CancellationToken ct) =>
+        {
+            if (profissao.Id != Guid.Empty && profissao.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id da profissão enviada."));
+            profissao.Id = id;
+            return Results.Ok(await servico.SalvarAsync(profissao, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IProfissaoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IProfissaoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/mesclar",
+            (Guid id, MesclarProfissaoRequisicao requisicao, IProfissaoAppService servico, CancellationToken ct) =>
+                servico.MesclarAsync(id, requisicao, ct));
     }
 
     private static void MapEtiquetas(IEndpointRouteBuilder app)

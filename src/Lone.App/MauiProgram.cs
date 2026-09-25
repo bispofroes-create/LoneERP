@@ -20,6 +20,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IDispositivo, DispositivoMaui>();
         builder.Services.AddSingleton<INavegacao, NavegacaoMaui>();
         builder.Services.AddSingleton<IDialogos, DialogosMaui>();
+        builder.Services.AddSingleton<IArquivos, ArquivosMaui>();
         builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
 
         builder.Services.AddLoneCliente();
@@ -38,6 +39,7 @@ public static class MauiProgram
         builder.Services.AddTransient<PessoasPage>();
         builder.Services.AddTransient<CamposPersonalizadosPage>();
         builder.Services.AddTransient<EtiquetasPage>();
+        builder.Services.AddTransient<ProfissoesPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

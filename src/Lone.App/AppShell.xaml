@@ -33,6 +33,10 @@
         <ShellContent Title="Campos personalizados" ContentTemplate="{DataTemplate views:CamposPersonalizadosPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Profissões" Route="profissoes" IsVisible="{Binding PodeGerenciarProfissoes}">
+        <ShellContent Title="Profissões" ContentTemplate="{DataTemplate views:ProfissoesPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>

@@ -9,6 +9,7 @@ using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
+using Lone.Contracts.Profissoes;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
@@ -33,6 +34,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly MunicipiosApi _municipios;
     private readonly CamposPersonalizadosApi _camposApi;
     private readonly EtiquetasApi _etiquetasApi;
+    private readonly ProfissoesApi _profissoesApi;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
@@ -40,8 +42,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Cadastro de etiquetas, com as desativadas (lido ao abrir a tela; a ficha oferece só as ativas).</summary>
     private List<EtiquetaDto> _etiquetas = [];
 
+    /// <summary>Cadastro de profissões, com as desativadas (a ficha oferece só as ativas e mostra a gravada).</summary>
+    private List<ProfissaoDto> _profissoes = [];
+
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
-                            MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, IDialogos dialogos)
+                            MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -51,6 +56,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _municipios = municipios;
         _camposApi = camposApi;
         _etiquetasApi = etiquetasApi;
+        _profissoesApi = profissoesApi;
     }
 
     protected override bool BuscaNoServidor => true;
@@ -72,6 +78,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     /// <summary>Atalho "Nova etiqueta" na ficha: só para quem gerencia etiquetas (a API confere de novo).</summary>
     public bool PodeCriarEtiqueta => _sessao.Possui(Permissoes.Cadastros.Etiquetas);
+
+    /// <summary>Atalho "Nova profissão" na ficha: só para quem gerencia profissões (a API confere de novo).</summary>
+    public bool PodeCriarProfissao => _sessao.Possui(Permissoes.Cadastros.Profissoes);
 
     public bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
 
@@ -101,6 +110,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
         try { _campos = await _camposApi.ListarAsync(EntidadePersonalizavel.Pessoa, incluirInativos: false); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _campos = []; }
+
+        // Sem a lista, a ficha mostra a profissão vazia, mas a gravada volta intacta ao salvar.
+        try { _profissoes = await _profissoesApi.ListarAsync(incluirInativas: true); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _profissoes = []; }
     }
 
     private async Task AtualizarEtiquetasAsync()
@@ -175,12 +188,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes);
         return Task.CompletedTask;
     }
 
@@ -199,7 +212,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 
@@ -430,6 +443,28 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         FiltrosEtiqueta.Add(new Opcao<Guid?>(etiqueta.Id, etiqueta.Nome));
         formulario.Etiquetas.Incluir(etiqueta, marcar: true);
         Mostrar($"Etiqueta \"{etiqueta.Nome}\" criada e marcada. Salve o cadastro para gravar a marcação.", TipoMensagem.Sucesso);
+    }
+
+    /// <summary>Atalho da ficha: cria a profissão no cadastro (fica disponível para todos) e já a escolhe.</summary>
+    [RelayCommand]
+    private async Task NovaProfissaoAsync()
+    {
+        if (Formulario is not { } formulario) return;
+        var nome = await PerguntarAsync(
+            "Nova profissão",
+            "Nome da profissão. Ela fica disponível para todos os cadastros (a ocupação CBO pode ser informada depois, no menu Profissões):",
+            "Criar", "Cancelar", "Ex.: Advogado", global::Lone.Domain.Entidades.Profissao.TamanhoMaximoNome);
+        if (string.IsNullOrWhiteSpace(nome)) return;
+
+        ProfissaoDto? criada = null;
+        if (!await ExecutarAsync(async () =>
+                criada = await _profissoesApi.SalvarAsync(new ProfissaoDto { Id = IdSequencial.Novo(), Nome = nome.Trim() })))
+            return;
+
+        var profissao = criada!;
+        _profissoes.Add(profissao);
+        formulario.IncluirProfissao(profissao);
+        Mostrar($"Profissão \"{profissao.Nome}\" criada e escolhida. Salve o cadastro para gravar.", TipoMensagem.Sucesso);
     }
 
     // ---- Consultas externas ----

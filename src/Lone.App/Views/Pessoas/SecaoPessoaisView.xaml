@@ -15,11 +15,18 @@
                             Selecionado="{Binding Formulario.Genero}" />
             <c:CampoEscolha Rotulo="Estado civil" Itens="{Binding Formulario.EstadosCivis}" Selecionado="{Binding Formulario.EstadoCivil}" />
             <c:CampoEscolha Rotulo="Escolaridade" Itens="{Binding Formulario.Escolaridades}" Selecionado="{Binding Formulario.Escolaridade}" />
-            <c:Campo Rotulo="Profissão" Texto="{Binding Formulario.Profissao}" />
             <c:Campo Rotulo="Nacionalidade" Texto="{Binding Formulario.Nacionalidade}" Dica="Ex.: Brasileira" />
             <c:Campo Rotulo="Nome da mãe" Texto="{Binding Formulario.NomeMae}" />
             <c:Campo Rotulo="Nome do pai" Texto="{Binding Formulario.NomePai}" />
         </FlexLayout>
+
+        <!-- Profissão: do cadastro de profissões (grava a referência, nunca texto livre). -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MaximumWidthRequest="640" HorizontalOptions="Start">
+            <c:CampoLista Rotulo="Profissão" BindingContext="{Binding Formulario.Profissao}" />
+            <Button Grid.Column="1" Text="Nova profissão" Style="{StaticResource BotaoSecundario}" VerticalOptions="Start"
+                    Margin="0,22,0,0" Command="{Binding NovaProfissaoCommand}" IsVisible="{Binding PodeCriarProfissao}"
+                    IsEnabled="{Binding Livre}" />
+        </Grid>
 
         <!-- Naturalidade: UF e município da tabela do IBGE (grava o código do município, nunca texto livre). -->
         <Label Text="Naturalidade" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />

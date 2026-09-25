@@ -36,6 +36,22 @@ public static class Rotas
         public const string FaixasEtarias = Grupo + "/indicadores/faixas-etarias";
     }
 
+    /// <summary>Cadastro de profissões e tabela oficial da CBO. Nada é excluído: desativa ou mescla.</summary>
+    public static class Profissoes
+    {
+        public const string Grupo = Base + "/profissoes";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+        public static string Mesclar(Guid origemId) => $"{Grupo}/{origemId}/mesclar";
+        public static string Listar(bool incluirInativas) => incluirInativas ? Grupo + "?incluirInativas=true" : Grupo;
+
+        /// <summary>Todas as ocupações ativas da CBO (cerca de 2.600; o aplicativo filtra no aparelho).</summary>
+        public const string Cbo = Grupo + "/cbo";
+        public const string CboSituacao = Cbo + "/situacao";
+        public const string CboImportar = Cbo + "/importar";
+    }
+
     /// <summary>Cadastro de etiquetas (reutilizáveis nas pessoas). Nada é excluído: desativa ou mescla.</summary>
     public static class Etiquetas
     {

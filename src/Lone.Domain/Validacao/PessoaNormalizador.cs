@@ -186,7 +186,8 @@ public static class PessoaNormalizador
             p.IdentidadeGenero = IdentidadeGenero.NaoInformado;
             p.EstadoCivil = EstadoCivil.NaoInformado;
             p.Escolaridade = Escolaridade.NaoInformado;
-            p.NomeMae = p.NomePai = p.Profissao = null;
+            p.NomeMae = p.NomePai = null;
+            p.ProfissaoId = null;
             p.NaturalidadeMunicipioId = null;
         }
 
@@ -196,7 +197,7 @@ public static class PessoaNormalizador
         p.Nacionalidade = Texto(p.Nacionalidade);
         p.NomeMae = Texto(p.NomeMae);
         p.NomePai = Texto(p.NomePai);
-        p.Profissao = Texto(p.Profissao);
+        if (p.ProfissaoId == Guid.Empty) p.ProfissaoId = null;
     }
 
     /// <summary>Dados da Receita (abertura, porte, capital, sócios, CNAEs secundários) só na pessoa jurídica.</summary>

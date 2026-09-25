@@ -64,7 +64,6 @@ public static class PessoaValidador
         Limite(p.SituacaoMotivo, Pessoa.TamanhoMaximoMotivo, "O motivo da situação", erros);
         Limite(p.NomeMae, 150, "O nome da mãe", erros);
         Limite(p.NomePai, 150, "O nome do pai", erros);
-        Limite(p.Profissao, 80, "A profissão", erros);
 
         if (p.DataAbertura is { } abertura && abertura > hoje)
             erros.Add("A data de abertura da empresa não pode ser no futuro.");
