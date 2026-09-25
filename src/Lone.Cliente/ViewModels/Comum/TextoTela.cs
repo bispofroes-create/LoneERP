@@ -22,6 +22,10 @@ public static class TextoTela
         return true;
     }
 
+    /// <summary>Só a data completa "dd/mm/aaaa" (para cálculos ao vivo, como a idade); qualquer outra coisa = nulo.</summary>
+    public static DateOnly? DataCompleta(string? texto) =>
+        DateOnly.TryParseExact((texto ?? string.Empty).Trim(), "dd/MM/yyyy", Brasil, DateTimeStyles.None, out var d) ? d : null;
+
     public static string Decimal(decimal? valor) => valor?.ToString("#,0.##", Brasil) ?? string.Empty;
 
     public static bool TentarDecimal(string? texto, out decimal? valor)

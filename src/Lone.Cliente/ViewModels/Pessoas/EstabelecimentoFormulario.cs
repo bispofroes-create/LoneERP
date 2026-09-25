@@ -23,6 +23,41 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     {
         Id = id;
         EnderecosDisponiveis = enderecosDaPessoa;
+        enderecosDaPessoa.CollectionChanged += (_, _) => AtualizarOpcoesEndereco();
+        AtualizarOpcoesEndereco();
+    }
+
+    public static readonly Opcao<Guid?> EnderecoDaPessoa = new(null, "Endereço principal da pessoa");
+
+    /// <summary>
+    /// Opções do seletor de endereço fiscal, em array (como todos os seletores). O Picker nunca recebe a coleção viva
+    /// de endereços: incluir endereços com ela ligada ao Picker derrubava a tela no Windows.
+    /// </summary>
+    [ObservableProperty] private Opcao<Guid?>[] _opcoesEnderecoFiscal = [EnderecoDaPessoa];
+
+    /// <summary>Escolha do seletor (espelha <see cref="EnderecoFiscal"/>).</summary>
+    public Opcao<Guid?> EnderecoFiscalOpcao
+    {
+        get => OpcoesEnderecoFiscal.FirstOrDefault(o => o.Valor == EnderecoFiscal?.Id) ?? OpcoesEnderecoFiscal[0];
+        set
+        {
+            var escolhido = value?.Valor is { } id ? EnderecosDisponiveis.FirstOrDefault(e => e.Id == id) : null;
+            if (!ReferenceEquals(escolhido, EnderecoFiscal)) EnderecoFiscal = escolhido;
+        }
+    }
+
+    partial void OnEnderecoFiscalChanged(EnderecoFormulario? value) => OnPropertyChanged(nameof(EnderecoFiscalOpcao));
+
+    /// <summary>Refaz as opções (endereços ativos, pelo resumo). Chamado quando a lista de endereços muda.</summary>
+    public void AtualizarOpcoesEndereco()
+    {
+        OpcoesEnderecoFiscal =
+        [
+            EnderecoDaPessoa,
+            .. EnderecosDisponiveis.Where(e => e.Ativo || ReferenceEquals(e, EnderecoFiscal))
+                .Select((e, i) => new Opcao<Guid?>(e.Id, e.Resumo is { Length: > 0 } r ? r : $"Endereço {i + 1}"))
+        ];
+        OnPropertyChanged(nameof(EnderecoFiscalOpcao));
     }
 
     public Guid Id { get; }
@@ -34,7 +69,17 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     public Func<EstabelecimentoFormulario, Task>? AoConsultarCnpj { get; set; }
     public Action? AoTornarPrincipal { get; set; }
 
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo))] private string _cnpj = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo), nameof(ErroCnpj), nameof(CnpjValido))] private string _cnpj = string.Empty;
+
+    /// <summary>O foco já saiu do campo CNPJ: número incompleto também vira erro.</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(ErroCnpj), nameof(CnpjValido))] private bool _cnpjConferido;
+
+    /// <summary>Erro do CNPJ junto do campo (só PJ).</summary>
+    public string ErroCnpj => DaPessoaJuridica ? ConferenciaDocumento.ErroCnpj(Cnpj, CnpjConferido) : string.Empty;
+    public bool CnpjValido => DaPessoaJuridica && ConferenciaDocumento.CnpjValido(Cnpj);
+
+    [RelayCommand]
+    private void ConferirCnpj() => CnpjConferido = true;
     [ObservableProperty] private string _nomeFantasia = string.Empty;
     [ObservableProperty] private bool _ativo = true;
 
@@ -71,7 +116,7 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
 
     /// <summary>Definido pela ficha. Só a pessoa jurídica tem CNPJ, nome fantasia e filiais.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(MostrarNaFicha))]
+    [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(MostrarNaFicha), nameof(ErroCnpj), nameof(CnpjValido))]
     private bool _daPessoaJuridica;
 
     /// <summary>Filial de pessoa jurídica: pode virar principal, ser removida e ter endereço próprio.</summary>

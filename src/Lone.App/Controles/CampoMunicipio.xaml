@@ -10,7 +10,7 @@
             >
     <VerticalStackLayout Spacing="2">
         <Grid ColumnDefinitions="96,*" ColumnSpacing="8">
-            <c:CampoEscolha Rotulo="UF" Itens="{Binding ListaUfs}" Selecionado="{Binding Uf}" Padding="0" Dica="UF" />
+            <c:CampoEscolha Rotulo="UF" Itens="{Binding ListaUfs}" Selecionado="{Binding Uf}" Padding="0" Dica="Escolha" />
             <VerticalStackLayout Grid.Column="1" Spacing="2">
                 <Label x:Name="RotuloMunicipio" Text="Município" Style="{StaticResource Rotulo}" />
                 <Grid ColumnDefinitions="*,Auto">
