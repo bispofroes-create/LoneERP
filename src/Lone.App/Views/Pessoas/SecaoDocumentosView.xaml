@@ -6,29 +6,44 @@
              x:Class="Lone.App.Views.Pessoas.SecaoDocumentosView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
-        <Grid ColumnDefinitions="*,Auto">
-            <Label Text="RG, CNH, passaporte e outros documentos da pessoa." Style="{StaticResource Secundario}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar documento" Style="{StaticResource BotaoSecundario}"
+        <!-- Remover um documento já gravado só desativa (fica no histórico; volta em "Mostrar inativos"). -->
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <Label Text="RG, CNH, passaporte, alvará e outros documentos da pessoa. Os tipos ficam em &quot;Tipos de documento&quot;."
+                   Style="{StaticResource Secundario}" VerticalOptions="Center" />
+            <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarDocumentosInativos}"
+                           IsVisible="{Binding Formulario.TemDocumentosInativos}" VerticalOptions="Center" />
+            <Button Grid.Column="2" Text="Adicionar documento" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarDocumentoCommand}" />
         </Grid>
+        <Label Text="{Binding Formulario.AvisoDocumentos}" TextColor="{StaticResource Aviso}" FontAttributes="Bold"
+               IsVisible="{Binding Formulario.TemAvisoDocumentos}" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Documentos}">
             <BindableLayout.EmptyView>
                 <Label Text="Nenhum documento." Style="{StaticResource Secundario}" Margin="0,8" />
             </BindableLayout.EmptyView>
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:DocumentoFormulario">
-                    <Border Style="{StaticResource CartaoItem}">
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Visivel}">
                         <VerticalStackLayout>
+                            <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
+                            <Label Text="{Binding AvisoValidade}" TextColor="{StaticResource Aviso}" FontAttributes="Bold"
+                                   IsVisible="{Binding TemAvisoValidade}" />
                             <FlexLayout Wrap="Wrap">
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
                                 <c:Campo Rotulo="Órgão emissor" Texto="{Binding OrgaoEmissor}" />
                                 <c:Campo Rotulo="UF" Texto="{Binding Uf}" />
                                 <c:Campo Rotulo="Emitido em" Texto="{Binding EmitidoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
-                                <c:Campo Rotulo="Válido até" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
                             </FlexLayout>
-                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                            <HorizontalStackLayout Spacing="12">
+                                <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                        IsVisible="{Binding Ativo}" />
+                                <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
+                                        IsVisible="{Binding Inativo}" />
+                            </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>

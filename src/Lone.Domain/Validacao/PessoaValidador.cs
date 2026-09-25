@@ -214,6 +214,10 @@ public static class PessoaValidador
 
     private static void ValidarDocumento(PessoaDocumento d, string rotulo, List<string> erros)
     {
+        if (d.Observacoes is { Length: > 250 })
+            erros.Add($"{rotulo}: as observações podem ter no máximo 250 caracteres.");
+        // Documento removido (inativo) fica como estava: dados antigos não impedem a gravação.
+        if (!d.Ativo) return;
         if (d.Numero.Length == 0)
             erros.Add($"{rotulo}: informe o número.");
         if (d.Uf is not null && !Ufs.Valida(d.Uf))

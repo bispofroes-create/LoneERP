@@ -187,7 +187,15 @@ public sealed class ContatoDto
 public sealed class DocumentoDto
 {
     public Guid Id { get; set; }
+
+    /// <summary>Tipo do cadastro de tipos de documento. Vazio = chamada antiga: vale o <see cref="Tipo"/>.</summary>
+    public Guid TipoDocumentoId { get; set; }
+
+    /// <summary>Cópia do tipo de sistema (a API sobrescreve com a do cadastro).</summary>
     public TipoDocumento Tipo { get; set; } = TipoDocumento.Rg;
+
+    /// <summary>Falso = removido na ficha (fica gravado, fora da lista principal).</summary>
+    public bool Ativo { get; set; } = true;
     public string Numero { get; set; } = string.Empty;
     public string? OrgaoEmissor { get; set; }
     public string? Uf { get; set; }

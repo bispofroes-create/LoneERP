@@ -99,5 +99,36 @@ public class PessoaDocumentoConfiguration : IEntityTypeConfiguration<PessoaDocum
         b.Property(d => d.Observacoes).HasMaxLength(250);
 
         b.HasIndex(d => d.PessoaId);
+
+        // Tipo do cadastro; índice com a validade para a consulta de vencidos / a vencer por tipo.
+        b.HasOne<TipoDocumentoCadastro>().WithMany().HasForeignKey(d => d.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(d => new { d.TipoDocumentoId, d.ValidoAte }).HasFilter("[Ativo] = 1");
+    }
+}
+
+public class TipoDocumentoCadastroConfiguration : IEntityTypeConfiguration<TipoDocumentoCadastro>
+{
+    public void Configure(EntityTypeBuilder<TipoDocumentoCadastro> b)
+    {
+        b.ToTable("TiposDocumento");
+        b.HasKey(t => t.Id);
+        b.Property(t => t.Nome).IsRequired().HasMaxLength(TipoDocumentoCadastro.TamanhoMaximoNome).UseCollation(EtiquetaConfiguration.CollationNome);
+        b.HasIndex(t => t.Nome).IsUnique();
+        b.Property(t => t.TipoSistema).HasConversion<byte?>();
+        b.HasIndex(t => t.TipoSistema).IsUnique().HasFilter("[TipoSistema] IS NOT NULL");
+
+        // Os cinco de sistema, ligados ao enum TipoDocumento. Ids fixos: os mesmos em todo banco do Lone.
+        var criacao = new DateTime(2026, 9, 25, 0, 0, 0, DateTimeKind.Utc);
+        b.HasData(Lone.Domain.Documentos.TiposDocumentoSistema.Todos.Select(t => new TipoDocumentoCadastro
+        {
+            Id = t.Id,
+            Nome = t.Nome,
+            Ordem = t.Ordem,
+            Ativo = true,
+            TipoSistema = t.Tipo,
+            ExigeValidade = t.ExigeValidade,
+            DiasAvisoVencimento = TipoDocumentoCadastro.DiasAvisoPadrao,
+            CriadoEm = criacao
+        }).ToArray());
     }
 }

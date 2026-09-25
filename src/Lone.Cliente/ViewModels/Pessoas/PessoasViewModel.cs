@@ -13,6 +13,7 @@ using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
 using Lone.Contracts.Contatos;
 using Lone.Contracts.Enderecos;
+using Lone.Contracts.Documentos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
@@ -41,6 +42,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly PapeisApi _papeisApi;
     private readonly TiposMeioContatoApi _tiposMeioApi;
     private readonly TiposEnderecoApi _tiposEnderecoApi;
+    private readonly TiposDocumentoApi _tiposDocumentoApi;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _campos = [];
@@ -60,9 +62,13 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Tipos de endereço (Sede, Depósito...), com os desativados.</summary>
     private List<TipoEnderecoDto> _tiposEndereco = [];
 
+    /// <summary>Tipos de documento (RG, CNH, Alvará...), com os desativados.</summary>
+    private List<TipoDocumentoDto> _tiposDocumento = [];
+
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
-                            PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi, IDialogos dialogos)
+                            PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi,
+                            TiposDocumentoApi tiposDocumentoApi, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -76,6 +82,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _papeisApi = papeisApi;
         _tiposMeioApi = tiposMeioApi;
         _tiposEnderecoApi = tiposEnderecoApi;
+        _tiposDocumentoApi = tiposDocumentoApi;
     }
 
     protected override bool BuscaNoServidor => true;
@@ -163,6 +170,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Idem para os endereços: sem a lista, o tipo gravado volta intacto.
         try { _tiposEndereco = await _tiposEnderecoApi.ListarAsync(incluirInativos: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposEndereco = []; }
+
+        // Sem os tipos de documento, a ficha oferece os de sistema e o tipo gravado volta intacto.
+        try { _tiposDocumento = await _tiposDocumentoApi.ListarAsync(incluirInativos: true); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposDocumento = []; }
     }
 
     private void AtualizarFiltrosPapel()
@@ -247,12 +258,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento);
         return Task.CompletedTask;
     }
 
@@ -271,7 +282,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 

@@ -36,6 +36,16 @@ public static class Rotas
         public const string FaixasEtarias = Grupo + "/indicadores/faixas-etarias";
     }
 
+    /// <summary>Tipos de documento. Nada é excluído: desativa.</summary>
+    public static class TiposDocumento
+    {
+        public const string Grupo = Base + "/tipos-documento";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+        public static string Listar(bool incluirInativos) => incluirInativos ? Grupo + "?incluirInativos=true" : Grupo;
+    }
+
     /// <summary>Tipos (classificações) de endereço. Nada é excluído: desativa.</summary>
     public static class TiposEndereco
     {

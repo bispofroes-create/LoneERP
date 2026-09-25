@@ -269,7 +269,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // estabelecimento aponta direto para o Id; o EF grava os endereços antes dos estabelecimentos.
         SincronizarFilhos(db, atual.Id, atual.Enderecos, dados.Enderecos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos);
-        SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos);
+        SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Contatos, dados.Contatos);
         SincronizarFilhos(db, atual.Id, atual.Papeis, dados.Papeis, apagarAusentes: false); // períodos nunca são apagados

@@ -154,6 +154,18 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - **Migração única final** (gerada pelo usuário depois de todas as fases): logo depois da criação da coluna
     `PessoaEnderecos.Ativo`, inserir `migrationBuilder.Sql(SqlMigracaoCadastroGeral.AtivarEnderecos);`.
   - Tradução dos Ids novos no histórico (tipo de telefone, tipo de endereço) fica para a fase 6.
+- **Fase 4a — Documentos parametrizáveis (código entregue em 25/09/2026; sem teste por fase):**
+  - Cadastro `TiposDocumento` (entidade `TipoDocumentoCadastro`, porque `TipoDocumento` é o enum): nome único CI_AI, ordem,
+    ativo, `TipoSistema` (ligado ao enum; os 5 de sistema com Ids fixos `7a9e1c03-...-01..04, 09`), `ExigeValidade` e
+    `DiasAvisoVencimento` (padrão 30). Permissão `CADASTROS.TIPOS`, menu "Tipos de documento".
+  - `PessoaDocumentos` ganhou `TipoDocumentoId` (FK) e `Ativo`; o enum `Tipo` continua (cópia feita pela API a partir do tipo;
+    chamada antiga só com o enum é ligada ao tipo de sistema). Vários documentos por pessoa; nunca apagados (desativa).
+  - Situação da validade calculada (`RegrasDocumento.Situacao`: sem validade / válido / vence em breve / vencido); a ficha
+    mostra o aviso por documento e o resumo na aba. Índice `(TipoDocumentoId, ValidoAte)` filtrado por ativos para as
+    consultas de vencimento (filtro da lista entra na fase 12).
+  - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.LigarDocumentosAosTipos);` depois de criar
+    `TiposDocumento` + dados de sistema e as colunas novas de `PessoaDocumentos`, e **antes** da FK
+    `FK_PessoaDocumentos_TiposDocumento_TipoDocumentoId` (a coluna nasce com Guid vazio).
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

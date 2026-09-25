@@ -340,7 +340,9 @@ public static class PessoaMapeamento
     private static DocumentoDto ParaDto(PessoaDocumento x) => new()
     {
         Id = x.Id,
+        TipoDocumentoId = x.TipoDocumentoId,
         Tipo = x.Tipo,
+        Ativo = x.Ativo,
         Numero = x.Numero,
         OrgaoEmissor = x.OrgaoEmissor,
         Uf = x.Uf,
@@ -353,7 +355,9 @@ public static class PessoaMapeamento
     {
         Id = IdOuNovo(x.Id),
         PessoaId = pessoaId,
+        TipoDocumentoId = x.TipoDocumentoId,
         Tipo = x.Tipo,
+        Ativo = x.Ativo,
         Numero = x.Numero ?? string.Empty,
         OrgaoEmissor = x.OrgaoEmissor,
         Uf = x.Uf,

@@ -5,6 +5,7 @@ using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
+using Lone.Application.Documentos;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -13,6 +14,7 @@ using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
 using Lone.Contracts.Contatos;
 using Lone.Contracts.Enderecos;
+using Lone.Contracts.Documentos;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -29,6 +31,7 @@ public static class CadastrosEndpoints
         MapPapeis(app);
         MapTiposMeioContato(app);
         MapTiposEndereco(app);
+        MapTiposDocumento(app);
         return app;
     }
 
@@ -99,6 +102,35 @@ public static class CadastrosEndpoints
 
         grupo.MapPost("{id:guid}/reativar",
             (Guid id, AlterarSituacaoRequisicao requisicao, ITipoEnderecoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapTiposDocumento(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.TiposDocumento.Grupo).WithTags("Tipos de documento").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ITipoDocumentoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ITipoDocumentoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } tipo
+                ? Results.Ok(tipo)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este tipo não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, TipoDocumentoDto tipo, ITipoDocumentoAppService servico, CancellationToken ct) =>
+        {
+            if (tipo.Id != Guid.Empty && tipo.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id do tipo enviado."));
+            tipo.Id = id;
+            return Results.Ok(await servico.SalvarAsync(tipo, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoDocumentoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoDocumentoAppService servico, CancellationToken ct) =>
                 servico.ReativarAsync(id, requisicao, ct));
     }
 

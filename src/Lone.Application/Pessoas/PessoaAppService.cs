@@ -5,6 +5,7 @@ using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
+using Lone.Application.Documentos;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -20,6 +21,7 @@ using Lone.Domain.Profissoes;
 using Lone.Domain.Papeis;
 using Lone.Domain.Contatos;
 using Lone.Domain.Enderecos;
+using Lone.Domain.Documentos;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -42,12 +44,14 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IPapelRepositorio _papeis;
     private readonly ITipoMeioContatoRepositorio _tiposMeio;
     private readonly ITipoEnderecoRepositorio _tiposEndereco;
+    private readonly ITipoDocumentoRepositorio _tiposDocumento;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
                             IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
-                            ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco, TimeProvider relogio)
+                            ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
+                            ITipoDocumentoRepositorio tiposDocumento, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -59,6 +63,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _papeis = papeis;
         _tiposMeio = tiposMeio;
         _tiposEndereco = tiposEndereco;
+        _tiposDocumento = tiposDocumento;
         _relogio = relogio;
     }
 
@@ -157,6 +162,7 @@ public sealed class PessoaAppService : IPessoaAppService
         // Papéis: ligados ao cadastro de papéis antes de tudo, porque as regras seguintes (empresa do grupo,
         // dados de funcionário) usam o papel de sistema copiado de lá, nunca o que veio do aplicativo.
         RegrasPapel.CompletarIds(dados);
+        RegrasDocumento.CompletarIds(dados);
         var papeisAnteriores = (anterior?.Papeis ?? []).Where(p => p.Ativo).Select(p => p.PapelId).ToHashSet();
         var cadastroPapeis = await _papeis.ObterVariosAsync(dados.Papeis.Select(p => p.PapelId).Concat(papeisAnteriores).ToList(), ct);
         var errosPapeis = RegrasPapel.Aplicar(dados, papeisAnteriores, cadastroPapeis);
@@ -200,6 +206,13 @@ public sealed class PessoaAppService : IPessoaAppService
             dados.Enderecos,
             (anterior?.Enderecos ?? []).ToDictionary(e => e.Id, e => e.TipoEnderecoId),
             await _tiposEndereco.ObterVariosAsync(dados.Enderecos.Select(e => e.TipoEnderecoId).OfType<Guid>().Distinct().ToList(), ct)));
+
+        // Documentos: o tipo vem do cadastro (desativado só se já era o dele), que também diz se a validade é obrigatória;
+        // o enum antigo é copiado do tipo escolhido.
+        erros.AddRange(RegrasDocumento.Aplicar(
+            dados.Documentos,
+            (anterior?.Documentos ?? []).ToDictionary(d => d.Id, d => d.TipoDocumentoId),
+            await _tiposDocumento.ObterVariosAsync(dados.Documentos.Select(d => d.TipoDocumentoId).Distinct().ToList(), ct)));
 
         // Profissão: do cadastro de profissões; uma desativada só continua em quem já a tinha.
         if (RegrasProfissao.ValidarEscolhida(

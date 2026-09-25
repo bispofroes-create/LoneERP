@@ -8,6 +8,7 @@ using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
 using Lone.Contracts.Contatos;
+using Lone.Contracts.Documentos;
 using Lone.Contracts.Enderecos;
 using Lone.Contracts.Integracoes;
 using Lone.Contracts.Municipios;
@@ -220,12 +221,14 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public static PessoaFormulario NovaPessoa(IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
                                              IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
-                                             IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null)
+                                             IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null,
+                                             IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
             _tiposMeio = tiposMeio ?? [],
             _tiposEndereco = tiposEndereco ?? [],
+            _tiposDocumento = tiposDocumento ?? [],
             Papeis = MontarPapeis(papeis, [], out _),
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, []),
             Etiquetas = EtiquetasFormulario.Criar(etiquetas, [])
@@ -240,7 +243,8 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public static PessoaFormulario De(PessoaDto p, IReadOnlyList<CampoPersonalizadoDto>? campos = null, IReadOnlyList<EtiquetaDto>? etiquetas = null,
                                       IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
-                                      IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null)
+                                      IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null,
+                                      IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null)
     {
         var opcoesPapel = MontarPapeis(papeis, p.Papeis, out var papeisDesconhecidos);
         var f = new PessoaFormulario(p.Id, nova: false)
@@ -278,6 +282,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             Papeis = opcoesPapel,
             _tiposMeio = tiposMeio ?? [],
             _tiposEndereco = tiposEndereco ?? [],
+            _tiposDocumento = tiposDocumento ?? [],
             _papeisDesconhecidos = papeisDesconhecidos,
             Sexo = Opcao.De(OpcoesPessoa.Sexos, p.Sexo),
             Genero = Opcao.De(OpcoesPessoa.Generos, p.IdentidadeGenero),
@@ -659,8 +664,57 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public void AdicionarDocumento(DocumentoFormulario documento)
     {
-        documento.AoRemover = () => Documentos.Remove(documento);
+        documento.DefinirCatalogo(_tiposDocumento);
+        documento.MostrarSeInativo = MostrarDocumentosInativos;
+        documento.AoRemover = () =>
+        {
+            // Já gravado: fica gravado como inativo (histórico, consulta por número antigo). Novo: sai da lista.
+            if (documento.Gravado) documento.Ativo = false;
+            else Documentos.Remove(documento);
+            AvisarDocumentos();
+        };
+        documento.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(DocumentoFormulario.Ativo) or nameof(DocumentoFormulario.AvisoValidade)) AvisarDocumentos();
+        };
         Documentos.Add(documento);
+        AvisarDocumentos();
+    }
+
+    /// <summary>Tipos de documento do cadastro (RG, CNH, Alvará...), com validade obrigatória e dias de aviso.</summary>
+    private IReadOnlyList<TipoDocumentoDto> _tiposDocumento = [];
+
+    /// <summary>Mostra também os documentos removidos (inativos), para consultar ou reativar.</summary>
+    [ObservableProperty] private bool _mostrarDocumentosInativos;
+
+    public bool TemDocumentosInativos => Documentos.Any(d => !d.Ativo);
+
+    partial void OnMostrarDocumentosInativosChanged(bool value)
+    {
+        foreach (var d in Documentos) d.MostrarSeInativo = value;
+    }
+
+    /// <summary>Resumo dos vencimentos dos documentos ativos (ex.: "1 documento vencido, 2 vencem em breve."). Vazio = nada a avisar.</summary>
+    public string AvisoDocumentos
+    {
+        get
+        {
+            var vencidos = Documentos.Count(d => d.Vencido);
+            var emBreve = Documentos.Count(d => d.VenceEmBreve);
+            var partes = new List<string>();
+            if (vencidos > 0) partes.Add(vencidos == 1 ? "1 documento vencido" : $"{vencidos} documentos vencidos");
+            if (emBreve > 0) partes.Add(emBreve == 1 ? "1 vence em breve" : $"{emBreve} vencem em breve");
+            return partes.Count == 0 ? string.Empty : string.Join(", ", partes) + ".";
+        }
+    }
+
+    public bool TemAvisoDocumentos => AvisoDocumentos.Length > 0;
+
+    private void AvisarDocumentos()
+    {
+        OnPropertyChanged(nameof(TemDocumentosInativos));
+        OnPropertyChanged(nameof(AvisoDocumentos));
+        OnPropertyChanged(nameof(TemAvisoDocumentos));
     }
 
     // ---- Consulta de CNPJ ----
