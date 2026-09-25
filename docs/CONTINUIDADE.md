@@ -116,7 +116,7 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     `pessoas/etiquetas` saiu (substituído por `api/v1/etiquetas`).
   - Migração `CadastroEtiquetas`: gerada pelo usuário e **reordenada à mão** (SQL em `SqlMigracaoEtiquetas.cs`). Se for
     gerada de novo, a ordem das operações precisa ser refeita.
-- **Fase 2b — Profissões e CBO (código entregue em 25/09/2026, aguardando migração e testes):**
+- **Fase 2b — Profissões e CBO: concluída em 25/09/2026** (migração aplicada, testes passando, testado no app):
   - Cadastro `Profissoes` (nome único CI_AI, descrição, ocupação CBO opcional, ativa), permissão `CADASTROS.PROFISSOES`,
     menu "Profissões" com mesclagem (move as pessoas e desativa a origem; histórico em cada pessoa).
   - Tabela oficial `OcupacoesCbo` (Id = código CBO de 6 dígitos, mesma regra dos municípios). Sem API pública estável:
