@@ -45,6 +45,8 @@ public class LoneDbContext : DbContext
     public DbSet<Cnae> Cnaes => Set<Cnae>();
     public DbSet<EstabelecimentoCnae> EstabelecimentoCnaes => Set<EstabelecimentoCnae>();
     public DbSet<HistoricoFiscal> HistoricoFiscal => Set<HistoricoFiscal>();
+    public DbSet<Interacao> Interacoes => Set<Interacao>();
+    public DbSet<ParametrosRelacionamento> ParametrosRelacionamento => Set<ParametrosRelacionamento>();
     public DbSet<OcupacaoCbo> OcupacoesCbo => Set<OcupacaoCbo>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
     public DbSet<DocumentoValorPersonalizado> PessoaDocumentoValoresPersonalizados => Set<DocumentoValorPersonalizado>();

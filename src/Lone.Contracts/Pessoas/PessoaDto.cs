@@ -78,6 +78,9 @@ public sealed class PessoaDto
     public List<ContatoDto> Contatos { get; set; } = new();
     public List<DocumentoDto> Documentos { get; set; } = new();
 
+    /// <summary>Somente leitura: relacionamento (última interação, situação e as interações mais recentes).</summary>
+    public RelacionamentoDto? Relacionamento { get; set; }
+
     /// <summary>Dados de colaborador (vínculos e lotações). Vazio e <see cref="ColaboradorOculto"/> = sem permissão para vê-los.</summary>
     public List<Lone.Contracts.Colaboradores.VinculoDto> Vinculos { get; set; } = new();
 

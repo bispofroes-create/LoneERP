@@ -229,6 +229,16 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - `EstabelecimentoCnaes`: cópia em tabela dos campos de texto (principal + secundários), para filtros com índice.
   - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.HistoricoFiscalECnaes);` depois de criar
     `HistoricoFiscal`, `EstabelecimentoCnaes` e a coluna `Estabelecimentos.ProdutorRural`.
+- **Fase 10 — Situações (código entregue em 25/09/2026; sem teste por fase):**
+  - Bloqueios como ação própria: `POST pessoas/{id}/bloqueios` e `.../bloqueios/{id}/liberar` (motivo obrigatório,
+    quem/quando; motivo também na coluna de auditoria). Escopo novo `Faturamento`. Permissões `PESSOAS.BLOQUEAR` e
+    `PESSOAS.DESBLOQUEAR`. Aba Situação lista bloqueios (ativos primeiro) com Bloquear/Liberar.
+  - Relacionamento: tabela `Interacoes` (só inclusão; ligação, visita, e-mail, WhatsApp, reunião, outro;
+    `PESSOAS.INTERACOES`), situação calculada (sem interação / ativo / em risco / inativo) por
+    `ParametrosRelacionamento` (linha única, padrão 90 e 180 dias; `GET/PUT pessoas/parametros-relacionamento` com
+    `CADASTROS.PARAMETROS`). A ficha traz `Relacionamento` (última interação, situação, 50 mais recentes).
+  - Pendente: tela para editar os parâmetros de inatividade (hoje só pela API); "última compra" quando houver vendas.
+  - Migração final: tabelas novas + dado inicial de `ParametrosRelacionamento` (HasData); nenhum SQL de dados.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

@@ -17,6 +17,9 @@ public static class Permissoes
         public const string VisualizarDadosSensiveis = "PESSOAS.VISUALIZAR_DADOS_SENSIVEIS";
         public const string GerenciarEmpresasDoGrupo = "PESSOAS.EMPRESAS_DO_GRUPO";
         public const string Colaborador = "PESSOAS.COLABORADOR";
+        public const string Bloquear = "PESSOAS.BLOQUEAR";
+        public const string Desbloquear = "PESSOAS.DESBLOQUEAR";
+        public const string RegistrarInteracao = "PESSOAS.INTERACOES";
     }
 
     public static class Cadastros
@@ -29,6 +32,7 @@ public static class Permissoes
         public const string Tipos = "CADASTROS.TIPOS";
         public const string EstruturaOrganizacional = "CADASTROS.ESTRUTURA_ORGANIZACIONAL";
         public const string Comercial = "CADASTROS.COMERCIAL";
+        public const string Parametros = "CADASTROS.PARAMETROS";
     }
 
     public static class Seguranca
@@ -49,6 +53,9 @@ public static class Permissoes
         new(Pessoas.VisualizarFinanceiro, "Pessoas", "Ver dados financeiros da pessoa"),
         new(Pessoas.VisualizarDadosSensiveis, "Pessoas", "Ver CPF, data de nascimento e outros dados pessoais completos"),
         new(Pessoas.GerenciarEmpresasDoGrupo, "Pessoas", "Marcar ou desmarcar uma pessoa como empresa do grupo"),
+        new(Pessoas.Bloquear, "Pessoas", "Bloquear pessoas (comercial, financeiro, cadastral, faturamento)"),
+        new(Pessoas.Desbloquear, "Pessoas", "Liberar bloqueios de pessoas"),
+        new(Pessoas.RegistrarInteracao, "Pessoas", "Registrar interações (ligações, visitas, e-mails) com as pessoas"),
         new(Pessoas.Colaborador, "Pessoas", "Ver e alterar os dados de colaborador (vínculos, matrícula, admissão, lotação)"),
         new(Cadastros.CamposPersonalizados, "Cadastros", "Criar, alterar, ordenar e desativar campos personalizados"),
         new(Cadastros.TabelasOficiais, "Cadastros", "Atualizar tabelas oficiais (municípios do IBGE, ocupações da CBO)"),
@@ -57,6 +64,7 @@ public static class Permissoes
         new(Cadastros.Papeis, "Cadastros", "Criar, alterar, ordenar e desativar papéis (cliente, fornecedor...)"),
         new(Cadastros.Tipos, "Cadastros", "Criar, alterar e desativar tipos de telefone/e-mail, de endereço e de documento"),
         new(Cadastros.EstruturaOrganizacional, "Cadastros", "Criar, alterar e desativar cargos, departamentos, setores e centros de custo"),
+        new(Cadastros.Parametros, "Cadastros", "Alterar parâmetros do cadastro (regras de inatividade do relacionamento)"),
         new(Cadastros.Comercial, "Cadastros", "Criar, alterar e desativar perfis comerciais, condições de pagamento e tipos de carteira"),
         new(Seguranca.GerenciarUsuarios, "Segurança", "Cadastrar usuários, redefinir senhas e desbloquear acessos"),
         new(Seguranca.GerenciarPerfis, "Segurança", "Criar perfis e escolher suas permissões"),

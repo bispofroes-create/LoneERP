@@ -1,6 +1,7 @@
 using Lone.Api.Erros;
 using Lone.Application.Documentos;
 using Lone.Application.Pessoas;
+using Lone.Application.Situacoes;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Documentos;
@@ -69,6 +70,18 @@ public static class PessoasEndpoints
         grupo.MapPost("{pessoaId:guid}/documentos/{documentoId:guid}/anexos",
             (Guid pessoaId, Guid documentoId, EnviarAnexoRequisicao requisicao, IAnexoAppService servico, CancellationToken ct) =>
                 servico.EnviarAsync(pessoaId, documentoId, requisicao, ct));
+
+        // Situações (fase 10): bloqueios e interações são ações próprias, fora do "Salvar" da ficha.
+        grupo.MapPost("{id:guid}/bloqueios", (Guid id, BloquearRequisicao requisicao, ISituacaoAppService servico, CancellationToken ct) =>
+            servico.BloquearAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/bloqueios/{bloqueioId:guid}/liberar",
+            (Guid id, Guid bloqueioId, LiberarBloqueioRequisicao requisicao, ISituacaoAppService servico, CancellationToken ct) =>
+                servico.LiberarAsync(id, bloqueioId, requisicao, ct));
+        grupo.MapPost("{id:guid}/interacoes", (Guid id, RegistrarInteracaoRequisicao requisicao, ISituacaoAppService servico, CancellationToken ct) =>
+            servico.RegistrarInteracaoAsync(id, requisicao, ct));
+        grupo.MapGet("parametros-relacionamento", (ISituacaoAppService servico, CancellationToken ct) => servico.ObterParametrosAsync(ct));
+        grupo.MapPut("parametros-relacionamento", (ParametrosRelacionamentoDto dto, ISituacaoAppService servico, CancellationToken ct) =>
+            servico.SalvarParametrosAsync(dto, ct));
 
         var anexos = app.MapGroup(Rotas.Anexos.Grupo).WithTags("Anexos").RequireAuthorization();
         anexos.MapGet("{id:guid}/conteudo", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.BaixarAsync(id, ct));

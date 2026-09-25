@@ -32,5 +32,35 @@
             <Button Text="Reativar cadastro" Command="{Binding ReativarCommand}"
                     IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
         </HorizontalStackLayout>
+
+        <!-- Bloqueios: separados da situação cadastral; bloquear e liberar são ações próprias (com motivo, quem e quando). -->
+        <Label Text="Bloqueios" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+        <Label Text="Um cadastro ativo pode estar bloqueado para vender, faturar ou no financeiro. Liberar não apaga: o bloqueio fica no histórico."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+        <FlexLayout Wrap="Wrap" AlignItems="End">
+            <c:CampoEscolha Rotulo="Bloquear" Itens="{Binding Formulario.Situacoes.ListaEscopos}" Selecionado="{Binding Formulario.Situacoes.NovoEscopo}" />
+            <c:Campo Rotulo="Motivo" Texto="{Binding Formulario.Situacoes.NovoMotivo}" Dica="Ex.: títulos vencidos há 60 dias" />
+            <Button Text="Bloquear" Style="{StaticResource BotaoSecundario}" Command="{Binding Formulario.Situacoes.BloquearCommand}"
+                    IsEnabled="{Binding Livre}" Margin="0,0,0,8" />
+        </FlexLayout>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Situacoes.Bloqueios}" Spacing="6">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhum bloqueio." Style="{StaticResource Secundario}" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:BloqueioItem">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" />
+                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Liberar" Style="{StaticResource BotaoLink}" Command="{Binding LiberarCommand}"
+                                    IsVisible="{Binding Ativo}" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
     </VerticalStackLayout>
 </ContentView>

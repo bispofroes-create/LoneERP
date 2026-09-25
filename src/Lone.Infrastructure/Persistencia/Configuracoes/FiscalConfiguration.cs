@@ -44,3 +44,35 @@ public class HistoricoFiscalConfiguration : IEntityTypeConfiguration<HistoricoFi
         b.HasIndex(h => h.PessoaId);
     }
 }
+
+public class InteracaoConfiguration : IEntityTypeConfiguration<Interacao>
+{
+    public void Configure(EntityTypeBuilder<Interacao> b)
+    {
+        b.ToTable("Interacoes");
+        b.HasKey(i => i.Id);
+        b.Property(i => i.Tipo).HasConversion<byte>();
+        b.Property(i => i.Descricao).IsRequired().HasMaxLength(Interacao.TamanhoMaximoDescricao);
+        b.Property(i => i.Usuario).IsRequired().HasMaxLength(100);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(i => i.PessoaId).OnDelete(DeleteBehavior.Cascade);
+
+        // Última interação de cada pessoa e o filtro "sem interação há N dias" (fase 12).
+        b.HasIndex(i => new { i.PessoaId, i.DataHora });
+    }
+}
+
+public class ParametrosRelacionamentoConfiguration : IEntityTypeConfiguration<ParametrosRelacionamento>
+{
+    public void Configure(EntityTypeBuilder<ParametrosRelacionamento> b)
+    {
+        b.ToTable("ParametrosRelacionamento");
+        b.HasKey(p => p.Id);
+        b.HasData(new ParametrosRelacionamento
+        {
+            Id = ParametrosRelacionamento.IdUnico,
+            DiasEmRisco = ParametrosRelacionamento.DiasEmRiscoPadrao,
+            DiasInativo = ParametrosRelacionamento.DiasInativoPadrao,
+            CriadoEm = new DateTime(2026, 9, 25, 0, 0, 0, DateTimeKind.Utc)
+        });
+    }
+}

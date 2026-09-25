@@ -9,6 +9,7 @@ using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
+using Lone.Application.Situacoes;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -59,6 +60,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ReferenciasColaborador _colaborador;
     private readonly ReferenciasComercial _comercial;
     private readonly ICnaeRepositorio _cnaes;
+    private readonly ISituacaoAppService _situacoes;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
@@ -67,7 +69,8 @@ public sealed class PessoaAppService : IPessoaAppService
                             ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
                             ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
                             IMotivoDaOperacao motivo, ReferenciasColaborador colaborador,
-                            ReferenciasComercial comercial, ICnaeRepositorio cnaes, TimeProvider relogio)
+                            ReferenciasComercial comercial, ICnaeRepositorio cnaes,
+                            ISituacaoAppService situacoes, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -86,6 +89,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _colaborador = colaborador;
         _comercial = comercial;
         _cnaes = cnaes;
+        _situacoes = situacoes;
     }
 
     public Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default)
@@ -132,6 +136,7 @@ public sealed class PessoaAppService : IPessoaAppService
         }
 
         await _comercial.PreencherNomesAsync(dto.Carteira, ct);
+        dto.Relacionamento = await _situacoes.ObterRelacionamentoAsync(pessoa.Id, ct);
 
         // Fiscal: histórico por período e a descrição do CNAE principal (tabela do IBGE, se já carregada).
         var cnaes = await _cnaes.ObterVariosAsync(pessoa.Estabelecimentos.Select(e => Cnae.Codigo(e.CnaePrincipal)).OfType<int>().ToList(), ct);

@@ -173,7 +173,10 @@ public sealed partial class PessoaFormulario : ObservableObject
     public ContaClienteFormulario ContaCliente { get; private set; } = new();
     public ContaFornecedorFormulario ContaFornecedor { get; private set; } = new();
 
-    /// <summary>Bloqueios ativos (só leitura por enquanto).</summary>
+    /// <summary>Bloqueios (com bloquear/liberar) e relacionamento (interações): ações próprias, gravadas na hora.</summary>
+    public SituacoesFormulario Situacoes { get; } = new();
+
+    /// <summary>Bloqueios ativos (resumo no topo da ficha).</summary>
     public string TextoBloqueios { get; private set; } = string.Empty;
     public bool TemBloqueios => TextoBloqueios.Length > 0;
 
@@ -324,6 +327,7 @@ public sealed partial class PessoaFormulario : ObservableObject
                 p.PendenciasMunicipio.FirstOrDefault(x => !x.DaNaturalidade && x.RegistroId == e.Id)?.Texto));
 
         f.ColaboradorOculto = p.ColaboradorOculto;
+        f.Situacoes.Carregar(p.Bloqueios, p.Relacionamento);
         foreach (var e in p.ExcecoesComerciais.OrderBy(e => e.InicioEm)) f.AdicionarExcecao(ExcecaoComercialFormulario.De(e));
         foreach (var c in p.Carteira.OrderBy(c => c.InicioEm)) f.AdicionarCarteira(CarteiraFormulario.De(c));
         foreach (var v in p.Vinculos.OrderByDescending(v => v.AdmissaoEm)) f.AdicionarVinculo(VinculoFormulario.De(v));

@@ -45,6 +45,15 @@ public sealed class PessoasApi
 
     public const int PaginaHistorico = 100;
 
+    public Task<BloqueioDto> BloquearAsync(Guid id, BloquearRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<BloqueioDto>(Rotas.Pessoas.Bloquear(id), requisicao, ct: ct);
+
+    public Task<BloqueioDto> LiberarBloqueioAsync(Guid id, Guid bloqueioId, string motivo, CancellationToken ct = default) =>
+        _api.PostAsync<BloqueioDto>(Rotas.Pessoas.LiberarBloqueio(id, bloqueioId), new LiberarBloqueioRequisicao { Motivo = motivo }, ct: ct);
+
+    public Task<InteracaoDto> RegistrarInteracaoAsync(Guid id, RegistrarInteracaoRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<InteracaoDto>(Rotas.Pessoas.Interacoes(id), requisicao, ct: ct);
+
     /// <summary>Monta "?texto=...&amp;papel=Cliente&amp;incluirInativos=true" só com o que foi informado.</summary>
     internal static string Consulta(FiltroPessoas filtro)
     {

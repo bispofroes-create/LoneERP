@@ -10,6 +10,7 @@ using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
+using Lone.Application.Situacoes;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -58,6 +59,7 @@ public static class ConfiguracaoDados
         services.AddScoped<ITipoCarteiraRepositorio, TipoCarteiraRepositorio>();
         services.AddScoped<IComercialConsultas, ComercialConsultas>();
         services.AddScoped<ICnaeRepositorio, CnaeRepositorio>();
+        services.AddScoped<ISituacaoRepositorio, SituacaoRepositorio>();
 
         return services;
     }

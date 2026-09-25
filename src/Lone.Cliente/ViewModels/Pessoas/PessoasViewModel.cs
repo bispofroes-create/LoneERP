@@ -318,6 +318,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.ConsultaCnpj = ConsultarCnpjAsync;
         newValue.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
         newValue.AcoesAnexos.Anexar = AnexarAsync;
+        newValue.Situacoes.Acoes.Bloquear = BloquearAsync;
+        newValue.Situacoes.Acoes.Liberar = LiberarBloqueioAsync;
+        newValue.Situacoes.Acoes.RegistrarInteracao = RegistrarInteracaoAsync;
         newValue.AcoesAnexos.Abrir = AbrirAnexoAsync;
         newValue.AcoesAnexos.AlterarAtivo = AlterarAnexoAsync;
         newValue.PropertyChanged += Formulario_PropertyChanged;
@@ -331,6 +334,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         formulario.ConsultaCnpj = null;
         formulario.FonteMunicipios = null;
         formulario.AcoesAnexos.Anexar = null;
+        formulario.Situacoes.Acoes.Bloquear = null;
+        formulario.Situacoes.Acoes.Liberar = null;
+        formulario.Situacoes.Acoes.RegistrarInteracao = null;
         formulario.AcoesAnexos.Abrir = null;
         formulario.AcoesAnexos.AlterarAtivo = null;
         formulario.PropertyChanged -= Formulario_PropertyChanged;
@@ -653,6 +659,59 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
                     ? "A inscrição estadual também foi encontrada. Confira e salve."
                     : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar)."),
             TipoMensagem.Informacao);
+    }
+
+    // ---- Bloqueios e interações (gravados na hora, à parte do "Salvar" da ficha) ----
+
+    private async Task BloquearAsync()
+    {
+        if (Formulario is not { Existente: true } ficha)
+        {
+            Mostrar("Salve o cadastro antes de bloquear.", TipoMensagem.Aviso);
+            return;
+        }
+        var s = ficha.Situacoes;
+        if (string.IsNullOrWhiteSpace(s.NovoMotivo))
+        {
+            Mostrar("Informe o motivo do bloqueio.", TipoMensagem.Aviso);
+            return;
+        }
+
+        BloqueioDto? bloqueio = null;
+        if (!await ExecutarAsync(async () => bloqueio = await _pessoas.BloquearAsync(ficha.Id,
+                new BloquearRequisicao { Escopo = s.NovoEscopo.Valor, Motivo = s.NovoMotivo.Trim() })))
+            return;
+        s.IncluirBloqueio(bloqueio!);
+        Mostrar($"Bloqueio {SituacoesFormulario.NomeEscopo(bloqueio!.Escopo).ToLowerInvariant()} registrado.", TipoMensagem.Sucesso);
+    }
+
+    private async Task LiberarBloqueioAsync(BloqueioItem item)
+    {
+        if (Formulario is not { } ficha) return;
+        var motivo = await PerguntarAsync("Liberar bloqueio", $"{item.Titulo}: motivo da liberação (fica no histórico):", "Liberar", "Cancelar");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        BloqueioDto? liberado = null;
+        if (!await ExecutarAsync(async () => liberado = await _pessoas.LiberarBloqueioAsync(ficha.Id, item.Id, motivo.Trim())))
+            return;
+        ficha.Situacoes.Liberado(item, liberado!);
+        Mostrar("Bloqueio liberado.", TipoMensagem.Sucesso);
+    }
+
+    private async Task RegistrarInteracaoAsync()
+    {
+        if (Formulario is not { Existente: true } ficha)
+        {
+            Mostrar("Salve o cadastro antes de registrar interações.", TipoMensagem.Aviso);
+            return;
+        }
+        var s = ficha.Situacoes;
+        InteracaoDto? interacao = null;
+        if (!await ExecutarAsync(async () => interacao = await _pessoas.RegistrarInteracaoAsync(ficha.Id,
+                new RegistrarInteracaoRequisicao { Tipo = s.NovoTipo.Valor, Descricao = s.NovaDescricao })))
+            return;
+        s.IncluirInteracao(interacao!);
+        Mostrar("Interação registrada.", TipoMensagem.Sucesso);
     }
 
     // ---- Anexos dos documentos (gravados na hora, à parte do "Salvar" da ficha) ----
