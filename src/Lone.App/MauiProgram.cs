@@ -48,6 +48,9 @@ public static class MauiProgram
         builder.Services.AddTransient<DepartamentosPage>();
         builder.Services.AddTransient<SetoresPage>();
         builder.Services.AddTransient<CentrosCustoPage>();
+        builder.Services.AddTransient<PerfisComerciaisPage>();
+        builder.Services.AddTransient<CondicoesPagamentoPage>();
+        builder.Services.AddTransient<TiposCarteiraPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

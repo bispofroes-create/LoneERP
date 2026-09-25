@@ -69,6 +69,18 @@
         <ShellContent Title="Centros de custo" ContentTemplate="{DataTemplate views:CentrosCustoPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Perfis comerciais" Route="perfis-comerciais" IsVisible="{Binding PodeGerenciarComercial}">
+        <ShellContent Title="Perfis comerciais" ContentTemplate="{DataTemplate views:PerfisComerciaisPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Condições de pagamento" Route="condicoes-pagamento" IsVisible="{Binding PodeGerenciarComercial}">
+        <ShellContent Title="Condições de pagamento" ContentTemplate="{DataTemplate views:CondicoesPagamentoPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Tipos de carteira" Route="tipos-carteira" IsVisible="{Binding PodeGerenciarComercial}">
+        <ShellContent Title="Tipos de carteira" ContentTemplate="{DataTemplate views:TiposCarteiraPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>

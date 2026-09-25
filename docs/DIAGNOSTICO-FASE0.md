@@ -380,3 +380,11 @@ O erro de compilação pendente foi resolvido pelo usuário.
 | Setor | Pertence a um departamento (a ficha só oferece os setores do departamento escolhido) |
 | Centro de custo | Em árvore (pai/filho); só os analíticos (folhas) recebem colaboradores |
 | Histórico de cargo, departamento, setor, centro de custo e gestor | Lotação com vigência (início/fim), um período aberto por vínculo |
+
+### Decisões da Fase 8 — Comercial (25/09/2026)
+
+| Pergunta | Escolha |
+|---|---|
+| Perfil comercial | Cadastro de perfis com padrões; o cliente recebe um perfil; exceção individual por campo, com vigência. Vale: exceção vigente → perfil → valor da conta |
+| Tipos da carteira de clientes | Cadastro parametrizável; um tipo é o "principal": o vendedor principal vigente é copiado para `ContaCliente.VendedorPadraoId` (D5) |
+| Condição de pagamento | Cadastro com parcelas em dias (ex.: 0/30/60) e acréscimo/desconto %; o texto antigo da conta fica guardado |

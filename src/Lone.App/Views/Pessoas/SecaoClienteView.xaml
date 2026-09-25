@@ -12,10 +12,82 @@
             <c:Campo Rotulo="Limite de crédito (R$)" Texto="{Binding Formulario.ContaCliente.LimiteCredito}" Dica="Vazio = sem limite" />
             <c:Campo Rotulo="Dias máximos de atraso" Texto="{Binding Formulario.ContaCliente.DiasMaximoAtraso}" Teclado="Numeric" />
             <c:Campo Rotulo="Desconto máximo (%)" Texto="{Binding Formulario.ContaCliente.DescontoMaximo}" />
-            <c:Campo Rotulo="Condição de pagamento" Texto="{Binding Formulario.ContaCliente.CondicaoPagamento}" Dica="Ex.: 30/60/90" />
+            <c:CampoEscolha Rotulo="Perfil comercial" Itens="{Binding Formulario.ContaCliente.Perfis}" Selecionado="{Binding Formulario.ContaCliente.Perfil}"
+                            IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
+            <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Formulario.ContaCliente.Condicoes}" Selecionado="{Binding Formulario.ContaCliente.Condicao}"
+                            IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
+            <c:Campo Rotulo="Condição (texto antigo)" Texto="{Binding Formulario.ContaCliente.CondicaoPagamento}" Dica="Guardado de antes do cadastro de condições" />
             <c:CaixaMarcar Texto="Vender acima do limite só com aprovação" Marcado="{Binding Formulario.ContaCliente.ExigeAprovacaoAcimaLimite}"
                            FlexLayout.Basis="100%" />
             <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaCliente.Observacoes}" FlexLayout.Basis="100%" />
         </FlexLayout>
+        <Label Text="{Binding Formulario.ResumoComercial}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+        <Label Text="Os campos acima valem onde o perfil não define; uma exceção vigente vale acima do perfil."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+        <!-- Exceções comerciais: sobrescrevem só o que for informado, durante o período. Gravadas não são apagadas. -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+            <Label Text="Exceções comerciais" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar exceção" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarExcecaoCommand}" />
+        </Grid>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Excecoes}" Spacing="6">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhuma exceção." Style="{StaticResource Secundario}" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:ExcecaoComercialFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout>
+                            <FlexLayout Wrap="Wrap">
+                                <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" />
+                                <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = sem fim" Mascara="Data" />
+                                <c:Campo Rotulo="Limite de crédito (R$)" Texto="{Binding LimiteCredito}" Dica="vazio = não muda" />
+                                <c:Campo Rotulo="Desconto máximo (%)" Texto="{Binding DescontoMaximo}" Dica="vazio = não muda" />
+                                <c:Campo Rotulo="Dias máximos de atraso" Texto="{Binding DiasMaximoAtraso}" Teclado="Numeric" Dica="vazio = não muda" />
+                                <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Condicoes}" Selecionado="{Binding Condicao}" />
+                                <c:CampoEscolha Rotulo="Aprovação acima do limite" Itens="{Binding ListaSimNao}" Selecionado="{Binding ExigeAprovacao}" />
+                                <c:Campo Rotulo="Motivo" Texto="{Binding Motivo}" FlexLayout.Basis="100%" Dica="Ex.: campanha de março" />
+                            </FlexLayout>
+                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" IsVisible="{Binding PodeRemover}"
+                                    HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <!-- Carteira de clientes (D5): quem atende este cliente, com vigência. O vendedor principal vigente vira o vendedor padrão. -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+            <Label Text="Carteira (quem atende)" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar à carteira" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarCarteiraCommand}" />
+        </Grid>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Carteira}" Spacing="6">
+            <BindableLayout.EmptyView>
+                <Label Text="Ninguém na carteira deste cliente." Style="{StaticResource Secundario}" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:CarteiraFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout>
+                            <Label Text="Inativo (lançado por engano): fica só no histórico." Style="{StaticResource Secundario}"
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
+                            <FlexLayout Wrap="Wrap">
+                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
+                                <c:CampoEscolha Rotulo="Vendedor" Itens="{Binding Vendedores}" Selecionado="{Binding Vendedor}" />
+                                <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" />
+                                <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
+                                <c:CaixaMarcar Texto="Exclusivo (ninguém mais do mesmo tipo no período)" Marcado="{Binding Exclusivo}" />
+                                <c:CaixaMarcar Texto="Ativo" Marcado="{Binding Ativo}" />
+                                <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" FlexLayout.Basis="100%" />
+                            </FlexLayout>
+                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" IsVisible="{Binding PodeRemover}"
+                                    HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
     </VerticalStackLayout>
 </ContentView>

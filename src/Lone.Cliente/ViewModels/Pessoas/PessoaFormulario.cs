@@ -8,6 +8,7 @@ using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
 using Lone.Contracts.Colaboradores;
+using Lone.Contracts.Comercial;
 using Lone.Contracts.Contatos;
 using Lone.Contracts.Documentos;
 using Lone.Contracts.Enderecos;
@@ -323,6 +324,8 @@ public sealed partial class PessoaFormulario : ObservableObject
                 p.PendenciasMunicipio.FirstOrDefault(x => !x.DaNaturalidade && x.RegistroId == e.Id)?.Texto));
 
         f.ColaboradorOculto = p.ColaboradorOculto;
+        foreach (var e in p.ExcecoesComerciais.OrderBy(e => e.InicioEm)) f.AdicionarExcecao(ExcecaoComercialFormulario.De(e));
+        foreach (var c in p.Carteira.OrderBy(c => c.InicioEm)) f.AdicionarCarteira(CarteiraFormulario.De(c));
         foreach (var v in p.Vinculos.OrderByDescending(v => v.AdmissaoEm)) f.AdicionarVinculo(VinculoFormulario.De(v));
 
         foreach (var e in p.Estabelecimentos.OrderByDescending(e => e.Principal).ThenBy(e => e.Cnpj))
@@ -371,6 +374,8 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (!TextoTela.TentarData(PrimeiroContatoEm, out _))
             erros.Add("Data do primeiro contato inválida (use dd/mm/aaaa).");
         if (PapelCliente.Ativo) erros.AddRange(ContaCliente.Validar());
+        for (var i = 0; i < Excecoes.Count; i++) erros.AddRange(Excecoes[i].Validar($"Exceção comercial {i + 1}"));
+        for (var i = 0; i < Carteira.Count; i++) erros.AddRange(Carteira[i].Validar($"Carteira {i + 1}"));
         if (PapelFornecedor.Ativo) erros.AddRange(ContaFornecedor.Validar());
         return erros;
     }
@@ -405,6 +410,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             Contatos = Contatos.Select(c => c.ParaDto()).ToList(),
             Documentos = Documentos.Select(d => d.ParaDto()).ToList(),
             Vinculos = Vinculos.Select(v => v.ParaDto()).ToList(),
+            ExcecoesComerciais = Excecoes.Select(e => e.ParaDto()).ToList(),
+            Carteira = Carteira.Select(c => c.ParaDto()).ToList(),
             Papeis = [.. Papeis.SelectMany(p => p.ParaDtos()), .. _papeisDesconhecidos],
             Sexo = Sexo.Valor,
             IdentidadeGenero = Genero.Valor,
@@ -696,6 +703,80 @@ public sealed partial class PessoaFormulario : ObservableObject
         };
         Documentos.Add(documento);
         AvisarDocumentos();
+    }
+
+    // ---- Comercial (perfil, condição, exceções com vigência e carteira de clientes) ----
+
+    public ObservableCollection<ExcecaoComercialFormulario> Excecoes { get; } = new();
+    public ObservableCollection<CarteiraFormulario> Carteira { get; } = new();
+
+    private OpcoesComercial? _opcoesComercial;
+
+    public bool OpcoesComercialCarregadas => _opcoesComercial is not null;
+
+    /// <summary>Chamado pela tela quando a aba "Cliente" abre e as opções chegam.</summary>
+    public void DefinirOpcoesComercial(ComercialOpcoesDto dto)
+    {
+        _opcoesComercial = new OpcoesComercial(dto);
+        ContaCliente.DefinirOpcoes(_opcoesComercial);
+        foreach (var e in Excecoes) e.DefinirOpcoes(_opcoesComercial);
+        foreach (var c in Carteira) c.DefinirOpcoes(_opcoesComercial);
+        OnPropertyChanged(nameof(OpcoesComercialCarregadas));
+        OnPropertyChanged(nameof(ResumoComercial));
+    }
+
+    public void AdicionarExcecao(ExcecaoComercialFormulario excecao)
+    {
+        if (_opcoesComercial is not null) excecao.DefinirOpcoes(_opcoesComercial);
+        excecao.AoRemover = () =>
+        {
+            if (!excecao.Gravada) Excecoes.Remove(excecao); // gravada é histórico: encerra pelo fim
+        };
+        Excecoes.Insert(0, excecao);
+    }
+
+    public void AdicionarCarteira(CarteiraFormulario carteira)
+    {
+        carteira.AoRemover = () =>
+        {
+            if (carteira.Gravada) carteira.Ativo = false; // gravado por engano: fica inativo (histórico)
+            else Carteira.Remove(carteira);
+        };
+        if (Carteira.Contains(carteira)) return;
+        Carteira.Insert(0, carteira);
+    }
+
+    public void NovaExcecao() => AdicionarExcecao(ExcecaoComercialFormulario.Nova());
+
+    public void NovaCarteira() => AdicionarCarteira(CarteiraFormulario.Nova(_opcoesComercial));
+
+    /// <summary>
+    /// O que vale hoje para a conta padrão: exceção vigente → perfil → conta (a API usa a mesma ordem).
+    /// Vazio enquanto as opções não chegam.
+    /// </summary>
+    public string ResumoComercial
+    {
+        get
+        {
+            if (_opcoesComercial is not { } opcoes) return string.Empty;
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var excecao = Excecoes.Select(e => e.ParaDto())
+                .Where(e => e.EmpresaId is null && e.InicioEm <= hoje && (e.FimEm is null || e.FimEm >= hoje))
+                .OrderByDescending(e => e.InicioEm).FirstOrDefault();
+            var perfil = opcoes.Dados.Perfis.FirstOrDefault(p => p.Id == ContaCliente.PerfilId);
+            var conta = ContaCliente.ParaDto();
+            var limite = excecao?.LimiteCredito ?? perfil?.LimiteCredito ?? conta.LimiteCredito;
+            var desconto = excecao?.DescontoMaximo ?? perfil?.DescontoMaximo ?? conta.DescontoMaximo;
+            var condicaoId = excecao?.CondicaoPagamentoId ?? perfil?.CondicaoPagamentoId ?? conta.CondicaoPagamentoId;
+            var condicao = opcoes.Dados.Condicoes.FirstOrDefault(c => c.Id == condicaoId)?.Nome ?? conta.CondicaoPagamento;
+            return string.Join(" · ", new[]
+            {
+                "Em vigor hoje: limite " + (limite is { } l ? l.ToString("C", TextoTela.Brasil) : "sem limite"),
+                "desconto máximo " + (desconto is { } d ? d.ToString("0.##", TextoTela.Brasil) + "%" : "—"),
+                "condição " + (condicao ?? "—"),
+                excecao is null ? string.Empty : "(com exceção vigente)"
+            }.Where(t => t.Length > 0));
+        }
     }
 
     // ---- Colaborador (vínculos com as empresas do grupo e lotações) ----

@@ -141,6 +141,12 @@ public class Pessoa : AgregadoRaiz
     /// <summary>Valores dos campos personalizados dos documentos (cada um com o Id do documento).</summary>
     public List<DocumentoValorPersonalizado> ValoresDocumentos { get; set; } = new();
 
+    /// <summary>Exceções comerciais do cliente, com vigência. Nunca apagadas.</summary>
+    public List<ExcecaoComercial> ExcecoesComerciais { get; set; } = new();
+
+    /// <summary>Carteira de clientes (D5): quem atende este cliente, com vigência. Nunca apagada.</summary>
+    public List<CarteiraCliente> Carteira { get; set; } = new();
+
     /// <summary>Vínculos de trabalho com as empresas do grupo (dados do colaborador). Nunca apagados.</summary>
     public List<VinculoColaborador> Vinculos { get; set; } = new();
 

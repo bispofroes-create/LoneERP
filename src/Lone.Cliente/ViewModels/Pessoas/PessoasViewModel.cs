@@ -45,6 +45,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly TiposDocumentoApi _tiposDocumentoApi;
     private readonly AnexosApi _anexosApi;
     private readonly ColaboradoresApi _colaboradoresApi;
+    private readonly ComercialApi _comercialApi;
     private readonly IArquivos _arquivos;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
@@ -74,7 +75,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
                             PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi,
-                            TiposDocumentoApi tiposDocumentoApi, AnexosApi anexosApi, ColaboradoresApi colaboradoresApi,
+                            TiposDocumentoApi tiposDocumentoApi, AnexosApi anexosApi, ColaboradoresApi colaboradoresApi, ComercialApi comercialApi,
                             IArquivos arquivos, IDialogos dialogos)
         : base(dialogos)
     {
@@ -92,6 +93,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _tiposDocumentoApi = tiposDocumentoApi;
         _anexosApi = anexosApi;
         _colaboradoresApi = colaboradoresApi;
+        _comercialApi = comercialApi;
         _arquivos = arquivos;
     }
 
@@ -366,6 +368,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             _ = CarregarHistoricoAsync(f.Id);
         if (value?.Secao == SecaoPessoa.Colaborador && Formulario is { OpcoesColaboradorCarregadas: false } ficha)
             _ = CarregarOpcoesColaboradorAsync(ficha);
+        if (value?.Secao == SecaoPessoa.Cliente && Formulario is { OpcoesComercialCarregadas: false } fichaCliente)
+            _ = CarregarOpcoesComercialAsync(fichaCliente);
     }
 
     /// <summary>Id do último registro mostrado: a próxima página começa antes dele.</summary>
@@ -531,6 +535,30 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     [RelayCommand]
     private void AdicionarVinculo() => Formulario?.NovoVinculo();
+
+    [RelayCommand]
+    private void AdicionarExcecao() => Formulario?.NovaExcecao();
+
+    [RelayCommand]
+    private void AdicionarCarteira() => Formulario?.NovaCarteira();
+
+    /// <summary>Perfis, condições, tipos de carteira e vendedores: lidos na primeira vez que a aba "Cliente" abre nesta ficha.</summary>
+    private async Task CarregarOpcoesComercialAsync(PessoaFormulario ficha)
+    {
+        try
+        {
+            var opcoes = await _comercialApi.ListarOpcoesAsync();
+            if (!ReferenceEquals(Formulario, ficha)) return;
+            ficha.DefinirOpcoesComercial(opcoes);
+        }
+        catch (SessaoExpiradaException)
+        {
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ex); // sem as opções, perfil, condição e carteira gravados voltam intactos ao salvar
+        }
+    }
 
     /// <summary>Empresas, gestores e estrutura: lidos na primeira vez que a aba "Colaborador" abre nesta ficha.</summary>
     private async Task CarregarOpcoesColaboradorAsync(PessoaFormulario ficha)

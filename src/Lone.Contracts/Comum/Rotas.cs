@@ -63,6 +63,17 @@ public static class Rotas
         public static string Listar(string grupo, bool incluirInativos) => incluirInativos ? grupo + "?incluirInativos=true" : grupo;
     }
 
+    /// <summary>Cadastros comerciais (perfis, condições de pagamento, tipos de carteira). Nada é excluído: desativa.</summary>
+    public static class Comercial
+    {
+        public const string Perfis = Base + "/perfis-comerciais";
+        public const string Condicoes = Base + "/condicoes-pagamento";
+        public const string TiposCarteira = Base + "/tipos-carteira";
+
+        /// <summary>Perfis, condições, tipos de carteira, vendedores e empresas para a aba "Cliente".</summary>
+        public const string Opcoes = Base + "/comercial/opcoes";
+    }
+
     public static class Colaboradores
     {
         public const string Grupo = Base + "/colaboradores";

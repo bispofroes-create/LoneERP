@@ -1,0 +1,200 @@
+using System.ComponentModel;
+
+namespace Lone.Domain.Entidades;
+
+/// <summary>
+/// Condição de pagamento (ex.: "30/60/90"): parcelas em dias a partir da data da venda e acréscimo (ou desconto,
+/// negativo) sobre o total. Nunca é excluída: desativada, some das escolhas novas mas continua onde já está.
+/// </summary>
+[DisplayName("Condição de pagamento")]
+public class CondicaoPagamento : AgregadoRaiz
+{
+    public const int TamanhoMaximoNome = 60;
+    public const int MaximoParcelas = 48;
+    public const int MaximoDias = 999;
+
+    [DisplayName("Nome")]
+    public string Nome { get; set; } = string.Empty;
+
+    /// <summary>Dias de cada parcela, em ordem, separados por "/" (ex.: "0/30/60"; "0" = à vista).</summary>
+    [DisplayName("Parcelas (dias)")]
+    public string Parcelas { get; set; } = "0";
+
+    /// <summary>Acréscimo (positivo) ou desconto (negativo) em % sobre o total.</summary>
+    [DisplayName("Acréscimo/desconto (%)")]
+    public decimal? AcrescimoPercentual { get; set; }
+
+    [DisplayName("Ativa")]
+    public bool Ativo { get; set; } = true;
+
+    public void Desativar()
+    {
+        if (!Ativo) return;
+        Ativo = false;
+        RegistrarEvento($"Condição de pagamento '{Nome}' desativada.");
+    }
+
+    public void Reativar()
+    {
+        if (Ativo) return;
+        Ativo = true;
+        RegistrarEvento($"Condição de pagamento '{Nome}' reativada.");
+    }
+}
+
+/// <summary>
+/// Perfil comercial (ex.: "Varejo", "Atacado"): os padrões de venda de um grupo de clientes. Campo vazio = o perfil
+/// não define (vale o da conta). Nunca é excluído: desativado.
+/// </summary>
+[DisplayName("Perfil comercial")]
+public class PerfilComercial : AgregadoRaiz
+{
+    public const int TamanhoMaximoNome = 60;
+
+    [DisplayName("Nome")]
+    public string Nome { get; set; } = string.Empty;
+
+    [DisplayName("Limite de crédito")]
+    public decimal? LimiteCredito { get; set; }
+
+    [DisplayName("Desconto máximo (%)")]
+    public decimal? DescontoMaximo { get; set; }
+
+    [DisplayName("Dias máximos de atraso")]
+    public int? DiasMaximoAtraso { get; set; }
+
+    [DisplayName("Condição de pagamento")]
+    public Guid? CondicaoPagamentoId { get; set; }
+
+    [DisplayName("Exige aprovação acima do limite")]
+    public bool? ExigeAprovacaoAcimaLimite { get; set; }
+
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
+
+    public void Desativar()
+    {
+        if (!Ativo) return;
+        Ativo = false;
+        RegistrarEvento($"Perfil comercial '{Nome}' desativado.");
+    }
+
+    public void Reativar()
+    {
+        if (Ativo) return;
+        Ativo = true;
+        RegistrarEvento($"Perfil comercial '{Nome}' reativado.");
+    }
+}
+
+/// <summary>
+/// Tipo de vínculo da carteira de clientes (Vendedor, Representante, Televendas, Supervisor...). O tipo "principal"
+/// (só um) define o vendedor padrão copiado para a conta do cliente. Nunca é excluído: desativado.
+/// </summary>
+[DisplayName("Tipo de carteira")]
+public class TipoCarteira : AgregadoRaiz
+{
+    public const int TamanhoMaximoNome = 40;
+
+    [DisplayName("Nome")]
+    public string Nome { get; set; } = string.Empty;
+
+    /// <summary>O vendedor vigente deste tipo é o "vendedor padrão" da conta do cliente (só um tipo pode ser principal).</summary>
+    [DisplayName("Principal")]
+    public bool Principal { get; set; }
+
+    [DisplayName("Ordem")]
+    public int Ordem { get; set; }
+
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
+
+    public void Desativar()
+    {
+        if (!Ativo) return;
+        Ativo = false;
+        RegistrarEvento($"Tipo de carteira '{Nome}' desativado.");
+    }
+
+    public void Reativar()
+    {
+        if (Ativo) return;
+        Ativo = true;
+        RegistrarEvento($"Tipo de carteira '{Nome}' reativado.");
+    }
+}
+
+/// <summary>
+/// Exceção comercial de um cliente, com vigência: sobrescreve só os campos informados do perfil/conta
+/// (ex.: desconto máximo de 15% durante a campanha de março). Nunca é apagada: encerra pelo fim.
+/// </summary>
+[DisplayName("Exceção comercial")]
+public class ExcecaoComercial : EntidadePessoaFilha
+{
+    /// <summary>Empresa do grupo; nulo = todas (como a conta padrão).</summary>
+    [DisplayName("Empresa")]
+    public Guid? EmpresaId { get; set; }
+
+    [DisplayName("Início")]
+    public DateOnly InicioEm { get; set; }
+
+    [DisplayName("Fim")]
+    public DateOnly? FimEm { get; set; }
+
+    [DisplayName("Limite de crédito")]
+    public decimal? LimiteCredito { get; set; }
+
+    [DisplayName("Desconto máximo (%)")]
+    public decimal? DescontoMaximo { get; set; }
+
+    [DisplayName("Dias máximos de atraso")]
+    public int? DiasMaximoAtraso { get; set; }
+
+    [DisplayName("Condição de pagamento")]
+    public Guid? CondicaoPagamentoId { get; set; }
+
+    [DisplayName("Exige aprovação acima do limite")]
+    public bool? ExigeAprovacaoAcimaLimite { get; set; }
+
+    [DisplayName("Motivo")]
+    public string? Motivo { get; set; }
+
+    public bool Vigente(DateOnly data) => InicioEm <= data && (FimEm is null || FimEm >= data);
+}
+
+/// <summary>
+/// Vínculo da carteira de clientes (D5): quem atende o cliente (vendedor, representante...), com vigência.
+/// Exclusivo = nenhum outro do mesmo tipo no mesmo período. Nunca é apagado: encerra pelo fim ou é desativado.
+/// </summary>
+[DisplayName("Carteira de clientes")]
+public class CarteiraCliente : EntidadePessoaFilha
+{
+    /// <summary>Empresa do grupo; nulo = todas.</summary>
+    [DisplayName("Empresa")]
+    public Guid? EmpresaId { get; set; }
+
+    [DisplayName("Tipo")]
+    public Guid TipoCarteiraId { get; set; }
+
+    /// <summary>Pessoa que atende o cliente (com o papel Vendedor ou Representante).</summary>
+    [DisplayName("Vendedor")]
+    public Guid VendedorId { get; set; }
+
+    [DisplayName("Início")]
+    public DateOnly InicioEm { get; set; }
+
+    [DisplayName("Fim")]
+    public DateOnly? FimEm { get; set; }
+
+    [DisplayName("Exclusivo")]
+    public bool Exclusivo { get; set; }
+
+    [DisplayName("Observação")]
+    public string? Observacao { get; set; }
+
+    /// <summary>Falso = lançado por engano (fica no histórico, não vale para nada).</summary>
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
+
+    public bool Vigente(DateOnly data) => Ativo && InicioEm <= data && (FimEm is null || FimEm >= data);
+}

@@ -62,6 +62,8 @@ public class ContaClienteConfiguration : IEntityTypeConfiguration<ContaCliente>
         b.Property(c => c.LimiteCredito).HasPrecision(15, 2);
         b.Property(c => c.DescontoMaximo).HasPrecision(5, 2);
         b.Property(c => c.CondicaoPagamento).HasMaxLength(60);
+        b.HasOne<PerfilComercial>().WithMany().HasForeignKey(c => c.PerfilComercialId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<CondicaoPagamento>().WithMany().HasForeignKey(c => c.CondicaoPagamentoId).OnDelete(DeleteBehavior.Restrict);
         b.Property(c => c.Observacoes).HasMaxLength(1000);
 
         b.HasOne<Pessoa>().WithMany().HasForeignKey(c => c.EmpresaId).OnDelete(DeleteBehavior.NoAction);

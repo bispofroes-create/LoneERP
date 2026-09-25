@@ -23,7 +23,7 @@ public class PessoasViewModelTests
             new MunicipiosApi(ambiente.Api), new CamposPersonalizadosApi(ambiente.Api), new EtiquetasApi(ambiente.Api),
             new ProfissoesApi(ambiente.Api), new PapeisApi(ambiente.Api),
             new TiposMeioContatoApi(ambiente.Api), new TiposEnderecoApi(ambiente.Api), new TiposDocumentoApi(ambiente.Api),
-            new AnexosApi(ambiente.Api), new ColaboradoresApi(ambiente.Api), ambiente.Arquivos, ambiente.Dialogos);
+            new AnexosApi(ambiente.Api), new ColaboradoresApi(ambiente.Api), new ComercialApi(ambiente.Api), ambiente.Arquivos, ambiente.Dialogos);
 
     internal static readonly EtiquetaDto Vip = new() { Id = Guid.NewGuid(), Nome = "VIP", Ativo = true };
     internal static readonly ProfissaoDto Advogado = new() { Id = Guid.NewGuid(), Nome = "Advogado", Ativo = true };

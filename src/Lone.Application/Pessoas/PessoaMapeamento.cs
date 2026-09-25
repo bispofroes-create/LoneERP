@@ -56,6 +56,8 @@ public static class PessoaMapeamento
         Vinculos = p.Vinculos.OrderByDescending(v => v.AdmissaoEm).Select(v => ParaDto(v, p.Lotacoes)).ToList(),
         Papeis = p.Papeis.OrderBy(x => x.InicioEm).Select(ParaDto).ToList(),
         ContasCliente = p.ContasCliente.Select(ParaDto).ToList(),
+        ExcecoesComerciais = p.ExcecoesComerciais.OrderByDescending(e => e.InicioEm).Select(ParaDto).ToList(),
+        Carteira = p.Carteira.OrderByDescending(c => c.InicioEm).Select(ParaDto).ToList(),
         ContasFornecedor = p.ContasFornecedor.Select(ParaDto).ToList(),
         Bloqueios = p.Bloqueios.OrderByDescending(b => b.InicioEm).Select(ParaDto).ToList()
     };
@@ -109,6 +111,8 @@ public static class PessoaMapeamento
             Documentos = d.Documentos.Select(x => ParaEntidade(x, pessoaId)).ToList(),
             Papeis = d.Papeis.Select(x => ParaEntidade(x, pessoaId)).ToList(),
             ContasCliente = d.ContasCliente.Select(c => ParaEntidade(c, pessoaId)).ToList(),
+            ExcecoesComerciais = d.ExcecoesComerciais.Select(e => ParaEntidade(e, pessoaId)).ToList(),
+            Carteira = d.Carteira.Select(c => ParaEntidade(c, pessoaId)).ToList(),
             ContasFornecedor = d.ContasFornecedor.Select(f => ParaEntidade(f, pessoaId)).ToList()
         };
 
@@ -250,6 +254,35 @@ public static class PessoaMapeamento
         ValorData = v.Data is { } data ? DateTime.SpecifyKind(data, DateTimeKind.Unspecified) : null,
         ValorLogico = v.Logico,
         OpcaoId = v.OpcaoId
+    };
+
+    // ---------------------------------------------------------------- Comercial
+
+    private static Lone.Contracts.Comercial.ExcecaoComercialDto ParaDto(ExcecaoComercial e) => new()
+    {
+        Id = e.Id, EmpresaId = e.EmpresaId, InicioEm = e.InicioEm, FimEm = e.FimEm, LimiteCredito = e.LimiteCredito,
+        DescontoMaximo = e.DescontoMaximo, DiasMaximoAtraso = e.DiasMaximoAtraso, CondicaoPagamentoId = e.CondicaoPagamentoId,
+        ExigeAprovacaoAcimaLimite = e.ExigeAprovacaoAcimaLimite, Motivo = e.Motivo
+    };
+
+    private static ExcecaoComercial ParaEntidade(Lone.Contracts.Comercial.ExcecaoComercialDto e, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(e.Id), PessoaId = pessoaId, EmpresaId = e.EmpresaId, InicioEm = e.InicioEm, FimEm = e.FimEm,
+        LimiteCredito = e.LimiteCredito, DescontoMaximo = e.DescontoMaximo, DiasMaximoAtraso = e.DiasMaximoAtraso,
+        CondicaoPagamentoId = e.CondicaoPagamentoId == Guid.Empty ? null : e.CondicaoPagamentoId,
+        ExigeAprovacaoAcimaLimite = e.ExigeAprovacaoAcimaLimite, Motivo = e.Motivo
+    };
+
+    private static Lone.Contracts.Comercial.CarteiraDto ParaDto(CarteiraCliente c) => new()
+    {
+        Id = c.Id, EmpresaId = c.EmpresaId, TipoCarteiraId = c.TipoCarteiraId, VendedorId = c.VendedorId, InicioEm = c.InicioEm,
+        FimEm = c.FimEm, Exclusivo = c.Exclusivo, Observacao = c.Observacao, Ativo = c.Ativo
+    };
+
+    private static CarteiraCliente ParaEntidade(Lone.Contracts.Comercial.CarteiraDto c, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(c.Id), PessoaId = pessoaId, EmpresaId = c.EmpresaId, TipoCarteiraId = c.TipoCarteiraId, VendedorId = c.VendedorId,
+        InicioEm = c.InicioEm, FimEm = c.FimEm, Exclusivo = c.Exclusivo, Observacao = c.Observacao, Ativo = c.Ativo
     };
 
     // ---------------------------------------------------------------- Colaborador
@@ -484,6 +517,8 @@ public static class PessoaMapeamento
         CondicaoPagamento = c.CondicaoPagamento,
         ExigeAprovacaoAcimaLimite = c.ExigeAprovacaoAcimaLimite,
         VendedorPadraoId = c.VendedorPadraoId,
+        PerfilComercialId = c.PerfilComercialId,
+        CondicaoPagamentoId = c.CondicaoPagamentoId,
         Observacoes = c.Observacoes
     };
 
@@ -498,6 +533,8 @@ public static class PessoaMapeamento
         CondicaoPagamento = c.CondicaoPagamento,
         ExigeAprovacaoAcimaLimite = c.ExigeAprovacaoAcimaLimite,
         VendedorPadraoId = c.VendedorPadraoId,
+        PerfilComercialId = c.PerfilComercialId,
+        CondicaoPagamentoId = c.CondicaoPagamentoId,
         Observacoes = c.Observacoes
     };
 

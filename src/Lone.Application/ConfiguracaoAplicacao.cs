@@ -6,6 +6,7 @@ using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
+using Lone.Application.Comercial;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -52,6 +53,11 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ICentroCustoAppService, CentroCustoAppService>();
         services.AddScoped<IColaboradorAppService, ColaboradorAppService>();
         services.AddScoped<ReferenciasColaborador>();
+        services.AddScoped<ICondicaoPagamentoAppService, CondicaoPagamentoAppService>();
+        services.AddScoped<IPerfilComercialAppService, PerfilComercialAppService>();
+        services.AddScoped<ITipoCarteiraAppService, TipoCarteiraAppService>();
+        services.AddScoped<IComercialAppService, ComercialAppService>();
+        services.AddScoped<ReferenciasComercial>();
 
         return services;
     }

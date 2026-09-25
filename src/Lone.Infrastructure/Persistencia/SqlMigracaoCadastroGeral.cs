@@ -45,4 +45,22 @@ public static class SqlMigracaoCadastroGeral
         IF EXISTS (SELECT 1 FROM CamposPersonalizados WHERE Visivel = 0)
             THROW 50008, N'Migração de campos personalizados: a marcação de visível não conferiu. Nada foi alterado.', 1;
         """;
+
+    /// <summary>
+    /// Fase 8 (D5) — depois de criar CarteiraClientes e inserir os tipos de carteira: cada vendedor padrão que já existia
+    /// numa conta de cliente vira um vínculo "Vendedor" (principal) vigente desde a criação da conta. Nada é apagado;
+    /// ContasCliente.VendedorPadraoId continua igual. Confere a contagem e desfaz tudo se não conferir.
+    /// </summary>
+    public const string CarteiraDosVendedoresPadrao = """
+        SET NOCOUNT ON;
+        DECLARE @esperado int = (SELECT COUNT(*) FROM ContasCliente c
+            WHERE c.VendedorPadraoId IS NOT NULL AND EXISTS (SELECT 1 FROM Pessoas p WHERE p.Id = c.VendedorPadraoId));
+        INSERT INTO CarteiraClientes (Id, PessoaId, EmpresaId, TipoCarteiraId, VendedorId, InicioEm, FimEm, Exclusivo, Observacao, Ativo, CriadoEm)
+        SELECT NEWID(), c.PessoaId, c.EmpresaId, '7a9e1c04-0000-0000-0000-000000000001', c.VendedorPadraoId,
+               CAST(c.CriadoEm AS date), NULL, 0, N'Vendedor padrão existente antes da carteira de clientes', 1, SYSUTCDATETIME()
+        FROM ContasCliente c
+        WHERE c.VendedorPadraoId IS NOT NULL AND EXISTS (SELECT 1 FROM Pessoas p WHERE p.Id = c.VendedorPadraoId);
+        IF @@ROWCOUNT <> @esperado
+            THROW 50009, N'Migração da carteira de clientes: a contagem não conferiu. Nada foi alterado.', 1;
+        """;
 }

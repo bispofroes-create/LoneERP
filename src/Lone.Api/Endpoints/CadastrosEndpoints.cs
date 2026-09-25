@@ -7,6 +7,7 @@ using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
+using Lone.Application.Comercial;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -17,6 +18,7 @@ using Lone.Contracts.Contatos;
 using Lone.Contracts.Enderecos;
 using Lone.Contracts.Documentos;
 using Lone.Contracts.Colaboradores;
+using Lone.Contracts.Comercial;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -39,6 +41,10 @@ public static class CadastrosEndpoints
         MapSetores(app);
         MapCentrosCusto(app);
         MapColaboradores(app);
+        MapPerfisComerciais(app);
+        MapCondicoesPagamento(app);
+        MapTiposCarteira(app);
+        MapComercial(app);
         return app;
     }
 
@@ -202,6 +208,97 @@ public static class CadastrosEndpoints
     private static void MapColaboradores(IEndpointRouteBuilder app) =>
         app.MapGet(Rotas.Colaboradores.Opcoes, (IColaboradorAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct))
             .WithTags("Colaboradores").RequireAuthorization();
+
+    private static void MapPerfisComerciais(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.Perfis).WithTags("Perfis comerciais").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, IPerfilComercialAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IPerfilComercialAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, PerfilComercialDto item, IPerfilComercialAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IPerfilComercialAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IPerfilComercialAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapCondicoesPagamento(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.Condicoes).WithTags("Condições de pagamento").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ICondicaoPagamentoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ICondicaoPagamentoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, CondicaoPagamentoDto item, ICondicaoPagamentoAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ICondicaoPagamentoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ICondicaoPagamentoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapTiposCarteira(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.TiposCarteira).WithTags("Tipos de carteira").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ITipoCarteiraAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ITipoCarteiraAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, TipoCarteiraDto item, ITipoCarteiraAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoCarteiraAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoCarteiraAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapComercial(IEndpointRouteBuilder app) =>
+        app.MapGet(Rotas.Comercial.Opcoes, (IComercialAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct))
+            .WithTags("Comercial").RequireAuthorization();
 
     private static void MapTiposEndereco(IEndpointRouteBuilder app)
     {

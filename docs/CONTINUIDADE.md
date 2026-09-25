@@ -207,6 +207,19 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Permissão `PESSOAS.COLABORADOR` para ver/alterar (sem ela: aba some, API mantém os dados). Opções da aba numa
     chamada só (`GET colaboradores/opcoes`), lida quando a aba abre.
   - Migração final: só tabelas novas (nenhum SQL de dados).
+- **Fase 8 — Comercial (código entregue em 25/09/2026; sem teste por fase; decisões no DIAGNÓSTICO):**
+  - Cadastros: `CondicoesPagamento` (parcelas em dias "0/30/60", acréscimo/desconto %, prazo médio), `PerfisComerciais`
+    (limite, desconto, dias de atraso, condição, aprovação), `TiposCarteira` (um principal; Vendedor, Representante,
+    Televendas, Supervisor com Ids fixos). Permissão `CADASTROS.COMERCIAL`; menus correspondentes.
+  - Conta do cliente: `PerfilComercialId` e `CondicaoPagamentoId` (o texto antigo da condição fica guardado).
+    `ExcecoesComerciais` (por campo, com vigência, sem sobreposição por empresa) e `CarteiraClientes` (D5: tipo,
+    vendedor, empresa, início/fim, exclusivo, observação, ativo). Nada é apagado.
+  - Vale: exceção vigente → perfil → conta (`RegrasComercial.Efetivos`; a aba Cliente mostra o resumo "em vigor hoje").
+  - D5: ao gravar, o vendedor principal vigente vira `ContaCliente.VendedorPadraoId` (sem principal vigente, fica como
+    estava). Mudar perfil/exceções exige `PESSOAS.ALTERAR_CREDITO`. Vendedor precisa do papel Vendedor/Representante.
+  - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.CarteiraDosVendedoresPadrao);` depois de
+    criar `CarteiraClientes` e inserir `TiposCarteira` (cria o vínculo principal para cada vendedor padrão existente).
+  - Pendente para depois: rotina diária que atualiza o vendedor padrão quando um período vence sem a ficha ser salva.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

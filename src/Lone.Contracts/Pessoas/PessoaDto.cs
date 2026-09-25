@@ -88,6 +88,12 @@ public sealed class PessoaDto
     public string? MotivoAlteracao { get; set; }
     public List<PapelDto> Papeis { get; set; } = new();
     public List<ContaClienteDto> ContasCliente { get; set; } = new();
+
+    /// <summary>Exceções comerciais do cliente, com vigência (a mais recente primeiro).</summary>
+    public List<Lone.Contracts.Comercial.ExcecaoComercialDto> ExcecoesComerciais { get; set; } = new();
+
+    /// <summary>Carteira de clientes (D5): quem atende o cliente, com vigência.</summary>
+    public List<Lone.Contracts.Comercial.CarteiraDto> Carteira { get; set; } = new();
     public List<ContaFornecedorDto> ContasFornecedor { get; set; } = new();
 
     /// <summary>Informações adicionais (campos personalizados). Campos sem valor não vêm na lista.</summary>
@@ -245,6 +251,8 @@ public sealed class ContaClienteDto
     public string? CondicaoPagamento { get; set; }
     public bool ExigeAprovacaoAcimaLimite { get; set; } = true;
     public Guid? VendedorPadraoId { get; set; }
+    public Guid? PerfilComercialId { get; set; }
+    public Guid? CondicaoPagamentoId { get; set; }
     public string? Observacoes { get; set; }
 }
 

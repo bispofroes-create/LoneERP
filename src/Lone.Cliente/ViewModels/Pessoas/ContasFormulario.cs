@@ -9,6 +9,9 @@ namespace Lone.Cliente.ViewModels.Pessoas;
 public sealed partial class ContaClienteFormulario : ObservableObject
 {
     private Guid? _vendedorPadraoId;
+    private Guid? _perfilGravado;
+    private Guid? _condicaoGravada;
+    private bool _opcoesCarregadas;
 
     public ContaClienteFormulario() : this(IdSequencial.Novo(), existia: false) { }
 
@@ -28,11 +31,35 @@ public sealed partial class ContaClienteFormulario : ObservableObject
     [ObservableProperty] private bool _exigeAprovacaoAcimaLimite = true;
     [ObservableProperty] private string _observacoes = string.Empty;
 
+    /// <summary>Perfil comercial (padrões de venda). Os campos acima valem só onde o perfil não define.</summary>
+    [ObservableProperty] private Opcao<Guid?>[] _perfis = [OpcoesComercial.Nenhum];
+    [ObservableProperty] private Opcao<Guid?> _perfil = OpcoesComercial.Nenhum;
+
+    /// <summary>Condição de pagamento do cadastro (o texto antigo continua guardado em <see cref="CondicaoPagamento"/>).</summary>
+    [ObservableProperty] private Opcao<Guid?>[] _condicoes = [OpcoesComercial.Nenhum];
+    [ObservableProperty] private Opcao<Guid?> _condicao = OpcoesComercial.Nenhum;
+
+    public Guid? PerfilId => _opcoesCarregadas ? Perfil.Valor : _perfilGravado;
+    public Guid? CondicaoId => _opcoesCarregadas ? Condicao.Valor : _condicaoGravada;
+
+    public void DefinirOpcoes(OpcoesComercial opcoes)
+    {
+        var perfil = PerfilId;
+        var condicao = CondicaoId;
+        Perfis = opcoes.Perfis(_perfilGravado);
+        Perfil = OpcoesComercial.Escolher(Perfis, perfil);
+        Condicoes = opcoes.Condicoes(_condicaoGravada);
+        Condicao = OpcoesComercial.Escolher(Condicoes, condicao);
+        _opcoesCarregadas = true;
+    }
+
     public static ContaClienteFormulario De(ContaClienteDto? c) => c is null
         ? new ContaClienteFormulario()
         : new ContaClienteFormulario(c.Id, existia: true)
         {
             _vendedorPadraoId = c.VendedorPadraoId,
+            _perfilGravado = c.PerfilComercialId,
+            _condicaoGravada = c.CondicaoPagamentoId,
             LimiteCredito = TextoTela.Decimal(c.LimiteCredito),
             DiasMaximoAtraso = TextoTela.Inteiro(c.DiasMaximoAtraso),
             DescontoMaximo = TextoTela.Decimal(c.DescontoMaximo),
@@ -63,6 +90,8 @@ public sealed partial class ContaClienteFormulario : ObservableObject
             CondicaoPagamento = TextoTela.Nulo(CondicaoPagamento),
             ExigeAprovacaoAcimaLimite = ExigeAprovacaoAcimaLimite,
             VendedorPadraoId = _vendedorPadraoId,
+            PerfilComercialId = PerfilId,
+            CondicaoPagamentoId = CondicaoId,
             Observacoes = TextoTela.Nulo(Observacoes)
         };
     }

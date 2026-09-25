@@ -127,6 +127,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.ValoresDocumentos)
             .Include(p => p.Vinculos)
             .Include(p => p.Lotacoes)
+            .Include(p => p.ExcecoesComerciais)
+            .Include(p => p.Carteira)
             .Include(p => p.Bloqueios)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -272,6 +274,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.ValoresDocumentos)
             .Include(p => p.Vinculos)
             .Include(p => p.Lotacoes)
+            .Include(p => p.ExcecoesComerciais)
+            .Include(p => p.Carteira)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == dados.Id, ct)
             ?? throw new ConflitoDeEdicaoException();
@@ -314,6 +318,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // Colaborador: vínculos e lotações são histórico — nunca apagados (desligamento e fim de período encerram).
         SincronizarFilhos(db, atual.Id, atual.Vinculos, dados.Vinculos, apagarAusentes: false);
         SincronizarFilhos(db, atual.Id, atual.Lotacoes, dados.Lotacoes, apagarAusentes: false);
+
+        // Comercial: exceções e carteira são histórico — nunca apagadas (encerram pelo fim).
+        SincronizarFilhos(db, atual.Id, atual.ExcecoesComerciais, dados.ExcecoesComerciais, apagarAusentes: false);
+        SincronizarFilhos(db, atual.Id, atual.Carteira, dados.Carteira, apagarAusentes: false);
 
         // Eventos de negócio (ex.: desativação) foram registrados na instância editada: vão com a gravada.
         atual.ReceberEventosDe(dados);

@@ -28,6 +28,7 @@ public static class Permissoes
         public const string Papeis = "CADASTROS.PAPEIS";
         public const string Tipos = "CADASTROS.TIPOS";
         public const string EstruturaOrganizacional = "CADASTROS.ESTRUTURA_ORGANIZACIONAL";
+        public const string Comercial = "CADASTROS.COMERCIAL";
     }
 
     public static class Seguranca
@@ -56,6 +57,7 @@ public static class Permissoes
         new(Cadastros.Papeis, "Cadastros", "Criar, alterar, ordenar e desativar papéis (cliente, fornecedor...)"),
         new(Cadastros.Tipos, "Cadastros", "Criar, alterar e desativar tipos de telefone/e-mail, de endereço e de documento"),
         new(Cadastros.EstruturaOrganizacional, "Cadastros", "Criar, alterar e desativar cargos, departamentos, setores e centros de custo"),
+        new(Cadastros.Comercial, "Cadastros", "Criar, alterar e desativar perfis comerciais, condições de pagamento e tipos de carteira"),
         new(Seguranca.GerenciarUsuarios, "Segurança", "Cadastrar usuários, redefinir senhas e desbloquear acessos"),
         new(Seguranca.GerenciarPerfis, "Segurança", "Criar perfis e escolher suas permissões"),
         new(Seguranca.VisualizarAuditoria, "Segurança", "Consultar a auditoria completa do sistema")

@@ -37,6 +37,11 @@ public class LoneDbContext : DbContext
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<VinculoColaborador> VinculosColaborador => Set<VinculoColaborador>();
     public DbSet<LotacaoColaborador> LotacoesColaborador => Set<LotacaoColaborador>();
+    public DbSet<CondicaoPagamento> CondicoesPagamento => Set<CondicaoPagamento>();
+    public DbSet<PerfilComercial> PerfisComerciais => Set<PerfilComercial>();
+    public DbSet<TipoCarteira> TiposCarteira => Set<TipoCarteira>();
+    public DbSet<ExcecaoComercial> ExcecoesComerciais => Set<ExcecaoComercial>();
+    public DbSet<CarteiraCliente> CarteiraClientes => Set<CarteiraCliente>();
     public DbSet<OcupacaoCbo> OcupacoesCbo => Set<OcupacaoCbo>();
     public DbSet<PessoaValorPersonalizado> PessoaValoresPersonalizados => Set<PessoaValorPersonalizado>();
     public DbSet<DocumentoValorPersonalizado> PessoaDocumentoValoresPersonalizados => Set<DocumentoValorPersonalizado>();

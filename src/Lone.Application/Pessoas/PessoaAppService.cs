@@ -7,6 +7,7 @@ using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
+using Lone.Application.Comercial;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -24,6 +25,7 @@ using Lone.Domain.Contatos;
 using Lone.Domain.Enderecos;
 using Lone.Domain.Documentos;
 using Lone.Domain.Colaboradores;
+using Lone.Domain.Comercial;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -53,6 +55,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IAnexoRepositorio _anexos;
     private readonly IMotivoDaOperacao _motivo;
     private readonly ReferenciasColaborador _colaborador;
+    private readonly ReferenciasComercial _comercial;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
@@ -60,7 +63,8 @@ public sealed class PessoaAppService : IPessoaAppService
                             IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
                             ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
                             ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
-                            IMotivoDaOperacao motivo, ReferenciasColaborador colaborador, TimeProvider relogio)
+                            IMotivoDaOperacao motivo, ReferenciasColaborador colaborador,
+                            ReferenciasComercial comercial, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -77,6 +81,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _relogio = relogio;
         _motivo = motivo;
         _colaborador = colaborador;
+        _comercial = comercial;
     }
 
     public Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default)
@@ -121,6 +126,8 @@ public sealed class PessoaAppService : IPessoaAppService
             foreach (var documento in dto.Documentos)
                 documento.Anexos = anexos[documento.Id].Select(AnexoAppService.ParaDto).ToList();
         }
+
+        await _comercial.PreencherNomesAsync(dto.Carteira, ct);
 
         // Dados de colaborador (RH) só para quem tem a permissão; sem ela, a gravação mantém os gravados.
         if (_autorizacao.Possui(Permissoes.Pessoas.Colaborador))
@@ -214,6 +221,7 @@ public sealed class PessoaAppService : IPessoaAppService
             dados.Lotacoes = [.. anterior?.Lotacoes ?? []];
         }
         RegrasColaborador.Normalizar(dados);
+        RegrasComercial.Normalizar(dados);
 
         PessoaNormalizador.Normalizar(dados);
         ExigirPermissoes(dados, anterior);
@@ -222,6 +230,12 @@ public sealed class PessoaAppService : IPessoaAppService
         erros.AddRange(errosPapeis);
         erros.AddRange(RegrasColaborador.Validar(dados));
         erros.AddRange(await _colaborador.ValidarAsync(dados, anterior, ct));
+
+        // Comercial: perfis, condições, exceções com vigência e carteira (D5: o vendedor principal vigente vira o vendedor padrão).
+        var tiposCarteira = await _comercial.TiposAsync(ct);
+        erros.AddRange(RegrasComercial.Validar(dados, tiposCarteira));
+        erros.AddRange(await _comercial.ValidarAsync(dados, anterior, tiposCarteira, ct));
+        RegrasComercial.AtualizarVendedorPadrao(dados, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime));
 
         // Municípios só da tabela do IBGE: confere os Ids e copia nome, UF e código para o endereço.
         erros.AddRange(ReferenciasMunicipio.Aplicar(dados, await _municipios.ObterAsync(ReferenciasMunicipio.Ids(dados).ToList(), ct)));
@@ -390,11 +404,23 @@ public sealed class PessoaAppService : IPessoaAppService
     {
         _autorizacao.Exigir(anterior is null ? Permissoes.Pessoas.Criar : Permissoes.Pessoas.Editar);
 
-        if (CreditoMudou(dados, anterior))
+        if (CreditoMudou(dados, anterior) || CondicoesComerciaisMudaram(dados, anterior))
             _autorizacao.Exigir(Permissoes.Pessoas.AlterarCredito);
 
         if (dados.TemPapel(TipoPapel.EmpresaDoGrupo) != (anterior?.TemPapel(TipoPapel.EmpresaDoGrupo) ?? false))
             _autorizacao.Exigir(Permissoes.Pessoas.GerenciarEmpresasDoGrupo);
+    }
+
+    /// <summary>Perfil comercial ou exceções (que mudam limite, desconto e prazos) também exigem "alterar crédito".</summary>
+    private static bool CondicoesComerciaisMudaram(Pessoa dados, Pessoa? anterior)
+    {
+        static string Chave(IEnumerable<ExcecaoComercial> excecoes) => string.Join("|", excecoes.OrderBy(e => e.Id).Select(e =>
+            $"{e.Id};{e.EmpresaId};{e.InicioEm};{e.FimEm};{e.LimiteCredito};{e.DescontoMaximo};{e.DiasMaximoAtraso};{e.CondicaoPagamentoId};{e.ExigeAprovacaoAcimaLimite}"));
+        static string Perfis(IEnumerable<ContaCliente> contas) =>
+            string.Join("|", contas.OrderBy(c => c.EmpresaId).Select(c => $"{c.EmpresaId};{c.PerfilComercialId}"));
+
+        return Chave(dados.ExcecoesComerciais) != Chave(anterior?.ExcecoesComerciais ?? []) ||
+               Perfis(dados.ContasCliente) != Perfis(anterior?.ContasCliente ?? []);
     }
 
     /// <summary>Compara os dados de crédito de cada conta de cliente (por empresa; Guid.Empty = conta padrão).</summary>

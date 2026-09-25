@@ -22,13 +22,22 @@ public class ContaCliente : EntidadePessoaFilha
     [DisplayName("Desconto máximo (%)")]
     public decimal? DescontoMaximo { get; set; }
 
-    /// <summary>Texto livre até existir o cadastro de condições de pagamento.</summary>
+    /// <summary>Perfil comercial (padrões de venda); nulo = sem perfil (valem os campos da conta).</summary>
+    [DisplayName("Perfil comercial")]
+    public Guid? PerfilComercialId { get; set; }
+
+    /// <summary>Condição de pagamento do cadastro. O texto antigo (<see cref="CondicaoPagamento"/>) continua guardado.</summary>
+    [DisplayName("Condição de pagamento (cadastro)")]
+    public Guid? CondicaoPagamentoId { get; set; }
+
+    /// <summary>Texto livre de antes do cadastro de condições (mantido; a ficha mostra enquanto não houver condição escolhida).</summary>
     [DisplayName("Condição de pagamento")]
     public string? CondicaoPagamento { get; set; }
 
     [DisplayName("Exige aprovação acima do limite")]
     public bool ExigeAprovacaoAcimaLimite { get; set; } = true;
 
+    /// <summary>Cópia do vendedor principal vigente da carteira (D5), mantida para compatibilidade.</summary>
     [DisplayName("Vendedor padrão")]
     public Guid? VendedorPadraoId { get; set; }
 
