@@ -141,6 +141,12 @@ public class Pessoa : AgregadoRaiz
     /// <summary>Valores dos campos personalizados dos documentos (cada um com o Id do documento).</summary>
     public List<DocumentoValorPersonalizado> ValoresDocumentos { get; set; } = new();
 
+    /// <summary>Situação fiscal de cada estabelecimento por período (mantida pela API). Nunca apagada.</summary>
+    public List<HistoricoFiscal> HistoricoFiscal { get; set; } = new();
+
+    /// <summary>CNAEs dos estabelecimentos em tabela (cópia dos campos de texto, mantida pela API).</summary>
+    public List<EstabelecimentoCnae> Cnaes { get; set; } = new();
+
     /// <summary>Exceções comerciais do cliente, com vigência. Nunca apagadas.</summary>
     public List<ExcecaoComercial> ExcecoesComerciais { get; set; } = new();
 

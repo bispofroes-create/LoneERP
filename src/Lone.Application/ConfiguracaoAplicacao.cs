@@ -7,6 +7,7 @@ using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
+using Lone.Application.Fiscal;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -58,6 +59,8 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ITipoCarteiraAppService, TipoCarteiraAppService>();
         services.AddScoped<IComercialAppService, ComercialAppService>();
         services.AddScoped<ReferenciasComercial>();
+        services.AddScoped<ServicoCnaes>();
+        services.AddScoped<ICnaeAppService, CnaeAppService>();
 
         return services;
     }

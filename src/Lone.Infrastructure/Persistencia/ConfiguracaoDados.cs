@@ -9,6 +9,7 @@ using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
+using Lone.Application.Fiscal;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -56,6 +57,7 @@ public static class ConfiguracaoDados
         services.AddScoped<IPerfilComercialRepositorio, PerfilComercialRepositorio>();
         services.AddScoped<ITipoCarteiraRepositorio, TipoCarteiraRepositorio>();
         services.AddScoped<IComercialConsultas, ComercialConsultas>();
+        services.AddScoped<ICnaeRepositorio, CnaeRepositorio>();
 
         return services;
     }

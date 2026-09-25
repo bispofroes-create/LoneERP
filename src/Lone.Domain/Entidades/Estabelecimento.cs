@@ -50,6 +50,10 @@ public class Estabelecimento : EntidadePessoaFilha
     [DisplayName("CNAE principal")]
     public string? CnaePrincipal { get; set; }
 
+    /// <summary>Produtor rural (pessoa física ou jurídica com atividade rural: IE de produtor, Funrural, NF-e de produtor).</summary>
+    [DisplayName("Produtor rural")]
+    public bool ProdutorRural { get; set; }
+
     [DisplayName("Natureza jurídica")]
     public string? NaturezaJuridica { get; set; }
 

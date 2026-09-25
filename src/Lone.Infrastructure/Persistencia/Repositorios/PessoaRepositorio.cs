@@ -129,6 +129,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Lotacoes)
             .Include(p => p.ExcecoesComerciais)
             .Include(p => p.Carteira)
+            .Include(p => p.HistoricoFiscal)
+            .Include(p => p.Cnaes)
             .Include(p => p.Bloqueios)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -276,6 +278,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Lotacoes)
             .Include(p => p.ExcecoesComerciais)
             .Include(p => p.Carteira)
+            .Include(p => p.HistoricoFiscal)
+            .Include(p => p.Cnaes)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == dados.Id, ct)
             ?? throw new ConflitoDeEdicaoException();
@@ -322,6 +326,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // Comercial: exceções e carteira são histórico — nunca apagadas (encerram pelo fim).
         SincronizarFilhos(db, atual.Id, atual.ExcecoesComerciais, dados.ExcecoesComerciais, apagarAusentes: false);
         SincronizarFilhos(db, atual.Id, atual.Carteira, dados.Carteira, apagarAusentes: false);
+
+        // Fiscal: o histórico nunca é apagado; a tabela de CNAEs é cópia dos campos de texto (acompanha o que está neles).
+        SincronizarFilhos(db, atual.Id, atual.HistoricoFiscal, dados.HistoricoFiscal, apagarAusentes: false);
+        SincronizarFilhos(db, atual.Id, atual.Cnaes, dados.Cnaes);
 
         // Eventos de negócio (ex.: desativação) foram registrados na instância editada: vão com a gravada.
         atual.ReceberEventosDe(dados);

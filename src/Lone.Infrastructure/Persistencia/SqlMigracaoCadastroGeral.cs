@@ -63,4 +63,36 @@ public static class SqlMigracaoCadastroGeral
         IF @@ROWCOUNT <> @esperado
             THROW 50009, N'Migração da carteira de clientes: a contagem não conferiu. Nada foi alterado.', 1;
         """;
+
+    /// <summary>
+    /// Fase 9 — depois de criar HistoricoFiscal e EstabelecimentoCnaes: cada estabelecimento ganha o primeiro período
+    /// fiscal (desde a data de criação, com a situação atual) e a tabela de CNAEs é montada a partir dos campos de texto
+    /// (principal + secundários separados por vírgula). Confere as contagens e desfaz tudo se não conferirem.
+    /// </summary>
+    public const string HistoricoFiscalECnaes = """
+        SET NOCOUNT ON;
+        DECLARE @estabelecimentos int = (SELECT COUNT(*) FROM Estabelecimentos);
+        INSERT INTO HistoricoFiscal (Id, PessoaId, EstabelecimentoId, InicioEm, FimEm, RegimeTributario, IndicadorIE,
+                                     InscricaoEstadual, SituacaoReceita, ProdutorRural, CriadoEm)
+        SELECT NEWID(), e.PessoaId, e.Id, CAST(e.CriadoEm AS date), NULL, e.RegimeTributario, e.IndicadorIE,
+               e.InscricaoEstadual, e.SituacaoReceita, e.ProdutorRural, SYSUTCDATETIME()
+        FROM Estabelecimentos e;
+        IF @@ROWCOUNT <> @estabelecimentos
+            THROW 50010, N'Migração do histórico fiscal: a contagem não conferiu. Nada foi alterado.', 1;
+
+        ;WITH Codigos AS (
+            SELECT e.Id AS EstabelecimentoId, e.PessoaId, e.CnaePrincipal AS Codigo, CAST(1 AS bit) AS Principal
+            FROM Estabelecimentos e WHERE LEN(e.CnaePrincipal) = 7 AND e.CnaePrincipal NOT LIKE '%[^0-9]%'
+            UNION ALL
+            SELECT e.Id, e.PessoaId, LTRIM(RTRIM(s.value)), CAST(0 AS bit)
+            FROM Estabelecimentos e CROSS APPLY STRING_SPLIT(e.CnaesSecundarios, ',') s
+            WHERE e.CnaesSecundarios IS NOT NULL AND LEN(LTRIM(RTRIM(s.value))) = 7 AND LTRIM(RTRIM(s.value)) NOT LIKE '%[^0-9]%'
+        ), Unicos AS (
+            SELECT EstabelecimentoId, PessoaId, CAST(Codigo AS int) AS Codigo, Principal,
+                   ROW_NUMBER() OVER (PARTITION BY EstabelecimentoId, CAST(Codigo AS int) ORDER BY Principal DESC) AS Ordem
+            FROM Codigos
+        )
+        INSERT INTO EstabelecimentoCnaes (Id, PessoaId, EstabelecimentoId, Codigo, Principal, CriadoEm)
+        SELECT NEWID(), PessoaId, EstabelecimentoId, Codigo, Principal, SYSUTCDATETIME() FROM Unicos WHERE Ordem = 1;
+        """;
 }

@@ -73,10 +73,24 @@
                                 <c:Campo Rotulo="Inscrição Suframa" Texto="{Binding InscricaoSuframa}" Teclado="Numeric" />
                                 <c:CampoEscolha Rotulo="Regime tributário" Itens="{Binding Regimes}" Selecionado="{Binding Regime}" />
                                 <c:Campo Rotulo="CNAE principal" Texto="{Binding CnaePrincipal}" Teclado="Numeric" />
+                                <Label Text="{Binding CnaePrincipalDescricao}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
                                 <c:Campo Rotulo="CNAEs secundários" Texto="{Binding CnaesSecundarios}" IsVisible="{Binding DaPessoaJuridica}"
                                          Dica="Códigos separados por vírgula" FlexLayout.Basis="100%" />
                                 <c:CaixaMarcar Texto="Estabelecimento ativo" Marcado="{Binding Ativo}" IsVisible="{Binding DaPessoaJuridica}" />
+                                <c:CaixaMarcar Texto="Produtor rural" Marcado="{Binding ProdutorRural}" />
                             </FlexLayout>
+
+                            <!-- Histórico fiscal (mantido pelo servidor): regime, IE e situação por período. -->
+                            <VerticalStackLayout IsVisible="{Binding TemHistoricoFiscal}" Spacing="2">
+                                <Label Text="Histórico fiscal" Style="{StaticResource Rotulo}" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding HistoricoFiscal}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
 
                             <!-- Filial: endereço fiscal próprio ou o principal da pessoa. -->
                             <VerticalStackLayout IsVisible="{Binding FilialDaPJ}" Spacing="2">

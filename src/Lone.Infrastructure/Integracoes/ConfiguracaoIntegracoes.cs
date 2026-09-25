@@ -42,6 +42,14 @@ public static class ConfiguracaoIntegracoes
             c.DefaultRequestHeaders.UserAgent.ParseAdd("Lone-ERP/1.0");
         });
 
+        // Subclasses CNAE (cerca de 400 KB; lidas na primeira inicialização e quando o administrador pede).
+        services.AddHttpClient<Lone.Application.Fiscal.ICnaesOficiais, IbgeCnaesOficiais>(c =>
+        {
+            c.BaseAddress = new Uri("https://servicodados.ibge.gov.br/");
+            c.Timeout = TimeSpan.FromSeconds(60);
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("Lone-ERP/1.0");
+        });
+
         return services;
     }
 }

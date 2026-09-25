@@ -8,6 +8,7 @@ using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
+using Lone.Application.Fiscal;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -45,6 +46,7 @@ public static class CadastrosEndpoints
         MapCondicoesPagamento(app);
         MapTiposCarteira(app);
         MapComercial(app);
+        MapCnaes(app);
         return app;
     }
 
@@ -299,6 +301,14 @@ public static class CadastrosEndpoints
     private static void MapComercial(IEndpointRouteBuilder app) =>
         app.MapGet(Rotas.Comercial.Opcoes, (IComercialAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct))
             .WithTags("Comercial").RequireAuthorization();
+
+    private static void MapCnaes(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Cnaes.Grupo).WithTags("CNAE").RequireAuthorization();
+        grupo.MapGet(string.Empty, (string? texto, ICnaeAppService servico, CancellationToken ct) => servico.BuscarAsync(texto, ct));
+        grupo.MapGet("situacao", (ICnaeAppService servico, CancellationToken ct) => servico.ObterSituacaoAsync(ct));
+        grupo.MapPost("atualizar", (ICnaeAppService servico, CancellationToken ct) => servico.AtualizarAsync(ct));
+    }
 
     private static void MapTiposEndereco(IEndpointRouteBuilder app)
     {

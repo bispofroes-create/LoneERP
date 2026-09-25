@@ -220,6 +220,15 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.CarteiraDosVendedoresPadrao);` depois de
     criar `CarteiraClientes` e inserir `TiposCarteira` (cria o vínculo principal para cada vendedor padrão existente).
   - Pendente para depois: rotina diária que atualiza o vendedor padrão quando um período vence sem a ficha ser salva.
+- **Fase 9 — Fiscal (código entregue em 25/09/2026; sem teste por fase):**
+  - `HistoricoFiscal` por estabelecimento (regime, contribuinte do ICMS, IE, situação na Receita, produtor rural) com
+    vigência, mantido pela API ao gravar (mudança encerra o período na véspera; duas no mesmo dia corrigem o de hoje).
+    A ficha mostra o histórico por estabelecimento. `RegrasFiscal.Vigente` responde a situação numa data.
+  - `Estabelecimentos.ProdutorRural`. Tabela `Cnaes` (CNAE 2.3 do IBGE, carregada em segundo plano como os municípios;
+    `Cnaes:CarregarAoIniciar`; `POST cnaes/atualizar` com `CADASTROS.TABELAS_OFICIAIS`; busca `GET cnaes?texto=`).
+  - `EstabelecimentoCnaes`: cópia em tabela dos campos de texto (principal + secundários), para filtros com índice.
+  - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.HistoricoFiscalECnaes);` depois de criar
+    `HistoricoFiscal`, `EstabelecimentoCnaes` e a coluna `Estabelecimentos.ProdutorRural`.
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

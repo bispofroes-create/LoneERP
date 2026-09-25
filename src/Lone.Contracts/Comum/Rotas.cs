@@ -74,6 +74,15 @@ public static class Rotas
         public const string Opcoes = Base + "/comercial/opcoes";
     }
 
+    /// <summary>Tabela CNAE (IBGE): busca para a ficha e atualização pelo administrador.</summary>
+    public static class Cnaes
+    {
+        public const string Grupo = Base + "/cnaes";
+        public const string Situacao = Grupo + "/situacao";
+        public const string Atualizar = Grupo + "/atualizar";
+        public static string Buscar(string texto) => $"{Grupo}?texto={Uri.EscapeDataString(texto)}";
+    }
+
     public static class Colaboradores
     {
         public const string Grupo = Base + "/colaboradores";

@@ -47,6 +47,14 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     [ObservableProperty] private string _inscricaoSuframa = string.Empty;
     [ObservableProperty] private Opcao<RegimeTributario> _regime = OpcoesPessoa.Regimes[0];
     [ObservableProperty] private string _cnaePrincipal = string.Empty;
+    [ObservableProperty] private bool _produtorRural;
+
+    /// <summary>Somente leitura: "0111-3/01 · Cultivo de arroz" (tabela CNAE, se carregada no servidor).</summary>
+    public string CnaePrincipalDescricao { get; private set; } = string.Empty;
+
+    /// <summary>Somente leitura: situação fiscal por período ("desde 01/03/2026: Simples Nacional · contribuinte · IE 123").</summary>
+    public IReadOnlyList<string> HistoricoFiscal { get; private set; } = [];
+    public bool TemHistoricoFiscal => HistoricoFiscal.Count > 1;
     [ObservableProperty] private string _naturezaJuridica = string.Empty;
 
     /// <summary>Códigos separados por vírgula (vêm da consulta de CNPJ; podem ser editados).</summary>
@@ -114,6 +122,18 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
             InscricaoSuframa = e.InscricaoSuframa ?? string.Empty,
             Regime = Opcao.De(OpcoesPessoa.Regimes, e.RegimeTributario),
             CnaePrincipal = e.CnaePrincipal ?? string.Empty,
+            ProdutorRural = e.ProdutorRural,
+            CnaePrincipalDescricao = e.CnaePrincipalDescricao ?? string.Empty,
+            HistoricoFiscal = e.HistoricoFiscal.Select(h =>
+                (h.FimEm is { } fim ? $"{TextoTela.Data(h.InicioEm)} a {TextoTela.Data(fim)}" : $"Desde {TextoTela.Data(h.InicioEm)}") + ": " +
+                string.Join(" · ", new[]
+                {
+                    Opcao.De(OpcoesPessoa.Regimes, h.RegimeTributario).Texto,
+                    Opcao.De(OpcoesPessoa.IndicadoresIE, h.IndicadorIE).Texto,
+                    h.InscricaoEstadual is { } ie ? "IE " + ie : string.Empty,
+                    h.SituacaoReceita ?? string.Empty,
+                    h.ProdutorRural ? "produtor rural" : string.Empty
+                }.Where(t => t.Length > 0))).ToList(),
             NaturezaJuridica = e.NaturezaJuridica ?? string.Empty,
             CnaesSecundarios = e.CnaesSecundarios?.Replace(",", ", ") ?? string.Empty,
             EhPrincipal = e.Principal,
@@ -135,6 +155,7 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
         InscricaoSuframa = TextoTela.Nulo(InscricaoSuframa),
         RegimeTributario = Regime.Valor,
         CnaePrincipal = TextoTela.Nulo(CnaePrincipal),
+        ProdutorRural = ProdutorRural,
         NaturezaJuridica = TextoTela.Nulo(NaturezaJuridica),
         CnaesSecundarios = TextoTela.Nulo(CnaesSecundarios),
         // Endereço removido da ficha: volta ao principal em vez de apontar para um Id que não será gravado.

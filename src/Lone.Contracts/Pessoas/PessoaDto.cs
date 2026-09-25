@@ -122,7 +122,14 @@ public sealed class EstabelecimentoDto
     public string? InscricaoMunicipal { get; set; }
     public string? InscricaoSuframa { get; set; }
     public RegimeTributario RegimeTributario { get; set; } = RegimeTributario.NaoInformado;
+    public bool ProdutorRural { get; set; }
     public string? CnaePrincipal { get; set; }
+
+    /// <summary>Somente leitura: "0111-3/01 · Cultivo de arroz" (tabela CNAE do IBGE).</summary>
+    public string? CnaePrincipalDescricao { get; set; }
+
+    /// <summary>Somente leitura: situação fiscal por período (mantida pela API; a mais recente primeiro).</summary>
+    public List<HistoricoFiscalDto> HistoricoFiscal { get; set; } = new();
     public string? NaturezaJuridica { get; set; }
 
     /// <summary>Códigos dos CNAEs secundários separados por vírgula.</summary>
@@ -130,6 +137,18 @@ public sealed class EstabelecimentoDto
 
     /// <summary>Id de um endereço desta mesma pessoa. Nulo = endereço fiscal/principal da pessoa.</summary>
     public Guid? EnderecoFiscalId { get; set; }
+}
+
+/// <summary>Período da situação fiscal do estabelecimento (somente leitura).</summary>
+public sealed class HistoricoFiscalDto
+{
+    public DateOnly InicioEm { get; set; }
+    public DateOnly? FimEm { get; set; }
+    public RegimeTributario RegimeTributario { get; set; }
+    public IndicadorIE IndicadorIE { get; set; }
+    public string? InscricaoEstadual { get; set; }
+    public string? SituacaoReceita { get; set; }
+    public bool ProdutorRural { get; set; }
 }
 
 public sealed class EnderecoDto

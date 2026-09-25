@@ -52,6 +52,10 @@ public static class ConfiguracaoApi
         if (configuracao.GetValue("Municipios:CarregarAoIniciar", true))
             services.AddHostedService<Servicos.CargaMunicipios>();
 
+        // Carga da tabela CNAE (IBGE), também sem atrasar a inicialização.
+        if (configuracao.GetValue("Cnaes:CarregarAoIniciar", true))
+            services.AddHostedService<Servicos.CargaCnaes>();
+
         services.AddOpenApi();
         return services;
     }

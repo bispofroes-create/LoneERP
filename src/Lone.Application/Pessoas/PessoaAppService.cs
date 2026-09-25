@@ -8,6 +8,7 @@ using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
+using Lone.Application.Fiscal;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -26,6 +27,7 @@ using Lone.Domain.Enderecos;
 using Lone.Domain.Documentos;
 using Lone.Domain.Colaboradores;
 using Lone.Domain.Comercial;
+using Lone.Domain.Fiscal;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -56,6 +58,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IMotivoDaOperacao _motivo;
     private readonly ReferenciasColaborador _colaborador;
     private readonly ReferenciasComercial _comercial;
+    private readonly ICnaeRepositorio _cnaes;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
@@ -64,7 +67,7 @@ public sealed class PessoaAppService : IPessoaAppService
                             ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
                             ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
                             IMotivoDaOperacao motivo, ReferenciasColaborador colaborador,
-                            ReferenciasComercial comercial, TimeProvider relogio)
+                            ReferenciasComercial comercial, ICnaeRepositorio cnaes, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -82,6 +85,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _motivo = motivo;
         _colaborador = colaborador;
         _comercial = comercial;
+        _cnaes = cnaes;
     }
 
     public Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default)
@@ -128,6 +132,20 @@ public sealed class PessoaAppService : IPessoaAppService
         }
 
         await _comercial.PreencherNomesAsync(dto.Carteira, ct);
+
+        // Fiscal: histórico por período e a descrição do CNAE principal (tabela do IBGE, se já carregada).
+        var cnaes = await _cnaes.ObterVariosAsync(pessoa.Estabelecimentos.Select(e => Cnae.Codigo(e.CnaePrincipal)).OfType<int>().ToList(), ct);
+        foreach (var e in dto.Estabelecimentos)
+        {
+            e.HistoricoFiscal = pessoa.HistoricoFiscal.Where(h => h.EstabelecimentoId == e.Id).OrderByDescending(h => h.InicioEm)
+                .Select(h => new HistoricoFiscalDto
+                {
+                    InicioEm = h.InicioEm, FimEm = h.FimEm, RegimeTributario = h.RegimeTributario, IndicadorIE = h.IndicadorIE,
+                    InscricaoEstadual = h.InscricaoEstadual, SituacaoReceita = h.SituacaoReceita, ProdutorRural = h.ProdutorRural
+                }).ToList();
+            if (Cnae.Codigo(e.CnaePrincipal) is { } codigo && cnaes.TryGetValue(codigo, out var cnae))
+                e.CnaePrincipalDescricao = $"{Cnae.Formatar(codigo)} · {cnae.Descricao}";
+        }
 
         // Dados de colaborador (RH) só para quem tem a permissão; sem ela, a gravação mantém os gravados.
         if (_autorizacao.Possui(Permissoes.Pessoas.Colaborador))
@@ -236,6 +254,10 @@ public sealed class PessoaAppService : IPessoaAppService
         erros.AddRange(RegrasComercial.Validar(dados, tiposCarteira));
         erros.AddRange(await _comercial.ValidarAsync(dados, anterior, tiposCarteira, ct));
         RegrasComercial.AtualizarVendedorPadrao(dados, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime));
+
+        // Fiscal: CNAEs em tabela (a partir dos campos de texto) e histórico com vigência (regime, IE, situação, produtor rural).
+        RegrasFiscal.SincronizarCnaes(dados, anterior?.Cnaes ?? []);
+        RegrasFiscal.AtualizarHistorico(dados, anterior?.HistoricoFiscal ?? [], DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime));
 
         // Municípios só da tabela do IBGE: confere os Ids e copia nome, UF e código para o endereço.
         erros.AddRange(ReferenciasMunicipio.Aplicar(dados, await _municipios.ObterAsync(ReferenciasMunicipio.Ids(dados).ToList(), ct)));
