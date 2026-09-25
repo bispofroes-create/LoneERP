@@ -105,6 +105,7 @@
                     <pv:SecaoDocumentosView IsVisible="{Binding NosDocumentos}" />
                     <pv:SecaoClienteView IsVisible="{Binding NoCliente}" />
                     <pv:SecaoFornecedorView IsVisible="{Binding NoFornecedor}" />
+                    <pv:SecaoColaboradorView IsVisible="{Binding NoColaborador}" />
                     <pv:SecaoAdicionaisView IsVisible="{Binding NasAdicionais}" />
                     <pv:SecaoRelacionamentoView IsVisible="{Binding NoRelacionamento}" />
                     <pv:SecaoSituacaoView IsVisible="{Binding NaSituacao}" />

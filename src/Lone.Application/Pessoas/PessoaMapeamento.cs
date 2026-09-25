@@ -53,6 +53,7 @@ public static class PessoaMapeamento
         MeiosContato = p.MeiosContato.Select(ParaDto).ToList(),
         Contatos = p.Contatos.OrderByDescending(c => c.Principal).ThenBy(c => c.Nome).Select(ParaDto).ToList(),
         Documentos = p.Documentos.Select(x => ParaDto(x, p.ValoresDocumentos)).ToList(),
+        Vinculos = p.Vinculos.OrderByDescending(v => v.AdmissaoEm).Select(v => ParaDto(v, p.Lotacoes)).ToList(),
         Papeis = p.Papeis.OrderBy(x => x.InicioEm).Select(ParaDto).ToList(),
         ContasCliente = p.ContasCliente.Select(ParaDto).ToList(),
         ContasFornecedor = p.ContasFornecedor.Select(ParaDto).ToList(),
@@ -110,6 +111,14 @@ public static class PessoaMapeamento
             ContasCliente = d.ContasCliente.Select(c => ParaEntidade(c, pessoaId)).ToList(),
             ContasFornecedor = d.ContasFornecedor.Select(f => ParaEntidade(f, pessoaId)).ToList()
         };
+
+        // Colaborador: vínculos e as lotações de cada um (Id do vínculo definido aqui, se veio vazio).
+        foreach (var v in d.Vinculos)
+        {
+            var vinculo = ParaEntidade(v, pessoaId);
+            pessoa.Vinculos.Add(vinculo);
+            pessoa.Lotacoes.AddRange(v.Lotacoes.Select(l => ParaEntidade(l, pessoaId, vinculo.Id)));
+        }
 
         // Valores dos campos dos documentos: ligados ao Id já definitivo de cada documento (mesma ordem da lista).
         for (var i = 0; i < d.Documentos.Count; i++)
@@ -241,6 +250,60 @@ public static class PessoaMapeamento
         ValorData = v.Data is { } data ? DateTime.SpecifyKind(data, DateTimeKind.Unspecified) : null,
         ValorLogico = v.Logico,
         OpcaoId = v.OpcaoId
+    };
+
+    // ---------------------------------------------------------------- Colaborador
+
+    private static Lone.Contracts.Colaboradores.VinculoDto ParaDto(VinculoColaborador v, IEnumerable<LotacaoColaborador> lotacoes) => new()
+    {
+        Id = v.Id,
+        EmpresaId = v.EmpresaId,
+        Matricula = v.Matricula,
+        Tipo = v.Tipo,
+        AdmissaoEm = v.AdmissaoEm,
+        DesligamentoEm = v.DesligamentoEm,
+        MotivoDesligamento = v.MotivoDesligamento,
+        JornadaSemanal = v.JornadaSemanal,
+        Observacoes = v.Observacoes,
+        Lotacoes = lotacoes.Where(l => l.VinculoId == v.Id).OrderByDescending(l => l.InicioEm).Select(l => new Lone.Contracts.Colaboradores.LotacaoDto
+        {
+            Id = l.Id,
+            InicioEm = l.InicioEm,
+            FimEm = l.FimEm,
+            CargoId = l.CargoId,
+            DepartamentoId = l.DepartamentoId,
+            SetorId = l.SetorId,
+            CentroCustoId = l.CentroCustoId,
+            GestorId = l.GestorId
+        }).ToList()
+    };
+
+    private static VinculoColaborador ParaEntidade(Lone.Contracts.Colaboradores.VinculoDto v, Guid pessoaId) => new()
+    {
+        Id = IdOuNovo(v.Id),
+        PessoaId = pessoaId,
+        EmpresaId = v.EmpresaId,
+        Matricula = v.Matricula,
+        Tipo = v.Tipo,
+        AdmissaoEm = v.AdmissaoEm,
+        DesligamentoEm = v.DesligamentoEm,
+        MotivoDesligamento = v.MotivoDesligamento,
+        JornadaSemanal = v.JornadaSemanal,
+        Observacoes = v.Observacoes
+    };
+
+    private static LotacaoColaborador ParaEntidade(Lone.Contracts.Colaboradores.LotacaoDto l, Guid pessoaId, Guid vinculoId) => new()
+    {
+        Id = IdOuNovo(l.Id),
+        PessoaId = pessoaId,
+        VinculoId = vinculoId,
+        InicioEm = l.InicioEm,
+        FimEm = l.FimEm,
+        CargoId = l.CargoId,
+        DepartamentoId = l.DepartamentoId,
+        SetorId = l.SetorId,
+        CentroCustoId = l.CentroCustoId,
+        GestorId = l.GestorId
     };
 
     // ---------------------------------------------------------------- Endereço

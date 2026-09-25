@@ -13,7 +13,8 @@ public enum SecaoPessoa
     Relacionamento,
     Historico,
     Adicionais,
-    Situacao
+    Situacao,
+    Colaborador
 }
 
 /// <summary>Aba da ficha. Algumas só aparecem quando fazem sentido (ex.: "Cliente" com o papel ligado).</summary>
@@ -39,6 +40,7 @@ public sealed record SecaoOpcao(SecaoPessoa Secao, string Texto)
         }
         if (f.PapelCliente.Ativo) secoes.Add(new(SecaoPessoa.Cliente, "Cliente"));
         if (f.PapelFornecedor.Ativo) secoes.Add(new(SecaoPessoa.Fornecedor, "Fornecedor"));
+        if (f.TemColaborador) secoes.Add(new(SecaoPessoa.Colaborador, "Colaborador"));
         if (f.TemInformacoesAdicionais) secoes.Add(new(SecaoPessoa.Adicionais, "Informações adicionais"));
         secoes.Add(new(SecaoPessoa.Relacionamento, "Relacionamento e LGPD"));
         secoes.Add(new(SecaoPessoa.Situacao, "Situação"));

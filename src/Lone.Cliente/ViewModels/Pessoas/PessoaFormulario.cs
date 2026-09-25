@@ -7,6 +7,7 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Etiquetas;
 using Lone.Contracts.Profissoes;
 using Lone.Contracts.Papeis;
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Contatos;
 using Lone.Contracts.Documentos;
 using Lone.Contracts.Enderecos;
@@ -321,6 +322,9 @@ public sealed partial class PessoaFormulario : ObservableObject
             f.AdicionarEndereco(EnderecoFormulario.De(e,
                 p.PendenciasMunicipio.FirstOrDefault(x => !x.DaNaturalidade && x.RegistroId == e.Id)?.Texto));
 
+        f.ColaboradorOculto = p.ColaboradorOculto;
+        foreach (var v in p.Vinculos.OrderByDescending(v => v.AdmissaoEm)) f.AdicionarVinculo(VinculoFormulario.De(v));
+
         foreach (var e in p.Estabelecimentos.OrderByDescending(e => e.Principal).ThenBy(e => e.Cnpj))
             f.Incluir(EstabelecimentoFormulario.De(e, f.Enderecos));
         if (f.Estabelecimentos.Count == 0)
@@ -357,6 +361,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             if (Enderecos[i].Ativo && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
                 erros.Add(endereco);
         erros.AddRange(Documentos.SelectMany(d => d.Validar()));
+        for (var i = 0; i < Vinculos.Count; i++)
+            erros.AddRange(Vinculos[i].Validar($"Vínculo {i + 1}"));
         erros.AddRange(InformacoesAdicionais.Select(c => c.Validar()).OfType<string>());
         if (EhJuridica && !TextoTela.TentarData(DataAbertura, out _))
             erros.Add("Data de abertura inválida (use dd/mm/aaaa).");
@@ -398,6 +404,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             MeiosContato = MeiosContato.Select(m => m.ParaDto()).ToList(),
             Contatos = Contatos.Select(c => c.ParaDto()).ToList(),
             Documentos = Documentos.Select(d => d.ParaDto()).ToList(),
+            Vinculos = Vinculos.Select(v => v.ParaDto()).ToList(),
             Papeis = [.. Papeis.SelectMany(p => p.ParaDtos()), .. _papeisDesconhecidos],
             Sexo = Sexo.Valor,
             IdentidadeGenero = Genero.Valor,
@@ -690,6 +697,43 @@ public sealed partial class PessoaFormulario : ObservableObject
         Documentos.Add(documento);
         AvisarDocumentos();
     }
+
+    // ---- Colaborador (vínculos com as empresas do grupo e lotações) ----
+
+    public ObservableCollection<VinculoFormulario> Vinculos { get; } = new();
+
+    /// <summary>O usuário não tem a permissão de colaborador: a aba não aparece e a API mantém os dados gravados.</summary>
+    public bool ColaboradorOculto { get; private set; }
+
+    /// <summary>Aba "Colaborador": pessoa física com o papel Funcionário ou com vínculo gravado.</summary>
+    public bool TemColaborador => EhFisica && !ColaboradorOculto &&
+                                  (Vinculos.Count > 0 || Papeis.Any(p => p.Papel == TipoPapel.Funcionario && p.Ativo));
+
+    private OpcoesColaborador? _opcoesColaborador;
+
+    public bool OpcoesColaboradorCarregadas => _opcoesColaborador is not null;
+    public bool AguardandoOpcoesColaborador => !OpcoesColaboradorCarregadas;
+
+    /// <summary>Chamado pela tela quando a aba abre e as opções chegam.</summary>
+    public void DefinirOpcoesColaborador(ColaboradorOpcoesDto dto)
+    {
+        _opcoesColaborador = new OpcoesColaborador(dto);
+        foreach (var v in Vinculos) v.DefinirOpcoes(_opcoesColaborador);
+        OnPropertyChanged(nameof(OpcoesColaboradorCarregadas));
+        OnPropertyChanged(nameof(AguardandoOpcoesColaborador));
+    }
+
+    public void AdicionarVinculo(VinculoFormulario vinculo)
+    {
+        if (_opcoesColaborador is not null) vinculo.DefinirOpcoes(_opcoesColaborador);
+        vinculo.AoRemover = () =>
+        {
+            if (!vinculo.Gravado) Vinculos.Remove(vinculo); // vínculo gravado não sai: o desligamento o encerra
+        };
+        Vinculos.Add(vinculo);
+    }
+
+    public void NovoVinculo() => AdicionarVinculo(VinculoFormulario.Novo(_opcoesColaborador));
 
     /// <summary>Campos personalizados dos documentos (cada um vale para um tipo de documento).</summary>
     private IReadOnlyList<CampoPersonalizadoDto> _camposDocumento = [];

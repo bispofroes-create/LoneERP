@@ -6,6 +6,7 @@ using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
+using Lone.Application.Colaboradores;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Auditoria;
@@ -22,6 +23,7 @@ using Lone.Domain.Papeis;
 using Lone.Domain.Contatos;
 using Lone.Domain.Enderecos;
 using Lone.Domain.Documentos;
+using Lone.Domain.Colaboradores;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -50,6 +52,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ITipoDocumentoRepositorio _tiposDocumento;
     private readonly IAnexoRepositorio _anexos;
     private readonly IMotivoDaOperacao _motivo;
+    private readonly ReferenciasColaborador _colaborador;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
@@ -57,7 +60,7 @@ public sealed class PessoaAppService : IPessoaAppService
                             IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
                             ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
                             ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
-                            IMotivoDaOperacao motivo, TimeProvider relogio)
+                            IMotivoDaOperacao motivo, ReferenciasColaborador colaborador, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -73,6 +76,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _anexos = anexos;
         _relogio = relogio;
         _motivo = motivo;
+        _colaborador = colaborador;
     }
 
     public Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default)
@@ -116,6 +120,15 @@ public sealed class PessoaAppService : IPessoaAppService
             var anexos = (await _anexos.ListarPorPessoaAsync(pessoa.Id, ct)).ToLookup(a => a.PessoaDocumentoId);
             foreach (var documento in dto.Documentos)
                 documento.Anexos = anexos[documento.Id].Select(AnexoAppService.ParaDto).ToList();
+        }
+
+        // Dados de colaborador (RH) só para quem tem a permissão; sem ela, a gravação mantém os gravados.
+        if (_autorizacao.Possui(Permissoes.Pessoas.Colaborador))
+            await _colaborador.PreencherNomesAsync(dto.Vinculos, ct);
+        else
+        {
+            dto.Vinculos = [];
+            dto.ColaboradorOculto = true;
         }
 
         OcultarDadosSensiveis(dto);
@@ -195,11 +208,20 @@ public sealed class PessoaAppService : IPessoaAppService
         if (!_autorizacao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis))
             dados.CorRaca = anterior?.CorRaca ?? CorRaca.NaoInformado;
 
+        if (!_autorizacao.Possui(Permissoes.Pessoas.Colaborador))
+        {
+            dados.Vinculos = [.. anterior?.Vinculos ?? []];
+            dados.Lotacoes = [.. anterior?.Lotacoes ?? []];
+        }
+        RegrasColaborador.Normalizar(dados);
+
         PessoaNormalizador.Normalizar(dados);
         ExigirPermissoes(dados, anterior);
 
         var erros = PessoaValidador.Validar(dados);
         erros.AddRange(errosPapeis);
+        erros.AddRange(RegrasColaborador.Validar(dados));
+        erros.AddRange(await _colaborador.ValidarAsync(dados, anterior, ct));
 
         // Municípios só da tabela do IBGE: confere os Ids e copia nome, UF e código para o endereço.
         erros.AddRange(ReferenciasMunicipio.Aplicar(dados, await _municipios.ObterAsync(ReferenciasMunicipio.Ids(dados).ToList(), ct)));
@@ -263,6 +285,14 @@ public sealed class PessoaAppService : IPessoaAppService
         if (anterior is not null)
             foreach (var mudanca in RegrasPapel.Mudancas(papeisAnteriores, dados.Papeis, cadastroPapeis))
                 dados.RegistrarEvento(mudanca);
+
+        // Admissão e desligamento viram frase no histórico (os demais campos aparecem campo a campo).
+        if (_autorizacao.Possui(Permissoes.Pessoas.Colaborador) && dados.Vinculos.Count > 0)
+        {
+            var empresas = await _colaborador.NomesEmpresasAsync(dados, ct);
+            foreach (var mudanca in RegrasColaborador.Mudancas(anterior?.Vinculos ?? [], dados.Vinculos, empresas))
+                dados.RegistrarEvento(mudanca);
+        }
 
         var avisos = await BuscarAvisosDeDuplicidadeAsync(dados, ct);
         avisos.AddRange(ConferenciaInscricaoEstadual.Avisos(dados));

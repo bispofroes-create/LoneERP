@@ -21,6 +21,13 @@ public class OcupacaoCbo
     /// <summary>Código no formato oficial "0000-00".</summary>
     public string CodigoFormatado => Formatar(Id);
 
+    /// <summary>Código digitado ("4211-25" ou "421125") → número; nulo se não tiver exatamente 6 dígitos.</summary>
+    public static int? Codigo(string? texto)
+    {
+        var digitos = new string((texto ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+        return digitos.Length == 6 ? int.Parse(digitos, System.Globalization.CultureInfo.InvariantCulture) : null;
+    }
+
     public static string Formatar(int codigo)
     {
         var texto = codigo.ToString("000000", System.Globalization.CultureInfo.InvariantCulture);

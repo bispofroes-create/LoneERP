@@ -197,6 +197,16 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     `RegistroHistorico` traz `Id` e `Motivo`.
   - Tradução de Ids no histórico: tipo de telefone/e-mail, tipo de endereço, tipo de documento (documento e campo),
     papel e documento do anexo/valor de campo ("CNH 123").
+- **Fase 7 — Colaborador (código entregue em 25/09/2026; sem teste por fase; decisões no DIAGNÓSTICO, fim do arquivo):**
+  - Cadastros: `Cargos` (com CBO opcional), `Departamentos`, `Setores` (dentro do departamento), `CentrosCusto` (árvore
+    pai/filho, código único, analítico/sintético; só analítico recebe colaborador). Permissão
+    `CADASTROS.ESTRUTURA_ORGANIZACIONAL`; menus "Cargos", "Departamentos", "Setores", "Centros de custo".
+  - Ficha: `VinculosColaborador` (empresa do grupo, matrícula única por empresa, tipo, admissão, desligamento, motivo,
+    jornada) e `LotacoesColaborador` (início/fim, cargo, departamento, setor, centro de custo, gestor). Nunca apagados.
+    "Nova lotação" encerra a atual na véspera; desligamento encerra a lotação aberta. Admissão/desligamento viram frase.
+  - Permissão `PESSOAS.COLABORADOR` para ver/alterar (sem ela: aba some, API mantém os dados). Opções da aba numa
+    chamada só (`GET colaboradores/opcoes`), lida quando a aba abre.
+  - Migração final: só tabelas novas (nenhum SQL de dados).
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

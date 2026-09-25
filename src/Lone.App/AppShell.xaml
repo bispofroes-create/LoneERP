@@ -53,6 +53,22 @@
         <ShellContent Title="Tipos de documento" ContentTemplate="{DataTemplate views:TiposDocumentoPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Cargos" Route="cargos" IsVisible="{Binding PodeGerenciarEstrutura}">
+        <ShellContent Title="Cargos" ContentTemplate="{DataTemplate views:CargosPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Departamentos" Route="departamentos" IsVisible="{Binding PodeGerenciarEstrutura}">
+        <ShellContent Title="Departamentos" ContentTemplate="{DataTemplate views:DepartamentosPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Setores" Route="setores" IsVisible="{Binding PodeGerenciarEstrutura}">
+        <ShellContent Title="Setores" ContentTemplate="{DataTemplate views:SetoresPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Centros de custo" Route="centros-custo" IsVisible="{Binding PodeGerenciarEstrutura}">
+        <ShellContent Title="Centros de custo" ContentTemplate="{DataTemplate views:CentrosCustoPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>

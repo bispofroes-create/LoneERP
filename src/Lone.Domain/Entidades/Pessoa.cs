@@ -141,6 +141,12 @@ public class Pessoa : AgregadoRaiz
     /// <summary>Valores dos campos personalizados dos documentos (cada um com o Id do documento).</summary>
     public List<DocumentoValorPersonalizado> ValoresDocumentos { get; set; } = new();
 
+    /// <summary>Vínculos de trabalho com as empresas do grupo (dados do colaborador). Nunca apagados.</summary>
+    public List<VinculoColaborador> Vinculos { get; set; } = new();
+
+    /// <summary>Lotações (cargo, departamento, setor, centro de custo, gestor) com vigência, de cada vínculo. Nunca apagadas.</summary>
+    public List<LotacaoColaborador> Lotacoes { get; set; } = new();
+
     /// <summary>Gravados só pelas operações de bloquear/liberar (não pelo formulário de cadastro).</summary>
     public List<Bloqueio> Bloqueios { get; set; } = new();
 

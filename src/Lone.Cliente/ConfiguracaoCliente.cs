@@ -34,6 +34,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<TiposEnderecoApi>();
         services.AddSingleton<TiposDocumentoApi>();
         services.AddSingleton<AnexosApi>();
+        services.AddSingleton<ColaboradoresApi>();
         services.AddSingleton<FluxoDeEntrada>();
 
         // Um ViewModel novo a cada abertura de tela.
@@ -53,6 +54,10 @@ public static class ConfiguracaoCliente
         services.AddTransient<TiposMeioContatoViewModel>();
         services.AddTransient<TiposEnderecoViewModel>();
         services.AddTransient<TiposDocumentoViewModel>();
+        services.AddTransient<CargosViewModel>();
+        services.AddTransient<DepartamentosViewModel>();
+        services.AddTransient<SetoresViewModel>();
+        services.AddTransient<CentrosCustoViewModel>();
 
         return services;
     }

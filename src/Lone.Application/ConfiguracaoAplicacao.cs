@@ -5,6 +5,7 @@ using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
+using Lone.Application.Colaboradores;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -45,6 +46,12 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ITipoEnderecoAppService, TipoEnderecoAppService>();
         services.AddScoped<ITipoDocumentoAppService, TipoDocumentoAppService>();
         services.AddScoped<IAnexoAppService, AnexoAppService>();
+        services.AddScoped<ICargoAppService, CargoAppService>();
+        services.AddScoped<IDepartamentoAppService, DepartamentoAppService>();
+        services.AddScoped<ISetorAppService, SetorAppService>();
+        services.AddScoped<ICentroCustoAppService, CentroCustoAppService>();
+        services.AddScoped<IColaboradorAppService, ColaboradorAppService>();
+        services.AddScoped<ReferenciasColaborador>();
 
         return services;
     }

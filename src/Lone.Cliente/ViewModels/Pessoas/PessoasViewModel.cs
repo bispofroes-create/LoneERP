@@ -44,6 +44,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly TiposEnderecoApi _tiposEnderecoApi;
     private readonly TiposDocumentoApi _tiposDocumentoApi;
     private readonly AnexosApi _anexosApi;
+    private readonly ColaboradoresApi _colaboradoresApi;
     private readonly IArquivos _arquivos;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
@@ -73,7 +74,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public PessoasViewModel(PessoasApi pessoas, ConsultasApi consultas, SessaoCliente sessao, ServicoAutenticacao autenticacao,
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
                             PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi,
-                            TiposDocumentoApi tiposDocumentoApi, AnexosApi anexosApi, IArquivos arquivos, IDialogos dialogos)
+                            TiposDocumentoApi tiposDocumentoApi, AnexosApi anexosApi, ColaboradoresApi colaboradoresApi,
+                            IArquivos arquivos, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -89,6 +91,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _tiposEnderecoApi = tiposEnderecoApi;
         _tiposDocumentoApi = tiposDocumentoApi;
         _anexosApi = anexosApi;
+        _colaboradoresApi = colaboradoresApi;
         _arquivos = arquivos;
     }
 
@@ -241,7 +244,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NaGeral), nameof(NosPessoais), nameof(NosEstabelecimentos), nameof(NosEnderecos),
                               nameof(NosContatos), nameof(NosDocumentos), nameof(NoCliente), nameof(NoFornecedor),
-                              nameof(NoRelacionamento), nameof(NoHistorico), nameof(NasAdicionais), nameof(NaSituacao))]
+                              nameof(NoRelacionamento), nameof(NoHistorico), nameof(NasAdicionais), nameof(NaSituacao),
+                              nameof(NoColaborador))]
     private SecaoOpcao? _secaoSelecionada;
 
     public bool NaGeral => Aba == SecaoPessoa.Geral;
@@ -256,6 +260,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public bool NoHistorico => Aba == SecaoPessoa.Historico;
     public bool NasAdicionais => Aba == SecaoPessoa.Adicionais;
     public bool NaSituacao => Aba == SecaoPessoa.Situacao;
+    public bool NoColaborador => Aba == SecaoPessoa.Colaborador;
 
     private SecaoPessoa Aba => SecaoSelecionada?.Secao ?? SecaoPessoa.Geral;
 
@@ -359,6 +364,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         if (value?.Secao == SecaoPessoa.Historico && Formulario is { Existente: true } f && _historicoDe != f.Id)
             _ = CarregarHistoricoAsync(f.Id);
+        if (value?.Secao == SecaoPessoa.Colaborador && Formulario is { OpcoesColaboradorCarregadas: false } ficha)
+            _ = CarregarOpcoesColaboradorAsync(ficha);
     }
 
     /// <summary>Id do último registro mostrado: a próxima página começa antes dele.</summary>
@@ -521,6 +528,28 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     [RelayCommand]
     private void AdicionarDocumento() => Formulario?.AdicionarDocumento(new DocumentoFormulario());
+
+    [RelayCommand]
+    private void AdicionarVinculo() => Formulario?.NovoVinculo();
+
+    /// <summary>Empresas, gestores e estrutura: lidos na primeira vez que a aba "Colaborador" abre nesta ficha.</summary>
+    private async Task CarregarOpcoesColaboradorAsync(PessoaFormulario ficha)
+    {
+        try
+        {
+            var opcoes = await _colaboradoresApi.ListarOpcoesAsync();
+            if (!ReferenceEquals(Formulario, ficha)) return; // outra ficha foi aberta enquanto lia
+            ficha.DefinirOpcoesColaborador(opcoes); // as escolhas gravadas continuam as mesmas: a ficha não fica "alterada"
+        }
+        catch (SessaoExpiradaException)
+        {
+            // O aplicativo já volta ao login.
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ex); // sem as opções, as escolhas gravadas continuam e voltam intactas ao salvar
+        }
+    }
 
     /// <summary>
     /// Atalho da ficha: cria a etiqueta no cadastro (fica disponível para todos) e já a marca nesta pessoa.

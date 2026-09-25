@@ -371,3 +371,12 @@ O erro de compilação pendente foi resolvido pelo usuário.
 | D6 Metas | Construir a estrutura agora; realizado vindo do cadastro ou informado/importado com auditoria; vendas entram depois como nova fonte |
 | D7 Anexos | Arquivos em pasta no servidor da API, metadados no banco |
 | D8 M5 | Remover a solução WinUI antiga antes da Fase 2 |
+
+### Decisões da Fase 7 — Colaborador (25/09/2026)
+
+| Pergunta | Escolha |
+|---|---|
+| Vínculo com as empresas do grupo | Por empresa, vários vínculos (matrícula, admissão, desligamento); recontratação = vínculo novo |
+| Setor | Pertence a um departamento (a ficha só oferece os setores do departamento escolhido) |
+| Centro de custo | Em árvore (pai/filho); só os analíticos (folhas) recebem colaboradores |
+| Histórico de cargo, departamento, setor, centro de custo e gestor | Lotação com vigência (início/fim), um período aberto por vínculo |

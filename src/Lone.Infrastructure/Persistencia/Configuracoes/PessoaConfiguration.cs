@@ -81,5 +81,7 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         b.HasMany(p => p.Etiquetas).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.ValoresPersonalizados).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.ValoresDocumentos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(p => p.Vinculos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(p => p.Lotacoes).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -50,6 +50,27 @@ public static class Rotas
         public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
     }
 
+    /// <summary>Estrutura organizacional (cargo, departamento, setor, centro de custo). Nada é excluído: desativa.</summary>
+    public static class Estrutura
+    {
+        public const string Cargos = Base + "/cargos";
+        public const string Departamentos = Base + "/departamentos";
+        public const string Setores = Base + "/setores";
+        public const string CentrosCusto = Base + "/centros-custo";
+        public static string PorId(string grupo, Guid id) => $"{grupo}/{id}";
+        public static string Desativar(string grupo, Guid id) => $"{grupo}/{id}/desativar";
+        public static string Reativar(string grupo, Guid id) => $"{grupo}/{id}/reativar";
+        public static string Listar(string grupo, bool incluirInativos) => incluirInativos ? grupo + "?incluirInativos=true" : grupo;
+    }
+
+    public static class Colaboradores
+    {
+        public const string Grupo = Base + "/colaboradores";
+
+        /// <summary>Empresas, gestores e cadastros da estrutura para a aba "Colaborador".</summary>
+        public const string Opcoes = Grupo + "/opcoes";
+    }
+
     /// <summary>Tipos de documento. Nada é excluído: desativa.</summary>
     public static class TiposDocumento
     {

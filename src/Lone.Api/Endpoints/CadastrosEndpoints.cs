@@ -6,6 +6,7 @@ using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
+using Lone.Application.Colaboradores;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -15,6 +16,7 @@ using Lone.Contracts.Papeis;
 using Lone.Contracts.Contatos;
 using Lone.Contracts.Enderecos;
 using Lone.Contracts.Documentos;
+using Lone.Contracts.Colaboradores;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -32,6 +34,11 @@ public static class CadastrosEndpoints
         MapTiposMeioContato(app);
         MapTiposEndereco(app);
         MapTiposDocumento(app);
+        MapCargos(app);
+        MapDepartamentos(app);
+        MapSetores(app);
+        MapCentrosCusto(app);
+        MapColaboradores(app);
         return app;
     }
 
@@ -75,6 +82,126 @@ public static class CadastrosEndpoints
             (Guid id, AlterarSituacaoRequisicao requisicao, ITipoMeioContatoAppService servico, CancellationToken ct) =>
                 servico.ReativarAsync(id, requisicao, ct));
     }
+
+    private static void MapCargos(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Estrutura.Cargos).WithTags("Cargos").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ICargoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ICargoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, CargoDto item, ICargoAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ICargoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ICargoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapDepartamentos(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Estrutura.Departamentos).WithTags("Departamentos").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, IDepartamentoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IDepartamentoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, DepartamentoDto item, IDepartamentoAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IDepartamentoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IDepartamentoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapSetores(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Estrutura.Setores).WithTags("Setores").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ISetorAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ISetorAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, SetorDto item, ISetorAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ISetorAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ISetorAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapCentrosCusto(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Estrutura.CentrosCusto).WithTags("Centros de custo").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ICentroCustoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ICentroCustoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, CentroCustoDto item, ICentroCustoAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ICentroCustoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ICentroCustoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapColaboradores(IEndpointRouteBuilder app) =>
+        app.MapGet(Rotas.Colaboradores.Opcoes, (IColaboradorAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct))
+            .WithTags("Colaboradores").RequireAuthorization();
 
     private static void MapTiposEndereco(IEndpointRouteBuilder app)
     {

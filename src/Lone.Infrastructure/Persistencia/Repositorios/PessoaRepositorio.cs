@@ -125,6 +125,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Etiquetas)
             .Include(p => p.ValoresPersonalizados)
             .Include(p => p.ValoresDocumentos)
+            .Include(p => p.Vinculos)
+            .Include(p => p.Lotacoes)
             .Include(p => p.Bloqueios)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
@@ -268,6 +270,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Etiquetas)
             .Include(p => p.ValoresPersonalizados)
             .Include(p => p.ValoresDocumentos)
+            .Include(p => p.Vinculos)
+            .Include(p => p.Lotacoes)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == dados.Id, ct)
             ?? throw new ConflitoDeEdicaoException();
@@ -306,6 +310,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         SincronizarFilhos(db, atual.Id, atual.ValoresPersonalizados, dados.ValoresPersonalizados);
         ReaproveitarIds(atual.ValoresDocumentos, dados.ValoresDocumentos, v => (v.PessoaDocumentoId, v.CampoId));
         SincronizarFilhos(db, atual.Id, atual.ValoresDocumentos, dados.ValoresDocumentos);
+
+        // Colaborador: vínculos e lotações são histórico — nunca apagados (desligamento e fim de período encerram).
+        SincronizarFilhos(db, atual.Id, atual.Vinculos, dados.Vinculos, apagarAusentes: false);
+        SincronizarFilhos(db, atual.Id, atual.Lotacoes, dados.Lotacoes, apagarAusentes: false);
 
         // Eventos de negócio (ex.: desativação) foram registrados na instância editada: vão com a gravada.
         atual.ReceberEventosDe(dados);

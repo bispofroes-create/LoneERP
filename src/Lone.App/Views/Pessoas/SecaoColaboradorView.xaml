@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Colaborador: vínculos com as empresas do grupo (admissão/desligamento) e lotações com vigência.
+     Nada é apagado: vínculo gravado é encerrado pelo desligamento; lotação gravada é encerrada por "Nova lotação". -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoColaboradorView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+            <Label Text="Vínculos com as empresas do grupo. Mudou cargo, departamento, setor, centro de custo ou gestor? Use &quot;Nova lotação&quot;: o período atual é encerrado e fica no histórico."
+                   Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
+            <Button Grid.Column="1" Text="Adicionar vínculo" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarVinculoCommand}" />
+        </Grid>
+        <ActivityIndicator IsRunning="True" IsVisible="{Binding Formulario.AguardandoOpcoesColaborador}"
+                           HorizontalOptions="Start" />
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Vinculos}" Spacing="8">
+            <BindableLayout.EmptyView>
+                <Label Text="Nenhum vínculo. Clique em &quot;Adicionar vínculo&quot;." Style="{StaticResource Secundario}" Margin="0,8" />
+            </BindableLayout.EmptyView>
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:VinculoFormulario">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                        IsVisible="{Binding PodeRemover}" />
+                            </Grid>
+                            <FlexLayout Wrap="Wrap">
+                                <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" />
+                                <c:Campo Rotulo="Matrícula" Texto="{Binding Matricula}" />
+                                <c:CampoEscolha Rotulo="Tipo de vínculo" Itens="{Binding ListaTipos}" Selecionado="{Binding Tipo}" />
+                                <c:Campo Rotulo="Admissão" Texto="{Binding AdmissaoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Jornada semanal (h)" Texto="{Binding JornadaSemanal}" Mascara="Numero" Dica="Ex.: 44" />
+                                <c:Campo Rotulo="Desligamento" Texto="{Binding DesligamentoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Motivo do desligamento" Texto="{Binding MotivoDesligamento}" IsVisible="{Binding Desligado}" />
+                                <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
+                            </FlexLayout>
+
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                <Label Text="Lotações" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="Nova lotação" Style="{StaticResource BotaoSecundario}" Command="{Binding NovaLotacaoCommand}" />
+                            </Grid>
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Lotacoes}" Spacing="6">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="pes:LotacaoFormulario">
+                                        <Border Style="{StaticResource CartaoItem}">
+                                            <VerticalStackLayout>
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Label Text="{Binding Periodo}" FontAttributes="Bold" VerticalOptions="Center" />
+                                                    <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                                            IsVisible="{Binding PodeRemover}" />
+                                                </Grid>
+                                                <Label Text="{Binding ResumoGravado}" Style="{StaticResource Secundario}" />
+                                                <FlexLayout Wrap="Wrap">
+                                                    <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                                    <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
+                                                    <c:CampoEscolha Rotulo="Cargo" Itens="{Binding Cargos}" Selecionado="{Binding Cargo}"
+                                                                    IsEnabled="{Binding OpcoesCarregadas}" />
+                                                    <c:CampoEscolha Rotulo="Departamento" Itens="{Binding Departamentos}" Selecionado="{Binding Departamento}"
+                                                                    IsEnabled="{Binding OpcoesCarregadas}" />
+                                                    <c:CampoEscolha Rotulo="Setor" Itens="{Binding Setores}" Selecionado="{Binding Setor}"
+                                                                    IsEnabled="{Binding OpcoesCarregadas}" />
+                                                    <c:CampoEscolha Rotulo="Centro de custo" Itens="{Binding CentrosCusto}" Selecionado="{Binding CentroCusto}"
+                                                                    IsEnabled="{Binding OpcoesCarregadas}" />
+                                                    <c:CampoEscolha Rotulo="Gestor" Itens="{Binding Gestores}" Selecionado="{Binding Gestor}"
+                                                                    IsEnabled="{Binding OpcoesCarregadas}" />
+                                                </FlexLayout>
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

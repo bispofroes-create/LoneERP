@@ -78,6 +78,12 @@ public sealed class PessoaDto
     public List<ContatoDto> Contatos { get; set; } = new();
     public List<DocumentoDto> Documentos { get; set; } = new();
 
+    /// <summary>Dados de colaborador (vínculos e lotações). Vazio e <see cref="ColaboradorOculto"/> = sem permissão para vê-los.</summary>
+    public List<Lone.Contracts.Colaboradores.VinculoDto> Vinculos { get; set; } = new();
+
+    /// <summary>Somente leitura: o usuário não tem a permissão de colaborador; a API mantém os dados gravados.</summary>
+    public bool ColaboradorOculto { get; set; }
+
     /// <summary>Só no envio: motivo da alteração (opcional), gravado na auditoria desta gravação. Não é lido de volta.</summary>
     public string? MotivoAlteracao { get; set; }
     public List<PapelDto> Papeis { get; set; } = new();

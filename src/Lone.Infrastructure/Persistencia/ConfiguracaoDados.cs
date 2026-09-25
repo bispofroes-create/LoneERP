@@ -7,6 +7,7 @@ using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
 using Lone.Application.Documentos;
+using Lone.Application.Colaboradores;
 using Lone.Application.Infraestrutura;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
@@ -44,6 +45,12 @@ public static class ConfiguracaoDados
         services.AddScoped<ITipoEnderecoRepositorio, TipoEnderecoRepositorio>();
         services.AddScoped<ITipoDocumentoRepositorio, TipoDocumentoRepositorio>();
         services.AddScoped<IAnexoRepositorio, AnexoRepositorio>();
+        services.AddScoped<ICargoRepositorio, CargoRepositorio>();
+        services.AddScoped<IDepartamentoRepositorio, DepartamentoRepositorio>();
+        services.AddScoped<ISetorRepositorio, SetorRepositorio>();
+        services.AddScoped<ICentroCustoRepositorio, CentroCustoRepositorio>();
+        services.AddScoped<IOcupacoesDoCargo, OcupacoesDoCargo>();
+        services.AddScoped<IColaboradorConsultas, ColaboradorConsultas>();
 
         return services;
     }
