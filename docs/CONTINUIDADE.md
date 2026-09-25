@@ -278,6 +278,9 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   estabelecimento da ficha quebrava no banco; histórico fica), índice único dos campos personalizados sem filtro,
   filiais nas metas (filtro antes da projeção), contagens das metas pelos períodos (encerrado tem Ativo = falso),
   limites de texto das metas validados, permissão conferida antes na mudança de situação da meta.
+- **Revisão de Pessoas — endereço × finalidade (26/09/2026):** ver `docs/REVISAO-PESSOAS.md` §11. **Migração nova** (depois
+  de `CadastroGeral`): `Add-Migration FinalidadesEndereco -Project Lone.Infrastructure -StartupProject Lone.Api`, depois
+  `python Ferramentas/inserir-sql-migracao.py` (coloca `SqlMigracaoFinalidadesEndereco.MigrarFinalidades` no ponto certo).
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados
   acima, os SQL de `SqlMigracaoCadastroGeral`: `AtivarEnderecos`, `LigarDocumentosAosTipos` (antes da FK dos
   documentos para `TiposDocumento`), `CamposVisiveis`, `CarteiraDosVendedoresPadrao` (depois do insert de

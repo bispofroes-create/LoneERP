@@ -6,12 +6,25 @@ namespace Lone.Tests.Dominio;
 
 public class ConferenciaInscricaoEstadualTests
 {
-    private static Pessoa Empresa(string ie, string uf) => new()
+    private static Pessoa Empresa(string ie, string uf)
     {
-        Natureza = NaturezaPessoa.Juridica,
-        Enderecos = [new PessoaEndereco { Id = Guid.NewGuid(), Uf = uf, Finalidades = FinalidadeEndereco.Principal }],
-        Estabelecimentos = [new Estabelecimento { Id = Guid.NewGuid(), Principal = true, InscricaoEstadual = ie }]
-    };
+        var endereco = new PessoaEndereco { Id = Guid.NewGuid(), Uf = uf, Finalidades = FinalidadeEndereco.Principal };
+        return new Pessoa
+        {
+            Natureza = NaturezaPessoa.Juridica,
+            Enderecos = [endereco],
+            // Principal explícito da finalidade Fiscal (não vem mais da ordem nem da coluna de bits).
+            FinalidadesEnderecos =
+            [
+                new PessoaEnderecoFinalidade
+                {
+                    Id = Guid.NewGuid(), PessoaEnderecoId = endereco.Id, Principal = true,
+                    FinalidadeId = Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Id(Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Fiscal)
+                }
+            ],
+            Estabelecimentos = [new Estabelecimento { Id = Guid.NewGuid(), Principal = true, InscricaoEstadual = ie }]
+        };
+    }
 
     [Fact]
     public void IE_que_confere_com_a_UF_nao_gera_aviso()

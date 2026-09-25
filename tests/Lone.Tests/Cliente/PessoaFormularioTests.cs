@@ -12,13 +12,13 @@ public class PessoaFormularioTests
         f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
 
     [Fact]
-    public void Pessoa_nova_nasce_cliente_com_um_endereco_principal_e_um_estabelecimento()
+    public void Pessoa_nova_nasce_cliente_com_um_endereco_sem_finalidade_e_um_estabelecimento()
     {
         var f = PessoaFormulario.NovaPessoa();
 
         Assert.True(f.Nova);
         Assert.True(f.PapelCliente.Ativo);
-        Assert.True(Assert.Single(f.Enderecos).Principal);
+        Assert.True(Assert.Single(f.Enderecos).SemFinalidades); // finalidade e principal: o usuário escolhe
         Assert.True(Assert.Single(f.Estabelecimentos).EhPrincipal);
     }
 
@@ -75,15 +75,23 @@ public class PessoaFormularioTests
     }
 
     [Fact]
-    public void Marcar_um_endereco_como_principal_desmarca_os_outros()
+    public async Task Tornar_principal_de_uma_finalidade_pergunta_e_desmarca_o_anterior()
     {
-        var f = PessoaFormulario.NovaPessoa();
-        var segundo = new EnderecoFormulario();
+        var f = PessoaFormulario.NovaPessoa(finalidades: Finalidades.Cadastro);
+        f.Enderecos[0].Logradouro = "Rua A";
+        var segundo = new EnderecoFormulario { Logradouro = "Rua B" };
         f.AdicionarEndereco(segundo);
+        var entregaA = f.Enderecos[0].AdicionarFinalidade(Finalidades.Entrega)!;
+        var entregaB = segundo.AdicionarFinalidade(Finalidades.Entrega)!;
+        await f.AlternarPrincipalAsync(f.Enderecos[0], entregaA);
+        string? pergunta = null;
+        f.Confirmar = (_, mensagem, _, _) => { pergunta = mensagem; return Task.FromResult(true); };
 
-        segundo.Principal = true;
+        await f.AlternarPrincipalAsync(segundo, entregaB);
 
-        Assert.Equal(new[] { false, true }, f.Enderecos.Select(e => e.Principal));
+        Assert.Contains("Já existe um endereço principal para Entrega", pergunta);
+        Assert.False(entregaA.Principal);
+        Assert.True(entregaB.Principal);
     }
 
     [Fact]

@@ -227,10 +227,12 @@ public sealed partial class PessoaFormulario : ObservableObject
                                              IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
                                              IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null,
                                              IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null,
-                                             IReadOnlyList<CampoPersonalizadoDto>? camposDocumento = null)
+                                             IReadOnlyList<CampoPersonalizadoDto>? camposDocumento = null,
+                                             IReadOnlyList<FinalidadeEnderecoDto>? finalidades = null)
     {
         var f = new PessoaFormulario(IdSequencial.Novo(), nova: true)
         {
+            _finalidades = finalidades ?? [],
             _camposDocumento = camposDocumento ?? [],
             _tiposMeio = tiposMeio ?? [],
             _tiposEndereco = tiposEndereco ?? [],
@@ -242,7 +244,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         f.DefinirProfissoes(profissoes, null);
         f.PapelCliente.Ativo = true;
         f.OuvirPapeis();
-        f.AdicionarEndereco(new EnderecoFormulario { Principal = true });
+        f.AdicionarEndereco(new EnderecoFormulario()); // finalidades e principal: escolhidos pelo usuário
         f.AdicionarEstabelecimento();
         return f;
     }
@@ -251,11 +253,14 @@ public sealed partial class PessoaFormulario : ObservableObject
                                       IReadOnlyList<ProfissaoDto>? profissoes = null, IReadOnlyList<PapelCadastroDto>? papeis = null,
                                       IReadOnlyList<TipoMeioContatoDto>? tiposMeio = null, IReadOnlyList<TipoEnderecoDto>? tiposEndereco = null,
                                       IReadOnlyList<TipoDocumentoDto>? tiposDocumento = null,
-                                      IReadOnlyList<CampoPersonalizadoDto>? camposDocumento = null)
+                                      IReadOnlyList<CampoPersonalizadoDto>? camposDocumento = null,
+                                      IReadOnlyList<FinalidadeEnderecoDto>? finalidades = null)
     {
         var opcoesPapel = MontarPapeis(papeis, p.Papeis, out var papeisDesconhecidos);
         var f = new PessoaFormulario(p.Id, nova: false)
         {
+            _finalidades = finalidades ?? [],
+            RevisarFinalidadesEndereco = p.RevisarFinalidadesEndereco,
             InformacoesAdicionais = MontarInformacoesAdicionais(campos, p.ValoresPersonalizados),
             Etiquetas = EtiquetasFormulario.Criar(etiquetas, p.EtiquetaIds),
             SituacaoGravada = p.Situacao,
@@ -359,6 +364,12 @@ public sealed partial class PessoaFormulario : ObservableObject
             erros.Add(naturalidade);
         if (EhFisica && Profissao.Validar("Profissão") is { } profissao)
             erros.Add(profissao);
+        // Endereço físico repetido: não grava um novo igual a um existente (usa-se o existente e acrescenta a finalidade).
+        for (var i = 0; i < Enderecos.Count; i++)
+            if (Enderecos[i].IgualA is { } igual)
+                erros.Add(Enderecos[i].DuplicidadePossivel
+                    ? $"Endereço {i + 1}: parece o mesmo de \"{igual.Resumo}\". Use o endereço existente ou confirme que é outro endereço."
+                    : $"Endereço {i + 1}: este endereço já está cadastrado para esta pessoa (\"{igual.Resumo}\"). Use o endereço existente.");
         // Endereço inativo não é mais conferido (pode ser antigo, de antes da tabela do IBGE).
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].Ativo && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
@@ -553,9 +564,15 @@ public sealed partial class PessoaFormulario : ObservableObject
         endereco.MostrarSeInativo = MostrarEnderecosInativos;
         endereco.AoRemover = () => RemoverEndereco(endereco);
         endereco.AoBuscarCep = e => ConsultaCep?.Invoke(e) ?? Task.CompletedTask;
+        endereco.DefinirFinalidades(_finalidades);
+        endereco.AoPedirPrincipal = AlternarPrincipalAsync;
+        endereco.AoUsarExistente = UsarEnderecoExistente;
+        endereco.AoConfirmarOutro = e => { e.OutroEnderecoConfirmado = true; AtualizarDuplicidades(); };
         endereco.PropertyChanged += Endereco_PropertyChanged;
+        endereco.Finalidades.CollectionChanged += (_, _) => AtualizarAvisosEnderecos();
         Enderecos.Add(endereco);
         OnPropertyChanged(nameof(TemEnderecosInativos));
+        AtualizarDuplicidades();
     }
 
     /// <summary>
@@ -567,10 +584,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         foreach (var e in Estabelecimentos.Where(e => e.EnderecoFiscal == endereco))
             e.EnderecoFiscal = null;
         if (endereco.Gravado)
-        {
-            endereco.Principal = false;
-            endereco.Ativo = false;
-        }
+            endereco.Ativo = false; // perde todo principal (EnderecoFormulario.OnAtivoChanged); fica no histórico
         else
         {
             endereco.PropertyChanged -= Endereco_PropertyChanged;
@@ -592,14 +606,234 @@ public sealed partial class PessoaFormulario : ObservableObject
         foreach (var e in Enderecos) e.MostrarSeInativo = value;
     }
 
-    /// <summary>Só um endereço principal: marcar um desmarca os outros.</summary>
+    /// <summary>Cadastro de finalidades de endereço (Comercial, Fiscal, Entrega...).</summary>
+    private IReadOnlyList<FinalidadeEnderecoDto> _finalidades = [];
+
+    /// <summary>Definido pela tela: pergunta ao usuário (título, mensagem, aceitar, cancelar). Sem ele, aceita.</summary>
+    public Func<string, string, string, string, Task<bool>>? Confirmar { get; set; }
+
+    private Task<bool> ConfirmarAsync(string titulo, string mensagem, string aceitar, string cancelar) =>
+        Confirmar?.Invoke(titulo, mensagem, aceitar, cancelar) ?? Task.FromResult(true);
+
+    private static readonly HashSet<string> CamposFisicos =
+    [
+        nameof(EnderecoFormulario.Logradouro), nameof(EnderecoFormulario.Numero), nameof(EnderecoFormulario.Complemento),
+        nameof(EnderecoFormulario.Bairro), nameof(EnderecoFormulario.Cep), nameof(EnderecoFormulario.Cidade),
+        nameof(EnderecoFormulario.NoExterior), nameof(EnderecoFormulario.Resumo), nameof(EnderecoFormulario.Ativo)
+    ];
+
     private void Endereco_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(EnderecoFormulario.Ativo)) OnPropertyChanged(nameof(TemEnderecosInativos));
-        if (e.PropertyName != nameof(EnderecoFormulario.Principal) || sender is not EnderecoFormulario { Principal: true } marcado)
+        if (e.PropertyName is not null && CamposFisicos.Contains(e.PropertyName)) AtualizarDuplicidades();
+        else if (e.PropertyName == nameof(EnderecoFormulario.SemFinalidades)) AtualizarAvisosEnderecos();
+    }
+
+    /// <summary>Id da finalidade Fiscal no cadastro (pelo código, nunca por número fixo). Vazio = cadastro sem ela.</summary>
+    private Guid IdFiscal => _finalidades.FirstOrDefault(f => f.Codigo == Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Fiscal)?.Id ?? Guid.Empty;
+
+    /// <summary>Acrescenta a finalidade Fiscal; principal só se nenhum outro endereço já for o principal fiscal.</summary>
+    private void MarcarFiscal(EnderecoFormulario endereco, bool principalSeLivre)
+    {
+        if (IdFiscal == Guid.Empty) return;
+        var relacao = endereco.Finalidades.FirstOrDefault(f => f.Ativo && f.FinalidadeId == IdFiscal) ?? endereco.AdicionarFinalidade(IdFiscal);
+        var outroPrincipal = Enderecos.Any(e => !ReferenceEquals(e, endereco) && e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal));
+        if (relacao is not null && principalSeLivre && !outroPrincipal) relacao.Principal = true;
+        endereco.AvisoFinalidade = string.Empty;
+    }
+
+    // ---- Principal por finalidade ----
+
+    /// <summary>
+    /// Marca/desmarca o endereço como principal da pessoa para a finalidade. Se outro endereço já é o principal dessa
+    /// finalidade, pergunta antes de substituir. Nunca decide pela ordem dos endereços.
+    /// </summary>
+    public async Task AlternarPrincipalAsync(EnderecoFormulario endereco, FinalidadeNoEndereco finalidade)
+    {
+        endereco.AvisoFinalidade = string.Empty;
+        if (finalidade.Principal)
+        {
+            finalidade.Principal = false;
+            AtualizarAvisosEnderecos();
             return;
-        foreach (var outro in Enderecos.Where(x => !ReferenceEquals(x, marcado)))
-            outro.Principal = false;
+        }
+        if (!endereco.Ativo || !finalidade.Ativo)
+        {
+            endereco.AvisoFinalidade = "Endereço ou finalidade inativa não pode ser principal.";
+            return;
+        }
+
+        var atual = Enderecos
+            .Where(e => !ReferenceEquals(e, endereco) && e.Ativo)
+            .SelectMany(e => e.Finalidades.Where(f => f.Ativo && f.Principal && f.FinalidadeId == finalidade.FinalidadeId).Select(f => (Endereco: e, Relacao: f)))
+            .FirstOrDefault();
+        if (atual.Relacao is not null)
+        {
+            var nome = finalidade.Nome;
+            if (!await ConfirmarAsync("Endereço principal",
+                    $"Já existe um endereço principal para {nome}.\nEndereço atual: {atual.Endereco.Resumo}\n\n" +
+                    $"Deseja definir este endereço como o principal para {nome}?",
+                    "Tornar principal", "Cancelar"))
+                return;
+            atual.Relacao.Principal = false;
+        }
+        finalidade.Principal = true;
+        AtualizarAvisosEnderecos();
+    }
+
+    // ---- Duplicidade de endereço físico ----
+
+    /// <summary>
+    /// Procura, para cada endereço novo, um endereço ativo igual (ou possivelmente igual) já na ficha. Igual: o novo não
+    /// pode ser gravado; usa-se o existente. Possível: o usuário decide ("Usar endereço existente" ou "Continuar com outro").
+    /// </summary>
+    public void AtualizarDuplicidades()
+    {
+        foreach (var e in Enderecos)
+        {
+            EnderecoFormulario? igual = null;
+            var possivel = false;
+            if (!e.Gravado && e.Ativo)
+                foreach (var outro in Enderecos.Where(o => !ReferenceEquals(o, e) && o.Ativo && Enderecos.IndexOf(o) < Enderecos.IndexOf(e)))
+                {
+                    var s = Lone.Domain.Enderecos.DuplicidadeEndereco.Comparar(e.ParaComparacao(), outro.ParaComparacao());
+                    if (s == Lone.Domain.Enderecos.SemelhancaEndereco.Igual) { igual = outro; possivel = false; break; }
+                    if (s == Lone.Domain.Enderecos.SemelhancaEndereco.Possivel && igual is null && !e.OutroEnderecoConfirmado)
+                    {
+                        igual = outro;
+                        possivel = true;
+                    }
+                }
+            e.DuplicidadePossivel = possivel;
+            e.IgualA = igual;
+        }
+        AtualizarAvisosEnderecos();
+    }
+
+    /// <summary>
+    /// "Usar endereço existente": as finalidades do endereço novo passam para o existente (sem repetir; retirada é
+    /// reativada; o principal vai junto) e o novo sai da ficha. Filiais que usavam o novo passam a usar o existente.
+    /// </summary>
+    public void UsarEnderecoExistente(EnderecoFormulario novo)
+    {
+        if (novo.IgualA is not { } existente || novo.Gravado) return;
+        var jaTinha = new List<string>();
+        var acrescentadas = new List<string>();
+        foreach (var f in novo.Finalidades.Where(f => f.Ativo).ToList())
+        {
+            if (existente.Finalidades.Any(x => x.Ativo && x.FinalidadeId == f.FinalidadeId))
+            {
+                var ja = existente.Finalidades.First(x => x.Ativo && x.FinalidadeId == f.FinalidadeId);
+                if (f.Principal) ja.Principal = true; // o principal escolhido no novo não se perde
+                jaTinha.Add(f.Nome);
+                continue;
+            }
+            var levada = existente.AdicionarFinalidade(f.FinalidadeId);
+            if (levada is not null) levada.Principal = f.Principal;
+            acrescentadas.Add(f.Nome);
+        }
+        foreach (var e in Estabelecimentos.Where(e => ReferenceEquals(e.EnderecoFiscal, novo))) e.EnderecoFiscal = existente;
+        novo.PropertyChanged -= Endereco_PropertyChanged;
+        Enderecos.Remove(novo);
+        existente.AvisoFinalidade = string.Join(" ", new[]
+        {
+            acrescentadas.Count > 0 ? $"Finalidades acrescentadas: {string.Join(", ", acrescentadas)}." : null,
+            jaTinha.Count > 0 ? $"Este endereço já possui: {string.Join(", ", jaTinha)}." : null
+        }.OfType<string>());
+        AtualizarDuplicidades();
+    }
+
+    // ---- Duplicados já gravados (consolidação assistida) ----
+
+    /// <summary>Pares de endereços gravados que são o mesmo endereço físico (iguais ou possivelmente iguais).</summary>
+    public ObservableCollection<ParDeEnderecos> DuplicadosGravados { get; } = new();
+    public bool TemDuplicadosGravados => DuplicadosGravados.Count > 0;
+
+    private readonly HashSet<(Guid, Guid)> _mantidosSeparados = new();
+
+    // ---- Revisão das finalidades (marca vinda da migração) ----
+
+    /// <summary>Somente leitura: a migração deixou pendências (a API desliga quando todas forem resolvidas).</summary>
+    public bool RevisarFinalidadesEndereco { get; private set; }
+
+    /// <summary>Motivo detalhado por finalidade (ex.: "Entrega: existem 2 endereços e nenhum foi definido como principal.").</summary>
+    public ObservableCollection<string> PendenciasRevisao { get; } = new();
+    public bool TemPendenciasRevisao => PendenciasRevisao.Count > 0;
+
+    /// <summary>Refaz os avisos que dependem de todos os endereços (duplicados gravados e pendências da revisão).</summary>
+    private void AtualizarAvisosEnderecos()
+    {
+        DuplicadosGravados.Clear();
+        var gravados = Enderecos.Where(e => e.Gravado && e.Ativo).ToList();
+        for (var i = 0; i < gravados.Count; i++)
+            for (var j = i + 1; j < gravados.Count; j++)
+            {
+                var s = Lone.Domain.Enderecos.DuplicidadeEndereco.Comparar(gravados[i].ParaComparacao(), gravados[j].ParaComparacao());
+                if (s == Lone.Domain.Enderecos.SemelhancaEndereco.Diferente || _mantidosSeparados.Contains((gravados[i].Id, gravados[j].Id))) continue;
+                DuplicadosGravados.Add(new ParDeEnderecos(gravados[i], gravados[j], s == Lone.Domain.Enderecos.SemelhancaEndereco.Possivel)
+                {
+                    AoConsolidar = ConsolidarAsync,
+                    AoManterSeparados = par => { _mantidosSeparados.Add((par.A.Id, par.B.Id)); AtualizarAvisosEnderecos(); }
+                });
+            }
+        OnPropertyChanged(nameof(TemDuplicadosGravados));
+
+        PendenciasRevisao.Clear();
+        if (RevisarFinalidadesEndereco)
+        {
+            var ativos = Enderecos.Where(e => e.Ativo).ToList();
+            foreach (var grupo in ativos.SelectMany(e => e.Finalidades.Where(f => f.Ativo).Select(f => (Endereco: e, Relacao: f)))
+                         .GroupBy(x => x.Relacao.FinalidadeId)
+                         .Where(g => g.Count() > 1 && !g.Any(x => x.Relacao.Principal)))
+                PendenciasRevisao.Add($"{grupo.First().Relacao.Nome}: existem {grupo.Count()} endereços e nenhum foi definido como principal.");
+            foreach (var e in ativos.Where(e => e.SemFinalidades))
+                PendenciasRevisao.Add($"{e.Resumo}: endereço sem finalidade (escolha para que ele serve).");
+        }
+        OnPropertyChanged(nameof(TemPendenciasRevisao));
+    }
+
+    /// <summary>
+    /// Consolida o duplicado no endereço mantido, depois de mostrar ao usuário como vai ficar: as finalidades são unidas
+    /// sem repetir (principal preservado), o duplicado fica inativo e marcado como consolidado (nunca é apagado) e as
+    /// filiais que o usavam passam a usar o mantido. A API registra na auditoria o que foi consolidado em quê.
+    /// </summary>
+    public async Task ConsolidarAsync(EnderecoFormulario mantido, EnderecoFormulario duplicado)
+    {
+        var resultado = new List<string>();
+        foreach (var grupo in mantido.Finalidades.Where(f => f.Ativo).Concat(duplicado.Finalidades.Where(f => f.Ativo))
+                     .GroupBy(f => f.FinalidadeId))
+            resultado.Add(grupo.First().Nome + (grupo.Any(f => f.Principal) ? " (principal)" : string.Empty));
+
+        var diferencas = new List<string>();
+        if (!string.Equals(mantido.Descricao, duplicado.Descricao, StringComparison.Ordinal) && duplicado.Descricao.Length > 0)
+            diferencas.Add($"descrição \"{duplicado.Descricao}\"");
+        if (mantido.Tipo?.Valor != duplicado.Tipo?.Valor && duplicado.Tipo?.Valor is not null)
+            diferencas.Add($"tipo \"{duplicado.Tipo.Texto}\"");
+        if (!string.Equals(mantido.Observacoes, duplicado.Observacoes, StringComparison.Ordinal) && duplicado.Observacoes.Length > 0)
+            diferencas.Add($"observações \"{duplicado.Observacoes}\"");
+
+        var mensagem =
+            $"Endereço mantido: {mantido.Resumo}\n" +
+            $"Endereço consolidado (fica inativo, no histórico): {duplicado.Resumo}\n\n" +
+            $"Finalidades depois de consolidar: {(resultado.Count > 0 ? string.Join(", ", resultado) : "nenhuma")}\n" +
+            (diferencas.Count > 0 ? $"Do endereço consolidado não passam: {string.Join("; ", diferencas)} (ficam registrados nele).\n" : string.Empty) +
+            (Estabelecimentos.Any(e => ReferenceEquals(e.EnderecoFiscal, duplicado)) ? "Filiais que usavam o endereço consolidado passam a usar o mantido.\n" : string.Empty);
+        if (!await ConfirmarAsync("Consolidar endereços", mensagem, "Consolidar", "Cancelar")) return;
+
+        foreach (var f in duplicado.Finalidades.Where(f => f.Ativo).ToList())
+        {
+            var noMantido = mantido.Finalidades.FirstOrDefault(x => x.FinalidadeId == f.FinalidadeId);
+            var eraPrincipal = f.Principal;
+            f.Principal = false;
+            if (noMantido is null) noMantido = mantido.AdicionarFinalidade(f.FinalidadeId);
+            else if (!noMantido.Ativo) { noMantido.Ativo = true; noMantido.Principal = false; }
+            if (noMantido is not null && eraPrincipal) noMantido.Principal = true;
+        }
+        duplicado.Ativo = false;               // perde todo principal; relações ficam como histórico
+        duplicado.MescladoEmId = mantido.Id;   // registra em qual foi consolidado
+        foreach (var e in Estabelecimentos.Where(e => ReferenceEquals(e.EnderecoFiscal, duplicado))) e.EnderecoFiscal = mantido;
+        mantido.AvisoFinalidade = "Endereços consolidados. Salve para gravar.";
+        AtualizarDuplicidades();
     }
 
     // ---- Estabelecimentos ----
@@ -869,12 +1103,16 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (ReferenceEquals(estabelecimento, Principal))
         {
             if (d.RazaoSocial.Length > 0) Nome = d.RazaoSocial;
-            endereco = Enderecos.FirstOrDefault(e => e.Ativo && e.Principal) ?? Enderecos.FirstOrDefault(e => e.Ativo);
+            // O endereço fiscal da empresa: o principal da finalidade Fiscal; sem ele, o único endereço ativo; senão, um novo.
+            var ativos = Enderecos.Where(e => e.Ativo).ToList();
+            endereco = ativos.FirstOrDefault(e => e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal))
+                       ?? (ativos.Count == 1 ? ativos[0] : null);
             if (endereco is null)
             {
-                endereco = new EnderecoFormulario { Principal = true, Fiscal = true };
+                endereco = new EnderecoFormulario();
                 AdicionarEndereco(endereco);
             }
+            MarcarFiscal(endereco, principalSeLivre: true);
         }
         else
         {
@@ -882,8 +1120,9 @@ public sealed partial class PessoaFormulario : ObservableObject
             endereco = estabelecimento.EnderecoFiscal;
             if (endereco is null)
             {
-                endereco = new EnderecoFormulario { Descricao = "Filial " + DocumentoFiscal.Formatar(d.Cnpj), Fiscal = true };
+                endereco = new EnderecoFormulario { Descricao = "Filial " + DocumentoFiscal.Formatar(d.Cnpj) };
                 AdicionarEndereco(endereco);
+                MarcarFiscal(endereco, principalSeLivre: false); // o principal fiscal é o da matriz
                 estabelecimento.EnderecoFiscal = endereco;
             }
         }
@@ -921,4 +1160,40 @@ public sealed partial class PessoaFormulario : ObservableObject
                 Descricao = "Receita Federal"
             });
     }
+}
+
+/// <summary>
+/// Dois endereços já gravados que são o mesmo endereço físico. A ficha avisa e oferece consolidar (escolhendo qual
+/// fica) ou manter separados; nada é juntado sem a confirmação do usuário.
+/// </summary>
+public sealed partial class ParDeEnderecos : ObservableObject
+{
+    public ParDeEnderecos(EnderecoFormulario a, EnderecoFormulario b, bool possivel)
+    {
+        A = a;
+        B = b;
+        Possivel = possivel;
+    }
+
+    public EnderecoFormulario A { get; }
+    public EnderecoFormulario B { get; }
+
+    /// <summary>Faltam dados (CEP ou bairro) para ter certeza.</summary>
+    public bool Possivel { get; }
+
+    public string Titulo => Possivel ? "Possível endereço duplicado" : "Endereços duplicados";
+    public string TextoA => $"1) {A.Resumo} — finalidades: {A.TextoFinalidades}";
+    public string TextoB => $"2) {B.Resumo} — finalidades: {B.TextoFinalidades}";
+
+    public Func<EnderecoFormulario, EnderecoFormulario, Task>? AoConsolidar { get; set; }
+    public Action<ParDeEnderecos>? AoManterSeparados { get; set; }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private Task ManterPrimeiroAsync() => AoConsolidar?.Invoke(A, B) ?? Task.CompletedTask;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private Task ManterSegundoAsync() => AoConsolidar?.Invoke(B, A) ?? Task.CompletedTask;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ManterSeparados() => AoManterSeparados?.Invoke(this);
 }

@@ -68,6 +68,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     /// <summary>Tipos de endereço (Sede, Depósito...), com os desativados.</summary>
     private List<TipoEnderecoDto> _tiposEndereco = [];
+    private List<FinalidadeEnderecoDto> _finalidadesEndereco = [];
 
     /// <summary>Tipos de documento (RG, CNH, Alvará...), com os desativados.</summary>
     private List<TipoDocumentoDto> _tiposDocumento = [];
@@ -183,6 +184,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         try { _tiposEndereco = await _tiposEnderecoApi.ListarAsync(incluirInativos: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposEndereco = []; }
 
+        // Finalidades de endereço (cadastro): sem a lista, as gravadas voltam intactas, mas não dá para acrescentar.
+        try { _finalidadesEndereco = await _tiposEnderecoApi.ListarFinalidadesAsync(); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _finalidadesEndereco = []; }
+
         // Sem os tipos de documento, a ficha oferece os de sistema e o tipo gravado volta intacto.
         try { _tiposDocumento = await _tiposDocumentoApi.ListarAsync(incluirInativos: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _tiposDocumento = []; }
@@ -276,12 +281,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override async Task AbrirAsync(PessoaResumo item)
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
     }
 
     protected override Task NovoItemAsync()
     {
-        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento);
+        Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
         return Task.CompletedTask;
     }
 
@@ -300,7 +305,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void MostrarGravada(PessoaDto dto)
     {
         var aba = Aba;
-        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento);
+        Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 
@@ -315,6 +320,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
         newValue.PodeVerDadosSensiveis = _sessao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis);
         newValue.ConsultaCep = ConsultarCepAsync;
+        newValue.Confirmar = ConfirmarAsync; // diálogo da base (CadastroViewModelBase)
         newValue.ConsultaCnpj = ConsultarCnpjAsync;
         newValue.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
         newValue.AcoesAnexos.Anexar = AnexarAsync;
@@ -331,6 +337,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void Desligar(PessoaFormulario formulario)
     {
         formulario.ConsultaCep = null;
+        formulario.Confirmar = null;
         formulario.ConsultaCnpj = null;
         formulario.FonteMunicipios = null;
         formulario.AcoesAnexos.Anexar = null;
@@ -521,7 +528,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     [RelayCommand]
     private void AdicionarEndereco()
     {
-        if (Formulario is { } f) f.AdicionarEndereco(new EnderecoFormulario { Principal = !f.Enderecos.Any(e => e.Ativo) });
+        if (Formulario is { } f) f.AdicionarEndereco(new EnderecoFormulario()); // finalidades e principal: escolhidos pelo usuário
     }
 
     [RelayCommand]

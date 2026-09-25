@@ -140,3 +140,41 @@ PF×PJ, Comercial com/sem cliente, campos personalizados; importação da CBO (p
 6. **R7 / Comercial:** contextual ao papel Cliente; tirar o papel **não apaga** os dados comerciais (preservados).
 7. **Histórico:** o que deixa de valer é desativado/encerrado, nunca apagado.
 8. **Execução:** uma etapa por vez, começando pelo R1; nada fora do escopo sem avisar antes.
+
+## 11. Endereço × finalidade (aprovado em 26/09/2026)
+
+**Conceito.** Endereço = localização física; finalidade = uso. "Principal" não é finalidade: é a marca da relação
+Pessoa + Endereço + Finalidade. O mesmo endereço não é cadastrado de novo para outro uso.
+
+**Tabelas.**
+- `FinalidadesEndereco` (cadastro): Id (PK; iniciais estáveis 7a9e1c07-…-01..06), Codigo (único, imutável:
+  COMERCIAL, RESIDENCIAL, FISCAL, ENTREGA, COBRANCA, CORRESPONDENCIA), Nome (único), Ordem, DoSistema, Ativo.
+  O sistema trabalha com o Id; regra que precisa de uma finalidade usa o Código. O enum antigo fica só para a coluna
+  legada e a migração.
+- `PessoaEnderecos`: chave alternativa (Id, PessoaId); `MescladoEmId` (FK para ela mesma); `Finalidades` (bits) passa a
+  ser **legada/derivada** — regravada pela API na mesma transação (bits das finalidades ativas + bit 1 no endereço de
+  referência da listagem); nada lê dela.
+- `Pessoas.RevisarFinalidadesEndereco`: marca geral da migração; a ficha mostra o motivo por finalidade; a API só
+  desliga (quando não restar pendência).
+- `PessoaEnderecoFinalidades`: Id, PessoaId, PessoaEnderecoId, FinalidadeId, Principal, Ativo.
+  - FK composta (PessoaEnderecoId, PessoaId) → PessoaEnderecos(Id, PessoaId): relação e endereço da mesma pessoa.
+  - Único filtrado (PessoaEnderecoId, FinalidadeId) WHERE Ativo = 1 + reativação da mesma linha ao adicionar de novo.
+  - Único filtrado (PessoaId, FinalidadeId) WHERE Principal = 1.
+  - CHECK (Principal = 0 OR Ativo = 1).
+
+**Regras.** Principal explícito (nunca pela ordem); ficha pergunta antes de substituir; endereço/relação inativos
+sem principal; endereço reativado volta sem principal; finalidade desativada não entra em associação nova.
+Endereço de referência da listagem (só exibição): principal da finalidade ativa de menor Ordem, senão o 1º ativo.
+Conferência de IE: endereço fiscal da filial → principal FISCAL → endereço de referência (nunca vira principal).
+
+**Duplicidade.** Pelo endereço físico normalizado (CEP, UF/município, bairro, logradouro com abreviações seguras no
+início, número com S/N, complemento): Igual / Possível / Diferente. Novo igual = bloqueado com "Usar endereço
+existente"; possível = o usuário confirma. Duplicados antigos: apontados na ficha e pela rotina
+`GET pessoas/enderecos-duplicados` (Consulta avançada); consolidação assistida (escolhe o que fica, mostra o
+resultado e as diferenças, une finalidades preservando o principal, duplicado inativo + `MescladoEmId`, filiais
+redirecionadas, evento na auditoria). Nunca DELETE.
+
+**Migração** (`SqlMigracaoFinalidadesEndereco.MigrarFinalidades`, inserida pela ferramenta): uma relação por bit
+(sem o bit 1); principal: (1) antigo principal com a finalidade; (2) único endereço ativo com ela; (3) 2+ sem antigo
+principal = sem principal + revisão; (4) antigo principal sem finalidade = nada inventado + revisão; (5) dois antigos
+principais = revisão. Endereço inativo = histórico sem principal. Conferências com THROW (desfaz tudo).

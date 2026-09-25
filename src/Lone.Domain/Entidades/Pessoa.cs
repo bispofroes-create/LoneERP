@@ -125,6 +125,16 @@ public class Pessoa : AgregadoRaiz
     public List<Estabelecimento> Estabelecimentos { get; set; } = new();
     public List<PessoaDocumento> Documentos { get; set; } = new();
     public List<PessoaEndereco> Enderecos { get; set; } = new();
+
+    /// <summary>Finalidades de cada endereço (endereço × uso, com o principal de cada uso).</summary>
+    public List<PessoaEnderecoFinalidade> FinalidadesEnderecos { get; set; } = new();
+
+    /// <summary>
+    /// A migração não conseguiu decidir o principal de alguma finalidade (ou o antigo endereço principal não tinha
+    /// finalidade): a ficha pede a definição manual. Sai ao salvar a ficha.
+    /// </summary>
+    [DisplayName("Revisar finalidades dos endereços")]
+    public bool RevisarFinalidadesEndereco { get; set; }
     public List<MeioContato> MeiosContato { get; set; } = new();
     public List<Contato> Contatos { get; set; } = new();
     public List<PessoaPapel> Papeis { get; set; } = new();

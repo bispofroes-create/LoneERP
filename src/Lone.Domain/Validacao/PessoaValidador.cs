@@ -130,6 +130,9 @@ public static class PessoaValidador
             }
         }
 
+        // Endereço × finalidade depende do cadastro de finalidades: RegrasFinalidadeEndereco.Validar, no PessoaAppService.
+        erros.AddRange(RegrasFinalidadeEndereco.ValidarConsolidacao(p));
+
         var idsEnderecos = p.Enderecos.Select(e => e.Id).ToHashSet();
         for (var i = 0; i < p.Estabelecimentos.Count; i++)
         {

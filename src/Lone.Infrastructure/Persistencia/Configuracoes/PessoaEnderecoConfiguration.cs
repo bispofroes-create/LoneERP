@@ -32,6 +32,12 @@ public class PessoaEnderecoConfiguration : IEntityTypeConfiguration<PessoaEndere
 
         // Município da tabela do IBGE (relatórios, filtros e NF-e por município).
         b.HasOne<Municipio>().WithMany().HasForeignKey(e => e.MunicipioId).OnDelete(DeleteBehavior.Restrict);
+
+        // (Id, PessoaId) único: alvo da FK composta das finalidades (relação e endereço sempre da mesma pessoa).
+        b.HasAlternateKey(e => new { e.Id, e.PessoaId });
+
+        // Duplicado consolidado em outro endereço da mesma pessoa (o registro fica, inativo).
+        b.HasOne<PessoaEndereco>().WithMany().HasForeignKey(e => e.MescladoEmId).OnDelete(DeleteBehavior.NoAction);
     }
 }
 
@@ -54,5 +60,50 @@ public class TipoEnderecoConfiguration : IEntityTypeConfiguration<TipoEndereco>
             Ativo = true,
             CriadoEm = criacao
         }).ToArray());
+    }
+}
+
+/// <summary>Cadastro de finalidades de endereço (as iniciais com Ids estáveis; código único e imutável).</summary>
+public class FinalidadeEnderecoCadastroConfiguration : IEntityTypeConfiguration<FinalidadeEnderecoCadastro>
+{
+    public void Configure(EntityTypeBuilder<FinalidadeEnderecoCadastro> b)
+    {
+        b.ToTable("FinalidadesEndereco");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Codigo).IsRequired().HasMaxLength(FinalidadeEnderecoCadastro.TamanhoMaximoCodigo).IsUnicode(false);
+        b.Property(x => x.Nome).IsRequired().HasMaxLength(FinalidadeEnderecoCadastro.TamanhoMaximoNome)
+            .UseCollation(EtiquetaConfiguration.CollationNome);
+        b.HasIndex(x => x.Codigo).IsUnique();
+        b.HasIndex(x => x.Nome).IsUnique();
+
+        var criacao = new DateTime(2026, 9, 26, 0, 0, 0, DateTimeKind.Utc);
+        b.HasData(global::Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Todas.Select(f => new FinalidadeEnderecoCadastro
+        {
+            Id = f.Id, Codigo = f.Codigo, Nome = f.Nome, Ordem = f.Ordem, DoSistema = true, Ativo = true, CriadoEm = criacao
+        }).ToArray());
+    }
+}
+
+/// <summary>
+/// Endereço × finalidade. O banco garante:
+/// - a relação e o endereço são da mesma pessoa (FK composta para a chave alternativa (Id, PessoaId) do endereço);
+/// - uma relação ATIVA por endereço + finalidade (índice único filtrado; retirar e voltar reativa a mesma linha);
+/// - um principal por pessoa + finalidade (índice único filtrado em Principal = 1);
+/// - relação inativa nunca é principal (CHECK).
+/// Endereço inativo sem principal é regra da API (o banco não cruza tabelas num CHECK).
+/// </summary>
+public class PessoaEnderecoFinalidadeConfiguration : IEntityTypeConfiguration<PessoaEnderecoFinalidade>
+{
+    public void Configure(EntityTypeBuilder<PessoaEnderecoFinalidade> b)
+    {
+        b.ToTable("PessoaEnderecoFinalidades", t => t.HasCheckConstraint("CK_PessoaEnderecoFinalidades_PrincipalAtivo", "[Principal] = 0 OR [Ativo] = 1"));
+        b.HasKey(x => x.Id);
+        b.HasOne<PessoaEndereco>().WithMany()
+            .HasForeignKey(x => new { x.PessoaEnderecoId, x.PessoaId })
+            .HasPrincipalKey(e => new { e.Id, e.PessoaId })
+            .OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<FinalidadeEnderecoCadastro>().WithMany().HasForeignKey(x => x.FinalidadeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.PessoaEnderecoId, x.FinalidadeId }).IsUnique().HasFilter("[Ativo] = 1");
+        b.HasIndex(x => new { x.PessoaId, x.FinalidadeId }).IsUnique().HasFilter("[Principal] = 1");
     }
 }

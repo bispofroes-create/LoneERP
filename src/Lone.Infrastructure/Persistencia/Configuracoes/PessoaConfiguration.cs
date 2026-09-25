@@ -70,6 +70,7 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         b.HasMany(p => p.Estabelecimentos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.Documentos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.Enderecos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(p => p.FinalidadesEnderecos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.MeiosContato).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.Contatos).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(p => p.Papeis).WithOne().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Cascade);

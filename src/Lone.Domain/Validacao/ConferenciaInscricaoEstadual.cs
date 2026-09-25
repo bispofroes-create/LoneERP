@@ -1,3 +1,4 @@
+using Lone.Domain.Enderecos;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 
@@ -10,14 +11,15 @@ namespace Lone.Domain.Validacao;
 /// </summary>
 public static class ConferenciaInscricaoEstadual
 {
-    public static IEnumerable<string> Avisos(Pessoa pessoa)
+    /// <param name="referencia">Endereço de referência da listagem (RegrasFinalidadeEndereco.EnderecoReferencia).</param>
+    public static IEnumerable<string> Avisos(Pessoa pessoa, PessoaEndereco? referencia = null)
     {
         foreach (var estabelecimento in pessoa.Estabelecimentos)
         {
             var ie = estabelecimento.InscricaoEstadual;
             if (string.IsNullOrWhiteSpace(ie) || InscricaoEstadual.EhIsento(ie)) continue;
 
-            var uf = UfFiscal(pessoa, estabelecimento);
+            var uf = UfFiscal(pessoa, estabelecimento, referencia);
             if (uf is null || uf == Ufs.Exterior) continue;
 
             if (!InscricaoEstadual.Valida(uf, ie))
@@ -26,13 +28,16 @@ public static class ConferenciaInscricaoEstadual
         }
     }
 
-    /// <summary>UF do endereço fiscal do estabelecimento ou, sem ele, do endereço principal da pessoa.</summary>
-    private static string? UfFiscal(Pessoa pessoa, Estabelecimento estabelecimento)
+    /// <summary>
+    /// UF do endereço fiscal do estabelecimento; sem ele, do principal da finalidade Fiscal; sem esse, do endereço de
+    /// referência (quando informado). Sem nenhum deles, a UF não é conferida.
+    /// </summary>
+    private static string? UfFiscal(Pessoa pessoa, Estabelecimento estabelecimento, PessoaEndereco? referencia)
     {
         var endereco = estabelecimento.EnderecoFiscalId is { } id
             ? pessoa.Enderecos.FirstOrDefault(e => e.Id == id)
             : null;
-        endereco ??= pessoa.Enderecos.FirstOrDefault(e => e.Tem(FinalidadeEndereco.Principal)) ?? pessoa.Enderecos.FirstOrDefault();
+        endereco ??= RegrasFinalidadeEndereco.EnderecoPrincipal(pessoa, FinalidadesEnderecoIniciais.Id(FinalidadesEnderecoIniciais.Fiscal)) ?? referencia;
         return endereco?.Uf is { Length: > 0 } uf ? uf.Trim().ToUpperInvariant() : null;
     }
 

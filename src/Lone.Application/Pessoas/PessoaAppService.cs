@@ -62,6 +62,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ICnaeRepositorio _cnaes;
     private readonly ISituacaoAppService _situacoes;
     private readonly TimeProvider _relogio;
+    private readonly IFinalidadeEnderecoRepositorio _finalidades;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
@@ -70,8 +71,9 @@ public sealed class PessoaAppService : IPessoaAppService
                             ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
                             IMotivoDaOperacao motivo, ReferenciasColaborador colaborador,
                             ReferenciasComercial comercial, ICnaeRepositorio cnaes,
-                            ISituacaoAppService situacoes, TimeProvider relogio)
+                            ISituacaoAppService situacoes, TimeProvider relogio, IFinalidadeEnderecoRepositorio finalidades)
     {
+        _finalidades = finalidades;
         _repositorio = repositorio;
         _auditoria = auditoria;
         _autorizacao = autorizacao;
@@ -290,6 +292,20 @@ public sealed class PessoaAppService : IPessoaAppService
             (anterior?.Enderecos ?? []).ToDictionary(e => e.Id, e => e.TipoEnderecoId),
             await _tiposEndereco.ObterVariosAsync(dados.Enderecos.Select(e => e.TipoEnderecoId).OfType<Guid>().Distinct().ToList(), ct)));
 
+        // Endereço × finalidade (fonte oficial das finalidades e do principal de cada uma): conferido contra o cadastro de
+        // finalidades; endereço físico repetido (novo, reativado ou alterado) não entra: usa-se o existente.
+        var finalidades = (await _finalidades.ListarAsync(ct)).ToDictionary(f => f.Id);
+        erros.AddRange(RegrasFinalidadeEndereco.Validar(dados, finalidades, anterior?.FinalidadesEnderecos ?? []));
+        erros.AddRange(DuplicidadeEndereco.ErrosDeNovos(dados.Enderecos, anterior?.Enderecos ?? []));
+
+        // Revisão da migração: a marca só se mantém enquanto houver pendência (a API nunca liga, só desliga).
+        dados.RevisarFinalidadesEndereco = (anterior?.RevisarFinalidadesEndereco ?? false) &&
+            RegrasFinalidadeEndereco.PendenciasRevisao(dados, id => finalidades.TryGetValue(id, out var f) ? f.Nome : "Finalidade").Count > 0;
+
+        // Coluna legada de bits: cópia derivada, regravada na mesma transação (compatibilidade; ninguém lê dela).
+        var referencia = RegrasFinalidadeEndereco.EnderecoReferencia(dados, finalidades);
+        RegrasFinalidadeEndereco.SincronizarLegado(dados, referencia);
+
         // Documentos: o tipo vem do cadastro (desativado só se já era o dele), que também diz se a validade é obrigatória;
         // o enum antigo é copiado do tipo escolhido.
         erros.AddRange(RegrasDocumento.Aplicar(
@@ -336,7 +352,20 @@ public sealed class PessoaAppService : IPessoaAppService
         }
 
         var avisos = await BuscarAvisosDeDuplicidadeAsync(dados, ct);
-        avisos.AddRange(ConferenciaInscricaoEstadual.Avisos(dados));
+        avisos.AddRange(ConferenciaInscricaoEstadual.Avisos(dados, referencia));
+        if (DuplicidadeEndereco.Pares(dados.Enderecos, incluirPossiveis: false).Count > 0)
+            avisos.Add("Há endereços iguais já gravados nesta ficha. Use \"Consolidar endereços\" para juntar as finalidades num só.");
+
+        // Consolidação assistida: fica registrado qual endereço foi consolidado em qual e com quais finalidades.
+        foreach (var e in dados.Enderecos.Where(e => e.MescladoEmId is not null &&
+                                                   anterior?.Enderecos.FirstOrDefault(a => a.Id == e.Id)?.MescladoEmId is null))
+        {
+            var destino = dados.Enderecos.First(x => x.Id == e.MescladoEmId);
+            var usos = dados.FinalidadesEnderecos.Where(u => u.PessoaEnderecoId == destino.Id && u.Ativo)
+                .Select(u => (finalidades.TryGetValue(u.FinalidadeId, out var f) ? f.Nome : "?") + (u.Principal ? " (principal)" : string.Empty));
+            dados.RegistrarEvento($"Endereço '{DuplicidadeEndereco.Resumo(e)}' consolidado em '{DuplicidadeEndereco.Resumo(destino)}'. " +
+                                  $"Finalidades do endereço mantido: {string.Join(", ", usos)}.");
+        }
         await _repositorio.SalvarAsync(dados, nova, OrigemAlteracao.Usuario, ct);
 
         // Relê do banco: volta com o código, a versão nova e tudo como ficou gravado.

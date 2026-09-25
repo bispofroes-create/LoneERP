@@ -61,6 +61,14 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
             ids => db.TiposMeioContato.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(PessoaEndereco), nameof(PessoaEndereco.TipoEnderecoId), "(tipo de endereço)",
             ids => db.TiposEndereco.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaEnderecoFinalidade), nameof(PessoaEnderecoFinalidade.FinalidadeId), "(finalidade)",
+            ids => db.FinalidadesEndereco.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaEnderecoFinalidade), nameof(PessoaEnderecoFinalidade.PessoaEnderecoId), "(endereço)",
+            ids => db.PessoaEnderecos.AsNoTracking().Where(e => ids.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, e => e.Logradouro + (e.Numero != null ? ", " + e.Numero : "") + " - " + e.Cidade, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaEndereco), nameof(PessoaEndereco.MescladoEmId), "(endereço)",
+            ids => db.PessoaEnderecos.AsNoTracking().Where(e => ids.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, e => e.Logradouro + (e.Numero != null ? ", " + e.Numero : "") + " - " + e.Cidade, ct));
         await TraduzirIdsAsync(registros, nameof(PessoaDocumento), nameof(PessoaDocumento.TipoDocumentoId), "(tipo de documento)",
             ids => db.TiposDocumento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(CampoPersonalizado), nameof(CampoPersonalizado.TipoDocumentoId), "(tipo de documento)",

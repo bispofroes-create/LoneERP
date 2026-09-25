@@ -27,10 +27,14 @@ public class PessoaEndereco : EntidadePessoaFilha
     [DisplayName("Ativo")]
     public bool Ativo { get; set; } = true;
 
+    /// <summary>
+    /// Cópia em bits das finalidades ativas deste endereço, gravada pela API a partir de PessoaEnderecoFinalidades
+    /// (que é a fonte, com o principal de cada finalidade). Mantida para compatibilidade; nada decide por ela.
+    /// </summary>
     [DisplayName("Finalidades")]
-    public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Comercial;
+    public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Nenhuma;
 
-    /// <summary>Ordem de exibição e de preferência (o primeiro com a finalidade é o padrão dela).</summary>
+    /// <summary>Ordem de exibição (não decide o principal: ele é explícito em cada finalidade).</summary>
     [DisplayName("Ordem")]
     public int Ordem { get; set; }
 
@@ -75,5 +79,12 @@ public class PessoaEndereco : EntidadePessoaFilha
     public string Pais { get; set; } = "Brasil";
 
     public bool EhBrasil => CodigoPais == CodigoPaisBrasil;
+    /// <summary>
+    /// Endereço duplicado que foi consolidado neste outro (fica inativo e aponta para o que ficou). Nulo = não mesclado.
+    /// </summary>
+    [DisplayName("Consolidado em")]
+    public Guid? MescladoEmId { get; set; }
+
+    /// <summary>Cópia (bits) das finalidades ativas, gravada pela API; a fonte é PessoaEnderecoFinalidades.</summary>
     public bool Tem(FinalidadeEndereco finalidade) => (Finalidades & finalidade) == finalidade;
 }

@@ -2,6 +2,8 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
+using Lone.Domain.Enderecos;
+using Lone.Domain.Enums;
 
 namespace Lone.Application.Pessoas;
 
@@ -19,6 +21,7 @@ public static class PessoaMapeamento
         Natureza = p.Natureza,
         Situacao = p.Situacao,
         SituacaoMotivo = p.SituacaoMotivo,
+        RevisarFinalidadesEndereco = p.RevisarFinalidadesEndereco,
         SituacaoAlteradaEm = p.SituacaoAlteradaEm is { } alterada ? DateTime.SpecifyKind(alterada, DateTimeKind.Utc) : null,
         Nome = p.Nome,
         NomeSocial = p.NomeSocial,
@@ -49,7 +52,7 @@ public static class PessoaMapeamento
         EtiquetaIds = p.Etiquetas.Select(e => e.EtiquetaId).ToList(),
         ValoresPersonalizados = p.ValoresPersonalizados.Select(ParaDto).ToList(),
         Estabelecimentos = p.Estabelecimentos.OrderByDescending(e => e.Principal).ThenBy(e => e.Cnpj).Select(ParaDto).ToList(),
-        Enderecos = p.Enderecos.OrderBy(e => e.Ordem).Select(ParaDto).ToList(),
+        Enderecos = p.Enderecos.OrderBy(e => e.Ordem).Select(e => ParaDto(e, p.FinalidadesEnderecos)).ToList(),
         MeiosContato = p.MeiosContato.Select(ParaDto).ToList(),
         Contatos = p.Contatos.OrderByDescending(c => c.Principal).ThenBy(c => c.Nome).Select(ParaDto).ToList(),
         Documentos = p.Documentos.Select(x => ParaDto(x, p.ValoresDocumentos)).ToList(),
@@ -123,6 +126,10 @@ public static class PessoaMapeamento
             pessoa.Vinculos.Add(vinculo);
             pessoa.Lotacoes.AddRange(v.Lotacoes.Select(l => ParaEntidade(l, pessoaId, vinculo.Id)));
         }
+
+        // Finalidades de cada endereço: ligadas ao Id já definitivo do endereço (mesma ordem da lista).
+        for (var i = 0; i < d.Enderecos.Count; i++)
+            pessoa.FinalidadesEnderecos.AddRange(Usos(d.Enderecos[i], pessoaId, pessoa.Enderecos[i].Id));
 
         // Valores dos campos dos documentos: ligados ao Id já definitivo de cada documento (mesma ordem da lista).
         for (var i = 0; i < d.Documentos.Count; i++)
@@ -343,9 +350,13 @@ public static class PessoaMapeamento
 
     // ---------------------------------------------------------------- Endereço
 
-    private static EnderecoDto ParaDto(PessoaEndereco e) => new()
+    private static EnderecoDto ParaDto(PessoaEndereco e, IEnumerable<PessoaEnderecoFinalidade> usos) => new()
     {
         Id = e.Id,
+        Usos = usos.Where(u => u.PessoaEnderecoId == e.Id)
+            .Select(u => new FinalidadeDoEnderecoDto { Id = u.Id, FinalidadeId = u.FinalidadeId, Principal = u.Principal, Ativo = u.Ativo })
+            .ToList(),
+        MescladoEmId = e.MescladoEmId,
         Descricao = e.Descricao,
         TipoEnderecoId = e.TipoEnderecoId,
         Observacoes = e.Observacoes,
@@ -385,8 +396,29 @@ public static class PessoaMapeamento
         Uf = e.Uf,
         CodigoMunicipioIbge = e.CodigoMunicipioIbge,
         CodigoPais = string.IsNullOrWhiteSpace(e.CodigoPais) ? PessoaEndereco.CodigoPaisBrasil : e.CodigoPais,
-        Pais = e.Pais ?? string.Empty
+        Pais = e.Pais ?? string.Empty,
+        MescladoEmId = e.MescladoEmId
     };
+
+    /// <summary>
+    /// Finalidades de um endereço vindas da ficha (com o principal explícito de cada uma). Sem a lista (cliente antigo
+    /// que só manda os bits legados), cada bit vira a finalidade inicial correspondente, sem principal: o antigo bit
+    /// "Principal" não diz de qual finalidade o endereço seria o principal, então nada é inventado.
+    /// </summary>
+    private static IEnumerable<PessoaEnderecoFinalidade> Usos(EnderecoDto e, Guid pessoaId, Guid enderecoId)
+    {
+        if (e.Usos.Count > 0)
+            return e.Usos.Select(u => new PessoaEnderecoFinalidade
+            {
+                Id = IdOuNovo(u.Id), PessoaId = pessoaId, PessoaEnderecoId = enderecoId, FinalidadeId = u.FinalidadeId,
+                Principal = u.Principal, Ativo = u.Ativo
+            });
+        return FinalidadesEnderecoIniciais.Todas.Where(f => (e.Finalidades & f.BitLegado) != FinalidadeEndereco.Nenhuma)
+            .Select(f => new PessoaEnderecoFinalidade
+            {
+                Id = IdSequencial.Novo(), PessoaId = pessoaId, PessoaEnderecoId = enderecoId, FinalidadeId = f.Id, Principal = false, Ativo = true
+            });
+    }
 
     // ---------------------------------------------------------------- Contatos e documentos
 

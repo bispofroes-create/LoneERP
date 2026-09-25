@@ -58,24 +58,23 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
     {
         await using var db = await AbrirAsync(ct);
         var filtrada = await FiltrarAsync(db, criterios, hoje, ct);
-        var principal = FinalidadeEndereco.Principal;
-        var linhas = await filtrada.OrderBy(p => p.Nome).ThenBy(p => p.Id).Take(limite)
-            .Select(p => new
+        var linhas = await Repositorios.PessoaRepositorio.ComReferencia(filtrada.OrderBy(p => p.Nome).ThenBy(p => p.Id).Take(limite), db)
+            .Select(r => new
             {
-                p.Codigo,
-                Nome = p.NomeExibicao ?? p.NomeSocial ?? p.Nome,
-                p.Natureza,
-                p.DocumentoPrincipal,
-                Cnpj = p.Estabelecimentos.Where(e => e.Principal).Select(e => e.Cnpj).FirstOrDefault(),
-                p.Situacao,
-                Papeis = db.Papeis.Where(c => p.Papeis.Any(x => x.Ativo && x.PapelId == c.Id)).OrderBy(c => c.Ordem).Select(c => c.Nome).ToList(),
-                Cidade = p.Enderecos.Where(e => (e.Finalidades & principal) != FinalidadeEndereco.Nenhuma).Select(e => e.Cidade).FirstOrDefault(),
-                Uf = p.Enderecos.Where(e => (e.Finalidades & principal) != FinalidadeEndereco.Nenhuma).Select(e => e.Uf).FirstOrDefault(),
-                Telefone = p.MeiosContato.Where(m => m.Ativo && m.Tipo != TipoContato.Email)
+                r.P.Codigo,
+                Nome = r.P.NomeExibicao ?? r.P.NomeSocial ?? r.P.Nome,
+                r.P.Natureza,
+                r.P.DocumentoPrincipal,
+                Cnpj = r.P.Estabelecimentos.Where(e => e.Principal).Select(e => e.Cnpj).FirstOrDefault(),
+                r.P.Situacao,
+                Papeis = db.Papeis.Where(c => r.P.Papeis.Any(x => x.Ativo && x.PapelId == c.Id)).OrderBy(c => c.Ordem).Select(c => c.Nome).ToList(),
+                Cidade = r.Cidade, // endereço de referência da listagem (só exibição)
+                Uf = r.Uf,
+                Telefone = r.P.MeiosContato.Where(m => m.Ativo && m.Tipo != TipoContato.Email)
                     .OrderByDescending(m => m.Principal).Select(m => m.Valor).FirstOrDefault(),
-                Email = p.MeiosContato.Where(m => m.Ativo && m.Tipo == TipoContato.Email)
+                Email = r.P.MeiosContato.Where(m => m.Ativo && m.Tipo == TipoContato.Email)
                     .OrderByDescending(m => m.Principal).Select(m => m.Valor).FirstOrDefault(),
-                p.CriadoEm
+                r.P.CriadoEm
             })
             .ToListAsync(ct);
 

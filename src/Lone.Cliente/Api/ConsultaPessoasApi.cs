@@ -25,6 +25,10 @@ public sealed class ConsultaPessoasApi
     public Task<FiltroSalvoDto> SalvarFiltroAsync(FiltroSalvoDto filtro, CancellationToken ct = default) =>
         _api.PutAsync<FiltroSalvoDto>(Rotas.Pessoas.FiltroSalvo(filtro.Id), filtro, ct);
 
+    /// <summary>Rotina que aponta pessoas com endereços duplicados (só leitura; consolidação na ficha).</summary>
+    public Task<Lone.Contracts.Enderecos.PaginaEnderecosDuplicados> ListarEnderecosDuplicadosAsync(Guid? apos, int limite, CancellationToken ct = default) =>
+        _api.GetAsync<Lone.Contracts.Enderecos.PaginaEnderecosDuplicados>(Rotas.FinalidadesEndereco.ListarDuplicados(apos, limite), ct);
+
     public Task DesativarFiltroAsync(Guid id, CancellationToken ct = default) =>
         _api.PostAsync(Rotas.Pessoas.DesativarFiltro(id), ct);
 }

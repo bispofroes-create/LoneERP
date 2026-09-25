@@ -17,6 +17,10 @@ public sealed class TiposEnderecoApi
     public Task<List<TipoEnderecoDto>> ListarAsync(bool incluirInativos, CancellationToken ct = default) =>
         _api.GetAsync<List<TipoEnderecoDto>>(Rotas.TiposEndereco.Listar(incluirInativos), ct);
 
+    /// <summary>Cadastro de finalidades de endereço (todas; a ficha só oferece as ativas para associação nova).</summary>
+    public Task<List<FinalidadeEnderecoDto>> ListarFinalidadesAsync(CancellationToken ct = default) =>
+        _api.GetAsync<List<FinalidadeEnderecoDto>>(Rotas.FinalidadesEndereco.Grupo, ct);
+
     public Task<TipoEnderecoDto?> ObterAsync(Guid id, CancellationToken ct = default) =>
         _api.GetOuNuloAsync<TipoEnderecoDto>(Rotas.TiposEndereco.PorId(id), ct);
 

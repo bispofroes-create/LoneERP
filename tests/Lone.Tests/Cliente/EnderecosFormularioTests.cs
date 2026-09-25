@@ -18,7 +18,8 @@ public class EnderecosFormularioTests
             new EnderecoDto
             {
                 Id = Guid.NewGuid(), Logradouro = "Rua A", Cidade = "Belo Horizonte", Uf = "MG", MunicipioId = 3106200,
-                Finalidades = FinalidadeEndereco.Principal | FinalidadeEndereco.Entrega, TipoEnderecoId = tipo, Observacoes = "Portão lateral"
+                Usos = [new FinalidadeDoEnderecoDto { Id = Guid.NewGuid(), FinalidadeId = Finalidades.Entrega, Principal = true }],
+                TipoEnderecoId = tipo, Observacoes = "Portão lateral"
             }
         ]
     };
@@ -26,7 +27,7 @@ public class EnderecosFormularioTests
     [Fact]
     public void Remover_endereco_gravado_desativa_tira_o_principal_e_ele_volta_no_envio()
     {
-        var f = PessoaFormulario.De(ComEndereco(), tiposEndereco: [Sede]);
+        var f = PessoaFormulario.De(ComEndereco(), tiposEndereco: [Sede], finalidades: Finalidades.Cadastro);
         var endereco = Assert.Single(f.Enderecos);
 
         endereco.RemoverCommand.Execute(null);
@@ -36,13 +37,16 @@ public class EnderecosFormularioTests
         Assert.True(f.TemEnderecosInativos);
         var enviado = Assert.Single(f.ParaDto().Enderecos);
         Assert.False(enviado.Ativo);
-        Assert.False(enviado.Finalidades.HasFlag(FinalidadeEndereco.Principal));
-        Assert.True(enviado.Finalidades.HasFlag(FinalidadeEndereco.Entrega));
+        var entrega = Assert.Single(enviado.Usos);
+        Assert.False(entrega.Principal);   // endereço inativo perde o principal
+        Assert.True(entrega.Ativo);        // a finalidade fica como histórico
 
         f.MostrarEnderecosInativos = true;
         Assert.True(endereco.Visivel);
         endereco.ReativarCommand.Execute(null);
-        Assert.True(f.ParaDto().Enderecos[0].Ativo);
+        var reativado = f.ParaDto().Enderecos[0];
+        Assert.True(reativado.Ativo);
+        Assert.False(Assert.Single(reativado.Usos).Principal); // reativado volta SEM a principalidade antiga
     }
 
     [Fact]

@@ -38,6 +38,7 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>()); // cadastro de papéis (vazio: usa os de sistema)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>()); // tipos de telefone/e-mail
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoEnderecoDto>()); // tipos de endereço
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Finalidades.Cadastro); // finalidades de endereço
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>()); // tipos de documento
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos dos documentos
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>
@@ -166,6 +167,7 @@ public class PessoasViewModelCepTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoEnderecoDto>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Finalidades.Cadastro);
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>());

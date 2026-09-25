@@ -128,6 +128,15 @@ public static class Rotas
         public static string Listar(bool incluirInativos) => incluirInativos ? Grupo + "?incluirInativos=true" : Grupo;
     }
 
+    /// <summary>Finalidades de endereço (leitura para a ficha) e rotina que aponta endereços duplicados.</summary>
+    public static class FinalidadesEndereco
+    {
+        public const string Grupo = Base + "/finalidades-endereco";
+        public const string Duplicados = Base + "/pessoas/enderecos-duplicados";
+        public static string ListarDuplicados(Guid? apos, int limite) =>
+            $"{Duplicados}?limite={limite}" + (apos is { } a ? $"&apos={a}" : string.Empty);
+    }
+
     /// <summary>Tipos (classificações) de endereço. Nada é excluído: desativa.</summary>
     public static class TiposEndereco
     {

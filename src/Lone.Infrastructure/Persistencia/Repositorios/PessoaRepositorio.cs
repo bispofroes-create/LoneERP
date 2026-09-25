@@ -49,30 +49,60 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
     /// <summary>Linha da lista (compartilhada com a consulta avançada: uma só definição do resumo).</summary>
     internal static IQueryable<PessoaResumo> Resumir(IQueryable<Pessoa> consulta, LoneDbContext db) =>
-        consulta
-            .Select(p => new PessoaResumo
+        ComReferencia(consulta, db)
+            .Select(r => new PessoaResumo
             {
-                Id = p.Id,
-                Codigo = p.Codigo,
-                Nome = p.NomeExibicao ?? p.NomeSocial ?? p.Nome,
-                Natureza = p.Natureza,
-                DocumentoPrincipal = p.DocumentoPrincipal,
-                CnpjPrincipal = p.Estabelecimentos.Where(e => e.Principal).Select(e => e.Cnpj).FirstOrDefault(),
-                QuantidadeEstabelecimentos = p.Estabelecimentos.Count,
-                Situacao = p.Situacao,
+                Id = r.P.Id,
+                Codigo = r.P.Codigo,
+                Nome = r.P.NomeExibicao ?? r.P.NomeSocial ?? r.P.Nome,
+                Natureza = r.P.Natureza,
+                DocumentoPrincipal = r.P.DocumentoPrincipal,
+                CnpjPrincipal = r.P.Estabelecimentos.Where(e => e.Principal).Select(e => e.Cnpj).FirstOrDefault(),
+                QuantidadeEstabelecimentos = r.P.Estabelecimentos.Count,
+                Situacao = r.P.Situacao,
                 Papeis = db.Papeis
-                    .Where(cadastro => p.Papeis.Any(x => x.Ativo && x.PapelId == cadastro.Id))
+                    .Where(cadastro => r.P.Papeis.Any(x => x.Ativo && x.PapelId == cadastro.Id))
                     .OrderBy(cadastro => cadastro.Ordem)
                     .Select(cadastro => cadastro.Nome)
                     .ToList(),
-                Cidade = p.Enderecos
-                    .Where(e => (e.Finalidades & FinalidadeEndereco.Principal) != FinalidadeEndereco.Nenhuma)
-                    .Select(e => e.Cidade).FirstOrDefault(),
-                Uf = p.Enderecos
-                    .Where(e => (e.Finalidades & FinalidadeEndereco.Principal) != FinalidadeEndereco.Nenhuma)
-                    .Select(e => e.Uf).FirstOrDefault(),
-                MunicipioACorrigir = db.PendenciasMunicipio.Any(x => x.PessoaId == p.Id && x.ResolvidaEm == null)
+                // Cidade/UF do endereço de referência da listagem (só exibição; ver ComReferencia).
+                Cidade = r.Cidade,
+                Uf = r.Uf,
+                MunicipioACorrigir = db.PendenciasMunicipio.Any(x => x.PessoaId == r.P.Id && x.ResolvidaEm == null)
             });
+
+    /// <summary>Pessoa + cidade/UF do endereço de referência da listagem (só exibição).</summary>
+    internal sealed class PessoaComReferencia
+    {
+        public Pessoa P { get; init; } = null!;
+        public string? Cidade { get; init; }
+        public string? Uf { get; init; }
+    }
+
+    /// <summary>
+    /// Endereço de referência da listagem (mesma regra de RegrasFinalidadeEndereco.EnderecoReferencia, no banco): o
+    /// principal da finalidade ativa de menor ordem no cadastro; sem principal, o primeiro endereço ativo. Serve só para
+    /// mostrar cidade/UF em listas e exportações; não é "o principal da pessoa" e não muda principalidade.
+    /// </summary>
+    internal static IQueryable<PessoaComReferencia> ComReferencia(IQueryable<Pessoa> consulta, LoneDbContext db) =>
+        consulta.Select(p => new PessoaComReferencia
+        {
+            P = p,
+            Cidade = p.Enderecos.Where(e => e.Ativo)
+                .OrderBy(e => p.FinalidadesEnderecos
+                    .Where(u => u.PessoaEnderecoId == e.Id && u.Principal && u.Ativo)
+                    .Join(db.FinalidadesEndereco.Where(f => f.Ativo), u => u.FinalidadeId, f => f.Id, (u, f) => (int?)f.Ordem)
+                    .Min() ?? int.MaxValue)
+                .ThenBy(e => e.Ordem)
+                .Select(e => e.Cidade).FirstOrDefault(),
+            Uf = p.Enderecos.Where(e => e.Ativo)
+                .OrderBy(e => p.FinalidadesEnderecos
+                    .Where(u => u.PessoaEnderecoId == e.Id && u.Principal && u.Ativo)
+                    .Join(db.FinalidadesEndereco.Where(f => f.Ativo), u => u.FinalidadeId, f => f.Id, (u, f) => (int?)f.Ordem)
+                    .Min() ?? int.MaxValue)
+                .ThenBy(e => e.Ordem)
+                .Select(e => e.Uf).FirstOrDefault()
+        });
 
     internal static IQueryable<Pessoa> AplicarBusca(IQueryable<Pessoa> consulta, string termo, LoneDbContext db)
     {
@@ -120,6 +150,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Estabelecimentos)
             .Include(p => p.Documentos)
             .Include(p => p.Enderecos)
+            .Include(p => p.FinalidadesEnderecos)
             .Include(p => p.MeiosContato)
             .Include(p => p.Contatos)
             .Include(p => p.Papeis)
@@ -209,9 +240,27 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
         await ResolverPendenciasCorrigidasAsync(db, pessoa, ct);
 
+        // Troca de principal (A deixa de ser, B passa a ser) numa gravação só: o índice único filtrado do banco
+        // (um principal por pessoa + finalidade) exige que A seja desmarcado antes de B ser marcado. O EF não garante
+        // essa ordem para índice filtrado, então os desmarcados vão primeiro, na mesma transação.
+        var desmarcados = db.ChangeTracker.Entries<PessoaEnderecoFinalidade>()
+            .Where(e => e.State == EntityState.Modified && e.OriginalValues.GetValue<bool>(nameof(PessoaEnderecoFinalidade.Principal)) && !e.Entity.Principal)
+            .Select(e => e.Entity.Id)
+            .ToList();
+
         try
         {
-            await db.SaveChangesAsync(ct);
+            if (desmarcados.Count == 0)
+            {
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+
+            await using var transacao = await db.Database.BeginTransactionAsync(ct);
+            await db.PessoaEnderecoFinalidades.Where(u => desmarcados.Contains(u.Id))
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.Principal, false), ct);
+            await db.SaveChangesAsync(ct); // usa a transação aberta; a auditoria registra a mudança normalmente
+            await transacao.CommitAsync(ct);
         }
         catch (DbUpdateConcurrencyException ex)
         {
@@ -269,6 +318,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.Estabelecimentos)
             .Include(p => p.Documentos)
             .Include(p => p.Enderecos)
+            .Include(p => p.FinalidadesEnderecos)
             .Include(p => p.MeiosContato)
             .Include(p => p.Contatos)
             .Include(p => p.Papeis)
@@ -302,6 +352,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // Os Ids já vêm definidos (inclusive dos endereços novos), então o endereço fiscal de um
         // estabelecimento aponta direto para o Id; o EF grava os endereços antes dos estabelecimentos.
         SincronizarFilhos(db, atual.Id, atual.Enderecos, dados.Enderecos, apagarAusentes: false); // removidos ficam inativos
+
+        // Endereço × finalidade: casa pelo par (endereço, finalidade), nunca apaga (retirada = inativa, histórico).
+        ReaproveitarIds(atual.FinalidadesEnderecos, dados.FinalidadesEnderecos, u => (u.PessoaEnderecoId, u.FinalidadeId));
+        SincronizarFilhos(db, atual.Id, atual.FinalidadesEnderecos, dados.FinalidadesEnderecos, apagarAusentes: false);
         SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos);
         SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato, apagarAusentes: false); // removidos ficam inativos

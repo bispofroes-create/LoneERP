@@ -20,6 +20,7 @@ public class AnexosTelaTests
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Papeis.PapelCadastroDto>())
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Contatos.TipoMeioContatoDto>())
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Enderecos.TipoEnderecoDto>())
+            .Responder(HttpStatusCode.OK, Finalidades.Cadastro)
             .Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>())
             .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>())
             .Responder(HttpStatusCode.OK, new List<PessoaResumo>());

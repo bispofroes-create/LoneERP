@@ -8,13 +8,48 @@
     <VerticalStackLayout Spacing="8">
         <!-- Remover um endereço já gravado só desativa (fica no histórico; volta em "Mostrar inativos"). -->
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <Label Text="Um endereço é o principal; marque também para que cada um serve (fiscal, cobrança, entrega...)."
-                   Style="{StaticResource Secundario}" VerticalOptions="Center" />
+            <Label Text="Cada endereço físico uma vez só, com as finalidades (entrega, cobrança...). Para cada finalidade, um endereço pode ser o principal."
+                   Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarEnderecosInativos}"
                            IsVisible="{Binding Formulario.TemEnderecosInativos}" VerticalOptions="Center" />
             <Button Grid.Column="2" Text="Adicionar endereço" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarEnderecoCommand}" />
         </Grid>
+
+        <!-- Revisão pedida pela migração: o motivo por finalidade. Some quando tudo estiver resolvido. -->
+        <Border Style="{StaticResource CartaoItem}" Stroke="{StaticResource Aviso}" IsVisible="{Binding Formulario.TemPendenciasRevisao}">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Revisão de endereços necessária" FontAttributes="Bold" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.PendenciasRevisao}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- Duplicados já gravados: consolidação assistida (nada é juntado sem confirmar; nada é apagado). -->
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.DuplicadosGravados}" Spacing="6"
+                             IsVisible="{Binding Formulario.TemDuplicadosGravados}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:ParDeEnderecos">
+                    <Border Style="{StaticResource CartaoItem}" Stroke="{StaticResource Aviso}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding Titulo}" FontAttributes="Bold" />
+                            <Label Text="{Binding TextoA}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding TextoB}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            <FlexLayout Wrap="Wrap">
+                                <Button Text="Consolidar mantendo o 1º" Style="{StaticResource BotaoSecundario}" Command="{Binding ManterPrimeiroCommand}" Margin="0,0,8,4" />
+                                <Button Text="Consolidar mantendo o 2º" Style="{StaticResource BotaoSecundario}" Command="{Binding ManterSegundoCommand}" Margin="0,0,8,4" />
+                                <Button Text="Manter separados" Style="{StaticResource BotaoLink}" Command="{Binding ManterSeparadosCommand}" />
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
 
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Enderecos}">
             <BindableLayout.EmptyView>
@@ -31,8 +66,20 @@
                                 <Button Grid.Column="2" Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
                                         IsVisible="{Binding Inativo}" />
                             </Grid>
-                            <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
+                            <Label Text="Inativo (removido): continua gravado para o histórico. Ao reativar, volta sem principal." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
+
+                            <!-- Endereço novo igual a um existente: não cria outro; oferece usar o existente. -->
+                            <Border Style="{StaticResource CartaoItem}" Stroke="{StaticResource Aviso}" IsVisible="{Binding TemDuplicidade}">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="{Binding TextoDuplicidade}" LineBreakMode="WordWrap" />
+                                    <FlexLayout Wrap="Wrap">
+                                        <Button Text="Usar endereço existente" Style="{StaticResource BotaoSecundario}" Command="{Binding UsarExistenteCommand}" Margin="0,0,8,4" />
+                                        <Button Text="Continuar com outro endereço" Style="{StaticResource BotaoLink}" Command="{Binding ContinuarComOutroCommand}"
+                                                IsVisible="{Binding DuplicidadeIncerta}" />
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+                            </Border>
 
                             <FlexLayout Wrap="Wrap">
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
@@ -66,16 +113,33 @@
                                 <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" Mascara="Numero" />
                             </FlexLayout>
 
-                            <Label Text="Serve para" Style="{StaticResource Rotulo}" />
-                            <FlexLayout Wrap="Wrap">
-                                <c:CaixaMarcar Texto="Principal" Marcado="{Binding Principal}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
-                                <c:CaixaMarcar Texto="Fiscal" Marcado="{Binding Fiscal}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
-                                <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
-                                <c:CaixaMarcar Texto="Entrega" Marcado="{Binding Entrega}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
-                                <c:CaixaMarcar Texto="Correspondência" Marcado="{Binding Correspondencia}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
-                                <c:CaixaMarcar Texto="Residencial" Marcado="{Binding Residencial}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
-                                <c:CaixaMarcar Texto="Comercial" Marcado="{Binding Comercial}" FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" />
+                            <!-- Finalidades: cada uma pode ser a principal da pessoa para aquele uso. -->
+                            <Label Text="Finalidades" Style="{StaticResource Rotulo}" />
+                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Finalidades}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="pes:FinalidadeNoEndereco">
+                                        <Border IsVisible="{Binding Ativo}" Padding="10,4" Margin="0,0,8,6" StrokeShape="RoundRectangle 14"
+                                                Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}">
+                                            <HorizontalStackLayout Spacing="6">
+                                                <Label Text="{Binding Texto}" VerticalOptions="Center" />
+                                                <Button Text="{Binding TextoBotaoPrincipal}" Style="{StaticResource BotaoLink}" Padding="4,0"
+                                                        Command="{Binding AlternarPrincipalCommand}" />
+                                                <Button Text="×" Style="{StaticResource BotaoLink}" Padding="4,0" Command="{Binding RemoverCommand}"
+                                                        SemanticProperties.Description="Retirar a finalidade" />
+                                            </HorizontalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
                             </FlexLayout>
+                            <Label Text="Sem finalidade: escolha para que este endereço serve." Style="{StaticResource Secundario}"
+                                   IsVisible="{Binding SemFinalidades}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding PodeEditarFinalidades}" MaximumWidthRequest="520" HorizontalOptions="Start">
+                                <c:CampoEscolha Rotulo="Adicionar finalidade" Itens="{Binding OpcoesFinalidade}" Selecionado="{Binding FinalidadeEscolhida}" Padding="0" />
+                                <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" VerticalOptions="End"
+                                        Command="{Binding AdicionarFinalidadeCommand}" />
+                            </Grid>
+                            <Label Text="{Binding AvisoFinalidade}" IsVisible="{Binding TemAvisoFinalidade}" TextColor="{StaticResource Aviso}"
+                                   LineBreakMode="WordWrap" />
                             <c:Campo Rotulo="Observações (opcional)" Texto="{Binding Observacoes}" Dica="Ex.: entrega só pela manhã, portão lateral" />
                         </VerticalStackLayout>
                     </Border>

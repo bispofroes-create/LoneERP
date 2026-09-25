@@ -78,6 +78,16 @@ def main():
     def pos_depois(*chamadas_):
         return max(fim for _, fim in chamadas_)
 
+    # Migração das finalidades de endereço (endereço × finalidade): um trecho só, de outra classe.
+    if chamadas(up, "CreateTable", name="PessoaEnderecoFinalidades"):
+        classe = "SqlMigracaoFinalidadesEndereco"
+        pontos = {
+            "MigrarFinalidades": pos_depois(uma(up, "CreateTable", name="PessoaEnderecoFinalidades"),
+                                            uma(up, "InsertData", table="FinalidadesEndereco"),
+                                            uma(up, "AddColumn", name="RevisarFinalidadesEndereco", table="Pessoas")),
+        }
+        return gravar(caminho, texto, up_ini, up_fim, up, pontos, classe, bom, crlf)
+
     fk_doc = uma(up, "AddForeignKey", name="FK_PessoaDocumentos_TiposDocumento_TipoDocumentoId")
     pontos = {
         "AtivarEnderecos": pos_depois(uma(up, "AddColumn", name="Ativo", table="PessoaEnderecos")),
@@ -97,10 +107,14 @@ def main():
         if pre[1] > pontos["LigarDocumentosAosTipos"]:
             raise SystemExit("A FK dos documentos vem antes das colunas/tipos: ajuste a ordem à mão. Nada foi gravado.")
 
+    return gravar(caminho, texto, up_ini, up_fim, up, pontos, "SqlMigracaoCadastroGeral", bom, crlf)
+
+
+def gravar(caminho, texto, up_ini, up_fim, up, pontos, classe, bom, crlf):
     novos = 0
     for nome, pos in sorted(pontos.items(), key=lambda x: -x[1]):   # de trás para frente: posições continuam valendo
-        linha = f"            migrationBuilder.Sql(SqlMigracaoCadastroGeral.{nome});\n"
-        if f"SqlMigracaoCadastroGeral.{nome}" in up:
+        linha = f"            migrationBuilder.Sql({classe}.{nome});\n"
+        if f"{classe}.{nome}" in up:
             continue
         up = up[:pos] + "\n" + linha + "\n" + up[pos:]
         novos += 1

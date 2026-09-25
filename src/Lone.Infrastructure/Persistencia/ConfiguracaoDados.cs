@@ -68,6 +68,8 @@ public static class ConfiguracaoDados
         services.AddScoped<IMetaConsultas, MetaConsultas>();
         services.AddScoped<IFonteIndicadores, FonteIndicadoresCadastro>();
         services.AddScoped<IConsultaPessoas, ConsultaPessoas>();
+        services.AddScoped<Lone.Application.Enderecos.IFinalidadeEnderecoRepositorio, FinalidadeEnderecoRepositorio>();
+        services.AddScoped<Lone.Application.Enderecos.IEnderecosDuplicadosConsulta, EnderecosDuplicadosConsulta>();
         services.AddScoped<IFiltroSalvoRepositorio, FiltroSalvoRepositorio>();
 
         return services;

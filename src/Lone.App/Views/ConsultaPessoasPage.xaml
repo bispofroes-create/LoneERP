@@ -83,6 +83,24 @@
             </VerticalStackLayout>
             <Button Text="Carregar mais" Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarMaisCommand}"
                     IsVisible="{Binding TemMais}" IsEnabled="{Binding Livre}" HorizontalOptions="Start" />
+
+            <!-- Rotina de identificação de endereços duplicados (só aponta; a consolidação é assistida, na ficha). -->
+            <Label Text="Endereços duplicados" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+            <Label Text="Procura pessoas com o mesmo endereço físico cadastrado mais de uma vez. Nada é alterado: a consolidação é feita na ficha, com confirmação."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="Procurar endereços duplicados" Style="{StaticResource BotaoSecundario}" Command="{Binding ProcurarDuplicadosCommand}" IsEnabled="{Binding Livre}" />
+            </HorizontalStackLayout>
+            <Label Text="{Binding DuplicadosTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding EnderecosDuplicados}" Spacing="2">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+            <Button Text="Continuar procurando" Style="{StaticResource BotaoLink}" Command="{Binding ContinuarDuplicadosCommand}"
+                    IsVisible="{Binding TemMaisDuplicados}" IsEnabled="{Binding Livre}" HorizontalOptions="Start" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

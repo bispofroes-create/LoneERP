@@ -81,6 +81,12 @@ public sealed class PessoaDto
     /// <summary>Somente leitura: relacionamento (última interação, situação e as interações mais recentes).</summary>
     public RelacionamentoDto? Relacionamento { get; set; }
 
+    /// <summary>
+    /// Somente leitura: a migração deixou finalidades de endereço para definir à mão (a ficha mostra o motivo por
+    /// finalidade). A API desliga quando todas as pendências forem resolvidas.
+    /// </summary>
+    public bool RevisarFinalidadesEndereco { get; set; }
+
     /// <summary>Dados de colaborador (vínculos e lotações). Vazio e <see cref="ColaboradorOculto"/> = sem permissão para vê-los.</summary>
     public List<Lone.Contracts.Colaboradores.VinculoDto> Vinculos { get; set; } = new();
 
@@ -154,6 +160,14 @@ public sealed class HistoricoFiscalDto
     public bool ProdutorRural { get; set; }
 }
 
+public sealed class FinalidadeDoEnderecoDto
+{
+    public Guid Id { get; set; }
+    public Guid FinalidadeId { get; set; }
+    public bool Principal { get; set; }
+    public bool Ativo { get; set; } = true;
+}
+
 public sealed class EnderecoDto
 {
     public Guid Id { get; set; }
@@ -165,7 +179,18 @@ public sealed class EnderecoDto
 
     /// <summary>Falso = removido na ficha (fica gravado, fora da lista principal).</summary>
     public bool Ativo { get; set; } = true;
-    public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Comercial;
+
+    /// <summary>
+    /// Cópia em bits das finalidades ativas (compatibilidade). A fonte é <see cref="Usos"/>; se Usos vier vazio, a API
+    /// monta as finalidades a partir destes bits (clientes antigos), com o principal só na finalidade Principal.
+    /// </summary>
+    public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Nenhuma;
+
+    /// <summary>Finalidades do endereço, com o principal de cada uma (explícito). Retirada = Ativo falso (histórico).</summary>
+    public List<FinalidadeDoEnderecoDto> Usos { get; set; } = new();
+
+    /// <summary>Somente leitura: duplicado consolidado neste outro endereço. Enviar preenchido registra a consolidação.</summary>
+    public Guid? MescladoEmId { get; set; }
     public int Ordem { get; set; }
     public string? Cep { get; set; }
     public string Logradouro { get; set; } = string.Empty;

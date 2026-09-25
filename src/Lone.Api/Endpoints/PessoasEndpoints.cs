@@ -55,6 +55,13 @@ public static class PessoasEndpoints
             return Results.NoContent();
         });
 
+        // Rotina que aponta endereços duplicados (só leitura; a consolidação é assistida, na ficha).
+        grupo.MapGet("enderecos-duplicados", (Guid? apos, int? limite, Lone.Application.Enderecos.IEnderecosDuplicadosAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(apos, limite ?? 100, ct));
+
+        app.MapGroup(Rotas.FinalidadesEndereco.Grupo).WithTags("Finalidades de endereço").RequireAuthorization()
+            .MapGet(string.Empty, (Lone.Application.Enderecos.IFinalidadeEnderecoAppService servico, CancellationToken ct) => servico.ListarAsync(ct));
+
         grupo.MapGet("indicadores/faixas-etarias",
             (TipoPapel? papel, IPessoaAppService servico, CancellationToken ct) => servico.ListarFaixasEtariasAsync(papel, ct));
 

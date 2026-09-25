@@ -13,18 +13,23 @@ public class EnderecosTests
     };
 
     [Fact]
-    public void Inativo_nunca_e_o_principal_e_o_ativo_assume()
+    public void Inativo_nunca_e_principal_e_o_principal_nao_passa_sozinho_para_outro_pela_ordem()
     {
-        var antigo = Endereco(ativo: false, finalidades: FinalidadeEndereco.Principal | FinalidadeEndereco.Entrega);
+        var antigo = Endereco(ativo: false);
         var novo = Endereco();
         var p = new Pessoa { Nome = "Ana" };
         p.Enderecos.AddRange([antigo, novo]);
+        var entrega = new PessoaEnderecoFinalidade
+        {
+            Id = Guid.NewGuid(), PessoaEnderecoId = antigo.Id, FinalidadeId = FinalidadesEnderecoIniciais.Id(FinalidadesEnderecoIniciais.Entrega), Principal = true
+        };
+        p.FinalidadesEnderecos.Add(entrega);
 
         PessoaNormalizador.Normalizar(p, new DateOnly(2026, 9, 25));
 
-        Assert.False(antigo.Tem(FinalidadeEndereco.Principal));
-        Assert.True(antigo.Tem(FinalidadeEndereco.Entrega)); // as outras finalidades ficam como histórico
-        Assert.True(novo.Tem(FinalidadeEndereco.Principal));
+        Assert.False(entrega.Principal);                          // endereço inativo não é principal de nada
+        Assert.True(entrega.Ativo);                               // a finalidade continua como histórico
+        Assert.Null(RegrasFinalidadeEndereco.EnderecoPrincipal(p, entrega.FinalidadeId)); // ninguém vira principal pela ordem
     }
 
     [Fact]

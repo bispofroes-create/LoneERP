@@ -289,6 +289,36 @@ public sealed partial class ConsultaPessoasViewModel : ViewModelBase
         Mostrar("Filtro salvo.", TipoMensagem.Sucesso);
     }
 
+    // ---- Endereços duplicados (rotina de identificação; nada é alterado aqui) ----
+
+    public ObservableCollection<string> EnderecosDuplicados { get; } = new();
+    [ObservableProperty] private bool _temMaisDuplicados;
+    [ObservableProperty] private string _duplicadosTexto = string.Empty;
+    private Guid? _duplicadosApos;
+
+    /// <summary>Procura do começo pessoas com o mesmo endereço físico cadastrado mais de uma vez.</summary>
+    [RelayCommand]
+    private Task ProcurarDuplicadosAsync() => BuscarDuplicadosAsync(continuar: false);
+
+    /// <summary>Continua de onde a procura parou (a base é examinada em lotes).</summary>
+    [RelayCommand]
+    private Task ContinuarDuplicadosAsync() => BuscarDuplicadosAsync(continuar: true);
+
+    private async Task BuscarDuplicadosAsync(bool continuar)
+    {
+        Lone.Contracts.Enderecos.PaginaEnderecosDuplicados? pagina = null;
+        if (!await ExecutarAsync(async () => pagina = await _api.ListarEnderecosDuplicadosAsync(continuar ? _duplicadosApos : null, 100)))
+            return;
+        if (!continuar) EnderecosDuplicados.Clear();
+        foreach (var item in pagina!.Itens)
+            EnderecosDuplicados.Add($"{item.Codigo:000000} · {item.Nome}: {string.Join("; ", item.Enderecos)}");
+        _duplicadosApos = pagina.ProximoId;
+        TemMaisDuplicados = pagina.ProximoId is not null;
+        DuplicadosTexto = EnderecosDuplicados.Count == 0 && !TemMaisDuplicados
+            ? "Nenhum endereço duplicado encontrado."
+            : $"{EnderecosDuplicados.Count} pessoa(s) com endereços duplicados. Abra a ficha da pessoa para consolidar (nada é alterado aqui).";
+    }
+
     [RelayCommand]
     private async Task RemoverFiltroAsync()
     {
