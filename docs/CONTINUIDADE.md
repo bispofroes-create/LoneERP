@@ -126,7 +126,7 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Ficha da pessoa: autocompletar (`SeletorDeLista` + controle `CampoLista`, reutilizáveis) e atalho "Nova profissão".
   - Decisão do usuário: cadastros auxiliares **um por um** (sem base comum); o `SeletorDeLista` é só um componente de tela.
   - Migração `CadastroProfissoes`: no fim do `Up`, `migrationBuilder.Sql(SqlMigracaoProfissoes.CriarProfissoesELigarPessoas);`.
-- **Fase 2c — Papéis (código entregue em 25/09/2026, aguardando migração e testes):**
+- **Fase 2c — Papéis: concluída em 25/09/2026** (migração aplicada, testes passando, testado no app):
   - Cadastro `Papeis` (código imutável, nome único CI_AI, descrição, ordem, ativo, `PapelSistema` ligado ao enum `TipoPapel`).
     Os 8 de sistema nascem pela migração com Ids fixos (`PapeisSistema`); Cliente, Fornecedor, Empresa do grupo e Funcionário
     não podem ser desativados (regras no código). Permissão `CADASTROS.PAPEIS`, menu "Papéis".
