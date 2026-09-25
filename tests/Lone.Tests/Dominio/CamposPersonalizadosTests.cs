@@ -14,12 +14,14 @@ public class CamposPersonalizadosTests
     [Fact]
     public void Todos_os_tipos_pedidos_existem_e_cada_um_diz_onde_guarda()
     {
-        Assert.Equal(12, TiposCampo.Todos.Count);
+        Assert.Equal(14, TiposCampo.Todos.Count); // + CPF e CNPJ (fase 5, campos de documentos)
         Assert.Equal(ColunaValor.Numero, TiposCampo.Obter(TipoCampoPersonalizado.Inteiro).Coluna);
         Assert.Equal(ColunaValor.Logico, TiposCampo.Obter(TipoCampoPersonalizado.SimNao).Coluna);
         Assert.Equal(ColunaValor.Opcao, TiposCampo.Obter(TipoCampoPersonalizado.Lista).Coluna);
         Assert.Equal(ColunaValor.Data, TiposCampo.Obter(TipoCampoPersonalizado.DataHora).Coluna);
         Assert.Equal(ColunaValor.Texto, TiposCampo.Obter(TipoCampoPersonalizado.Email).Coluna);
+        Assert.Equal(ColunaValor.Texto, TiposCampo.Obter(TipoCampoPersonalizado.Cpf).Coluna);
+        Assert.Equal(ColunaValor.Texto, TiposCampo.Obter(TipoCampoPersonalizado.Cnpj).Coluna);
     }
 
     [Fact]
