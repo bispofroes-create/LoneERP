@@ -107,7 +107,7 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   `PessoaMeiosContato`; endereço com finalidades + tipo parametrizável; campos de documentos no motor atual de campos
   personalizados; carteira em tabela própria `CarteiraClientes`; metas com estrutura agora e realizado do cadastro ou
   informado; anexos em pasta no servidor da API.
-- **Fase 2a — Etiquetas (código entregue em 24/09/2026, aguardando migração e testes):**
+- **Fase 2a — Etiquetas: concluída em 25/09/2026** (migração aplicada, 834 testes passando):
   - Cadastro `Etiquetas` (nome único sem maiúsculas/acentos via collation `Latin1_General_CI_AI`, descrição, ativa), permissão
     `CADASTROS.ETIQUETAS`, menu "Etiquetas" com mesclagem (move os cadastros e desativa a origem, com histórico em cada pessoa).
   - `PessoaEtiquetas.EtiquetaId` (FK, índices `(PessoaId, EtiquetaId)` único e `(EtiquetaId, PessoaId)`); a coluna `Texto` fica como
