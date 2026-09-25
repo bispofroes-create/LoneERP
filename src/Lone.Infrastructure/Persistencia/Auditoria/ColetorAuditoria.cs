@@ -22,12 +22,14 @@ internal sealed class ColetorAuditoria
     private readonly ChangeTracker _rastreador;
     private readonly string _usuario;
     private readonly OrigemAlteracao _origem;
+    private readonly string? _motivo;
     private readonly Guid _operacaoId = Guid.NewGuid();
     private readonly DateTime _agora = DateTime.UtcNow;
     private readonly List<(EntityEntry Entrada, RegistroAuditoria Registro)> _pendentes = new();
 
-    public ColetorAuditoria(ChangeTracker rastreador, string usuario, OrigemAlteracao origem)
+    public ColetorAuditoria(ChangeTracker rastreador, string usuario, OrigemAlteracao origem, string? motivo = null)
     {
+        _motivo = string.IsNullOrWhiteSpace(motivo) ? null : Cortar(motivo.Trim(), RegistroAuditoria.TamanhoMaximoMotivo);
         _rastreador = rastreador;
         _usuario = usuario;
         _origem = origem;
@@ -145,6 +147,7 @@ internal sealed class ColetorAuditoria
             Usuario = _usuario,
             OperacaoId = _operacaoId,
             Origem = _origem,
+            Motivo = _motivo,
             Entidade = entrada.Metadata.ClrType.Name,
             Acao = acao,
             RegistroId = Chave(entrada),

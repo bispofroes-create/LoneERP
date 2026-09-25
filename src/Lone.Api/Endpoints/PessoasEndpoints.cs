@@ -61,7 +61,8 @@ public static class PessoasEndpoints
                 servico.ReativarAsync(id, requisicao, ct));
 
         grupo.MapGet("{id:guid}/historico",
-            (Guid id, IPessoaAppService servico, CancellationToken ct) => servico.ListarHistoricoAsync(id, ct));
+            (Guid id, long? antes, int? limite, IPessoaAppService servico, CancellationToken ct) =>
+                servico.ListarHistoricoAsync(id, antes, limite, ct));
 
         // Anexos de documentos (D7): cada envio é gravado na hora, à parte da ficha. Conteúdo em base64 no JSON
         // (limite por arquivo em "Anexos:TamanhoMaximoMb", padrão 10 MB; o Kestrel aceita até 30 MB por requisição).

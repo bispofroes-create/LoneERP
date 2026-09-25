@@ -31,4 +31,9 @@ public class RegistroAuditoria
 
     /// <summary>Texto do evento de negócio (só quando Acao = Evento).</summary>
     public string? Descricao { get; set; }
+
+    /// <summary>Motivo informado pelo usuário para a operação (o mesmo em todas as linhas dela). Nulo = não informado.</summary>
+    public string? Motivo { get; set; }
+
+    public const int TamanhoMaximoMotivo = 250;
 }

@@ -189,6 +189,14 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Tela "Campos personalizados" com escolha "Pessoas / Documentos" e o tipo de documento na ficha do campo.
   - **Migração única final:** `migrationBuilder.Sql(SqlMigracaoCadastroGeral.CamposVisiveis);` depois de criar
     `CamposPersonalizados.Visivel`.
+- **Fase 6 — Auditoria (código entregue em 25/09/2026; sem teste por fase):**
+  - Coluna `Auditoria.Motivo` (250): o serviço define `IMotivoDaOperacao.Motivo` (na API, o próprio usuário da requisição)
+    e a gravação copia para todas as linhas da operação. Ficha de pessoa: campo "Motivo da alteração (opcional)" ao lado
+    do Salvar (`PessoaDto.MotivoAlteracao`, só no envio); desativar/reativar também gravam o motivo na coluna.
+  - Histórico paginado por chave (`?antes={último Id}&limite=`, página de 100, máximo 500) com "Carregar mais antigos";
+    `RegistroHistorico` traz `Id` e `Motivo`.
+  - Tradução de Ids no histórico: tipo de telefone/e-mail, tipo de endereço, tipo de documento (documento e campo),
+    papel e documento do anexo/valor de campo ("CNH 123").
 
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 

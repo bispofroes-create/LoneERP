@@ -114,6 +114,7 @@
 
             <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <HorizontalStackLayout Spacing="12">
                     <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
                     <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
@@ -121,6 +122,10 @@
                     <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
                     <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
+                <!-- Motivo (opcional): vai para o histórico junto com o que mudou nesta gravação. -->
+                <Entry Grid.Column="1" Text="{Binding Formulario.MotivoAlteracao}" Placeholder="Motivo da alteração (opcional)"
+                       MaxLength="250" IsVisible="{Binding PodeSalvar}" VerticalOptions="Center" />
+                </Grid>
             </Border>
         </Grid>
     </Grid>

@@ -34,6 +34,9 @@ public sealed class PessoaAppService : IPessoaAppService
 {
     private const int LimiteHistorico = 500;
 
+    /// <summary>Registros por página do histórico (o aplicativo pede mais sob demanda).</summary>
+    private const int PaginaHistorico = 100;
+
     private readonly IPessoaRepositorio _repositorio;
     private readonly IAuditoriaConsultas _auditoria;
     private readonly IAutorizacao _autorizacao;
@@ -46,13 +49,15 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ITipoEnderecoRepositorio _tiposEndereco;
     private readonly ITipoDocumentoRepositorio _tiposDocumento;
     private readonly IAnexoRepositorio _anexos;
+    private readonly IMotivoDaOperacao _motivo;
     private readonly TimeProvider _relogio;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
                             IProfissaoRepositorio profissoes, IPapelRepositorio papeis,
                             ITipoMeioContatoRepositorio tiposMeio, ITipoEnderecoRepositorio tiposEndereco,
-                            ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos, TimeProvider relogio)
+                            ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
+                            IMotivoDaOperacao motivo, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _auditoria = auditoria;
@@ -67,6 +72,7 @@ public sealed class PessoaAppService : IPessoaAppService
         _tiposDocumento = tiposDocumento;
         _anexos = anexos;
         _relogio = relogio;
+        _motivo = motivo;
     }
 
     public Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default)
@@ -152,10 +158,11 @@ public sealed class PessoaAppService : IPessoaAppService
         return _repositorio.ContarClientesAtivosAsync(ct);
     }
 
-    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid pessoaId, CancellationToken ct = default)
+    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid pessoaId, long? antesDe = null, int? limite = null, CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
-        return _auditoria.ListarPorRaizAsync(nameof(Pessoa), pessoaId, LimiteHistorico, ct);
+        return _auditoria.ListarPorRaizAsync(nameof(Pessoa), pessoaId,
+            Math.Clamp(limite ?? PaginaHistorico, 1, LimiteHistorico), antesDe, ct);
     }
 
     public async Task<ResultadoSalvarPessoa> SalvarAsync(PessoaDto dto, CancellationToken ct = default)
@@ -163,6 +170,9 @@ public sealed class PessoaAppService : IPessoaAppService
         // Id que ainda não existe = inclusão (o aparelho pode ter gerado o Id, inclusive offline).
         var anterior = dto.Id == Guid.Empty ? null : await _repositorio.ObterAsync(dto.Id, ct);
         var nova = anterior is null;
+
+        // Motivo da alteração (opcional): gravado em todas as linhas de auditoria desta gravação.
+        _motivo.Motivo = dto.MotivoAlteracao;
 
         if (anterior?.Situacao == SituacaoPessoa.Arquivado)
             throw new ValidacaoException(["Cadastro arquivado é somente leitura."]);
@@ -316,6 +326,7 @@ public sealed class PessoaAppService : IPessoaAppService
         Guid id, AlterarSituacaoRequisicao requisicao, Action<Pessoa, DateTime> acao, CancellationToken ct)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Inativar);
+        _motivo.Motivo = requisicao.Motivo; // também na coluna Motivo da auditoria, além do texto do evento
         var pessoa = await _repositorio.ObterAsync(id, ct) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
         pessoa.Versao = requisicao.Versao ?? pessoa.Versao;
 

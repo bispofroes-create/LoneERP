@@ -163,6 +163,9 @@ public sealed partial class PessoaFormulario : ObservableObject
     public ObservableCollection<MeioContatoFormulario> MeiosContato { get; } = new();
     public ObservableCollection<ContatoFormulario> Contatos { get; } = new();
     public ObservableCollection<DocumentoFormulario> Documentos { get; } = new();
+
+    /// <summary>Motivo da alteração (opcional): vai para o histórico junto com o que mudou nesta gravação.</summary>
+    [ObservableProperty] private string _motivoAlteracao = string.Empty;
     public IReadOnlyList<PapelOpcao> Papeis { get; private set; } = [];
 
     public ContaClienteFormulario ContaCliente { get; private set; } = new();
@@ -414,7 +417,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             PrimeiroContatoEm = primeiroContato,
             Consentimentos = Consentimentos.Select(c => c.ParaDto()).OfType<ConsentimentoDto>().ToList(),
             EtiquetaIds = Etiquetas.Marcadas.ToList(),
-            ValoresPersonalizados = InformacoesAdicionais.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList()
+            ValoresPersonalizados = InformacoesAdicionais.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList(),
+            MotivoAlteracao = TextoTela.Nulo(MotivoAlteracao)?.Trim()
         };
 
         // Conta padrão entra quando o papel existe (ativo ou não); as de outras empresas voltam intactas.

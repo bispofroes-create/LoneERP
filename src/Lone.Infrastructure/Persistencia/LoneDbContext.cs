@@ -52,6 +52,9 @@ public class LoneDbContext : DbContext
     /// <summary>Origem das alterações desta gravação (usuário, consulta externa, importação...).</summary>
     public OrigemAlteracao Origem { get; set; } = OrigemAlteracao.Usuario;
 
+    /// <summary>Motivo informado para esta gravação (vai em todas as linhas de auditoria dela).</summary>
+    public string? Motivo { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         SequenciasConfiguration.Configurar(modelBuilder);
@@ -82,7 +85,7 @@ public class LoneDbContext : DbContext
     {
         AplicarDatasDeControle();
 
-        var coletor = new ColetorAuditoria(ChangeTracker, Usuario, Origem);
+        var coletor = new ColetorAuditoria(ChangeTracker, Usuario, Origem, Motivo);
         coletor.Coletar();
 
         if (!coletor.TemRegistros)

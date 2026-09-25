@@ -27,5 +27,6 @@ public interface IPessoaAppService
     /// <summary>Volta a usar um cadastro inativo.</summary>
     Task<PessoaDto> ReativarAsync(Guid id, AlterarSituacaoRequisicao requisicao, CancellationToken ct = default);
 
-    Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid pessoaId, CancellationToken ct = default);
+    /// <summary>Histórico em páginas: <paramref name="antesDe"/> = Id do último registro já mostrado.</summary>
+    Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid pessoaId, long? antesDe = null, int? limite = null, CancellationToken ct = default);
 }

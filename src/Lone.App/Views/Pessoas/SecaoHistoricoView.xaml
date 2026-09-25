@@ -16,10 +16,13 @@
                 <DataTemplate x:DataType="pes:HistoricoItem">
                     <VerticalStackLayout Spacing="2">
                         <Label Text="{Binding Descricao}" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Motivo}" Style="{StaticResource Secundario}" FontAttributes="Italic" IsVisible="{Binding TemMotivo}" />
                         <Label Text="{Binding Quando}" Style="{StaticResource Secundario}" />
                     </VerticalStackLayout>
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
         </VerticalStackLayout>
+        <Button Text="Carregar mais antigos" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
+                Command="{Binding CarregarMaisHistoricoCommand}" IsVisible="{Binding TemMaisHistorico}" />
     </VerticalStackLayout>
 </ContentView>

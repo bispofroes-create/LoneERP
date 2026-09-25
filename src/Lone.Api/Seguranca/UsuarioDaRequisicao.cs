@@ -8,8 +8,11 @@ namespace Lone.Api.Seguranca;
 /// Um por requisição (scoped); preenchido por <see cref="CarregarUsuarioMiddleware"/> logo após a autenticação.
 /// Sem login (ex.: tela de login) fica vazio: Nome "sistema" e nenhuma permissão.
 /// </summary>
-public sealed class UsuarioDaRequisicao : IUsuarioAtual, IEmpresaAtual, IAutorizacao
+public sealed class UsuarioDaRequisicao : IUsuarioAtual, IEmpresaAtual, IAutorizacao, IMotivoDaOperacao
 {
+    /// <summary>Motivo da operação desta requisição (auditoria); definido pelo serviço que o recebe.</summary>
+    public string? Motivo { get; set; }
+
     private AcessoEfetivo? _acesso;
 
     public Guid? Id { get; private set; }

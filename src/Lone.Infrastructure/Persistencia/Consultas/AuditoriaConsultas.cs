@@ -19,15 +19,24 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
         : base(fabrica, usuario) { }
 
     public async Task<List<RegistroHistorico>> ListarPorRaizAsync(
-        string raizEntidade, Guid raizId, int limite, CancellationToken ct)
+        string raizEntidade, Guid raizId, int limite, long? antesDe, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
-        var registros = await db.Auditoria.AsNoTracking()
-            .Where(a => a.RaizEntidade == raizEntidade && a.RaizId == raizId)
+        var consulta = db.Auditoria.AsNoTracking().Where(a => a.RaizEntidade == raizEntidade && a.RaizId == raizId);
+
+        // Paginação por chave (não por número de página): a próxima página continua exatamente depois do último
+        // registro mostrado, mesmo que novas alterações tenham sido gravadas no meio tempo. Usa o índice
+        // (RaizEntidade, RaizId, DataHora), que já termina no Id.
+        if (antesDe is { } ultimo &&
+            await db.Auditoria.AsNoTracking().Where(a => a.Id == ultimo).Select(a => (DateTime?)a.DataHora).FirstOrDefaultAsync(ct) is { } quando)
+            consulta = consulta.Where(a => a.DataHora < quando || (a.DataHora == quando && a.Id < ultimo));
+
+        var registros = await consulta
             .OrderByDescending(a => a.DataHora).ThenByDescending(a => a.Id)
             .Take(limite)
             .Select(a => new RegistroHistorico
             {
+                Id = a.Id,
                 DataHora = a.DataHora,
                 Usuario = a.Usuario,
                 Origem = a.Origem,
@@ -36,7 +45,8 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
                 Campo = a.Campo,
                 ValorAnterior = a.ValorAnterior,
                 ValorNovo = a.ValorNovo,
-                Descricao = a.Descricao
+                Descricao = a.Descricao,
+                Motivo = a.Motivo
             })
             .ToListAsync(ct);
 
@@ -45,6 +55,26 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
         await TraduzirEtiquetasAsync(db, registros, ct);
         await TraduzirProfissoesAsync(db, registros, ct);
         await TraduzirOcupacoesCboAsync(db, registros, ct);
+
+        // Referências a cadastros auxiliares gravadas como Id: mostra o nome atual (cadastros nunca são apagados).
+        await TraduzirIdsAsync(registros, nameof(MeioContato), nameof(MeioContato.TipoMeioContatoId), "(tipo de telefone/e-mail)",
+            ids => db.TiposMeioContato.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaEndereco), nameof(PessoaEndereco.TipoEnderecoId), "(tipo de endereço)",
+            ids => db.TiposEndereco.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaDocumento), nameof(PessoaDocumento.TipoDocumentoId), "(tipo de documento)",
+            ids => db.TiposDocumento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(CampoPersonalizado), nameof(CampoPersonalizado.TipoDocumentoId), "(tipo de documento)",
+            ids => db.TiposDocumento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaPapel), nameof(PessoaPapel.PapelId), "(papel)",
+            ids => db.Papeis.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(AnexoDocumento), nameof(AnexoDocumento.PessoaDocumentoId), "(documento)",
+            ids => db.PessoaDocumentos.AsNoTracking().Where(d => ids.Contains(d.Id))
+                .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, Texto = t.Nome + " " + d.Numero })
+                .ToDictionaryAsync(x => x.Id, x => x.Texto, ct));
+        await TraduzirIdsAsync(registros, nameof(DocumentoValorPersonalizado), nameof(DocumentoValorPersonalizado.PessoaDocumentoId), "(documento)",
+            ids => db.PessoaDocumentos.AsNoTracking().Where(d => ids.Contains(d.Id))
+                .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, Texto = t.Nome + " " + d.Numero })
+                .ToDictionaryAsync(x => x.Id, x => x.Texto, ct));
 
         // Gravado em UTC; marcado como tal para o aplicativo converter para o fuso do aparelho.
         foreach (var r in registros)
@@ -83,6 +113,27 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
         Guid.TryParse(valor[ValorCampo.PrefixoOpcao.Length..], out var id)
             ? opcoes.GetValueOrDefault(id, "(opção)")
             : valor;
+
+    /// <summary>Troca o Id gravado em (Entidade, Campo) pelo nome atual; Id que não existe mais vira o texto "desconhecido".</summary>
+    private static async Task TraduzirIdsAsync(List<RegistroHistorico> registros, string entidade, string campo, string desconhecido,
+                                               Func<List<Guid>, Task<Dictionary<Guid, string>>> nomesDe)
+    {
+        var alvo = registros.Where(r => r.Entidade == entidade && r.Campo == campo).ToList();
+        if (alvo.Count == 0) return;
+
+        var ids = alvo.SelectMany(r => new[] { r.ValorAnterior, r.ValorNovo })
+            .Select(v => Guid.TryParse(v, out var id) ? id : (Guid?)null)
+            .OfType<Guid>().Distinct().ToList();
+        var nomes = ids.Count == 0 ? new Dictionary<Guid, string>() : await nomesDe(ids);
+
+        foreach (var r in alvo)
+        {
+            r.ValorAnterior = Nome(r.ValorAnterior);
+            r.ValorNovo = Nome(r.ValorNovo);
+        }
+
+        string? Nome(string? valor) => Guid.TryParse(valor, out var id) ? nomes.GetValueOrDefault(id, desconhecido) : valor;
+    }
 
     /// <summary>Etiqueta marcada/desmarcada: o valor gravado é o Id da etiqueta; mostra o nome (mesmo renomeada, o nome atual).</summary>
     private static async Task TraduzirEtiquetasAsync(LoneDbContext db, List<RegistroHistorico> registros, CancellationToken ct)

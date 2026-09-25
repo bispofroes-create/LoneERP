@@ -302,6 +302,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (oldValue is not null) Desligar(oldValue);
         Historico.Clear();
         _historicoDe = null;
+        _ultimoDoHistorico = null;
+        TemMaisHistorico = false;
         if (newValue is null) return;
 
         newValue.PodeVerDadosSensiveis = _sessao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis);
@@ -359,17 +361,31 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             _ = CarregarHistoricoAsync(f.Id);
     }
 
+    /// <summary>Id do último registro mostrado: a próxima página começa antes dele.</summary>
+    private long? _ultimoDoHistorico;
+
+    /// <summary>A última página veio cheia: pode haver registros mais antigos.</summary>
+    [ObservableProperty] private bool _temMaisHistorico;
+
+    [RelayCommand]
+    private Task CarregarMaisHistoricoAsync() =>
+        Formulario is { Existente: true } f && TemMaisHistorico && !CarregandoHistorico
+            ? CarregarHistoricoAsync(f.Id, continuar: true)
+            : Task.CompletedTask;
+
     /// <summary>Independente do "ocupado" da tela: não apaga mensagens nem espera outra operação.</summary>
-    private async Task CarregarHistoricoAsync(Guid pessoaId)
+    private async Task CarregarHistoricoAsync(Guid pessoaId, bool continuar = false)
     {
         _historicoDe = pessoaId;
         CarregandoHistorico = true;
         try
         {
-            var registros = await _pessoas.ListarHistoricoAsync(pessoaId);
+            var registros = await _pessoas.ListarHistoricoAsync(pessoaId, continuar ? _ultimoDoHistorico : null);
             if (Formulario?.Id != pessoaId) return; // outra ficha foi aberta enquanto lia
-            Historico.Clear();
+            if (!continuar) Historico.Clear();
             foreach (var r in registros) Historico.Add(HistoricoItem.De(r));
+            if (registros.Count > 0) _ultimoDoHistorico = registros[^1].Id;
+            TemMaisHistorico = registros.Count >= PessoasApi.PaginaHistorico;
         }
         catch (SessaoExpiradaException)
         {

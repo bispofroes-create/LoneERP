@@ -39,8 +39,11 @@ public sealed class PessoasApi
     public Task<PessoaDto> ReativarAsync(Guid id, byte[]? versao, string? motivo, CancellationToken ct = default) =>
         _api.PostAsync<PessoaDto>(Rotas.Pessoas.Reativar(id), new AlterarSituacaoRequisicao { Versao = versao, Motivo = motivo }, ct: ct);
 
-    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid id, CancellationToken ct = default) =>
-        _api.GetAsync<List<RegistroHistorico>>(Rotas.Pessoas.Historico(id), ct);
+    /// <summary>Uma página do histórico; <paramref name="antes"/> = Id do último registro já mostrado (nulo = do começo).</summary>
+    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid id, long? antes = null, int limite = PaginaHistorico, CancellationToken ct = default) =>
+        _api.GetAsync<List<RegistroHistorico>>(Rotas.Pessoas.Historico(id, antes, limite), ct);
+
+    public const int PaginaHistorico = 100;
 
     /// <summary>Monta "?texto=...&amp;papel=Cliente&amp;incluirInativos=true" só com o que foi informado.</summary>
     internal static string Consulta(FiltroPessoas filtro)

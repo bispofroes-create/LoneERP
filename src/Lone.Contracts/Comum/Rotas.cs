@@ -28,6 +28,10 @@ public static class Rotas
         public const string Grupo = Base + "/pessoas";
         public static string PorId(Guid id) => $"{Grupo}/{id}";
         public static string Historico(Guid id) => $"{Grupo}/{id}/historico";
+
+        /// <summary>Próxima página do histórico: registros anteriores ao Id informado.</summary>
+        public static string Historico(Guid id, long? antes, int limite) =>
+            $"{Historico(id)}?limite={limite}" + (antes is { } a ? $"&antes={a}" : string.Empty);
         public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
         public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
         public const string QuantidadeClientesAtivos = Grupo + "/indicadores/clientes-ativos";

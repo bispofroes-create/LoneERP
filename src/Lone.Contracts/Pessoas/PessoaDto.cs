@@ -77,6 +77,9 @@ public sealed class PessoaDto
     public List<MeioContatoDto> MeiosContato { get; set; } = new();
     public List<ContatoDto> Contatos { get; set; } = new();
     public List<DocumentoDto> Documentos { get; set; } = new();
+
+    /// <summary>Só no envio: motivo da alteração (opcional), gravado na auditoria desta gravação. Não é lido de volta.</summary>
+    public string? MotivoAlteracao { get; set; }
     public List<PapelDto> Papeis { get; set; } = new();
     public List<ContaClienteDto> ContasCliente { get; set; } = new();
     public List<ContaFornecedorDto> ContasFornecedor { get; set; } = new();

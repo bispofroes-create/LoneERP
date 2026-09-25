@@ -24,6 +24,7 @@ public static class ConfiguracaoApi
         // O usuário da requisição responde às três perguntas que os casos de uso fazem.
         services.AddScoped<UsuarioDaRequisicao>();
         services.AddScoped<IUsuarioAtual>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
+        services.AddScoped<IMotivoDaOperacao>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
         services.AddScoped<IEmpresaAtual>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
         services.AddScoped<IAutorizacao>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
         services.AddMemoryCache();

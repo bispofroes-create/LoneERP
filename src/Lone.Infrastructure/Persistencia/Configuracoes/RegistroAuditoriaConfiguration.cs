@@ -21,6 +21,7 @@ public class RegistroAuditoriaConfiguration : IEntityTypeConfiguration<RegistroA
         b.Property(a => a.ValorAnterior).HasMaxLength(500);
         b.Property(a => a.ValorNovo).HasMaxLength(500);
         b.Property(a => a.Descricao).HasMaxLength(500);
+        b.Property(a => a.Motivo).HasMaxLength(RegistroAuditoria.TamanhoMaximoMotivo);
 
         // Histórico de um agregado (a consulta mais comum), da mais recente para a mais antiga.
         b.HasIndex(a => new { a.RaizEntidade, a.RaizId, a.DataHora });

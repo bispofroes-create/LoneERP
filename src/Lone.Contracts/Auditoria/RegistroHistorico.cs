@@ -6,6 +6,8 @@ namespace Lone.Contracts.Auditoria;
 /// <summary>Linha de histórico pronta para exibir: nomes técnicos já traduzidos. DataHora em UTC.</summary>
 public sealed class RegistroHistorico
 {
+    /// <summary>Posição no histórico: a próxima página começa antes deste Id.</summary>
+    public long Id { get; set; }
     public DateTime DataHora { get; set; }
     public string Usuario { get; set; } = string.Empty;
     public OrigemAlteracao Origem { get; set; }
@@ -17,6 +19,9 @@ public sealed class RegistroHistorico
 
     /// <summary>Texto do evento (Acao = Evento), ex.: "Cliente João da Silva foi desativado."</summary>
     public string? Descricao { get; set; }
+
+    /// <summary>Motivo informado pelo usuário na operação (nulo = não informado).</summary>
+    public string? Motivo { get; set; }
 
     public string EntidadeDescricao => DescritorCampos.Entidade(Entidade);
     public string? CampoDescricao => Campo is null ? null : DescritorCampos.Campo(Entidade, Campo);

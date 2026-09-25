@@ -19,6 +19,8 @@ public abstract class ServicoDadosBase
     {
         var db = await _fabrica.CreateDbContextAsync(ct);
         db.Usuario = _usuario.Nome;
+        // Na API o usuário da requisição também carrega o motivo da operação (ver IMotivoDaOperacao).
+        db.Motivo = (_usuario as IMotivoDaOperacao)?.Motivo;
         return db;
     }
 }
