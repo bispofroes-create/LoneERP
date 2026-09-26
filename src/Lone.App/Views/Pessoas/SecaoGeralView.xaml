@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
              xmlns:c="clr-namespace:Lone.App.Controles"
              x:Class="Lone.App.Views.Pessoas.SecaoGeralView"
              x:DataType="pes:PessoasViewModel">
@@ -55,8 +56,27 @@
             <c:CampoEscolha Rotulo="Grupo empresarial (opcional)" Itens="{Binding Formulario.GruposEmpresariais}"
                             Selecionado="{Binding Formulario.GrupoEmpresarial}" IsEnabled="{Binding PodeAlterarEstruturaEmpresarial}"
                             MaximumWidthRequest="520" HorizontalOptions="Start" />
-            <Label Text="Empresas independentes (outro CNPJ) nunca são filiais: cada uma é um cadastro próprio. Para vê-las juntas, use um grupo empresarial (menu &quot;Grupos empresariais&quot;). Matriz e filiais ficam na aba &quot;Estabelecimentos&quot;; sócios e administradores, na aba &quot;Relacionamentos&quot;."
+            <Label Text="Empresas independentes (outro CNPJ) nunca são filiais: cada uma é um cadastro próprio. Para vê-las juntas, use um grupo empresarial (menu &quot;Grupos empresariais&quot;). Matriz e filiais ficam na aba &quot;Fiscal e estabelecimentos&quot;; vínculos com sócios e administradores cadastrados no Lone, na aba &quot;Relacionamentos&quot;."
                    Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <!-- Sócios da Receita (lidos na consulta do CNPJ; só leitura). -->
+            <VerticalStackLayout IsVisible="{Binding Formulario.TemSocios}" Spacing="4">
+                <Label Text="Sócios e administradores (Receita Federal)" Style="{StaticResource Rotulo}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Socios}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="dto:SocioDto">
+                            <Label LineBreakMode="WordWrap">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Nome}" FontAttributes="Bold" />
+                                        <Span Text=" · " />
+                                        <Span Text="{Binding Qualificacao}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
         </VerticalStackLayout>
 
         <Label Text="Papéis" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />

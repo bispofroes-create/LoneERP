@@ -89,7 +89,7 @@ public class PessoasViewModelTests
         f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
         Assert.Equal(SecaoPessoa.Geral, tela.SecaoSelecionada!.Secao);
         Assert.Equal("Identificação", tela.Secoes[0].Texto);
-        Assert.Equal("Estabelecimentos", tela.Secoes[1].Texto);
+        Assert.Contains(tela.Secoes, s => s.Secao == SecaoPessoa.Estabelecimentos && s.Texto == "Fiscal e estabelecimentos");
         Assert.Contains(tela.Secoes, s => s.Secao == SecaoPessoa.Documentos); // documentos valem para qualquer natureza
         Assert.DoesNotContain(tela.Secoes, s => s.Secao == SecaoPessoa.Pessoais); // dados pessoais só na pessoa física
         await Task.Delay(50);

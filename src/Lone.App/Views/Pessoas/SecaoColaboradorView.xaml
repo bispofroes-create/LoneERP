@@ -35,7 +35,7 @@
                                 <c:CampoEscolha Rotulo="Tipo de vínculo" Itens="{Binding ListaTipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Admissão" Texto="{Binding AdmissaoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Jornada semanal (h)" Texto="{Binding JornadaSemanal}" Mascara="Numero" Dica="Ex.: 44" />
-                                <c:Campo Rotulo="Desligamento" Texto="{Binding DesligamentoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo Rotulo="Desligamento" Texto="{Binding DesligamentoEm}" Dica="vazio = vínculo ativo" Mascara="Data" />
                                 <c:Campo Rotulo="Motivo do desligamento" Texto="{Binding MotivoDesligamento}" IsVisible="{Binding Desligado}" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
                             </FlexLayout>

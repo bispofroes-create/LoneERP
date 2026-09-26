@@ -2,35 +2,13 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
-             xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
              xmlns:c="clr-namespace:Lone.App.Controles"
              x:Class="Lone.App.Views.Pessoas.SecaoEstabelecimentosView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
-        <!-- Sócios da Receita (lidos na consulta do CNPJ). Dados da empresa e grupo empresarial ficam na Identificação. -->
-        <VerticalStackLayout IsVisible="{Binding Formulario.EhJuridica}" Spacing="6">
-            <VerticalStackLayout IsVisible="{Binding Formulario.TemSocios}" Spacing="4">
-                <Label Text="Sócios e administradores (Receita Federal)" Style="{StaticResource Rotulo}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Socios}" Spacing="2">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="dto:SocioDto">
-                            <Label LineBreakMode="WordWrap">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="{Binding Nome}" FontAttributes="Bold" />
-                                        <Span Text=" · " />
-                                        <Span Text="{Binding Qualificacao}" />
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-                <BoxView HeightRequest="1" Opacity="0.4" Margin="0,8"
-                         Color="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}" />
-            </VerticalStackLayout>
-        </VerticalStackLayout>
-
+        <!-- Dados fiscais por CNPJ. Identidade da empresa (dados, grupo, sócios) fica na Identificação. -->
+        <Label Text="Dados fiscais desta pessoa (inscrições, regime e CNAE)." Style="{StaticResource Secundario}"
+               IsVisible="{Binding Formulario.NaoEhJuridica}" />
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Formulario.EhJuridica}">
             <Label Text="Matriz e filiais desta empresa (mesma raiz de CNPJ). Cada CNPJ tem os seus dados fiscais; a filial pode ter endereço próprio. Filial gravada não é excluída: é desativada."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />

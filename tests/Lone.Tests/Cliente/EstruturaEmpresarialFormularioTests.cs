@@ -186,6 +186,40 @@ public class EstruturaEmpresarialFormularioTests
     }
 
     [Fact]
+    public void Condicao_do_cliente_tem_o_texto_anterior_so_para_leitura_como_no_fornecedor()
+    {
+        var trinta = new CondicaoPagamentoDto { Id = Guid.NewGuid(), Nome = "30 dias", Parcelas = "30", Ativo = true };
+        var dto = EmpresaGravada();
+        dto.ContasCliente = [new ContaClienteDto { Id = Guid.NewGuid(), CondicaoPagamento = "28 dias" }];
+        var f = PessoaFormulario.De(dto);
+
+        Assert.True(f.ContaCliente.TemCondicaoAnterior);
+        Assert.Contains("não convertida", f.ContaCliente.TextoCondicaoAnterior);
+        f.DefinirOpcoesComercial(new ComercialOpcoesDto { Condicoes = [trinta] });
+        f.ContaCliente.Condicao = f.ContaCliente.Condicoes.Single(c => c.Valor == trinta.Id);
+
+        var conta = f.ParaDto().ContasCliente.Single(c => c.EmpresaId is null);
+        Assert.Equal(trinta.Id, conta.CondicaoPagamentoId);
+        Assert.Equal("28 dias", conta.CondicaoPagamento); // o texto antigo não é apagado
+        Assert.Contains("guardada", f.ContaCliente.TextoCondicaoAnterior);
+        Assert.DoesNotContain("não convertida", f.ContaCliente.TextoCondicaoAnterior);
+    }
+
+    [Fact]
+    public void Aba_fiscal_vem_depois_de_documentos_com_o_nome_conforme_a_natureza()
+    {
+        var empresa = SecaoOpcao.Para(PessoaFormulario.De(EmpresaGravada())).ToList();
+        var fiscal = empresa.FindIndex(s => s.Secao == SecaoPessoa.Estabelecimentos);
+        Assert.Equal("Fiscal e estabelecimentos", empresa[fiscal].Texto);
+        Assert.Equal(SecaoPessoa.Documentos, empresa[fiscal - 1].Secao);
+        Assert.Equal(SecaoPessoa.Geral, empresa[0].Secao);
+        Assert.Equal(SecaoPessoa.Contatos, empresa[1].Secao); // a PJ não tem mais aba de empresa logo depois da Identificação
+
+        var pessoa = SecaoOpcao.Para(PessoaFormulario.NovaPessoa());
+        Assert.Single(pessoa, s => s.Secao == SecaoPessoa.Estabelecimentos && s.Texto == "Fiscal");
+    }
+
+    [Fact]
     public void Avaliacao_do_fornecedor_vai_de_1_a_5()
     {
         var f = PessoaFormulario.De(EmpresaGravada());

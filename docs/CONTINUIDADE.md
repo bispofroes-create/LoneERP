@@ -337,6 +337,15 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     estavam até a Fase 3 (Privacidade), que **depende de decisão do usuário** sobre a precedência (plano, seção 9).
   - Testes: `PessoasViewModelTests` (abas ajustadas; grupos lidos uma vez na Identificação; duas listas de contatos).
   - A conferir pelo usuário: compilar, rodar os testes, e no Windows/Android os critérios da seção 10 do plano.
+- **Consolidação de Pessoas — Fase 2 (26/09/2026; código entregue, sem compilar):**
+  - Aba fiscal única, **depois de Documentos** para todas as naturezas: **"Fiscal e estabelecimentos"** (PJ: matriz, filiais e
+    dados fiscais de cada CNPJ) e **"Fiscal"** (PF/estrangeiro). A PJ não tem mais aba de empresa logo após a Identificação.
+  - **Sócios da Receita** foram para a Identificação (bloco Dados da empresa, só leitura).
+  - Cliente: o texto antigo da condição de pagamento deixou de ser campo editável; aparece só leitura com
+    "não convertida" / "guardada", igual ao fornecedor (`ContaClienteFormulario.TextoCondicaoAnterior`). O texto continua
+    sendo gravado como veio.
+  - Colaborador: revisão de textos (dica do desligamento).
+  - Testes: `EstruturaEmpresarialFormularioTests` (condição do cliente, ordem/nome da aba fiscal), `PessoasViewModelTests` ajustado.
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

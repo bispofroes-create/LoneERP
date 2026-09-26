@@ -27,7 +27,14 @@ public sealed partial class ContaClienteFormulario : ObservableObject
     [ObservableProperty] private string _limiteCredito = string.Empty;
     [ObservableProperty] private string _diasMaximoAtraso = string.Empty;
     [ObservableProperty] private string _descontoMaximo = string.Empty;
-    [ObservableProperty] private string _condicaoPagamento = string.Empty;
+    /// <summary>
+    /// Texto anterior ao cadastro de condições (preservado, somente leitura na ficha, como no fornecedor). A migração
+    /// ligou ao cadastro o que tinha o mesmo nome; o resto aparece como "não convertida" até alguém escolher a condição.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoCondicaoAnterior), nameof(TemCondicaoAnterior))]
+    private string _condicaoPagamento = string.Empty;
+
     [ObservableProperty] private bool _exigeAprovacaoAcimaLimite = true;
     [ObservableProperty] private string _observacoes = string.Empty;
 
@@ -37,10 +44,22 @@ public sealed partial class ContaClienteFormulario : ObservableObject
 
     /// <summary>Condição de pagamento do cadastro (o texto antigo continua guardado em <see cref="CondicaoPagamento"/>).</summary>
     [ObservableProperty] private Opcao<Guid?>[] _condicoes = [OpcoesComercial.Nenhum];
-    [ObservableProperty] private Opcao<Guid?> _condicao = OpcoesComercial.Nenhum;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoCondicaoAnterior), nameof(TemCondicaoAnterior))]
+    private Opcao<Guid?> _condicao = OpcoesComercial.Nenhum;
 
     public Guid? PerfilId => _opcoesCarregadas ? Perfil.Valor : _perfilGravado;
     public Guid? CondicaoId => _opcoesCarregadas ? Condicao.Valor : _condicaoGravada;
+
+    public bool TemCondicaoAnterior => TextoCondicaoAnterior.Length > 0;
+
+    /// <summary>"Condição anterior (texto): 28 dias — não convertida; escolha a condição acima." (mesma regra do fornecedor).</summary>
+    public string TextoCondicaoAnterior =>
+        string.IsNullOrWhiteSpace(CondicaoPagamento) ? string.Empty
+        : CondicaoId is null
+            ? $"Condição anterior (texto): {CondicaoPagamento.Trim()} — não convertida; escolha a condição de pagamento acima."
+            : $"Condição anterior (texto, guardada): {CondicaoPagamento.Trim()}";
 
     public void DefinirOpcoes(OpcoesComercial opcoes)
     {
@@ -51,6 +70,8 @@ public sealed partial class ContaClienteFormulario : ObservableObject
         Condicoes = opcoes.Condicoes(_condicaoGravada);
         Condicao = OpcoesComercial.Escolher(Condicoes, condicao);
         _opcoesCarregadas = true;
+        OnPropertyChanged(nameof(TextoCondicaoAnterior));
+        OnPropertyChanged(nameof(TemCondicaoAnterior));
     }
 
     public static ContaClienteFormulario De(ContaClienteDto? c) => c is null

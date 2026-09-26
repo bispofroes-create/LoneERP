@@ -17,11 +17,13 @@
                             IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
             <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Formulario.ContaCliente.Condicoes}" Selecionado="{Binding Formulario.ContaCliente.Condicao}"
                             IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
-            <c:Campo Rotulo="Condição (texto antigo)" Texto="{Binding Formulario.ContaCliente.CondicaoPagamento}" Dica="Guardado de antes do cadastro de condições" />
             <c:CaixaMarcar Texto="Vender acima do limite só com aprovação" Marcado="{Binding Formulario.ContaCliente.ExigeAprovacaoAcimaLimite}"
                            FlexLayout.Basis="100%" />
             <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaCliente.Observacoes}" FlexLayout.Basis="100%" />
         </FlexLayout>
+        <!-- Texto antigo da condição: guardado, só leitura (igual ao fornecedor). -->
+        <Label Text="{Binding Formulario.ContaCliente.TextoCondicaoAnterior}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+               IsVisible="{Binding Formulario.ContaCliente.TemCondicaoAnterior}" />
         <Label Text="{Binding Formulario.ResumoComercial}" FontAttributes="Bold" LineBreakMode="WordWrap" />
         <Label Text="Os campos acima valem onde o perfil não define; uma exceção vigente vale acima do perfil."
                Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
