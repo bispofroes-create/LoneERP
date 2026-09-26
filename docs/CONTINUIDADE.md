@@ -1,6 +1,6 @@
 # Lone ERP — documento de continuidade
 
-Situação em 24/09/2026. Serve para quem continuar o trabalho, seja outra conta ou outro assistente.
+Situação em 26/09/2026. Serve para quem continuar o trabalho, seja outra conta ou outro assistente.
 Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este documento explica o que existe, as decisões tomadas e o que falta.
 
 ---
@@ -319,6 +319,24 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     Depois, no próprio PMC: `& .\Ferramentas\validar-estrutura-empresarial.ps1` (roda `auditar-migracao-estrutura-empresarial.ps1`,
     que confere as operações esperadas, recusa qualquer Drop/Rename/AlterColumn/Delete e insere a linha do Sql; compila; roda
     todos os testes com Total/Passed/Failed/Skipped; imprime o roteiro manual de Windows e Android).
+- **Consolidação da ficha de Pessoas — Fase 1 (26/09/2026; código entregue, sem compilar — ambiente sem SDK .NET):**
+  plano completo em `_entrega/PLANO-CONSOLIDACAO-PESSOAS.md` (5 fases, nenhuma com migration). Só App + Cliente + testes.
+  - Aba **Geral → "Identificação"**; recebe as **Etiquetas** (saíram de "Interações e LGPD") e, na PJ, o bloco
+    **Dados da empresa** (abertura, porte, capital, natureza jurídica do principal) e o **Grupo empresarial** (saíram da aba
+    da empresa). As opções de grupo agora são lidas quando a Identificação abre numa PJ (ou quando a ficha vira PJ nela);
+    Identificação e Relacionamentos compartilham a mesma leitura em andamento (`CarregarOpcoesEstruturaAsync`).
+  - Aba da PJ renomeada para **"Estabelecimentos"** (sócios da Receita + matriz e filiais). CNPJ, nome fantasia e natureza
+    jurídica do principal são editados **só na Identificação**; no cartão do principal aparecem só leitura
+    (`EstabelecimentoFormulario.PrincipalDaPJ`). Filiais continuam editando os seus.
+  - **Documentos** aparece para todas as naturezas, com o resumo do documento principal ("altere na Identificação").
+    Tipos como RG aparecem também para PJ (filtro por natureza exigiria coluna nova — não feito).
+  - **Contatos**: listas **Telefones** e **E-mails** (mesma coleção `MeiosContato`; `NaListaTelefones`/`NaListaEmails`,
+    comandos `AdicionarTelefone`/`AdicionarEmail`, primeiro de cada tipo vira principal); pessoas de contato com a
+    explicação de quando usar Relacionamentos. Nada muda no que é gravado.
+  - PF: "Dados pessoais" continua aba própria (recomendação do plano). "Aceita comunicações"/"Marketing" continuam onde
+    estavam até a Fase 3 (Privacidade), que **depende de decisão do usuário** sobre a precedência (plano, seção 9).
+  - Testes: `PessoasViewModelTests` (abas ajustadas; grupos lidos uma vez na Identificação; duas listas de contatos).
+  - A conferir pelo usuário: compilar, rodar os testes, e no Windows/Android os critérios da seção 10 do plano.
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

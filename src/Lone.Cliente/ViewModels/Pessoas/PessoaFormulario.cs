@@ -1100,13 +1100,39 @@ public sealed partial class PessoaFormulario : ObservableObject
             if (meio.Gravado) meio.Ativo = false;
             else MeiosContato.Remove(meio);
             OnPropertyChanged(nameof(TemMeiosInativos));
+            AvisarListasDeMeios();
         };
         meio.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MeioContatoFormulario.Ativo)) OnPropertyChanged(nameof(TemMeiosInativos));
+            if (e.PropertyName is nameof(MeioContatoFormulario.NaListaTelefones) or nameof(MeioContatoFormulario.NaListaEmails))
+                AvisarListasDeMeios();
         };
         MeiosContato.Add(meio);
         OnPropertyChanged(nameof(TemMeiosInativos));
+        AvisarListasDeMeios();
+    }
+
+    /// <summary>Aba Contatos: a mesma coleção aparece em "Telefones" e "E-mails" (só apresentação).</summary>
+    public bool SemTelefones => !MeiosContato.Any(m => m.NaListaTelefones);
+    public bool SemEmails => !MeiosContato.Any(m => m.NaListaEmails);
+
+    private void AvisarListasDeMeios()
+    {
+        OnPropertyChanged(nameof(SemTelefones));
+        OnPropertyChanged(nameof(SemEmails));
+    }
+
+    /// <summary>Novo telefone ou e-mail já com o tipo; vira principal se ainda não houver outro ativo do mesmo tipo.</summary>
+    public MeioContatoFormulario NovoMeio(TipoContato tipo)
+    {
+        var meio = new MeioContatoFormulario
+        {
+            Tipo = Opcao.De(OpcoesPessoa.TiposContato, tipo),
+            Principal = !MeiosContato.Any(m => m.Ativo && m.Tipo.Valor == tipo)
+        };
+        AdicionarMeio(meio);
+        return meio;
     }
 
     /// <summary>Tipos de telefone/e-mail do cadastro (Comercial, Residencial...).</summary>

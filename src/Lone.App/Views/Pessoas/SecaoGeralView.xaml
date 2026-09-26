@@ -10,7 +10,7 @@
             <c:CampoEscolha Rotulo="Natureza" Itens="{Binding Formulario.Naturezas}" Selecionado="{Binding Formulario.Natureza}" />
             <c:Campo Rotulo="{Binding Formulario.RotuloNome}" Texto="{Binding Formulario.Nome}" FlexLayout.Basis="100%" />
             <!-- Razão social = identificação jurídica; nome fantasia = nome comercial; nome de exibição = o que o Lone mostra.
-                 O nome fantasia é o do estabelecimento principal: este campo e o da aba Estabelecimentos são o mesmo dado. -->
+                 O nome fantasia é o do estabelecimento principal e só é editado aqui (o cartão do principal mostra como leitura). -->
             <c:Campo Rotulo="Nome fantasia (opcional)" Texto="{Binding Formulario.Principal.NomeFantasia}" FlexLayout.Basis="100%"
                      IsVisible="{Binding Formulario.EhJuridica}" Dica="Nome comercial" />
             <c:Campo Rotulo="{Binding Formulario.RotuloDocumento}" Texto="{Binding Formulario.Documento}"
@@ -32,13 +32,32 @@
                    FlexLayout.Basis="100%" Margin="0,2,12,8" />
         </FlexLayout>
 
-        <!-- Pessoa jurídica: o CNPJ do estabelecimento principal, com a consulta à Receita. -->
+        <!-- Pessoa jurídica: o CNPJ do estabelecimento principal, com a consulta à Receita (único ponto de edição dele). -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Formulario.EhJuridica}">
             <!-- Sem teclado numérico: o CNPJ pode ter letras (CNPJ alfanumérico). -->
             <c:Campo Rotulo="CNPJ do estabelecimento principal" Texto="{Binding Formulario.Principal.Cnpj}" Mascara="Cnpj" />
             <Button Grid.Column="1" Text="Consultar CNPJ" Style="{StaticResource BotaoSecundario}" VerticalOptions="End"
                     Margin="0,0,0,8" Command="{Binding Formulario.Principal.ConsultarCnpjCommand}" />
         </Grid>
+
+        <!-- Pessoa jurídica: identidade da empresa (raiz do CNPJ), preenchida pela consulta à Receita. -->
+        <VerticalStackLayout IsVisible="{Binding Formulario.EhJuridica}" Spacing="6" Margin="0,8,0,0">
+            <Label Text="Dados da empresa" Style="{StaticResource Subtitulo}" />
+            <FlexLayout Wrap="Wrap">
+                <c:Campo Rotulo="Data de abertura" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.DataAbertura}" />
+                <c:Campo Rotulo="Porte" Texto="{Binding Formulario.Porte}" />
+                <c:Campo Rotulo="Capital social (R$)" Texto="{Binding Formulario.CapitalSocial}" />
+                <c:Campo Rotulo="Natureza jurídica" Texto="{Binding Formulario.Principal.NaturezaJuridica}" />
+            </FlexLayout>
+
+            <!-- Grupo empresarial (opcional): reúne esta empresa com outras independentes (CNPJs de outra raiz).
+                 Não é matriz/filial. Mudar exige a permissão de estrutura empresarial. As opções são lidas quando esta aba abre. -->
+            <c:CampoEscolha Rotulo="Grupo empresarial (opcional)" Itens="{Binding Formulario.GruposEmpresariais}"
+                            Selecionado="{Binding Formulario.GrupoEmpresarial}" IsEnabled="{Binding PodeAlterarEstruturaEmpresarial}"
+                            MaximumWidthRequest="520" HorizontalOptions="Start" />
+            <Label Text="Empresas independentes (outro CNPJ) nunca são filiais: cada uma é um cadastro próprio. Para vê-las juntas, use um grupo empresarial (menu &quot;Grupos empresariais&quot;). Matriz e filiais ficam na aba &quot;Estabelecimentos&quot;; sócios e administradores, na aba &quot;Relacionamentos&quot;."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
 
         <Label Text="Papéis" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
         <Label Text="O que esta pessoa é para a empresa. Um mesmo cadastro pode ser cliente e fornecedor. Desmarcar encerra o período (fica no histórico)."
@@ -50,6 +69,25 @@
                         <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Ativo}" />
                         <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" Margin="32,-6,0,0" />
                     </VerticalStackLayout>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </FlexLayout>
+
+        <!-- Etiquetas do cadastro de etiquetas: marcar/desmarcar; a busca só filtra o que aparece. -->
+        <Label Text="Etiquetas" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <SearchBar Text="{Binding Formulario.Etiquetas.Busca}" Placeholder="Buscar etiqueta" />
+            <Button Grid.Column="1" Text="Nova etiqueta" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding NovaEtiquetaCommand}" IsVisible="{Binding PodeCriarEtiqueta}" IsEnabled="{Binding Livre}" />
+        </Grid>
+        <Label Text="{Binding Formulario.Etiquetas.Resumo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+        <Label Text="Nenhuma etiqueta cadastrada ainda. Quem gerencia etiquetas pode criá-las no menu Etiquetas."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.Etiquetas.Vazio}" />
+        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Etiquetas.Visiveis}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:EtiquetaMarcavel">
+                    <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Marcada}"
+                                   FlexLayout.Basis="{OnIdiom Phone='100%', Default='33%'}" />
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
         </FlexLayout>

@@ -180,7 +180,7 @@ public sealed partial class GruposEmpresariaisViewModel : CadastroViewModelBase<
         novo.DefinirEmpresas(formulario.Empresas.Select(e => e.Dados));
         Formulario = novo;
         MarcarFichaSemAlteracoes();
-        Mostrar(formulario.Novo ? "Grupo empresarial criado. As empresas entram pela ficha de cada uma (aba \"Empresa e estabelecimentos\")." : "Alterações salvas.",
+        Mostrar(formulario.Novo ? "Grupo empresarial criado. As empresas entram pela ficha de cada uma (aba \"Identificação\")." : "Alterações salvas.",
             TipoMensagem.Sucesso);
     }
 

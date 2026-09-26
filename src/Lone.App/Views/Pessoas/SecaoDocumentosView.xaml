@@ -27,9 +27,26 @@
                                Escolha="{StaticResource ModeloEscolha}" />
     </ContentView.Resources>
     <VerticalStackLayout Spacing="8">
+        <!-- Documento principal (CPF/CNPJ/identificação estrangeira): só resumo; um só ponto de edição, na Identificação. -->
+        <Border Style="{StaticResource CartaoItem}">
+            <VerticalStackLayout Spacing="2">
+                <Label IsVisible="{Binding Formulario.NaoEhJuridica}" FontAttributes="Bold">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="{Binding Formulario.RotuloDocumento}" />
+                            <Span Text=": " />
+                            <Span Text="{Binding Formulario.Documento}" />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
+                <Label Text="{Binding Formulario.Principal.Titulo}" FontAttributes="Bold" IsVisible="{Binding Formulario.EhJuridica}" />
+                <Label Text="O documento principal é alterado na aba &quot;Identificação&quot;." Style="{StaticResource Secundario}" />
+            </VerticalStackLayout>
+        </Border>
+
         <!-- Remover um documento já gravado só desativa (fica no histórico; volta em "Mostrar inativos"). -->
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <Label Text="RG, CNH, passaporte, alvará e outros documentos da pessoa. Os tipos ficam em &quot;Tipos de documento&quot;."
+            <Label Text="Outros documentos: RG, CNH, passaporte, alvará, contrato social... Os tipos ficam em &quot;Tipos de documento&quot;."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarDocumentosInativos}"
                            IsVisible="{Binding Formulario.TemDocumentosInativos}" VerticalOptions="Center" />

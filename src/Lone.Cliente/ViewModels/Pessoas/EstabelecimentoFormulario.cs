@@ -74,18 +74,24 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     private EnderecoFormulario? _enderecoFiscal;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Titulo), nameof(FilialDaPJ), nameof(MostrarNaFicha), nameof(PodeTornarPrincipal),
-                              nameof(PodeDesativar), nameof(PodeReativar))]
+    [NotifyPropertyChangedFor(nameof(Titulo), nameof(FilialDaPJ), nameof(PrincipalDaPJ), nameof(MostrarNaFicha),
+                              nameof(PodeTornarPrincipal), nameof(PodeDesativar), nameof(PodeReativar))]
     private bool _ehPrincipal;
 
     /// <summary>Definido pela ficha. Só a pessoa jurídica tem CNPJ, nome fantasia e filiais.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(MostrarNaFicha), nameof(PodeTornarPrincipal),
+    [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(PrincipalDaPJ), nameof(MostrarNaFicha), nameof(PodeTornarPrincipal),
                               nameof(PodeDesativar), nameof(PodeReativar))]
     private bool _daPessoaJuridica;
 
     /// <summary>Filial de pessoa jurídica: pode virar principal, ser removida e ter endereço próprio.</summary>
     public bool FilialDaPJ => DaPessoaJuridica && !EhPrincipal;
+
+    /// <summary>
+    /// Principal da pessoa jurídica: CNPJ, nome fantasia e natureza jurídica são editados só na Identificação
+    /// (um ponto de edição); no cartão do estabelecimento aparecem como leitura.
+    /// </summary>
+    public bool PrincipalDaPJ => DaPessoaJuridica && EhPrincipal;
 
     /// <summary>Só uma filial ativa vira o estabelecimento principal.</summary>
     public bool PodeTornarPrincipal => FilialDaPJ && Ativo;

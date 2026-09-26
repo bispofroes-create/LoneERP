@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!-- Grupos empresariais: tabela à esquerda, ficha ao lado. Nada é excluído: é desativado.
-     As empresas entram no grupo pela ficha de cada pessoa jurídica (aba "Empresa e estabelecimentos"). -->
+     As empresas entram no grupo pela ficha de cada pessoa jurídica (aba "Identificação"). -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
@@ -83,7 +83,7 @@
 
                     <!-- Empresas do grupo (somente leitura): cada uma com a sua matriz e as suas filiais. -->
                     <Label Text="Empresas do grupo" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
-                    <Label Text="Para incluir ou tirar uma empresa, abra a ficha dela em Pessoas (aba &quot;Empresa e estabelecimentos&quot;). Só pessoas jurídicas participam; quem é sócio ou administrador aparece nos relacionamentos de cada empresa."
+                    <Label Text="Para incluir ou tirar uma empresa, abra a ficha dela em Pessoas (aba &quot;Identificação&quot;). Só pessoas jurídicas participam; quem é sócio ou administrador aparece nos relacionamentos de cada empresa."
                            Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
                     <Label Text="Nenhuma empresa neste grupo." Style="{StaticResource Secundario}" IsVisible="{Binding Formulario.SemEmpresas}" />
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Empresas}" Spacing="6">

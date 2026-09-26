@@ -34,8 +34,12 @@ public sealed partial class MeioContatoFormulario : ItemDeLista
 
     public IReadOnlyList<Opcao<TipoContato>> Tipos => OpcoesPessoa.TiposContato;
 
+    /// <summary>Tipos oferecidos na lista "Telefones" (o e-mail tem a sua própria lista).</summary>
+    public IReadOnlyList<Opcao<TipoContato>> TiposTelefone { get; } = OpcoesPessoa.TiposContato.Where(t => t.Valor != TipoContato.Email).ToArray();
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Mascara), nameof(EhTelefone), nameof(EhFixo), nameof(EhEmail), nameof(TemClassificacao))]
+    [NotifyPropertyChangedFor(nameof(Mascara), nameof(EhTelefone), nameof(EhFixo), nameof(EhEmail), nameof(TemClassificacao),
+                              nameof(NaListaTelefones), nameof(NaListaEmails))]
     private Opcao<TipoContato> _tipo = OpcoesPessoa.TiposContato[0];
 
     /// <summary>Telefones com máscara; e-mail e "outro" livres.</summary>
@@ -58,16 +62,23 @@ public sealed partial class MeioContatoFormulario : ItemDeLista
     [ObservableProperty] private bool _permiteComunicacao = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Visivel), nameof(Inativo))]
+    [NotifyPropertyChangedFor(nameof(Visivel), nameof(Inativo), nameof(NaListaTelefones), nameof(NaListaEmails))]
     private bool _ativo = true;
 
     /// <summary>Ligado pela ficha em "Mostrar inativos".</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Visivel))]
+    [NotifyPropertyChangedFor(nameof(Visivel), nameof(NaListaTelefones), nameof(NaListaEmails))]
     private bool _mostrarSeInativo;
 
     public bool Visivel => Ativo || MostrarSeInativo;
     public bool Inativo => !Ativo;
+
+    /// <summary>
+    /// Só apresentação: a ficha mostra a mesma coleção em duas listas. E-mail vai para "E-mails"; telefones (e o tipo
+    /// "outro") para "Telefones". Nada muda no que é gravado.
+    /// </summary>
+    public bool NaListaTelefones => Visivel && !EhEmail;
+    public bool NaListaEmails => Visivel && EhEmail;
 
     // ---- Classificação (cadastro de tipos: Comercial, Residencial...) ----
 

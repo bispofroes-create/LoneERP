@@ -83,12 +83,85 @@ public class PessoasViewModelTests
         Assert.True(tela.NoFornecedor);
         f.PapelCliente.Ativo = true;
 
-        tela.SecaoSelecionada = tela.Secoes.First(s => s.Secao == SecaoPessoa.Documentos);
+        tela.SecaoSelecionada = tela.Secoes.First(s => s.Secao == SecaoPessoa.Pessoais);
+        // Virar PJ na aba Dados pessoais: a aba some e a ficha volta para a Identificação, que lê os grupos empresariais.
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new EstruturaEmpresarialOpcoesDto());
         f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
-        Assert.DoesNotContain(tela.Secoes, s => s.Secao == SecaoPessoa.Documentos);
-        Assert.Equal(SecaoPessoa.Geral, tela.SecaoSelecionada!.Secao); // a aba sumiu: volta para Geral
-        Assert.Equal("Empresa e estabelecimentos", tela.Secoes[1].Texto);
+        Assert.Equal(SecaoPessoa.Geral, tela.SecaoSelecionada!.Secao);
+        Assert.Equal("Identificação", tela.Secoes[0].Texto);
+        Assert.Equal("Estabelecimentos", tela.Secoes[1].Texto);
+        Assert.Contains(tela.Secoes, s => s.Secao == SecaoPessoa.Documentos); // documentos valem para qualquer natureza
         Assert.DoesNotContain(tela.Secoes, s => s.Secao == SecaoPessoa.Pessoais); // dados pessoais só na pessoa física
+        await Task.Delay(50);
+        Assert.Single(ambiente.Servidor.Recebidas, r => r.Caminho == "/" + Rotas.Pessoas.OpcoesEstrutura);
+    }
+
+    [Fact]
+    public async Task Pessoa_juridica_aberta_le_os_grupos_na_Identificacao_uma_vez_so()
+    {
+        var (tela, ambiente) = await AbrirTelaAsync();
+        var grupo = new Lone.Contracts.GruposEmpresariais.GrupoEmpresarialDto { Id = Guid.NewGuid(), Nome = "Grupo João", Ativo = true };
+        var empresa = new PessoaDto
+        {
+            Id = Guid.NewGuid(), Codigo = 12, Natureza = NaturezaPessoa.Juridica, Nome = "ABC Comércio Ltda",
+            GrupoEmpresarialId = grupo.Id, GrupoEmpresarialNome = grupo.Nome,
+            Estabelecimentos = [new EstabelecimentoDto { Id = Guid.NewGuid(), Cnpj = "11222333000181", Principal = true, NomeFantasia = "ABC" }]
+        };
+        ambiente.Servidor
+            .Responder(HttpStatusCode.OK, empresa)
+            .Responder(HttpStatusCode.OK, new EstruturaEmpresarialOpcoesDto { GruposEmpresariais = [grupo] });
+
+        tela.Selecionado = new PessoaResumo { Id = empresa.Id, Nome = empresa.Nome };
+        await Task.Delay(50);
+
+        var f = tela.Formulario!;
+        Assert.Equal(SecaoPessoa.Geral, tela.SecaoSelecionada!.Secao);
+        Assert.True(f.OpcoesEstruturaCarregadas);
+        Assert.Equal(grupo.Id, f.GrupoEmpresarial.Valor); // o gravado continua escolhido
+        Assert.Contains(f.GruposEmpresariais, o => o.Valor == grupo.Id);
+        Assert.True(f.Principal.PrincipalDaPJ); // no cartão do principal, CNPJ e fantasia só leitura
+        Assert.False(f.Principal.FilialDaPJ);
+
+        tela.SecaoSelecionada = tela.Secoes.First(s => s.Secao == SecaoPessoa.Estabelecimentos);
+        tela.SecaoSelecionada = tela.Secoes.First(s => s.Secao == SecaoPessoa.Geral);
+        await Task.Delay(20);
+        Assert.Single(ambiente.Servidor.Recebidas, r => r.Caminho == "/" + Rotas.Pessoas.OpcoesEstrutura);
+        Assert.False(tela.TemAlteracoes);
+    }
+
+    [Fact]
+    public async Task Contatos_em_duas_listas_cada_uma_com_o_seu_Adicionar()
+    {
+        var (tela, _) = await AbrirTelaAsync();
+        await tela.NovoCommand.ExecuteAsync(null);
+        var f = tela.Formulario!;
+        Assert.True(f.SemTelefones);
+        Assert.True(f.SemEmails);
+
+        tela.AdicionarTelefoneCommand.Execute(null);
+        tela.AdicionarEmailCommand.Execute(null);
+        tela.AdicionarEmailCommand.Execute(null);
+
+        Assert.False(f.SemTelefones);
+        Assert.False(f.SemEmails);
+        var telefone = Assert.Single(f.MeiosContato, m => m.NaListaTelefones);
+        Assert.Equal(TipoContato.Celular, telefone.Tipo.Valor);
+        Assert.True(telefone.Principal);
+        var emails = f.MeiosContato.Where(m => m.NaListaEmails).ToList();
+        Assert.Equal(2, emails.Count);
+        Assert.True(emails[0].Principal); // o primeiro de cada tipo vira principal
+        Assert.False(emails[1].Principal);
+        Assert.DoesNotContain(telefone.TiposTelefone, t => t.Valor == TipoContato.Email);
+
+        // Remover um e-mail novo tira da lista; a lista de e-mails continua com o outro.
+        emails[1].RemoverCommand.Execute(null);
+        Assert.Single(f.MeiosContato, m => m.NaListaEmails);
+        emails[0].RemoverCommand.Execute(null);
+        Assert.True(f.SemEmails);
+        Assert.False(f.SemTelefones);
+
+        // O que é gravado não muda: uma coleção só, com o tipo de cada item.
+        Assert.Equal(TipoContato.Celular, Assert.Single(f.ParaDto().MeiosContato).Tipo);
     }
 
     [Fact]

@@ -14,25 +14,6 @@
             <c:Campo Rotulo="Primeiro contato" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.PrimeiroContatoEm}" />
         </FlexLayout>
 
-        <!-- Etiquetas do cadastro de etiquetas: marcar/desmarcar; a busca só filtra o que aparece. -->
-        <Label Text="Etiquetas" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <SearchBar Text="{Binding Formulario.Etiquetas.Busca}" Placeholder="Buscar etiqueta" />
-            <Button Grid.Column="1" Text="Nova etiqueta" Style="{StaticResource BotaoSecundario}"
-                    Command="{Binding NovaEtiquetaCommand}" IsVisible="{Binding PodeCriarEtiqueta}" IsEnabled="{Binding Livre}" />
-        </Grid>
-        <Label Text="{Binding Formulario.Etiquetas.Resumo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-        <Label Text="Nenhuma etiqueta cadastrada ainda. Quem gerencia etiquetas pode criá-las no menu Etiquetas."
-               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.Etiquetas.Vazio}" />
-        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Etiquetas.Visiveis}">
-            <BindableLayout.ItemTemplate>
-                <DataTemplate x:DataType="pes:EtiquetaMarcavel">
-                    <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Marcada}"
-                                   FlexLayout.Basis="{OnIdiom Phone='100%', Default='33%'}" />
-                </DataTemplate>
-            </BindableLayout.ItemTemplate>
-        </FlexLayout>
-
         <Label Text="Comunicações (LGPD)" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
         <Label Text="Marque só com a autorização da pessoa. A data de autorização ou de revogação é registrada ao salvar e fica no histórico."
                Style="{StaticResource Secundario}" />

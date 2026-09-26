@@ -387,7 +387,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         var atual = Aba;
         Secoes.Clear();
         foreach (var secao in SecaoOpcao.Para(Formulario)) Secoes.Add(secao);
-        SecaoSelecionada = (manterAba ? Secoes.FirstOrDefault(s => s.Secao == atual) : null) ?? Secoes[0];
+        var nova = (manterAba ? Secoes.FirstOrDefault(s => s.Secao == atual) : null) ?? Secoes[0];
+        // SecaoOpcao é record: a mesma aba (ex.: Identificação ao abrir outra ficha) não dispara a troca, mas a ficha
+        // nova (ou a natureza nova) pode precisar das cargas da aba.
+        if (Equals(SecaoSelecionada, nova)) CarregarDaAba(nova);
+        else SecaoSelecionada = nova;
     }
 
     /// <summary>Histórico já lido para a ficha aberta (lido uma vez, ao abrir a aba).</summary>
@@ -395,7 +399,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     [ObservableProperty] private bool _carregandoHistorico;
 
-    partial void OnSecaoSelecionadaChanged(SecaoOpcao? value)
+    partial void OnSecaoSelecionadaChanged(SecaoOpcao? value) => CarregarDaAba(value);
+
+    /// <summary>Cargas sob demanda: cada uma só na primeira vez que a aba precisa, nesta ficha.</summary>
+    private void CarregarDaAba(SecaoOpcao? value)
     {
         if (value?.Secao == SecaoPessoa.Historico && Formulario is { Existente: true } f && _historicoDe != f.Id)
             _ = CarregarHistoricoAsync(f.Id);
@@ -403,14 +410,29 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             _ = CarregarOpcoesColaboradorAsync(ficha);
         if (value?.Secao == SecaoPessoa.Comercial && Formulario is { OpcoesComercialCarregadas: false } fichaComercial)
             _ = CarregarOpcoesComercialAsync(fichaComercial);
-        if (value?.Secao == SecaoPessoa.Estabelecimentos && Formulario is { EhJuridica: true, OpcoesEstruturaCarregadas: false } fichaEmpresa)
+        // O grupo empresarial fica na Identificação (só pessoa jurídica).
+        if (value?.Secao == SecaoPessoa.Geral && Formulario is { EhJuridica: true, OpcoesEstruturaCarregadas: false } fichaEmpresa)
             _ = CarregarOpcoesEstruturaAsync(fichaEmpresa);
         if (value?.Secao == SecaoPessoa.RelacionamentosPessoas && Formulario is { Existente: true } fichaRelacoes)
             _ = CarregarRelacionamentosAsync(fichaRelacoes);
     }
 
-    /// <summary>Grupos empresariais e tipos de relacionamento: lidos na primeira vez que uma aba precisa, nesta ficha.</summary>
-    private async Task CarregarOpcoesEstruturaAsync(PessoaFormulario ficha)
+    private Task? _cargaEstrutura;
+    private PessoaFormulario? _cargaEstruturaDe;
+
+    /// <summary>
+    /// Grupos empresariais e tipos de relacionamento: lidos na primeira vez que uma aba precisa, nesta ficha.
+    /// Identificação e Relacionamentos podem pedir ao mesmo tempo: a segunda espera a leitura em andamento.
+    /// </summary>
+    private Task CarregarOpcoesEstruturaAsync(PessoaFormulario ficha)
+    {
+        if (ficha.OpcoesEstruturaCarregadas) return Task.CompletedTask;
+        if (ReferenceEquals(_cargaEstruturaDe, ficha) && _cargaEstrutura is { IsCompleted: false } emAndamento) return emAndamento;
+        _cargaEstruturaDe = ficha;
+        return _cargaEstrutura = LerOpcoesEstruturaAsync(ficha);
+    }
+
+    private async Task LerOpcoesEstruturaAsync(PessoaFormulario ficha)
     {
         try
         {
@@ -610,11 +632,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (Formulario is { } f) f.AdicionarEndereco(new EnderecoFormulario()); // finalidades e principal: escolhidos pelo usuário
     }
 
+    /// <summary>Aba Contatos: cada lista tem o seu "Adicionar" (o tipo já vem escolhido).</summary>
     [RelayCommand]
-    private void AdicionarMeio()
-    {
-        if (Formulario is { } f) f.AdicionarMeio(new MeioContatoFormulario { Principal = f.MeiosContato.Count == 0 });
-    }
+    private void AdicionarTelefone() => Formulario?.NovoMeio(TipoContato.Celular);
+
+    [RelayCommand]
+    private void AdicionarEmail() => Formulario?.NovoMeio(TipoContato.Email);
 
     [RelayCommand]
     private void AdicionarContato()

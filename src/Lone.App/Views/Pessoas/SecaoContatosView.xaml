@@ -6,36 +6,72 @@
              x:Class="Lone.App.Views.Pessoas.SecaoContatosView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
-        <!-- Telefones e e-mails da própria pessoa. Remover um já gravado só desativa (fica no histórico). -->
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <Label Text="Telefones e e-mails" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+        <!-- Telefones e e-mails da própria pessoa: a mesma coleção em duas listas (só apresentação; nada muda no que é gravado).
+             Remover um já gravado só desativa (fica no histórico). -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Label Text="Os telefones e e-mails desta pessoa. Os tipos (Comercial, Residencial...) ficam em &quot;Tipos de telefone/e-mail&quot;."
+                   Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarMeiosInativos}"
                            IsVisible="{Binding Formulario.TemMeiosInativos}" VerticalOptions="Center" />
-            <Button Grid.Column="2" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarMeioCommand}" />
         </Grid>
+
+        <!-- Telefones -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
+            <Label Text="Telefones" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar telefone" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarTelefoneCommand}" />
+        </Grid>
+        <Label Text="Nenhum telefone." Style="{StaticResource Secundario}" Margin="0,4,0,8" IsVisible="{Binding Formulario.SemTelefones}" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">
-            <BindableLayout.EmptyView>
-                <Label Text="Nenhum telefone ou e-mail." Style="{StaticResource Secundario}" Margin="0,4,0,8" />
-            </BindableLayout.EmptyView>
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:MeioContatoFormulario">
-                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Visivel}">
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding NaListaTelefones}">
                         <VerticalStackLayout>
                             <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <FlexLayout Wrap="Wrap" AlignItems="End">
-                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
-                                <c:Campo Rotulo="Número ou e-mail" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
+                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding TiposTelefone}" Selecionado="{Binding Tipo}" />
+                                <c:Campo Rotulo="Número" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
                                 <c:Campo Rotulo="Ramal" Texto="{Binding Ramal}" Mascara="Numero" IsVisible="{Binding EhFixo}" />
                                 <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
                                                 IsVisible="{Binding TemClassificacao}" />
                                 <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: falar com a recepção" />
                                 <c:CaixaMarcar Texto="WhatsApp" Marcado="{Binding WhatsApp}" IsVisible="{Binding EhTelefone}" />
                                 <c:CaixaMarcar Texto="SMS" Marcado="{Binding Sms}" IsVisible="{Binding EhTelefone}" />
-                                <c:CaixaMarcar Texto="Financeiro" Marcado="{Binding Financeiro}" IsVisible="{Binding EhEmail}" />
-                                <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" IsVisible="{Binding EhEmail}" />
-                                <c:CaixaMarcar Texto="NF-e" Marcado="{Binding Nfe}" IsVisible="{Binding EhEmail}" />
-                                <c:CaixaMarcar Texto="Marketing" Marcado="{Binding Marketing}" IsVisible="{Binding EhEmail}" />
+                                <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
+                                <c:CaixaMarcar Texto="Aceita comunicações" Marcado="{Binding PermiteComunicacao}" />
+                                <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                        IsVisible="{Binding Ativo}" />
+                                <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
+                                        IsVisible="{Binding Inativo}" />
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <!-- E-mails -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,12,0,0">
+            <Label Text="E-mails" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Adicionar e-mail" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarEmailCommand}" />
+        </Grid>
+        <Label Text="Nenhum e-mail." Style="{StaticResource Secundario}" Margin="0,4,0,8" IsVisible="{Binding Formulario.SemEmails}" />
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:MeioContatoFormulario">
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding NaListaEmails}">
+                        <VerticalStackLayout>
+                            <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
+                            <FlexLayout Wrap="Wrap" AlignItems="End">
+                                <c:Campo Rotulo="E-mail" Texto="{Binding Valor}" Teclado="Email" />
+                                <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
+                                                IsVisible="{Binding TemClassificacao}" />
+                                <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: setor financeiro" />
+                                <c:CaixaMarcar Texto="Financeiro" Marcado="{Binding Financeiro}" />
+                                <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" />
+                                <c:CaixaMarcar Texto="NF-e" Marcado="{Binding Nfe}" />
+                                <c:CaixaMarcar Texto="Marketing" Marcado="{Binding Marketing}" />
                                 <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
                                 <c:CaixaMarcar Texto="Aceita comunicações" Marcado="{Binding PermiteComunicacao}" />
                                 <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
@@ -54,6 +90,8 @@
             <Label Text="Pessoas de contato" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
             <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarContatoCommand}" />
         </Grid>
+        <Label Text="Pessoas sem cadastro próprio (ex.: a recepcionista, o comprador). Se a pessoa já tem cadastro no Lone, ligue os dois cadastros na aba &quot;Relacionamentos&quot;."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Contatos}">
             <BindableLayout.EmptyView>
                 <Label Text="Nenhuma pessoa de contato." Style="{StaticResource Secundario}" Margin="0,4" />
