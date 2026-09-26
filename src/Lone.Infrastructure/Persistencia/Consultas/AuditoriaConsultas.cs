@@ -73,6 +73,8 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
             ids => db.TiposDocumento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(CampoPersonalizado), nameof(CampoPersonalizado.TipoDocumentoId), "(tipo de documento)",
             ids => db.TiposDocumento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaConsentimento), nameof(PessoaConsentimento.FinalidadeId), "(finalidade de tratamento)",
+            ids => db.FinalidadesTratamento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(PessoaPapel), nameof(PessoaPapel.PapelId), "(papel)",
             ids => db.Papeis.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(AnexoDocumento), nameof(AnexoDocumento.PessoaDocumentoId), "(documento)",

@@ -119,6 +119,7 @@
                     <pv:SecaoRelacionamentosView IsVisible="{Binding NosRelacionamentosPessoas}" />
                     <pv:SecaoAdicionaisView IsVisible="{Binding NasAdicionais}" />
                     <pv:SecaoRelacionamentoView IsVisible="{Binding NoRelacionamento}" />
+                    <pv:SecaoPrivacidadeView IsVisible="{Binding NaPrivacidade}" />
                     <pv:SecaoSituacaoView IsVisible="{Binding NaSituacao}" />
                     <pv:SecaoHistoricoView IsVisible="{Binding NoHistorico}" />
                 </VerticalStackLayout>

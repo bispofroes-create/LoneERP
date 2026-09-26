@@ -11,6 +11,7 @@ using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
 using Lone.Application.GruposEmpresariais;
 using Lone.Application.Municipios;
+using Lone.Application.Privacidade;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Etiquetas;
@@ -22,6 +23,7 @@ using Lone.Contracts.Documentos;
 using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Comercial;
 using Lone.Contracts.GruposEmpresariais;
+using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -38,6 +40,7 @@ public static class CadastrosEndpoints
         MapPapeis(app);
         MapTiposMeioContato(app);
         MapTiposEndereco(app);
+        MapFinalidadesTratamento(app);
         MapTiposDocumento(app);
         MapCargos(app);
         MapDepartamentos(app);
@@ -373,6 +376,35 @@ public static class CadastrosEndpoints
 
         grupo.MapPost("{id:guid}/reativar",
             (Guid id, AlterarSituacaoRequisicao requisicao, ITipoEnderecoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapFinalidadesTratamento(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.FinalidadesTratamento.Grupo).WithTags("Finalidades de tratamento").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, IFinalidadeTratamentoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IFinalidadeTratamentoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } finalidade
+                ? Results.Ok(finalidade)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Esta finalidade não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, FinalidadeTratamentoDto finalidade, IFinalidadeTratamentoAppService servico, CancellationToken ct) =>
+        {
+            if (finalidade.Id != Guid.Empty && finalidade.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id da finalidade enviada."));
+            finalidade.Id = id;
+            return Results.Ok(await servico.SalvarAsync(finalidade, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IFinalidadeTratamentoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IFinalidadeTratamentoAppService servico, CancellationToken ct) =>
                 servico.ReativarAsync(id, requisicao, ct));
     }
 

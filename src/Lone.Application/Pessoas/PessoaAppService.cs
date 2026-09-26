@@ -185,21 +185,6 @@ public sealed class PessoaAppService : IPessoaAppService
         return FaixasEtarias.Contar(nascimentos, DateOnly.FromDateTime(DateTime.Today));
     }
 
-    /// <summary>
-    /// As datas de autorização e revogação são prova (LGPD): valem as já gravadas, nunca as enviadas pelo
-    /// aparelho. Mudou a situação, o normalizador grava a data do servidor.
-    /// </summary>
-    private static void ManterDatasDosConsentimentos(Pessoa dados, Pessoa? anterior)
-    {
-        foreach (var c in dados.Consentimentos)
-        {
-            var gravado = anterior?.Consentimentos.FirstOrDefault(x => x.Canal == c.Canal);
-            var reautorizado = c.Concedido && gravado is { Concedido: false };
-            c.ConcedidoEm = reautorizado ? null : gravado?.ConcedidoEm;
-            c.RevogadoEm = gravado?.RevogadoEm;
-        }
-    }
-
     /// <summary>Cor/raça (LGPD, art. 11) só sai da API para quem tem a permissão de ver dados sensíveis.</summary>
     private void OcultarDadosSensiveis(PessoaDto dto)
     {
@@ -250,7 +235,6 @@ public sealed class PessoaAppService : IPessoaAppService
         if (nova) dados.Codigo = 0; // o código é dado pelo banco
 
         ManterSituacao(dados, anterior);
-        ManterDatasDosConsentimentos(dados, anterior);
 
         // Sem permissão para dados sensíveis, a cor/raça não é vista nem alterada: fica a gravada.
         if (!_autorizacao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis))

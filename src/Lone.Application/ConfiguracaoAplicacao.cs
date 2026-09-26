@@ -16,6 +16,7 @@ using Lone.Application.Consultas;
 using Lone.Application.Integracoes;
 using Lone.Application.Municipios;
 using Lone.Application.Pessoas;
+using Lone.Application.Privacidade;
 using Lone.Application.Seguranca;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -51,6 +52,8 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IPapelAppService, PapelAppService>();
         services.AddScoped<ITipoMeioContatoAppService, TipoMeioContatoAppService>();
         services.AddScoped<ITipoEnderecoAppService, TipoEnderecoAppService>();
+        services.AddScoped<IFinalidadeTratamentoAppService, FinalidadeTratamentoAppService>();
+        services.AddScoped<IPrivacidadeAppService, PrivacidadeAppService>();
         services.AddScoped<ITipoDocumentoAppService, TipoDocumentoAppService>();
         services.AddScoped<IAnexoAppService, AnexoAppService>();
         services.AddScoped<ICargoAppService, CargoAppService>();

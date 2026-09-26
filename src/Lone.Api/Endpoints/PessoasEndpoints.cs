@@ -2,6 +2,7 @@ using Lone.Api.Erros;
 using Lone.Application.Consultas;
 using Lone.Application.Documentos;
 using Lone.Application.Pessoas;
+using Lone.Application.Privacidade;
 using Lone.Application.Relacionamentos;
 using Lone.Application.Situacoes;
 using Lone.Contracts.CamposPersonalizados;
@@ -108,6 +109,16 @@ public static class PessoasEndpoints
         grupo.MapPost("{pessoaId:guid}/documentos/{documentoId:guid}/anexos",
             (Guid pessoaId, Guid documentoId, EnviarAnexoRequisicao requisicao, IAnexoAppService servico, CancellationToken ct) =>
                 servico.EnviarAsync(pessoaId, documentoId, requisicao, ct));
+
+        // Privacidade (Fase 3): leitura da aba e as ações próprias de conceder/revogar (nunca pelo "Salvar" da ficha).
+        grupo.MapGet("{id:guid}/privacidade", (Guid id, IPrivacidadeAppService servico, CancellationToken ct) =>
+            servico.ObterAsync(id, ct));
+        grupo.MapPost("{id:guid}/consentimentos",
+            (Guid id, ConcederConsentimentoRequisicao requisicao, IPrivacidadeAppService servico, CancellationToken ct) =>
+                servico.ConcederAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/consentimentos/{consentimentoId:guid}/revogar",
+            (Guid id, Guid consentimentoId, RevogarConsentimentoRequisicao requisicao, IPrivacidadeAppService servico, CancellationToken ct) =>
+                servico.RevogarAsync(id, consentimentoId, requisicao, ct));
 
         // Situações (fase 10): bloqueios e interações são ações próprias, fora do "Salvar" da ficha.
         grupo.MapPost("{id:guid}/bloqueios", (Guid id, BloquearRequisicao requisicao, ISituacaoAppService servico, CancellationToken ct) =>

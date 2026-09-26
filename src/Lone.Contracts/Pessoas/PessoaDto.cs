@@ -74,7 +74,6 @@ public sealed class PessoaDto
     // ---- Relacionamento ----
     public string? OrigemCadastro { get; set; }
     public DateOnly? PrimeiroContatoEm { get; set; }
-    public List<ConsentimentoDto> Consentimentos { get; set; } = new();
     /// <summary>Etiquetas marcadas (Ids do cadastro de etiquetas).</summary>
     public List<Guid> EtiquetaIds { get; set; } = new();
 
@@ -358,17 +357,6 @@ public sealed class SocioDto
     public string? Qualificacao { get; set; }
     public string? Documento { get; set; }
     public DateOnly? EntradaEm { get; set; }
-}
-
-/// <summary>Autorização para comunicações por um canal (LGPD). As datas são gravadas pela API.</summary>
-public sealed class ConsentimentoDto
-{
-    public Guid Id { get; set; }
-    public CanalComunicacao Canal { get; set; }
-    public bool Concedido { get; set; }
-    public DateTime? ConcedidoEm { get; set; }
-    public DateTime? RevogadoEm { get; set; }
-    public string? Origem { get; set; }
 }
 
 /// <summary>Texto de município gravado antes da tabela do IBGE que a conciliação não conseguiu ligar.</summary>

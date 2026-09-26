@@ -62,6 +62,9 @@
     <FlyoutItem Title="Tipos de endereço" Route="tipos-endereco" IsVisible="{Binding PodeGerenciarTipos}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Tipos de endereço" ContentTemplate="{DataTemplate views:TiposEnderecoPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Finalidades de tratamento" Route="finalidades-tratamento" IsVisible="{Binding PodeGerenciarTipos}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Finalidades de tratamento" ContentTemplate="{DataTemplate views:FinalidadesTratamentoPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Tipos de documento" Route="tipos-documento" IsVisible="{Binding PodeGerenciarTipos}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Tipos de documento" ContentTemplate="{DataTemplate views:TiposDocumentoPage}" />
     </FlyoutItem>

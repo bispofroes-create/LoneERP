@@ -15,6 +15,16 @@
                            IsVisible="{Binding Formulario.TemMeiosInativos}" VerticalOptions="Center" />
         </Grid>
 
+        <!-- Os três conceitos são independentes: nenhum altera o outro (Fase 3 — Privacidade). -->
+        <Border Style="{StaticResource CartaoItem}">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="&quot;Aceita comunicações&quot; controla se este telefone/e-mail pode ser usado. Isso não concede consentimento para uma finalidade."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <Label Text="&quot;Uso para marketing&quot; classifica o e-mail para essa finalidade. Isso não substitui o consentimento, que fica na aba &quot;Privacidade&quot;."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </Border>
+
         <!-- Telefones -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
             <Label Text="Telefones" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
@@ -71,7 +81,7 @@
                                 <c:CaixaMarcar Texto="Financeiro" Marcado="{Binding Financeiro}" />
                                 <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" />
                                 <c:CaixaMarcar Texto="NF-e" Marcado="{Binding Nfe}" />
-                                <c:CaixaMarcar Texto="Marketing" Marcado="{Binding Marketing}" />
+                                <c:CaixaMarcar Texto="Uso para marketing" Marcado="{Binding Marketing}" />
                                 <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
                                 <c:CaixaMarcar Texto="Aceita comunicações" Marcado="{Binding PermiteComunicacao}" />
                                 <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"

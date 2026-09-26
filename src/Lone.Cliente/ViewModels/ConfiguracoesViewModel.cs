@@ -54,6 +54,8 @@ public partial class ConfiguracoesViewModel : ViewModelBase
             ("Pessoas", Permissoes.Cadastros.Etiquetas, new ItemConfiguracao("Etiquetas", "Marcadores livres para agrupar e filtrar pessoas", "etiquetas")),
             ("Pessoas", Permissoes.Cadastros.Papeis, new ItemConfiguracao("Papéis", "Cliente, fornecedor, colaborador...", "papeis")),
             ("Pessoas", Permissoes.Cadastros.Profissoes, new ItemConfiguracao("Profissões", "Profissões com a ocupação da CBO", "profissoes")),
+            ("Pessoas", Permissoes.Cadastros.Tipos,
+                new ItemConfiguracao("Finalidades de tratamento", "Para quê a pessoa pode ser contatada (LGPD)", "finalidades-tratamento")),
             ("Pessoas", Permissoes.Cadastros.Tipos, new ItemConfiguracao("Tipos de documento", "RG, CNH, alvará... com validade e aviso", "tipos-documento")),
             ("Pessoas", Permissoes.Cadastros.Tipos, new ItemConfiguracao("Tipos de endereço", "Sede, filial, depósito, residência...", "tipos-endereco")),
             ("Pessoas", Permissoes.Cadastros.Tipos, new ItemConfiguracao("Tipos de telefone e e-mail", "Comercial, residencial, pessoal...", "tipos-meio-contato")),

@@ -38,6 +38,11 @@ public static class Rotas
         public static string EncerrarRelacionamento(Guid id, Guid relacionamentoId) => $"{Grupo}/{id}/relacionamentos/{relacionamentoId}/encerrar";
         public static string DesativarRelacionamento(Guid id, Guid relacionamentoId) => $"{Grupo}/{id}/relacionamentos/{relacionamentoId}/desativar";
 
+        /// <summary>Privacidade (LGPD): leitura da aba e as ações próprias de conceder/revogar consentimento.</summary>
+        public static string Privacidade(Guid id) => $"{Grupo}/{id}/privacidade";
+        public static string Consentimentos(Guid id) => $"{Grupo}/{id}/consentimentos";
+        public static string RevogarConsentimento(Guid id, Guid consentimentoId) => $"{Grupo}/{id}/consentimentos/{consentimentoId}/revogar";
+
         /// <summary>Tipos de relacionamento e grupos empresariais para a ficha (lidos quando a aba abre).</summary>
         public const string OpcoesEstrutura = Grupo + "/estrutura/opcoes";
 
@@ -156,6 +161,16 @@ public static class Rotas
         public const string Duplicados = Base + "/pessoas/enderecos-duplicados";
         public static string ListarDuplicados(Guid? apos, int limite) =>
             $"{Duplicados}?limite={limite}" + (apos is { } a ? $"&apos={a}" : string.Empty);
+    }
+
+    /// <summary>Finalidades de tratamento (LGPD). Nada é excluído: desativa.</summary>
+    public static class FinalidadesTratamento
+    {
+        public const string Grupo = Base + "/finalidades-tratamento";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+        public static string Listar(bool incluirInativos) => incluirInativos ? Grupo + "?incluirInativos=true" : Grupo;
     }
 
     /// <summary>Tipos (classificações) de endereço. Nada é excluído: desativa.</summary>

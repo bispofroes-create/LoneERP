@@ -32,6 +32,12 @@ public class PessoasViewModelTests
     {
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao()); // administrador: pode tudo
+        return await AbrirTelaComAsync(ambiente);
+    }
+
+    /// <summary>Tela de pessoas com as leituras iniciais respondidas (sessão já definida pelo chamador).</summary>
+    internal static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente)> AbrirTelaComAsync(AmbienteCliente ambiente)
+    {
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto> { Vip }); // cadastro de etiquetas (ficha e filtro)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos personalizados
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto> { Advogado }); // cadastro de profissões

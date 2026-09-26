@@ -12,14 +12,16 @@ public enum SecaoPessoa
     Documentos,
     /// <summary>Cliente e Fornecedor na mesma aba, cada um num bloco (uma pessoa pode ter os dois).</summary>
     Comercial,
-    /// <summary>Aba "Interações e LGPD": segmentação, consentimentos e interações (as etiquetas ficam na Identificação).</summary>
+    /// <summary>Aba "Interações": origem, primeiro contato e interações (as etiquetas ficam na Identificação).</summary>
     Relacionamento,
     Historico,
     Adicionais,
     Situacao,
     Colaborador,
     /// <summary>Relacionamentos com outros cadastros (sócio de, administrador de, contato de...).</summary>
-    RelacionamentosPessoas
+    RelacionamentosPessoas,
+    /// <summary>Aba "Privacidade" (LGPD): consentimentos por finalidade, canais e decisões (permissão PESSOAS.PRIVACIDADE).</summary>
+    Privacidade
 }
 
 /// <summary>Aba da ficha. Algumas só aparecem quando fazem sentido (ex.: "Comercial" com o papel Cliente ou Fornecedor).</summary>
@@ -47,7 +49,9 @@ public sealed record SecaoOpcao(SecaoPessoa Secao, string Texto)
         // Relacionamentos gravam na hora (fora do Salvar): só depois que o cadastro existe.
         if (f.Existente) secoes.Add(new(SecaoPessoa.RelacionamentosPessoas, "Relacionamentos"));
         if (f.TemInformacoesAdicionais) secoes.Add(new(SecaoPessoa.Adicionais, "Informações adicionais"));
-        secoes.Add(new(SecaoPessoa.Relacionamento, "Interações e LGPD"));
+        secoes.Add(new(SecaoPessoa.Relacionamento, "Interações"));
+        // Consentimentos são gravados na hora (fora do Salvar): só depois que o cadastro existe, e com a permissão.
+        if (f.Existente && f.PodeVerPrivacidade) secoes.Add(new(SecaoPessoa.Privacidade, "Privacidade"));
         secoes.Add(new(SecaoPessoa.Situacao, "Situação"));
         if (f.Existente) secoes.Add(new(SecaoPessoa.Historico, "Histórico"));
         return secoes;

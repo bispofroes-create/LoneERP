@@ -1158,6 +1158,100 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         });
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.FinalidadeTratamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("BaseLegal")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("ClassificacaoExigida")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("DoSistema")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .UseCollation("Latin1_General_CI_AI");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("SomenteHistorico")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("FinalidadesTratamento", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_FinalidadesTratamento_SistemaAtiva", "[DoSistema] = 0 OR [Ativo] = 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("7a9e1c08-0000-0000-0000-000000000001"),
+                            Ativo = true,
+                            BaseLegal = (byte)1,
+                            ClassificacaoExigida = (byte)1,
+                            Codigo = "MARKETING",
+                            CriadoEm = new DateTime(2026, 9, 26, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descricao = "Envio de ofertas, novidades e campanhas.",
+                            DoSistema = true,
+                            Nome = "Marketing",
+                            Ordem = 1,
+                            SomenteHistorico = false
+                        },
+                        new
+                        {
+                            Id = new Guid("7a9e1c08-0000-0000-0000-000000000099"),
+                            Ativo = true,
+                            BaseLegal = (byte)0,
+                            ClassificacaoExigida = (byte)0,
+                            Codigo = "REGISTRO_ANTERIOR",
+                            CriadoEm = new DateTime(2026, 9, 26, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descricao = "Consentimentos registrados antes do cadastro de finalidades (por canal, sem finalidade). Somente histórico: não autoriza nenhuma comunicação.",
+                            DoSistema = true,
+                            Nome = "Registro anterior",
+                            Ordem = 99,
+                            SomenteHistorico = true
+                        });
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.GrupoEconomico", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2362,7 +2456,7 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("datetime2");
 
-                    b.Property<byte>("Canal")
+                    b.Property<byte?>("Canal")
                         .HasColumnType("tinyint");
 
                     b.Property<bool>("Concedido")
@@ -2371,8 +2465,23 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Property<DateTime?>("ConcedidoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ConcedidoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FinalidadeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("MotivoRevogacao")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
 
                     b.Property<string>("Origem")
                         .HasMaxLength(80)
@@ -2384,12 +2493,27 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Property<DateTime?>("RevogadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("RevogadoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("VersaoTermo")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PessoaId", "Canal")
-                        .IsUnique();
+                    b.HasIndex("FinalidadeId");
 
-                    b.ToTable("PessoaConsentimentos", (string)null);
+                    b.HasIndex("PessoaId", "FinalidadeId", "Canal")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PessoaConsentimentos_EmVigor")
+                        .HasFilter("[Concedido] = 1");
+
+                    b.ToTable("PessoaConsentimentos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PessoaConsentimentos_RevogadoForaDeVigor", "[Concedido] = 0 OR [RevogadoEm] IS NULL");
+                        });
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.PessoaDocumento", b =>
@@ -4076,6 +4200,12 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Lone.Domain.Entidades.PessoaConsentimento", b =>
                 {
+                    b.HasOne("Lone.Domain.Entidades.FinalidadeTratamento", null)
+                        .WithMany()
+                        .HasForeignKey("FinalidadeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)
                         .WithMany("Consentimentos")
                         .HasForeignKey("PessoaId")

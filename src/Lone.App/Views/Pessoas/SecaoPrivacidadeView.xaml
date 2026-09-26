@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Privacidade (LGPD). Três conceitos independentes: consentimento AUTORIZA uma finalidade; "Aceita comunicações"
+     RESTRINGE o canal; "Uso para marketing" CLASSIFICA o canal. Conceder e revogar são ações próprias (nunca pelo Salvar). -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoPrivacidadeView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+
+        <!-- ===== Consentimentos: o que a pessoa autorizou ===== -->
+        <Label Text="Consentimentos" Style="{StaticResource Subtitulo}" />
+        <Label Text="O que a pessoa autorizou, por finalidade. Registre só com a autorização dela; revogar não apaga nada."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+        <Grid ColumnDefinitions="*,120,100" Padding="12,0" IsVisible="{Binding Formulario.Privacidade.Carregada}">
+            <Label Text="Finalidade" Style="{StaticResource Rotulo}" />
+            <Label Grid.Column="1" Text="Situação" Style="{StaticResource Rotulo}" />
+            <Label Grid.Column="2" Text="Data" Style="{StaticResource Rotulo}" />
+        </Grid>
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Privacidade.Finalidades}" Spacing="2">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:FinalidadeConsentimentoItem">
+                    <Grid ColumnDefinitions="*,120,100" Padding="12,4">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding Nome}" FontAttributes="Bold" />
+                            <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="{Binding Situacao}" VerticalOptions="Center" />
+                        <Label Grid.Column="2" Text="{Binding Data}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+        <Label Text="Nenhuma finalidade com consentimento cadastrada (Configurações, &quot;Finalidades de tratamento&quot;)."
+               Style="{StaticResource Secundario}" IsVisible="{Binding Formulario.Privacidade.SemFinalidades}" />
+        <Label Text="&quot;Não informado&quot; = não há registro de consentimento (não é o mesmo que revogado)."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+        <!-- Conceder -->
+        <Border Style="{StaticResource CartaoItem}" Margin="0,8,0,0">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Conceder consentimento" Style="{StaticResource Rotulo}" />
+                <FlexLayout Wrap="Wrap" AlignItems="End">
+                    <c:CampoEscolha Rotulo="Finalidade" Itens="{Binding Formulario.Privacidade.OpcoesFinalidade}"
+                                    Selecionado="{Binding Formulario.Privacidade.NovaFinalidade}" />
+                    <c:CampoEscolha Rotulo="Canal" Itens="{Binding Formulario.Privacidade.ListaCanais}"
+                                    Selecionado="{Binding Formulario.Privacidade.NovoCanal}" />
+                    <c:Campo Rotulo="Motivo" Texto="{Binding Formulario.Privacidade.NovoMotivo}" Dica="Ex.: Autorizou no balcão"
+                             FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" />
+                    <c:Campo Rotulo="Versão do termo (opcional)" Texto="{Binding Formulario.Privacidade.NovaVersaoTermo}" Dica="Ex.: v1.0" />
+                    <c:Campo Rotulo="Origem (opcional)" Texto="{Binding Formulario.Privacidade.NovaOrigem}" Dica="Ex.: Balcão, Site" />
+                    <Button Text="Conceder" Style="{StaticResource BotaoSecundario}" Command="{Binding Formulario.Privacidade.ConcederCommand}"
+                            IsEnabled="{Binding Livre}" Margin="0,0,0,8" />
+                </FlexLayout>
+                <Label Text="&quot;Qualquer canal&quot; vale para todos os meios compatíveis; um consentimento de um canal específico prevalece sobre o geral naquele canal."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- Períodos (em vigor; revogados e anteriores em "Mostrar histórico") -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+            <Label Text="Períodos" Style="{StaticResource Rotulo}" VerticalOptions="Center" />
+            <c:CaixaMarcar Grid.Column="1" Texto="Mostrar histórico" Marcado="{Binding Formulario.Privacidade.MostrarHistorico}"
+                           IsVisible="{Binding Formulario.Privacidade.TemHistorico}" />
+        </Grid>
+        <Label Text="Nenhum consentimento em vigor." Style="{StaticResource Secundario}"
+               IsVisible="{Binding Formulario.Privacidade.SemPeriodosVisiveis}" />
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Privacidade.Periodos}" Spacing="6">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:PeriodoConsentimentoItem">
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Visivel}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" />
+                                <Label Text="{Binding Situacao}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Revogar" Style="{StaticResource BotaoLink}" Command="{Binding RevogarCommand}"
+                                    IsVisible="{Binding PodeRevogar}" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <!-- ===== Canais: por quais meios se pode falar com a pessoa ===== -->
+        <Label Text="Canais" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+        <Label Text="&quot;Aceita comunicações&quot; e &quot;Uso para marketing&quot; são alterados na aba &quot;Contatos&quot;. Eles restringem e classificam o canal; não concedem consentimento. Abaixo de cada canal, o que o sistema permite hoje para cada finalidade."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+        <Label Text="Nenhum telefone ou e-mail ativo." Style="{StaticResource Secundario}" IsVisible="{Binding Formulario.Privacidade.SemCanais}" />
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Privacidade.Canais}" Spacing="6">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:CanalPrivacidadeItem">
+                    <Border Style="{StaticResource CartaoItem}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding Titulo}" FontAttributes="Bold" />
+                            <Label Text="{Binding Marcas}" Style="{StaticResource Secundario}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Decisoes}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Label Text="{Binding .}" LineBreakMode="WordWrap" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+    </VerticalStackLayout>
+</ContentView>

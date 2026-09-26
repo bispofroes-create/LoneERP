@@ -355,6 +355,13 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   Testes: `ConfiguracoesViewModelTests`. Fase 4 (Situação, Informações adicionais, Histórico): conferidas, sem mudança.
   **Fase 3 (Privacidade) pendente de decisão do usuário** sobre a precedência entre consentimento LGPD, "Aceita
   comunicações" do meio e "Marketing" do e-mail.
+- **Fase 3 — Privacidade e LGPD (26/09/2026; código entregue, SEM COMMIT, sem compilar):** ver `docs/FASE3-PRIVACIDADE.md`
+  (e a auditoria em `docs/FASE3-PRIVACIDADE-AUDITORIA.md`). Consentimento por finalidade em períodos (canal opcional),
+  cadastro `FinalidadesTratamento` (Marketing; "Registro anterior" só histórico), regra central
+  `RegrasComunicacao.PodeComunicar`, ações próprias de conceder/revogar (`PESSOAS.PRIVACIDADE`), abas Interações + Privacidade.
+  **Migração (gerar no PMC):** `Add-Migration PrivacidadeConsentimentos -Project Lone.Infrastructure -StartupProject Lone.Api
+  -OutputDir Persistencia/Migracoes`, depois `python Ferramentas/inserir-sql-privacidade.py` (SQL dos consentimentos antigos
+  antes da FK). Não aplicar em produção antes de revisar.
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

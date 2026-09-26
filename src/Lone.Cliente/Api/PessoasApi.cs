@@ -66,6 +66,16 @@ public sealed class PessoasApi
         _api.GetAsync<EstruturaEmpresarialOpcoesDto>(Rotas.Pessoas.OpcoesEstrutura, ct);
 
     /// <summary>Os vínculos da pessoa nos dois sentidos (ex.: "Sócio de ABC" e "Tem como sócio João").</summary>
+    /// <summary>Privacidade (LGPD): leitura da aba e as ações próprias de conceder/revogar consentimento.</summary>
+    public Task<PrivacidadeDto> ObterPrivacidadeAsync(Guid id, CancellationToken ct = default) =>
+        _api.GetAsync<PrivacidadeDto>(Rotas.Pessoas.Privacidade(id), ct);
+
+    public Task<PrivacidadeDto> ConcederConsentimentoAsync(Guid id, ConcederConsentimentoRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<PrivacidadeDto>(Rotas.Pessoas.Consentimentos(id), requisicao, ct: ct);
+
+    public Task<PrivacidadeDto> RevogarConsentimentoAsync(Guid id, Guid consentimentoId, string motivo, CancellationToken ct = default) =>
+        _api.PostAsync<PrivacidadeDto>(Rotas.Pessoas.RevogarConsentimento(id, consentimentoId), new RevogarConsentimentoRequisicao { Motivo = motivo }, ct: ct);
+
     public Task<List<PessoaRelacionamentoDto>> ListarRelacionamentosAsync(Guid id, CancellationToken ct = default) =>
         _api.GetAsync<List<PessoaRelacionamentoDto>>(Rotas.Pessoas.Relacionamentos(id), ct);
 

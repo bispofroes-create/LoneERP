@@ -17,18 +17,6 @@ public class PessoaSocioConfiguration : IEntityTypeConfiguration<PessoaSocio>
     }
 }
 
-public class PessoaConsentimentoConfiguration : IEntityTypeConfiguration<PessoaConsentimento>
-{
-    public void Configure(EntityTypeBuilder<PessoaConsentimento> b)
-    {
-        b.ToTable("PessoaConsentimentos");
-        b.HasKey(c => c.Id);
-        b.Property(c => c.Canal).HasConversion<byte>();
-        b.Property(c => c.Origem).HasMaxLength(80);
-        b.HasIndex(c => new { c.PessoaId, c.Canal }).IsUnique(); // um por canal
-    }
-}
-
 public class PessoaEtiquetaConfiguration : IEntityTypeConfiguration<PessoaEtiqueta>
 {
     public const string ColunaTextoAntigo = "Texto";

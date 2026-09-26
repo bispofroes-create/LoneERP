@@ -24,6 +24,9 @@ public static class Permissoes
 
         /// <summary>Grupo empresarial da pessoa jurídica e vínculos societários (sócio, administrador).</summary>
         public const string EstruturaEmpresarial = "PESSOAS.ESTRUTURA_EMPRESARIAL";
+
+        /// <summary>Privacidade (LGPD): consultar, conceder e revogar consentimentos e ver o histórico.</summary>
+        public const string Privacidade = "PESSOAS.PRIVACIDADE";
     }
 
     public static class Cadastros
@@ -72,6 +75,7 @@ public static class Permissoes
         new(Pessoas.Colaborador, "Pessoas", "Ver e alterar os dados de colaborador (vínculos, matrícula, admissão, lotação)"),
         new(Pessoas.Exportar, "Pessoas", "Exportar o resultado da consulta avançada (CSV); cada exportação fica na auditoria"),
         new(Pessoas.EstruturaEmpresarial, "Pessoas", "Alterar o grupo empresarial de uma empresa e os vínculos societários (sócio, administrador)"),
+        new(Pessoas.Privacidade, "Pessoas", "Privacidade (LGPD): consultar, conceder e revogar consentimentos e ver o histórico"),
         new(Cadastros.CamposPersonalizados, "Cadastros", "Criar, alterar, ordenar e desativar campos personalizados"),
         new(Cadastros.TabelasOficiais, "Cadastros", "Atualizar tabelas oficiais (municípios do IBGE, ocupações da CBO)"),
         new(Cadastros.Etiquetas, "Cadastros", "Criar, alterar, mesclar e desativar etiquetas"),

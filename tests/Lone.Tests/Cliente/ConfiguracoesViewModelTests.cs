@@ -17,8 +17,8 @@ public class ConfiguracoesViewModelTests
             var titulos = grupo.Itens.Select(i => i.Titulo).ToArray();
             Assert.Equal(titulos.OrderBy(t => t, StringComparer.Create(new System.Globalization.CultureInfo("pt-BR"), true)).ToArray(), titulos);
         }
-        Assert.Equal(18, grupos.Sum(g => g.Itens.Count));
-        Assert.Equal(18, grupos.SelectMany(g => g.Itens).Select(i => i.Rota).Distinct().Count()); // uma rota por tela
+        Assert.Equal(19, grupos.Sum(g => g.Itens.Count));
+        Assert.Equal(19, grupos.SelectMany(g => g.Itens).Select(i => i.Rota).Distinct().Count()); // uma rota por tela
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public class ConfiguracoesViewModelTests
 
         var grupo = Assert.Single(grupos);
         Assert.Equal("Pessoas", grupo.Titulo);
-        Assert.Equal(new[] { "tipos-documento", "tipos-endereco", "tipos-meio-contato" }, grupo.Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "finalidades-tratamento", "tipos-documento", "tipos-endereco", "tipos-meio-contato" }, grupo.Itens.Select(i => i.Rota).ToArray());
 
         Assert.Empty(ConfiguracoesViewModel.Montar(p => p == Permissoes.Pessoas.Visualizar));
         Assert.False(ConfiguracoesViewModel.AlgumaPermitida(_ => false));

@@ -16,6 +16,7 @@ public class LoneDbContext : DbContext
     public DbSet<PessoaEndereco> PessoaEnderecos => Set<PessoaEndereco>();
     public DbSet<PessoaEnderecoFinalidade> PessoaEnderecoFinalidades => Set<PessoaEnderecoFinalidade>();
     public DbSet<FinalidadeEnderecoCadastro> FinalidadesEndereco => Set<FinalidadeEnderecoCadastro>();
+    public DbSet<FinalidadeTratamento> FinalidadesTratamento => Set<FinalidadeTratamento>();
     public DbSet<MeioContato> MeiosContato => Set<MeioContato>();
     public DbSet<Contato> Contatos => Set<Contato>();
     public DbSet<PessoaDocumento> PessoaDocumentos => Set<PessoaDocumento>();

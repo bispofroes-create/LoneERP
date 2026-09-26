@@ -183,7 +183,6 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.ContasCliente)
             .Include(p => p.ContasFornecedor)
             .Include(p => p.Socios)
-            .Include(p => p.Consentimentos)
             .Include(p => p.Etiquetas)
             .Include(p => p.ValoresPersonalizados)
             .Include(p => p.ValoresDocumentos)
@@ -393,7 +392,6 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Include(p => p.ContasCliente)
             .Include(p => p.ContasFornecedor)
             .Include(p => p.Socios)
-            .Include(p => p.Consentimentos)
             .Include(p => p.Etiquetas)
             .Include(p => p.ValoresPersonalizados)
             .Include(p => p.ValoresDocumentos)
@@ -433,11 +431,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         SincronizarFilhos(db, atual.Id, atual.ContasFornecedor, dados.ContasFornecedor);
         SincronizarFilhos(db, atual.Id, atual.Socios, dados.Socios);
 
-        // Consentimento e etiqueta são únicos por canal / por etiqueta: casa pelo que os identifica, não pelo Id,
-        // para não apagar e incluir de novo o mesmo registro (histórico limpo e sem conflito no índice único).
-        ReaproveitarIds(atual.Consentimentos, dados.Consentimentos, c => c.Canal);
+        // Etiqueta é única por pessoa: casa pela etiqueta, não pelo Id, para não apagar e incluir de novo o mesmo registro
+        // (histórico limpo e sem conflito no índice único). Consentimentos NÃO passam pelo Salvar da ficha (Fase 3):
+        // são gravados só pelas ações de conceder/revogar, em períodos (PrivacidadeRepositorio).
         ReaproveitarIds(atual.Etiquetas, dados.Etiquetas, e => e.EtiquetaId);
-        SincronizarFilhos(db, atual.Id, atual.Consentimentos, dados.Consentimentos);
         SincronizarFilhos(db, atual.Id, atual.Etiquetas, dados.Etiquetas);
 
         // Um valor por campo personalizado: casa pelo campo, e a mudança aparece no histórico como alteração.

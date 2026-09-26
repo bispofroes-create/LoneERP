@@ -52,23 +52,27 @@ public class DadosComplementaresTests
         Assert.Empty(pessoa.Socios);
     }
 
+    /// <summary>
+    /// Fase 3: o Salvar da ficha não trata consentimentos (são períodos gravados só por conceder/revogar). Substitui o
+    /// teste antigo "Consentimento_recebe_as_datas_do_servidor_ao_autorizar_e_ao_revogar" (regra retirada de propósito).
+    /// </summary>
     [Fact]
-    public void Consentimento_recebe_as_datas_do_servidor_ao_autorizar_e_ao_revogar()
+    public void Normalizar_a_ficha_nao_mexe_em_consentimentos()
     {
         var p = PessoaFisica();
-        var email = new PessoaConsentimento { Id = Guid.NewGuid(), Canal = CanalComunicacao.Email, Concedido = true };
-        var whatsapp = new PessoaConsentimento
+        var emVigor = new PessoaConsentimento { Id = Guid.NewGuid(), FinalidadeId = Guid.NewGuid(), Concedido = true, ConcedidoEm = Agora.AddDays(-30) };
+        var revogado = new PessoaConsentimento
         {
-            Id = Guid.NewGuid(), Canal = CanalComunicacao.WhatsApp, Concedido = false, ConcedidoEm = Agora.AddDays(-30)
+            Id = Guid.NewGuid(), FinalidadeId = emVigor.FinalidadeId, Concedido = false, ConcedidoEm = Agora.AddDays(-60), RevogadoEm = Agora.AddDays(-40)
         };
-        p.Consentimentos.AddRange([email, whatsapp, new PessoaConsentimento { Id = Guid.NewGuid(), Canal = CanalComunicacao.Email }]);
+        p.Consentimentos.AddRange([emVigor, revogado]);
 
         PessoaNormalizador.Normalizar(p, Hoje, Agora);
 
-        Assert.Equal(2, p.Consentimentos.Count); // um por canal
-        Assert.Equal(Agora, email.ConcedidoEm);
-        Assert.Null(email.RevogadoEm);
-        Assert.Equal(Agora, whatsapp.RevogadoEm);
+        Assert.Equal(2, p.Consentimentos.Count); // períodos não são juntados nem descartados
+        Assert.Equal(Agora.AddDays(-30), emVigor.ConcedidoEm);
+        Assert.Null(emVigor.RevogadoEm);
+        Assert.Equal(Agora.AddDays(-40), revogado.RevogadoEm);
     }
 
     [Fact]

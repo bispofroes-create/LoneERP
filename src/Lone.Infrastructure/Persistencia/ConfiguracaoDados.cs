@@ -8,6 +8,7 @@ using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
 using Lone.Application.Enderecos;
+using Lone.Application.Privacidade;
 using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
@@ -50,6 +51,8 @@ public static class ConfiguracaoDados
         services.AddScoped<IPapelRepositorio, PapelRepositorio>();
         services.AddScoped<ITipoMeioContatoRepositorio, TipoMeioContatoRepositorio>();
         services.AddScoped<ITipoEnderecoRepositorio, TipoEnderecoRepositorio>();
+        services.AddScoped<IFinalidadeTratamentoRepositorio, FinalidadeTratamentoRepositorio>();
+        services.AddScoped<IPrivacidadeRepositorio, PrivacidadeRepositorio>();
         services.AddScoped<ITipoDocumentoRepositorio, TipoDocumentoRepositorio>();
         services.AddScoped<IAnexoRepositorio, AnexoRepositorio>();
         services.AddScoped<ICargoRepositorio, CargoRepositorio>();

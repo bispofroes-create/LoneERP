@@ -149,9 +149,14 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>Etiquetas do cadastro de etiquetas, para marcar.</summary>
     public EtiquetasFormulario Etiquetas { get; private set; } = EtiquetasFormulario.Criar([], []);
 
-    /// <summary>Um item por canal (e-mail, WhatsApp, SMS, ligações, correspondência).</summary>
-    public IReadOnlyList<ConsentimentoFormulario> Consentimentos { get; private set; } =
-        OpcoesPessoa.Canais.Select(ConsentimentoFormulario.Novo).ToList();
+    /// <summary>
+    /// Aba "Privacidade" (LGPD): consentimentos por finalidade, canais e decisões. Lida quando a aba abre; conceder e
+    /// revogar são ações próprias (nunca pelo "Salvar" da ficha, que não envia consentimentos).
+    /// </summary>
+    public PrivacidadeFormulario Privacidade { get; } = new();
+
+    /// <summary>Definido pela tela (permissão PESSOAS.PRIVACIDADE): a aba "Privacidade" só aparece com ela.</summary>
+    public bool PodeVerPrivacidade { get; set; }
 
     /// <summary>Origens da lista, mais a gravada se for uma que a lista não tem.</summary>
     public IReadOnlyList<string> Origens { get; private set; } = OpcoesPessoa.Origens;
@@ -432,12 +437,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             DataAbertura = TextoTela.Data(p.DataAbertura),
             Porte = p.Porte ?? string.Empty,
             CapitalSocial = TextoTela.Decimal(p.CapitalSocial),
-            PrimeiroContatoEm = TextoTela.Data(p.PrimeiroContatoEm),
-            Consentimentos = OpcoesPessoa.Canais
-                .Select(canal => p.Consentimentos.FirstOrDefault(c => c.Canal == canal) is { } c
-                    ? ConsentimentoFormulario.De(c)
-                    : ConsentimentoFormulario.Novo(canal))
-                .ToList()
+            PrimeiroContatoEm = TextoTela.Data(p.PrimeiroContatoEm)
         };
 
         if (p.GrupoEmpresarialId is { } grupoGravado)
@@ -580,7 +580,6 @@ public sealed partial class PessoaFormulario : ObservableObject
             Socios = Socios.ToList(),
             OrigemCadastro = OrigemCadastro == OpcoesPessoa.Origens[0] ? null : TextoTela.Nulo(OrigemCadastro),
             PrimeiroContatoEm = primeiroContato,
-            Consentimentos = Consentimentos.Select(c => c.ParaDto()).OfType<ConsentimentoDto>().ToList(),
             EtiquetaIds = Etiquetas.Marcadas.ToList(),
             ValoresPersonalizados = InformacoesAdicionais.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList(),
             MotivoAlteracao = TextoTela.Nulo(MotivoAlteracao)?.Trim()

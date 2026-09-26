@@ -150,6 +150,10 @@ public class Pessoa : AgregadoRaiz
     public List<ContaFornecedor> ContasFornecedor { get; set; } = new();
 
     public List<PessoaSocio> Socios { get; set; } = new();
+    /// <summary>
+    /// Períodos de consentimento (LGPD). Lidos pela privacidade e pela regra de comunicação; gravados só por
+    /// conceder/revogar (nunca pelo Salvar da ficha).
+    /// </summary>
     public List<PessoaConsentimento> Consentimentos { get; set; } = new();
     public List<PessoaEtiqueta> Etiquetas { get; set; } = new();
 

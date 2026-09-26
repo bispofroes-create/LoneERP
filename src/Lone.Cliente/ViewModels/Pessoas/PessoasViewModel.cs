@@ -252,7 +252,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     [NotifyPropertyChangedFor(nameof(NaGeral), nameof(NosPessoais), nameof(NosEstabelecimentos), nameof(NosEnderecos),
                               nameof(NosContatos), nameof(NosDocumentos), nameof(NoComercial), nameof(NoCliente), nameof(NoFornecedor),
                               nameof(NoRelacionamento), nameof(NoHistorico), nameof(NasAdicionais), nameof(NaSituacao),
-                              nameof(NoColaborador), nameof(NosRelacionamentosPessoas))]
+                              nameof(NoColaborador), nameof(NosRelacionamentosPessoas), nameof(NaPrivacidade))]
     private SecaoOpcao? _secaoSelecionada;
 
     public bool NaGeral => Aba == SecaoPessoa.Geral;
@@ -267,6 +267,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public bool NoCliente => NoComercial && Formulario?.PapelCliente.Ativo == true;
     public bool NoFornecedor => NoComercial && Formulario?.PapelFornecedor.Ativo == true;
     public bool NosRelacionamentosPessoas => Aba == SecaoPessoa.RelacionamentosPessoas;
+    public bool NaPrivacidade => Aba == SecaoPessoa.Privacidade;
 
     /// <summary>Grupo empresarial e vínculos societários (sócio, administrador) exigem a permissão de estrutura empresarial.</summary>
     public bool PodeAlterarEstruturaEmpresarial => _sessao.Possui(Permissoes.Pessoas.EstruturaEmpresarial);
@@ -325,6 +326,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (newValue is null) return;
 
         newValue.PodeVerDadosSensiveis = _sessao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis);
+        newValue.PodeVerPrivacidade = _sessao.Possui(Permissoes.Pessoas.Privacidade);
+        newValue.Privacidade.Acoes.Conceder = ConcederConsentimentoAsync;
+        newValue.Privacidade.Acoes.Revogar = RevogarConsentimentoAsync;
         newValue.ConsultaCep = ConsultarCepAsync;
         newValue.Confirmar = ConfirmarAsync; // diálogo da base (CadastroViewModelBase)
         newValue.ConsolidarNoServidor = ConsolidarEnderecosAsync;
@@ -360,6 +364,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         formulario.Relacionamentos.Acoes.Incluir = null;
         formulario.Relacionamentos.Acoes.Encerrar = null;
         formulario.Relacionamentos.Acoes.Desativar = null;
+        formulario.Privacidade.Acoes.Conceder = null;
+        formulario.Privacidade.Acoes.Revogar = null;
         formulario.AcoesAnexos.Abrir = null;
         formulario.AcoesAnexos.AlterarAtivo = null;
         formulario.PropertyChanged -= Formulario_PropertyChanged;
@@ -415,6 +421,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             _ = CarregarOpcoesEstruturaAsync(fichaEmpresa);
         if (value?.Secao == SecaoPessoa.RelacionamentosPessoas && Formulario is { Existente: true } fichaRelacoes)
             _ = CarregarRelacionamentosAsync(fichaRelacoes);
+        if (value?.Secao == SecaoPessoa.Privacidade && Formulario is { Existente: true, Privacidade.Carregada: false } fichaPrivacidade)
+            _ = CarregarPrivacidadeAsync(fichaPrivacidade);
     }
 
     private Task? _cargaEstrutura;
@@ -821,6 +829,59 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         s.IncluirInteracao(interacao!);
         Mostrar("Interação registrada.", TipoMensagem.Sucesso);
+    }
+
+    // ---- Privacidade (LGPD): consentimentos gravados na hora, à parte do "Salvar" da ficha ----
+
+    /// <summary>Consentimentos, canais e decisões (calculadas pela regra do domínio na API), lidos quando a aba abre.</summary>
+    private async Task CarregarPrivacidadeAsync(PessoaFormulario ficha)
+    {
+        try
+        {
+            var privacidade = await _pessoas.ObterPrivacidadeAsync(ficha.Id);
+            if (!ReferenceEquals(Formulario, ficha)) return;
+            ficha.Privacidade.Carregar(privacidade);
+        }
+        catch (SessaoExpiradaException)
+        {
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ex);
+        }
+    }
+
+    private async Task ConcederConsentimentoAsync()
+    {
+        if (Formulario is not { Existente: true } ficha) return;
+        var p = ficha.Privacidade;
+        if (p.ValidarConcessao() is { Count: > 0 } erros)
+        {
+            Mostrar(string.Join(Environment.NewLine, erros), TipoMensagem.Aviso);
+            return;
+        }
+
+        PrivacidadeDto? atualizada = null;
+        if (!await ExecutarAsync(async () => atualizada = await _pessoas.ConcederConsentimentoAsync(ficha.Id, p.ParaConcessao())))
+            return;
+        p.Carregar(atualizada!);
+        p.LimparConcessao();
+        Mostrar("Consentimento concedido e registrado no histórico.", TipoMensagem.Sucesso);
+    }
+
+    private async Task RevogarConsentimentoAsync(PeriodoConsentimentoItem item)
+    {
+        if (Formulario is not { } ficha) return;
+        var motivo = await PerguntarAsync("Revogar consentimento",
+            $"{item.Titulo}: o consentimento deixa de valer a partir de agora e o período fica no histórico. Motivo:",
+            "Revogar", "Cancelar", "Ex.: pediu por e-mail", 250);
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        PrivacidadeDto? atualizada = null;
+        if (!await ExecutarAsync(async () => atualizada = await _pessoas.RevogarConsentimentoAsync(ficha.Id, item.Id, motivo.Trim())))
+            return;
+        ficha.Privacidade.Carregar(atualizada!);
+        Mostrar("Consentimento revogado. O período continua no histórico.", TipoMensagem.Sucesso);
     }
 
     // ---- Relacionamentos com outros cadastros (gravados na hora, à parte do "Salvar" da ficha) ----

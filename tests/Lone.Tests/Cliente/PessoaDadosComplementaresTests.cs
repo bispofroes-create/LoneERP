@@ -71,40 +71,18 @@ public class PessoaDadosComplementaresTests
         Assert.Equal(RegimeTributario.Mei, f.Principal.Regime.Valor);
     }
 
+    /// <summary>
+    /// Fase 3: a ficha não envia consentimentos no Salvar (conceder/revogar são ações próprias). Substitui os testes
+    /// antigos "Consentimento_so_vai_para_a_API_quando_existe_ou_foi_marcado" e
+    /// "Retirar_autorizacao_gravada_manda_o_registro_desmarcado" (comportamento retirado de propósito).
+    /// </summary>
     [Fact]
-    public void Consentimento_so_vai_para_a_API_quando_existe_ou_foi_marcado()
+    public void Salvar_da_ficha_nao_leva_consentimento()
     {
         var f = PessoaFormulario.NovaPessoa();
-        var email = f.Consentimentos.First(c => c.Canal == CanalComunicacao.Email);
-        email.Concedido = true;
-        email.Origem = "Balcão";
-
-        var dto = f.ParaDto();
-
-        var enviado = Assert.Single(dto.Consentimentos);
-        Assert.Equal(CanalComunicacao.Email, enviado.Canal);
-        Assert.True(enviado.Concedido);
-        Assert.Null(enviado.ConcedidoEm); // a data é dada pela API
-        Assert.Equal("Será registrado ao salvar", email.Situacao);
-    }
-
-    [Fact]
-    public void Retirar_autorizacao_gravada_manda_o_registro_desmarcado()
-    {
-        var gravado = new ConsentimentoDto
-        {
-            Id = Guid.NewGuid(), Canal = CanalComunicacao.WhatsApp, Concedido = true,
-            ConcedidoEm = new DateTime(2026, 1, 10, 12, 0, 0, DateTimeKind.Utc)
-        };
-        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Ana", Consentimentos = [gravado] });
-        var whatsapp = f.Consentimentos.First(c => c.Canal == CanalComunicacao.WhatsApp);
-        Assert.StartsWith("Autorizado em", whatsapp.Situacao);
-
-        whatsapp.Concedido = false;
-        var enviado = Assert.Single(f.ParaDto().Consentimentos);
-
-        Assert.False(enviado.Concedido);
-        Assert.Equal(gravado.ConcedidoEm, enviado.ConcedidoEm);
+        var json = System.Text.Json.JsonSerializer.Serialize(f.ParaDto());
+        Assert.DoesNotContain("Consentimento", json);
+        Assert.DoesNotContain(typeof(PessoaDto).GetProperties(), p => p.Name.Contains("Consentimento"));
     }
 
     [Fact]

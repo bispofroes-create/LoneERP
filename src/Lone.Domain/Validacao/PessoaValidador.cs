@@ -85,11 +85,6 @@ public static class PessoaValidador
         }
         foreach (var e in p.Estabelecimentos)
             Limite(e.CnaesSecundarios, 1000, "A lista de CNAEs secundários", erros);
-        foreach (var c in p.Consentimentos)
-        {
-            if (!Enum.IsDefined(c.Canal)) erros.Add("Canal de comunicação inválido.");
-            Limite(c.Origem, 80, "A forma de autorização", erros);
-        }
 
         if (p.PrimeiroContatoEm is { } primeiro && primeiro > hoje)
             erros.Add("A data do primeiro contato não pode ser no futuro.");

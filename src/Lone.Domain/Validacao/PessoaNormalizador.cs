@@ -11,7 +11,7 @@ public static class PessoaNormalizador
 {
     public static void Normalizar(Pessoa p) => Normalizar(p, DateOnly.FromDateTime(DateTime.Today));
 
-    /// <param name="agoraUtc">Momento registrado nos consentimentos (padrão: agora).</param>
+    /// <param name="agoraUtc">Não usado desde a Fase 3 (consentimentos saíram do Salvar); mantido por compatibilidade.</param>
     public static void Normalizar(Pessoa p, DateOnly hoje, DateTime? agoraUtc = null)
     {
         p.Nome = Texto(p.Nome) ?? string.Empty;
@@ -49,7 +49,6 @@ public static class PessoaNormalizador
         NormalizarPapeis(p.Papeis, hoje);
         NormalizarDadosPessoais(p);
         NormalizarDadosEmpresa(p);
-        NormalizarConsentimentos(p.Consentimentos, agoraUtc ?? DateTime.UtcNow);
         NormalizarEtiquetas(p.Etiquetas);
         p.OrigemCadastro = Texto(p.OrigemCadastro);
 
@@ -257,30 +256,6 @@ public static class PessoaNormalizador
                 .Distinct()
                 .ToList();
             e.CnaesSecundarios = codigos.Count == 0 ? null : string.Join(",", codigos);
-        }
-    }
-
-    /// <summary>
-    /// Um registro por canal. Ao autorizar, grava quando (se ainda não houver data); ao retirar uma autorização
-    /// dada, grava quando foi retirada. As datas são do servidor, não do aparelho.
-    /// </summary>
-    private static void NormalizarConsentimentos(List<PessoaConsentimento> consentimentos, DateTime agoraUtc)
-    {
-        foreach (var repetido in consentimentos.GroupBy(c => c.Canal).SelectMany(g => g.Skip(1)).ToList())
-            consentimentos.Remove(repetido);
-
-        foreach (var c in consentimentos)
-        {
-            c.Origem = Texto(c.Origem);
-            if (c.Concedido)
-            {
-                c.ConcedidoEm ??= agoraUtc;
-                c.RevogadoEm = null;
-            }
-            else if (c.ConcedidoEm is not null)
-            {
-                c.RevogadoEm ??= agoraUtc;
-            }
         }
     }
 

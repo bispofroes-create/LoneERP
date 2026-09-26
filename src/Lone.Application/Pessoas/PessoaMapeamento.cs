@@ -49,7 +49,6 @@ public static class PessoaMapeamento
         Socios = p.Socios.OrderBy(s => s.Nome).Select(ParaDto).ToList(),
         OrigemCadastro = p.OrigemCadastro,
         PrimeiroContatoEm = p.PrimeiroContatoEm,
-        Consentimentos = p.Consentimentos.OrderBy(c => c.Canal).Select(ParaDto).ToList(),
         EtiquetaIds = p.Etiquetas.Select(e => e.EtiquetaId).ToList(),
         ValoresPersonalizados = p.ValoresPersonalizados.Select(ParaDto).ToList(),
         Estabelecimentos = p.Estabelecimentos.OrderByDescending(e => e.Principal).ThenBy(e => e.Cnpj).Select(ParaDto).ToList(),
@@ -106,7 +105,6 @@ public static class PessoaMapeamento
             Socios = d.Socios.Select(s => ParaEntidade(s, pessoaId)).ToList(),
             OrigemCadastro = d.OrigemCadastro,
             PrimeiroContatoEm = d.PrimeiroContatoEm,
-            Consentimentos = d.Consentimentos.Select(c => ParaEntidade(c, pessoaId)).ToList(),
             Etiquetas = d.EtiquetaIds.Select(id => new PessoaEtiqueta { Id = IdSequencial.Novo(), PessoaId = pessoaId, EtiquetaId = id }).ToList(),
             ValoresPersonalizados = d.ValoresPersonalizados.Select(v => ParaEntidade(v, pessoaId)).ToList(),
             Estabelecimentos = d.Estabelecimentos.Select(e => ParaEntidade(e, pessoaId)).ToList(),
@@ -206,27 +204,6 @@ public static class PessoaMapeamento
         Qualificacao = s.Qualificacao,
         Documento = s.Documento,
         EntradaEm = s.EntradaEm
-    };
-
-    private static ConsentimentoDto ParaDto(PessoaConsentimento c) => new()
-    {
-        Id = c.Id,
-        Canal = c.Canal,
-        Concedido = c.Concedido,
-        ConcedidoEm = c.ConcedidoEm,
-        RevogadoEm = c.RevogadoEm,
-        Origem = c.Origem
-    };
-
-    private static PessoaConsentimento ParaEntidade(ConsentimentoDto c, Guid pessoaId) => new()
-    {
-        Id = IdOuNovo(c.Id),
-        PessoaId = pessoaId,
-        Canal = c.Canal,
-        Concedido = c.Concedido,
-        ConcedidoEm = c.ConcedidoEm,
-        RevogadoEm = c.RevogadoEm,
-        Origem = c.Origem
     };
 
     // ---------------------------------------------------------------- Campos personalizados

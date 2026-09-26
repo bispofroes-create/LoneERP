@@ -128,7 +128,7 @@ public class MigracaoCompletaTests
     /// INSERT no esquema ANTIGO (o do modelo atual não serve ali): as colunas informadas e, nas obrigatórias sem valor
     /// padrão, um valor neutro do tipo (lido do próprio banco).
     /// </summary>
-    private static async Task InserirAsync(SqlConnection sql, string tabela, Dictionary<string, object> valores)
+    internal static async Task InserirAsync(SqlConnection sql, string tabela, Dictionary<string, object> valores)
     {
         await using (var colunas = new SqlCommand("""
             SELECT c.name, t.name FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id

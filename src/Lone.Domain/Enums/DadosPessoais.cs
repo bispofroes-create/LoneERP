@@ -60,7 +60,10 @@ public enum Escolaridade : byte
     Doutorado = 12
 }
 
-/// <summary>Canal de comunicação para o qual a pessoa deu (ou retirou) consentimento (LGPD).</summary>
+/// <summary>
+/// Canal de comunicação: por onde se fala com a pessoa. No consentimento é opcional (vazio = qualquer canal compatível
+/// com a finalidade); na regra de comunicação é o meio usado (e-mail, WhatsApp, SMS, ligação).
+/// </summary>
 public enum CanalComunicacao : byte
 {
     Email = 1,

@@ -34,6 +34,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<PapeisApi>();
         services.AddSingleton<TiposMeioContatoApi>();
         services.AddSingleton<TiposEnderecoApi>();
+        services.AddSingleton<FinalidadesTratamentoApi>();
         services.AddSingleton<TiposDocumentoApi>();
         services.AddSingleton<AnexosApi>();
         services.AddSingleton<ColaboradoresApi>();
@@ -60,6 +61,7 @@ public static class ConfiguracaoCliente
         services.AddTransient<PapeisViewModel>();
         services.AddTransient<TiposMeioContatoViewModel>();
         services.AddTransient<TiposEnderecoViewModel>();
+        services.AddTransient<FinalidadesTratamentoViewModel>();
         services.AddTransient<TiposDocumentoViewModel>();
         services.AddTransient<CargosViewModel>();
         services.AddTransient<DepartamentosViewModel>();
