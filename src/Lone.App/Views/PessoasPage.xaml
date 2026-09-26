@@ -1,92 +1,301 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Central de Pessoas: lista com busca e filtro à esquerda, ficha com abas ao lado (no celular, uma de cada vez). -->
+<!-- Módulo Pessoas. Uma tela de cada vez, ocupando a área toda:
+     LISTA (cabeçalho, pesquisa + filtros, atalhos, tabela com colunas próprias, paginação) → FICHA (voltar, cabeçalho com
+     nome/situação/papéis/documento, ações, abas). Só aparência: regras, permissões e validações estão nos ViewModels. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
+             xmlns:enums="clr-namespace:Lone.Domain.Enums;assembly=Lone.Domain"
              xmlns:c="clr-namespace:Lone.App.Controles"
              xmlns:pv="clr-namespace:Lone.App.Views.Pessoas"
              x:Class="Lone.App.Views.PessoasPage"
              x:DataType="pes:PessoasViewModel"
              Title="Pessoas">
 
-    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+    <Grid>
+        <!-- =====================================================================================================
+             LISTA
+             ===================================================================================================== -->
+        <Grid x:Name="Lista" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="16" IsVisible="{Binding MostrarLista}"
+              Padding="{OnIdiom Phone='16,16', Default='32,24'}">
 
-        <!-- ===== Lista ===== -->
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Nome, código, CPF/CNPJ, telefone..." />
-                <Button Grid.Column="1" Text="Nova" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}"
-                        IsVisible="{Binding PodeCriar}" />
+            <!-- Cabeçalho: onde estou + ação principal -->
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Pessoas" Style="{StaticResource TituloPagina}" />
+                    <Label Text="Cadastros de pessoas físicas e jurídicas" Style="{StaticResource SubtituloPagina}" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="⚙" Style="{StaticResource BotaoIcone}" Command="{Binding ConfiguracoesDoModuloCommand}"
+                        VerticalOptions="Center" ToolTipProperties.Text="Configurações de Pessoas"
+                        SemanticProperties.Description="Configurações de Pessoas" />
+                <Button Grid.Column="2" Text="+  Nova pessoa" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}"
+                        IsVisible="{Binding PodeCriar}" VerticalOptions="Center" />
             </Grid>
 
+            <!-- Pesquisa + botão do painel de filtros -->
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Picker ItemsSource="{Binding FiltrosPapel}" SelectedItem="{Binding FiltroPapel}" Title="Papel"
-                        SemanticProperties.Description="Filtrar por papel" />
-                <c:CaixaMarcar Grid.Column="1" Texto="Inativos" Marcado="{Binding MostrarInativos}" VerticalOptions="Center" />
+                <Border StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="4,0" MaximumWidthRequest="720" HorizontalOptions="Fill"
+                        Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                    <SearchBar Text="{Binding Busca}" Placeholder="Pesquisar por nome, código, CPF/CNPJ, telefone ou e-mail"
+                               BackgroundColor="Transparent" SemanticProperties.Description="Pesquisar pessoas" />
+                </Border>
+                <Button Grid.Column="1" Text="{Binding TextoBotaoFiltros}" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding AlternarFiltrosCommand}" VerticalOptions="Center" />
             </Grid>
 
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Picker ItemsSource="{Binding FiltrosEtiqueta}" SelectedItem="{Binding FiltroEtiqueta}" Title="Etiqueta"
-                        SemanticProperties.Description="Filtrar por etiqueta" />
-                <c:CaixaMarcar Grid.Column="1" Texto="Município a corrigir" Marcado="{Binding SomenteMunicipioACorrigir}"
-                               VerticalOptions="Center" />
+            <!-- Painel de filtros avançados (fechado por padrão) -->
+            <Border Grid.Row="2" Style="{StaticResource PainelConteudo}" Padding="16" IsVisible="{Binding MostrarFiltros}">
+                <FlexLayout Wrap="Wrap" AlignItems="Center">
+                    <Picker ItemsSource="{Binding FiltrosPapel}" SelectedItem="{Binding FiltroPapel}" Title="Papel"
+                            MinimumWidthRequest="220" Margin="0,0,16,8" SemanticProperties.Description="Filtrar por papel" />
+                    <Picker ItemsSource="{Binding FiltrosEtiqueta}" SelectedItem="{Binding FiltroEtiqueta}" Title="Etiqueta"
+                            MinimumWidthRequest="220" Margin="0,0,16,8" SemanticProperties.Description="Filtrar por etiqueta" />
+                    <c:CaixaMarcar Texto="Incluir inativos" Marcado="{Binding MostrarInativos}" FlexLayout.Basis="auto" Margin="0,0,16,8" />
+                    <c:CaixaMarcar Texto="Município a corrigir" Marcado="{Binding SomenteMunicipioACorrigir}" FlexLayout.Basis="auto" Margin="0,0,16,8" />
+                    <Button Text="Limpar filtros" Style="{StaticResource BotaoTerciario}" Command="{Binding LimparFiltrosCommand}" Margin="0,0,0,8" />
+                </FlexLayout>
+            </Border>
+
+            <!-- Atalhos (um marcado) + mensagens -->
+            <VerticalStackLayout Grid.Row="3" Spacing="8">
+                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding FiltrosRapidos}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="pes:FiltroRapido">
+                            <Border Style="{StaticResource Chip}" ToolTipProperties.Text="{Binding Dica}"
+                                    SemanticProperties.Description="{Binding Texto}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding EscolherFiltroRapidoCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding Selecionado}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}" />
+                                        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Label Text="{Binding Texto}" FontSize="13">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding Selecionado}" Value="True">
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+                <ContentView IsVisible="{Binding SemFicha}">
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+                </ContentView>
+            </VerticalStackLayout>
+
+            <!-- Tabela: colunas próprias (nunca tudo numa linha de texto). As menos importantes somem em telas estreitas. -->
+            <Border Grid.Row="4" Style="{StaticResource PainelConteudo}" Padding="0">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- Cabeçalho da tabela -->
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" Padding="16,10"
+                          BackgroundColor="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}">
+                        <Label Text="NOME / RAZÃO SOCIAL" Style="{StaticResource CabecalhoTabela}" MinimumWidthRequest="200" />
+                        <Label Grid.Column="1" Text="CPF / CNPJ" Style="{StaticResource CabecalhoTabela}" WidthRequest="170"
+                               IsVisible="{Binding MostrarColunaDocumento}" />
+                        <Label Grid.Column="2" Text="TIPO" Style="{StaticResource CabecalhoTabela}" WidthRequest="48"
+                               IsVisible="{Binding MostrarColunaTipo}" />
+                        <Label Grid.Column="3" Text="PAPÉIS" Style="{StaticResource CabecalhoTabela}" WidthRequest="190"
+                               IsVisible="{Binding MostrarColunaPapeis}" />
+                        <Label Grid.Column="4" Text="CIDADE / UF" Style="{StaticResource CabecalhoTabela}" WidthRequest="170"
+                               IsVisible="{Binding MostrarColunaCidade}" />
+                        <Label Grid.Column="5" Text="SITUAÇÃO" Style="{StaticResource CabecalhoTabela}" WidthRequest="96" />
+                        <Grid Grid.Column="6" WidthRequest="36">
+                            <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" WidthRequest="18" HeightRequest="18"
+                                               HorizontalOptions="Center" SemanticProperties.Description="Carregando" />
+                        </Grid>
+                    </Grid>
+
+                    <CollectionView Grid.Row="1" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="dto:PessoaResumo">
+                                <Grid RowDefinitions="*,1">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroupList>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="Transparent" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="PointerOver">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor"
+                                                                Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Selected">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateGroupList>
+                                    </VisualStateManager.VisualStateGroups>
+
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" Padding="16,12" MinimumHeightRequest="52">
+                                        <!-- Nome: prioridade visual; nome inteiro no tooltip -->
+                                        <VerticalStackLayout VerticalOptions="Center" MinimumWidthRequest="200">
+                                            <Label Text="{Binding Nome}" Style="{StaticResource TextoTabela}" FontAttributes="Bold"
+                                                   ToolTipProperties.Text="{Binding Nome}" />
+                                            <Label Text="{Binding DocumentoFormatado}" Style="{StaticResource TextoTabelaSecundario}" FontSize="13"
+                                                   IsVisible="{Binding MostrarDocumentoNoNome, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding DocumentoFormatado}" Style="{StaticResource TextoTabela}" WidthRequest="170"
+                                               IsVisible="{Binding MostrarColunaDocumento, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}" />
+                                        <Border Grid.Column="2" Style="{StaticResource Selo}" WidthRequest="48" ToolTipProperties.Text="{Binding NaturezaTexto}"
+                                                IsVisible="{Binding MostrarColunaTipo, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}">
+                                            <Label Text="{Binding NaturezaSigla}" Style="{StaticResource SeloTexto}" HorizontalOptions="Center" />
+                                        </Border>
+                                        <Label Grid.Column="3" Text="{Binding PapeisTexto}" Style="{StaticResource TextoTabelaSecundario}" WidthRequest="190"
+                                               ToolTipProperties.Text="{Binding PapeisTexto}"
+                                               IsVisible="{Binding MostrarColunaPapeis, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}" />
+                                        <Label Grid.Column="4" Text="{Binding Local}" Style="{StaticResource TextoTabelaSecundario}" WidthRequest="170"
+                                               IsVisible="{Binding MostrarColunaCidade, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}" />
+                                        <!-- Situação: selo com texto (a cor nunca é a única indicação) -->
+                                        <Grid Grid.Column="5" WidthRequest="96">
+                                            <Border Style="{StaticResource Selo}">
+                                                <Border.Triggers>
+                                                    <DataTrigger TargetType="Border" Binding="{Binding Situacao}" Value="{x:Static enums:SituacaoPessoa.Ativo}">
+                                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SucessoFundo}, Dark={StaticResource SucessoFundoEscuro}}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Border" Binding="{Binding Situacao}" Value="{x:Static enums:SituacaoPessoa.EmAnalise}">
+                                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}" />
+                                                    </DataTrigger>
+                                                </Border.Triggers>
+                                                <Label Text="{Binding SituacaoSelo}" Style="{StaticResource SeloTexto}">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Situacao}" Value="{x:Static enums:SituacaoPessoa.Ativo}">
+                                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Sucesso}, Dark={StaticResource TextoEscuro}}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Situacao}" Value="{x:Static enums:SituacaoPessoa.EmAnalise}">
+                                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Aviso}, Dark={StaticResource TextoEscuro}}" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                            </Border>
+                                        </Grid>
+                                        <Button Grid.Column="6" Text="⋯" Style="{StaticResource BotaoIcone}" VerticalOptions="Center"
+                                                Command="{Binding AcoesDaLinhaCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                CommandParameter="{Binding .}" ToolTipProperties.Text="Mais ações"
+                                                SemanticProperties.Description="Mais ações" />
+                                    </Grid>
+                                    <BoxView Grid.Row="1" Color="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <!-- Estado vazio (depois de ler): nunca uma tabela vazia sem explicação -->
+                    <VerticalStackLayout Grid.Row="1" IsVisible="{Binding MostrarEstadoVazio}" Spacing="8" Padding="32,48"
+                                         HorizontalOptions="Center" VerticalOptions="Start">
+                        <Label Text="Nenhuma pessoa encontrada" Style="{StaticResource SecaoTitulo}" HorizontalOptions="Center" />
+                        <Label Text="Tente alterar a pesquisa ou os filtros, ou crie uma nova pessoa." Style="{StaticResource SubtituloPagina}"
+                               HorizontalTextAlignment="Center" />
+                        <Button Text="+  Nova pessoa" Command="{Binding NovoCommand}" IsVisible="{Binding PodeCriar}" IsEnabled="{Binding Livre}"
+                                HorizontalOptions="Center" Margin="0,8,0,0" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <!-- Paginação -->
+            <Grid Grid.Row="5" ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <Label Text="{Binding ResumoPaginacao}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="1" Spacing="4" IsVisible="{Binding TemVariasPaginas}">
+                    <Button Text="‹" Style="{StaticResource BotaoIcone}" Command="{Binding PaginaAnteriorCommand}"
+                            IsEnabled="{Binding PodeVoltarPagina}" SemanticProperties.Description="Página anterior" />
+                    <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Paginas}" Spacing="4">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="pes:PaginaItem">
+                                <Button Text="{Binding Texto}" Style="{StaticResource BotaoIcone}" FontSize="14"
+                                        IsEnabled="{Binding Clicavel}"
+                                        Command="{Binding IrParaPaginaCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                        CommandParameter="{Binding .}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding Atual}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                            <Setter Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                    <Button Text="›" Style="{StaticResource BotaoIcone}" Command="{Binding ProximaPaginaCommand}"
+                            IsEnabled="{Binding PodeAvancarPagina}" SemanticProperties.Description="Próxima página" />
+                </HorizontalStackLayout>
             </Grid>
-
-            <ContentView Grid.Row="3" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
-
-            <CollectionView Grid.Row="4" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhuma pessoa encontrada." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="dto:PessoaResumo">
-                        <VerticalStackLayout Padding="12,10" Spacing="2">
-                            <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <ActivityIndicator Grid.Row="4" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
         </Grid>
 
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Escolha uma pessoa na lista ou clique em Nova." Style="{StaticResource Secundario}" HorizontalOptions="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha: conteúdo rolável e barra de ações fixa embaixo ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+        <!-- =====================================================================================================
+             FICHA (tela cheia): conteúdo rolável e barra de ações fixa embaixo
+             ===================================================================================================== -->
+        <Grid RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
             <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="960"
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1200"
                                      HorizontalOptions="Fill">
-                    <Button Text="‹ Pessoas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <!-- Cabeçalho: quem é, sem abrir abas. Nome para exibir (PJ: exibição → nome fantasia → razão social),
-                         razão social/nome civil quando diferente, tipo e papéis, documento, código e situação, grupo
-                         empresarial e estabelecimentos (PJ) e etiquetas. Só leitura: tudo vem da própria ficha. -->
-                    <VerticalStackLayout Spacing="2">
-                        <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                        <Label Text="{Binding Formulario.NomeCompletoCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation"
-                               IsVisible="{Binding Formulario.TemNomeCompletoCabecalho}" />
-                        <Label Text="{Binding Formulario.TipoEPapeisCabecalho}" FontAttributes="Bold" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding Formulario.DocumentoCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding Formulario.EstruturaCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
-                               IsVisible="{Binding Formulario.TemEstruturaCabecalho}" />
-                        <Label Text="{Binding Formulario.EtiquetasCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
+                    <Button Text="←  Voltar para Pessoas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                            FontSize="14" SemanticProperties.Description="Voltar para a lista de pessoas" />
+
+                    <!-- Cabeçalho: 1) nome + situação  2) tipo + papéis  3) documento, código e local. Ações à direita. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="6">
+                            <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource TituloPagina}" LineBreakMode="WordWrap"
+                                       Margin="0,0,12,0" />
+                                <Border Style="{StaticResource Selo}">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding Formulario.SituacaoGravada}" Value="{x:Static enums:SituacaoPessoa.Ativo}">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SucessoFundo}, Dark={StaticResource SucessoFundoEscuro}}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Border" Binding="{Binding Formulario.SituacaoGravada}" Value="{x:Static enums:SituacaoPessoa.EmAnalise}">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource SeloTexto}" />
+                                </Border>
+                            </FlexLayout>
+                            <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                <Label Text="{Binding Formulario.NaturezaCabecalho}" FontAttributes="Bold" Margin="0,0,12,4" VerticalOptions="Center" />
+                                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.PapeisAtivos}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="pes:PapelOpcao">
+                                            <Border Style="{StaticResource Selo}" Margin="0,0,6,4"
+                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}">
+                                                <Label Text="{Binding Nome}" Style="{StaticResource SeloTexto}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                            </FlexLayout>
+                            <Label Text="{Binding Formulario.IdentificacaoCabecalho}" Style="{StaticResource SubtituloPagina}" />
+                            <Label Text="{Binding Formulario.NomeCompletoCabecalho}" Style="{StaticResource Secundario}"
+                                   IsVisible="{Binding Formulario.TemNomeCompletoCabecalho}" />
+                            <Label Text="{Binding Formulario.EstruturaCabecalho}" Style="{StaticResource Secundario}"
+                                   IsVisible="{Binding Formulario.TemEstruturaCabecalho}" />
+                            <Label Text="{Binding Formulario.EtiquetasCabecalho}" Style="{StaticResource Secundario}" />
+                        </VerticalStackLayout>
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Start">
+                            <Button Text="⚙  Configurações do módulo" Style="{StaticResource BotaoTerciario}" FontSize="14"
+                                    Command="{Binding ConfiguracoesDoModuloCommand}" IsVisible="{OnIdiom Phone=False, Default=True}" />
+                            <Button Text="⋯" Style="{StaticResource BotaoIcone}" Command="{Binding AcoesDaFichaCommand}"
+                                    ToolTipProperties.Text="Mais ações" SemanticProperties.Description="Mais ações da ficha" />
+                        </HorizontalStackLayout>
+                    </Grid>
 
                     <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
 
-                    <Border Style="{StaticResource Cartao}" Padding="14" IsVisible="{Binding Formulario.TemBloqueios}"
+                    <Border Style="{StaticResource PainelConteudo}" Padding="16" IsVisible="{Binding Formulario.TemBloqueios}"
                             Stroke="{StaticResource Aviso}">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="Bloqueios ativos" FontAttributes="Bold" />
@@ -94,52 +303,94 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Abas -->
-                    <CollectionView ItemsSource="{Binding Secoes}" SelectionMode="Single" SelectedItem="{Binding SecaoSelecionada}"
-                                    ItemsLayout="HorizontalList" HeightRequest="48">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="pes:SecaoOpcao">
-                                <Label Text="{Binding Texto}" Padding="14,12" FontAttributes="Bold" VerticalOptions="Center" />
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                    <BoxView HeightRequest="1" Opacity="0.4" Margin="0,0,0,8"
-                             Color="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}" />
+                    <!-- Abas: a ativa com texto azul em negrito e traço embaixo (não só cor). -->
+                    <VerticalStackLayout Spacing="0">
+                        <CollectionView ItemsSource="{Binding Secoes}" SelectionMode="Single" SelectedItem="{Binding SecaoSelecionada}"
+                                        ItemsLayout="HorizontalList" HeightRequest="44">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="pes:SecaoOpcao">
+                                    <Grid RowDefinitions="*,3" Padding="0">
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroupList>
+                                                <VisualStateGroup x:Name="CommonStates">
+                                                    <VisualState x:Name="Normal">
+                                                        <VisualState.Setters>
+                                                            <Setter Property="BackgroundColor" Value="Transparent" />
+                                                        </VisualState.Setters>
+                                                    </VisualState>
+                                                    <VisualState x:Name="PointerOver">
+                                                        <VisualState.Setters>
+                                                            <Setter Property="BackgroundColor"
+                                                                    Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                                        </VisualState.Setters>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Selected">
+                                                        <VisualState.Setters>
+                                                            <Setter Property="BackgroundColor" Value="Transparent" />
+                                                            <Setter TargetName="TextoAba" Property="Label.FontAttributes" Value="Bold" />
+                                                            <Setter TargetName="TextoAba" Property="Label.TextColor"
+                                                                    Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                                            <Setter TargetName="TracoAba" Property="BoxView.Opacity" Value="1" />
+                                                        </VisualState.Setters>
+                                                    </VisualState>
+                                                </VisualStateGroup>
+                                            </VisualStateGroupList>
+                                        </VisualStateManager.VisualStateGroups>
+                                        <Label x:Name="TextoAba" Text="{Binding Texto}" FontSize="14" Padding="16,0" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+                                        <BoxView x:Name="TracoAba" Grid.Row="1" Opacity="0" Margin="8,0"
+                                                 Color="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
+                    </VerticalStackLayout>
 
-                    <pv:SecaoGeralView IsVisible="{Binding NaGeral}" />
-                    <pv:SecaoPessoaisView IsVisible="{Binding NosPessoais}" />
-                    <pv:SecaoEstabelecimentosView IsVisible="{Binding NosEstabelecimentos}" />
-                    <pv:SecaoEnderecosView IsVisible="{Binding NosEnderecos}" />
-                    <pv:SecaoContatosView IsVisible="{Binding NosContatos}" />
-                    <pv:SecaoDocumentosView IsVisible="{Binding NosDocumentos}" />
-                    <!-- Comercial: Cliente e Fornecedor na mesma aba, um bloco por papel ativo (a mesma pessoa pode ter os dois). -->
-                    <pv:SecaoClienteView IsVisible="{Binding NoCliente}" />
-                    <pv:SecaoFornecedorView IsVisible="{Binding NoFornecedor}" />
-                    <pv:SecaoColaboradorView IsVisible="{Binding NoColaborador}" />
-                    <pv:SecaoRelacionamentosView IsVisible="{Binding NosRelacionamentosPessoas}" />
-                    <pv:SecaoAdicionaisView IsVisible="{Binding NasAdicionais}" />
-                    <pv:SecaoRelacionamentoView IsVisible="{Binding NoRelacionamento}" />
-                    <pv:SecaoPrivacidadeView IsVisible="{Binding NaPrivacidade}" />
-                    <pv:SecaoSituacaoView IsVisible="{Binding NaSituacao}" />
-                    <pv:SecaoHistoricoView IsVisible="{Binding NoHistorico}" />
+                    <!-- Conteúdo da aba: uma superfície só; os grupos dentro dela são separados por títulos e espaço. -->
+                    <Border Style="{StaticResource PainelConteudo}" Padding="{OnIdiom Phone='16', Default='24'}">
+                        <VerticalStackLayout>
+                        <pv:SecaoGeralView IsVisible="{Binding NaGeral}" />
+                        <pv:SecaoPessoaisView IsVisible="{Binding NosPessoais}" />
+                        <pv:SecaoEstabelecimentosView IsVisible="{Binding NosEstabelecimentos}" />
+                        <pv:SecaoEnderecosView IsVisible="{Binding NosEnderecos}" />
+                        <pv:SecaoContatosView IsVisible="{Binding NosContatos}" />
+                        <pv:SecaoDocumentosView IsVisible="{Binding NosDocumentos}" />
+                        <!-- Comercial: Cliente e Fornecedor na mesma aba, um bloco por papel ativo (a mesma pessoa pode ter os dois). -->
+                        <pv:SecaoClienteView IsVisible="{Binding NoCliente}" />
+                        <pv:SecaoFornecedorView IsVisible="{Binding NoFornecedor}" />
+                        <pv:SecaoColaboradorView IsVisible="{Binding NoColaborador}" />
+                        <pv:SecaoRelacionamentosView IsVisible="{Binding NosRelacionamentosPessoas}" />
+                        <pv:SecaoAdicionaisView IsVisible="{Binding NasAdicionais}" />
+                        <pv:SecaoRelacionamentoView IsVisible="{Binding NoRelacionamento}" />
+                        <pv:SecaoPrivacidadeView IsVisible="{Binding NaPrivacidade}" />
+                        <pv:SecaoSituacaoView IsVisible="{Binding NaSituacao}" />
+                        <pv:SecaoHistoricoView IsVisible="{Binding NoHistorico}" />
+                        </VerticalStackLayout>
+                    </Border>
                 </VerticalStackLayout>
             </ScrollView>
 
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                </HorizontalStackLayout>
-                <!-- Motivo (opcional): vai para o histórico junto com o que mudou nesta gravação. -->
-                <Entry Grid.Column="1" Text="{Binding Formulario.MotivoAlteracao}" Placeholder="Motivo da alteração (opcional)"
-                       MaxLength="250" IsVisible="{Binding PodeSalvar}" VerticalOptions="Center" />
-                </Grid>
-            </Border>
+            <!-- Barra de ações da ficha (fixa) -->
+            <Grid Grid.Row="1" RowDefinitions="1,Auto">
+                <BoxView Color="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
+                <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,12', Default='32,12'}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <HorizontalStackLayout Spacing="8">
+                            <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
+                            <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                                    IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                            <Button Text="Fechar" Style="{StaticResource BotaoTerciario}" Command="{Binding FecharFichaCommand}" />
+                            <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <!-- Motivo (opcional): vai para o histórico junto com o que mudou nesta gravação. -->
+                        <Entry Grid.Column="1" Text="{Binding Formulario.MotivoAlteracao}" Placeholder="Motivo da alteração (opcional)"
+                               MaxLength="250" IsVisible="{Binding PodeSalvar}" VerticalOptions="Center" MaximumWidthRequest="520"
+                               HorizontalOptions="Fill" />
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </ContentPage>

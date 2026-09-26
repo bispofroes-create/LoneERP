@@ -120,6 +120,10 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     protected Task<string?> PerguntarAsync(string titulo, string mensagem, string aceitar, string cancelar, string? dica = null, int tamanhoMaximo = 200) =>
         _dialogos.PerguntarAsync(titulo, mensagem, aceitar, cancelar, dica, tamanhoMaximo);
 
+    /// <summary>Menu de ações ("⋯"): a opção escolhida ou nulo.</summary>
+    protected Task<string?> EscolherAsync(string titulo, IReadOnlyList<string> opcoes) =>
+        _dialogos.EscolherAsync(titulo, "Cancelar", opcoes);
+
     /// <summary>
     /// Descartar = desfazer o que não foi salvo. Item novo: cancela a inclusão e volta à lista. Item existente:
     /// volta aos dados gravados. Sem alterações: só volta à lista. Nunca exclui nada.
@@ -308,5 +312,9 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
                                               || TextoDeBusca(i).Contains(termo, StringComparison.CurrentCultureIgnoreCase)))
             Itens.Add(item);
         OnPropertyChanged(nameof(ListaVazia));
+        DepoisDeListar();
     }
+
+    /// <summary>Depois que as linhas visíveis mudaram (ex.: resumo da paginação). Por padrão, nada.</summary>
+    protected virtual void DepoisDeListar() { }
 }

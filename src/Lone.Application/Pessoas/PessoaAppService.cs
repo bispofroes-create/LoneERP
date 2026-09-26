@@ -110,6 +110,13 @@ public sealed class PessoaAppService : IPessoaAppService
         return _repositorio.ListarAsync(filtro, ct);
     }
 
+    /// <summary>Tela de Pessoas: página com total (nunca a base inteira de uma vez).</summary>
+    public Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
+        return _repositorio.ListarPaginaAsync(filtro, Math.Max(1, pagina), Math.Clamp(tamanho, 1, PaginaListaPessoas.TamanhoMaximo), ct);
+    }
+
     public async Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);

@@ -2,9 +2,11 @@ using Lone.Cliente.ViewModels;
 
 namespace Lone.App.Views;
 
+/// <summary>Só aparência. O módulo vem da rota do Shell ("configuracoes-pessoas" → Pessoas); cada rota tem a sua página.</summary>
 public partial class ConfiguracoesPage : ContentPage
 {
     private readonly ConfiguracoesViewModel _viewModel;
+    private bool _moduloDefinido;
 
     public ConfiguracoesPage(ConfiguracoesViewModel viewModel)
     {
@@ -14,9 +16,14 @@ public partial class ConfiguracoesPage : ContentPage
         _viewModel.Navegar = rota => Shell.Current.GoToAsync("//" + rota);
     }
 
-    protected override void OnAppearing()
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
     {
-        base.OnAppearing();
+        base.OnNavigatedTo(args);
+        if (!_moduloDefinido && ModulosConfiguracao.DaRota(Shell.Current?.CurrentState?.Location?.OriginalString) is { } modulo)
+        {
+            _viewModel.Modulo = modulo;
+            _moduloDefinido = true;
+        }
         _viewModel.AtualizarCommand.Execute(null); // permissões podem ter mudado (sessão relida)
     }
 }

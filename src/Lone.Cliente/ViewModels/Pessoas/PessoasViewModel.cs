@@ -96,6 +96,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _colaboradoresApi = colaboradoresApi;
         _comercialApi = comercialApi;
         _arquivos = arquivos;
+
+        // Buscar outro texto volta para a página 1 (a busca no servidor sai logo depois, com uma pequena espera).
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Busca)) _pagina = 1;
+        };
     }
 
     protected override bool BuscaNoServidor => true;
@@ -136,10 +142,18 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             FiltroPapel = TodosPapeis;
             return;
         }
-        _ = RecarregarAsync();
+        FiltroAvancadoMudou();
     }
-    partial void OnMostrarInativosChanged(bool value) => _ = RecarregarAsync();
-    partial void OnSomenteMunicipioACorrigirChanged(bool value) => _ = RecarregarAsync();
+    partial void OnMostrarInativosChanged(bool value) => FiltroAvancadoMudou();
+    partial void OnSomenteMunicipioACorrigirChanged(bool value) => FiltroAvancadoMudou();
+
+    /// <summary>Filtro do painel mudou: volta para a página 1 (e não relê várias vezes ao limpar todos de uma vez).</summary>
+    private void FiltroAvancadoMudou()
+    {
+        OnPropertyChanged(nameof(TextoBotaoFiltros));
+        if (_limpandoFiltros) return;
+        _ = RecarregarDaPrimeiraPaginaAsync();
+    }
     partial void OnFiltroEtiquetaChanged(Opcao<Guid?> value)
     {
         // A lista de escolha manda nulo quando o item escolhido sai dela: volta para "todas".
@@ -148,7 +162,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             FiltroEtiqueta = TodasEtiquetas;
             return;
         }
-        _ = RecarregarAsync();
+        FiltroAvancadoMudou();
     }
 
     /// <summary>
@@ -229,15 +243,259 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     protected override string TextoDeBusca(PessoaResumo item) => item.Nome;
 
-    protected override async Task<IReadOnlyList<PessoaResumo>> ListarAsync() =>
-        await _pessoas.ListarAsync(new FiltroPessoas
+    // ---- Lista: atalhos, filtros avançados, paginação e colunas (tela de Pessoas) ----
+
+    /// <summary>Atalhos acima da tabela (um marcado por vez). Os filtros avançados ficam no painel "Filtros".</summary>
+    public IReadOnlyList<FiltroRapido> FiltrosRapidos { get; } = FiltroRapido.Criar();
+
+    private string _filtroRapido = FiltroRapido.Todos;
+
+    [RelayCommand]
+    private Task EscolherFiltroRapidoAsync(FiltroRapido? filtro)
+    {
+        if (filtro is null || filtro.Chave == _filtroRapido) return Task.CompletedTask;
+        _filtroRapido = filtro.Chave;
+        foreach (var f in FiltrosRapidos) f.Selecionado = ReferenceEquals(f, filtro);
+        return RecarregarDaPrimeiraPaginaAsync();
+    }
+
+    /// <summary>Painel de filtros avançados (papel, etiqueta, incluir inativos, município a corrigir).</summary>
+    [ObservableProperty] private bool _mostrarFiltros;
+
+    [RelayCommand]
+    private void AlternarFiltros() => MostrarFiltros = !MostrarFiltros;
+
+    /// <summary>"Filtros" ou "Filtros (2)": quantos filtros avançados estão ligados.</summary>
+    public string TextoBotaoFiltros
+    {
+        get
+        {
+            var ligados = (FiltroPapel?.Valor is null ? 0 : 1) + (FiltroEtiqueta?.Valor is null ? 0 : 1)
+                          + (MostrarInativos ? 1 : 0) + (SomenteMunicipioACorrigir ? 1 : 0);
+            return ligados == 0 ? "Filtros" : $"Filtros ({ligados})";
+        }
+    }
+
+    [RelayCommand]
+    private Task LimparFiltrosAsync()
+    {
+        _limpandoFiltros = true;
+        try
+        {
+            FiltroPapel = TodosPapeis;
+            FiltroEtiqueta = TodasEtiquetas;
+            MostrarInativos = false;
+            SomenteMunicipioACorrigir = false;
+        }
+        finally { _limpandoFiltros = false; }
+        OnPropertyChanged(nameof(TextoBotaoFiltros));
+        return RecarregarDaPrimeiraPaginaAsync();
+    }
+
+    private bool _limpandoFiltros;
+
+    /// <summary>Filtro que vai para a API: atalho + filtros avançados (o papel escolhido no painel vale sobre o do atalho).</summary>
+    public FiltroPessoas FiltroAtual()
+    {
+        var filtro = new FiltroPessoas
         {
             Texto = Busca,
             PapelId = FiltroPapel?.Valor,
             IncluirInativos = MostrarInativos,
             MunicipioACorrigir = SomenteMunicipioACorrigir,
             EtiquetaId = FiltroEtiqueta?.Valor
-        });
+        };
+        switch (_filtroRapido)
+        {
+            case FiltroRapido.Fisicas: filtro.Natureza = NaturezaPessoa.Fisica; break;
+            case FiltroRapido.Juridicas: filtro.Natureza = NaturezaPessoa.Juridica; break;
+            case FiltroRapido.Clientes: filtro.PapelId ??= global::Lone.Domain.Papeis.PapeisSistema.Id(TipoPapel.Cliente); break;
+            case FiltroRapido.Fornecedores: filtro.PapelId ??= global::Lone.Domain.Papeis.PapeisSistema.Id(TipoPapel.Fornecedor); break;
+            case FiltroRapido.Ativos: filtro.SomenteAtivos = true; break;
+            case FiltroRapido.Inativos: filtro.SomenteInativos = true; break;
+        }
+        return filtro;
+    }
+
+    private int _pagina = 1;
+    public const int TamanhoPagina = PaginaListaPessoas.TamanhoPadrao;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumoPaginacao), nameof(TemVariasPaginas), nameof(PodeVoltarPagina), nameof(PodeAvancarPagina))]
+    private int _totalRegistros;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumoPaginacao), nameof(PodeVoltarPagina), nameof(PodeAvancarPagina))]
+    private int _paginaAtual = 1;
+
+    public int TotalPaginas => Paginacao.Paginas(TotalRegistros, TamanhoPagina);
+    public string ResumoPaginacao => Paginacao.Resumo(PaginaAtual, TamanhoPagina, TotalRegistros, Itens.Count);
+    public bool TemVariasPaginas => TotalPaginas > 1;
+    public bool PodeVoltarPagina => PaginaAtual > 1;
+    public bool PodeAvancarPagina => PaginaAtual < TotalPaginas;
+    public ObservableCollection<PaginaItem> Paginas { get; } = new();
+
+    /// <summary>Lista vazia depois de ler (não durante a primeira leitura): mostra o estado vazio com "Nova pessoa".</summary>
+    public bool MostrarEstadoVazio => ListaCarregada && ListaVazia;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarEstadoVazio))]
+    private bool _listaCarregada;
+
+    protected override async Task<IReadOnlyList<PessoaResumo>> ListarAsync()
+    {
+        var pagina = await _pessoas.ListarPaginaAsync(FiltroAtual(), _pagina, TamanhoPagina);
+        // Página que deixou de existir (ex.: filtro reduziu o total): volta para a última que existe.
+        if (pagina.Itens.Count == 0 && pagina.Total > 0 && _pagina > 1)
+        {
+            _pagina = Paginacao.Paginas(pagina.Total, TamanhoPagina);
+            pagina = await _pessoas.ListarPaginaAsync(FiltroAtual(), _pagina, TamanhoPagina);
+        }
+        TotalRegistros = pagina.Total;
+        PaginaAtual = pagina.Pagina;
+        Paginas.Clear();
+        foreach (var p in Paginacao.Janela(PaginaAtual, TotalPaginas)) Paginas.Add(p);
+        OnPropertyChanged(nameof(TotalPaginas));
+        OnPropertyChanged(nameof(TemVariasPaginas));
+        ListaCarregada = true;
+        return pagina.Itens;
+    }
+
+    /// <summary>Chamado depois que a base troca as linhas (o resumo conta as linhas da página).</summary>
+    protected override void DepoisDeListar()
+    {
+        OnPropertyChanged(nameof(ResumoPaginacao));
+        OnPropertyChanged(nameof(MostrarEstadoVazio));
+    }
+
+    private Task RecarregarDaPrimeiraPaginaAsync()
+    {
+        _pagina = 1;
+        return RecarregarAsync();
+    }
+
+    [RelayCommand]
+    private Task IrParaPaginaAsync(PaginaItem? item)
+    {
+        if (item is not { Numero: { } numero } || numero == PaginaAtual) return Task.CompletedTask;
+        _pagina = numero;
+        return RecarregarAsync();
+    }
+
+    [RelayCommand]
+    private Task PaginaAnteriorAsync()
+    {
+        if (!PodeVoltarPagina) return Task.CompletedTask;
+        _pagina = PaginaAtual - 1;
+        return RecarregarAsync();
+    }
+
+    [RelayCommand]
+    private Task ProximaPaginaAsync()
+    {
+        if (!PodeAvancarPagina) return Task.CompletedTask;
+        _pagina = PaginaAtual + 1;
+        return RecarregarAsync();
+    }
+
+    // Colunas da tabela conforme a largura (só apresentação; a tela informa a largura disponível).
+    [ObservableProperty] private bool _mostrarColunaDocumento = true;
+    [ObservableProperty] private bool _mostrarColunaTipo = true;
+    [ObservableProperty] private bool _mostrarColunaPapeis = true;
+    [ObservableProperty] private bool _mostrarColunaCidade = true;
+
+    /// <summary>Documento embaixo do nome quando a coluna de documento não cabe (tela estreita).</summary>
+    public bool MostrarDocumentoNoNome => !MostrarColunaDocumento;
+
+    partial void OnMostrarColunaDocumentoChanged(bool value) => OnPropertyChanged(nameof(MostrarDocumentoNoNome));
+
+    /// <summary>Esconde primeiro as colunas menos importantes: cidade, papéis, tipo e, por último, o documento.</summary>
+    public void DefinirLarguraDaLista(double largura)
+    {
+        if (largura <= 0) return;
+        MostrarColunaCidade = largura >= 1100;
+        MostrarColunaPapeis = largura >= 940;
+        MostrarColunaTipo = largura >= 720;
+        MostrarColunaDocumento = largura >= 600;
+    }
+
+    // ---- Ações da linha ("⋯"), respeitando as permissões ----
+
+    private const string AcaoAbrir = "Abrir ficha";
+    private const string AcaoHistorico = "Ver histórico";
+    private const string AcaoDesativar = "Desativar cadastro";
+    private const string AcaoReativar = "Reativar cadastro";
+
+    [RelayCommand]
+    private async Task AcoesDaLinhaAsync(PessoaResumo? linha)
+    {
+        if (linha is null) return;
+        var podeInativar = _sessao.Possui(Permissoes.Pessoas.Inativar);
+        var opcoes = new List<string> { AcaoAbrir, AcaoHistorico };
+        if (podeInativar && linha.EmUso) opcoes.Add(AcaoDesativar);
+        if (podeInativar && linha.Situacao == SituacaoPessoa.Inativo) opcoes.Add(AcaoReativar);
+
+        var escolha = await EscolherAsync(linha.Nome, opcoes);
+        if (escolha is null) return;
+
+        Selecionado = linha; // abre a ficha (pergunta antes se houver alterações não salvas em outra)
+        await EsperarFichaAsync(linha.Id);
+        if (Formulario?.Id != linha.Id) return; // não abriu (erro ou o usuário desistiu)
+
+        switch (escolha)
+        {
+            case AcaoHistorico:
+                SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == SecaoPessoa.Historico) ?? SecaoSelecionada;
+                break;
+            case AcaoDesativar:
+                await DesativarCommand.ExecuteAsync(null);
+                break;
+            case AcaoReativar:
+                await ReativarCommand.ExecuteAsync(null);
+                break;
+        }
+    }
+
+    /// <summary>A ficha abre de forma assíncrona (seleção da lista): espera até ela ser desta pessoa (no máximo alguns segundos).</summary>
+    private async Task EsperarFichaAsync(Guid id)
+    {
+        for (var i = 0; i < 100 && (Formulario?.Id != id || Ocupado); i++)
+            await Task.Delay(50);
+    }
+
+    /// <summary>Atalho da ficha e da lista: abre "Configurações de Pessoas" (a tela navega).</summary>
+    public Func<Task>? AbrirConfiguracoesDoModulo { get; set; }
+
+    [RelayCommand]
+    private Task ConfiguracoesDoModuloAsync() => AbrirConfiguracoesDoModulo?.Invoke() ?? Task.CompletedTask;
+
+    /// <summary>Ações da ficha aberta ("⋯" do cabeçalho), respeitando as permissões.</summary>
+    [RelayCommand]
+    private async Task AcoesDaFichaAsync()
+    {
+        if (Formulario is not { } ficha) return;
+        var opcoes = new List<string>();
+        if (ficha.Existente) opcoes.Add(AcaoHistorico);
+        if (PodeDesativar) opcoes.Add(AcaoDesativar);
+        if (PodeReativar) opcoes.Add(AcaoReativar);
+        opcoes.Add("Fechar ficha");
+        var escolha = await EscolherAsync(ficha.Titulo, opcoes);
+        switch (escolha)
+        {
+            case AcaoHistorico:
+                SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == SecaoPessoa.Historico) ?? SecaoSelecionada;
+                break;
+            case AcaoDesativar:
+                await DesativarCommand.ExecuteAsync(null);
+                break;
+            case AcaoReativar:
+                await ReativarCommand.ExecuteAsync(null);
+                break;
+            case "Fechar ficha":
+                await FecharFichaCommand.ExecuteAsync(null);
+                break;
+        }
+    }
 
     // ---- Ficha ----
 

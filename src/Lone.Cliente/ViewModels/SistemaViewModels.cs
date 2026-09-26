@@ -25,12 +25,90 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
 
         // Empresas do grupo ou permissões mudaram (sessão relida): o menu se atualiza sem sair do sistema.
         _sessao.Alterada += Sessao_Alterada;
+        MontarMenu();
     }
 
     private void Sessao_Alterada(object? sender, EventArgs e)
     {
-        if (_sessao.Autenticada) OnPropertyChanged(string.Empty); // ao sair, o app já está trocando de tela
+        if (!_sessao.Autenticada) return; // ao sair, o app já está trocando de tela
+        OnPropertyChanged(string.Empty);
+        MontarMenu();
     }
+
+    // ---- Menu lateral em seções (módulo → telas → ⚙ configurações do módulo) ----
+
+    /// <summary>Seções visíveis para as permissões atuais.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<SecaoMenu> Secoes { get; } = new();
+
+    /// <summary>Rota da tela aberta (ex.: "pessoas"), informada pelo Shell a cada navegação.</summary>
+    public string RotaAtual { get; private set; } = "inicio";
+
+    /// <summary>Definido pelo Shell: vai para a rota (e pergunta antes se houver alterações não salvas).</summary>
+    public Func<string, Task>? Navegar { get; set; }
+
+    /// <summary>Refaz as seções conforme as permissões (sessão nova ou relida). Seção sem item não aparece.</summary>
+    public void MontarMenu()
+    {
+        Secoes.Clear();
+        foreach (var secao in CriarSecoes(_sessao.Possui)) Secoes.Add(secao);
+        MarcarAtivo();
+    }
+
+    /// <summary>Estrutura do menu (estática e testável). Cada item com a mesma permissão de antes.</summary>
+    public static IReadOnlyList<SecaoMenu> CriarSecoes(Func<string, bool> possui)
+    {
+        var secoes = new List<SecaoMenu> { new(null, [new ItemMenu("Início", "inicio")]) };
+
+        var pessoas = new List<ItemMenu>();
+        if (possui(Permissoes.Pessoas.Visualizar))
+        {
+            pessoas.Add(new ItemMenu("Pessoas", "pessoas"));
+            pessoas.Add(new ItemMenu("Consulta avançada", "consulta-pessoas"));
+        }
+        AdicionarConfiguracoes(pessoas, ModulosConfiguracao.Pessoas, possui);
+        if (pessoas.Count > 0) secoes.Add(new SecaoMenu("PESSOAS", pessoas));
+
+        var organizacao = new List<ItemMenu>();
+        if (possui(Permissoes.Cadastros.GruposEmpresariais)) organizacao.Add(new ItemMenu("Grupos empresariais", "grupos-empresariais"));
+        AdicionarConfiguracoes(organizacao, ModulosConfiguracao.Organizacao, possui);
+        if (organizacao.Count > 0) secoes.Add(new SecaoMenu("ORGANIZAÇÃO", organizacao));
+
+        var metas = new List<ItemMenu>();
+        if (possui(Permissoes.Metas.Visualizar)) metas.Add(new ItemMenu("Metas", "metas"));
+        AdicionarConfiguracoes(metas, ModulosConfiguracao.Metas, possui);
+        if (metas.Count > 0) secoes.Add(new SecaoMenu("METAS", metas));
+
+        if (ConfiguracoesViewModel.AlgumaPermitida(possui, ModulosConfiguracao.Sistema))
+            secoes.Add(new SecaoMenu(null,
+            [
+                new ItemMenu("Configurações do sistema", ModulosConfiguracao.Rota(ModulosConfiguracao.Sistema), configuracao: true,
+                    rotasRelacionadas: ConfiguracoesViewModel.RotasDoModulo(ModulosConfiguracao.Sistema))
+            ]));
+        return secoes;
+    }
+
+    private static void AdicionarConfiguracoes(List<ItemMenu> itens, string modulo, Func<string, bool> possui)
+    {
+        if (!ConfiguracoesViewModel.AlgumaPermitida(possui, modulo)) return;
+        itens.Add(new ItemMenu(ModulosConfiguracao.Titulo(modulo), ModulosConfiguracao.Rota(modulo), configuracao: true,
+            rotasRelacionadas: ConfiguracoesViewModel.RotasDoModulo(modulo)));
+    }
+
+    /// <summary>O Shell navegou: destaca o item da tela aberta (ex.: "//pessoas" → Pessoas).</summary>
+    public void DefinirRotaAtual(string? localizacao)
+    {
+        var rota = (localizacao ?? string.Empty).Split('?')[0].TrimEnd('/').Split('/').LastOrDefault(r => r.Length > 0);
+        RotaAtual = rota ?? "inicio";
+        MarcarAtivo();
+    }
+
+    private void MarcarAtivo()
+    {
+        foreach (var item in Secoes.SelectMany(s => s.Itens)) item.Ativo = item.Corresponde(RotaAtual);
+    }
+
+    [RelayCommand]
+    private Task IrAsync(ItemMenu? item) => item is null || Navegar is null ? Task.CompletedTask : Navegar(item.Rota);
 
     /// <summary>Chamado quando o menu sai da tela (sair, trocar de empresa).</summary>
     public void Dispose() => _sessao.Alterada -= Sessao_Alterada;
@@ -62,8 +140,26 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);
     public bool PodeVerSeguranca => PodeGerenciarUsuarios || PodeGerenciarPerfis;
 
-    /// <summary>Página "Configurações" (cadastros de apoio): aparece quando ao menos um deles é permitido.</summary>
-    public bool PodeVerConfiguracoes => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui);
+    /// <summary>Páginas de configurações de cada módulo (rotas do Shell só existem com alguma permissão).</summary>
+    public bool PodeVerConfiguracoesPessoas => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Pessoas);
+    public bool PodeVerConfiguracoesOrganizacao => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Organizacao);
+    public bool PodeVerConfiguracoesMetas => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Metas);
+    public bool PodeVerConfiguracoesSistema => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Sistema);
+
+    /// <summary>Iniciais do usuário para o rodapé do menu (ex.: "Maria Souza" → "MS").</summary>
+    public string Iniciais
+    {
+        get
+        {
+            var partes = NomeUsuario.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return partes.Length switch
+            {
+                0 => "?",
+                1 => char.ToUpperInvariant(partes[0][0]).ToString(),
+                _ => $"{char.ToUpperInvariant(partes[0][0])}{char.ToUpperInvariant(partes[^1][0])}"
+            };
+        }
+    }
 
     [RelayCommand]
     private Task TrocarEmpresaAsync() => _navegacao.IrParaAsync(Tela.EscolherEmpresa);

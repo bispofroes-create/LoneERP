@@ -20,6 +20,22 @@ public static class PessoasEndpoints
     {
         var grupo = app.MapGroup(Rotas.Pessoas.Grupo).WithTags("Pessoas").RequireAuthorization();
 
+        // Tela de Pessoas: uma página com o total. Mesmos filtros da lista + natureza, só ativos, só inativos.
+        grupo.MapGet("pagina",
+            (int? pagina, int? tamanho, string? texto, Guid? papelId, Guid? etiquetaId, bool? incluirInativos, bool? municipioACorrigir,
+             NaturezaPessoa? natureza, bool? somenteAtivos, bool? somenteInativos, IPessoaAppService servico, CancellationToken ct) =>
+                servico.ListarPaginaAsync(new FiltroPessoas
+                {
+                    Texto = texto,
+                    PapelId = papelId,
+                    EtiquetaId = etiquetaId,
+                    IncluirInativos = incluirInativos ?? false,
+                    MunicipioACorrigir = municipioACorrigir ?? false,
+                    Natureza = natureza,
+                    SomenteAtivos = somenteAtivos ?? false,
+                    SomenteInativos = somenteInativos ?? false
+                }, pagina ?? 1, tamanho ?? PaginaListaPessoas.TamanhoPadrao, ct));
+
         // ?texto=...&papelId=...&etiquetaId=...&incluirInativos=true&municipioACorrigir=true&limite=100 (todos opcionais)
         grupo.MapGet(string.Empty,
             (string? texto, Guid? papelId, Guid? etiquetaId, bool? incluirInativos, bool? municipioACorrigir, int? limite,

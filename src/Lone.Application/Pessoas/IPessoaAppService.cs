@@ -9,6 +9,7 @@ namespace Lone.Application.Pessoas;
 public interface IPessoaAppService
 {
     Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default);
+    Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct = default);
     Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default);
     Task<int> ContarClientesAtivosAsync(CancellationToken ct = default);
 

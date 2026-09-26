@@ -22,10 +22,39 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
     public async Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        return await Resumir(Filtrar(db, filtro)
+            .OrderBy(NomeParaExibirNoBanco)
+            .Take(filtro.Limite), db, nomeComFantasia: true)
+            .ToListAsync(ct);
+    }
+
+    public async Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var consulta = Filtrar(db, filtro);
+        var total = await consulta.CountAsync(ct);
+        var itens = await Resumir(consulta
+            .OrderBy(NomeParaExibirNoBanco).ThenBy(p => p.Id) // desempate estável entre páginas
+            .Skip((pagina - 1) * tamanho)
+            .Take(tamanho), db, nomeComFantasia: true)
+            .ToListAsync(ct);
+        return new PaginaListaPessoas { Itens = itens, Total = total, Pagina = pagina, TamanhoPagina = tamanho };
+    }
+
+    /// <summary>Filtros da lista de Pessoas (a mesma regra para a lista simples e a paginada).</summary>
+    private static IQueryable<Pessoa> Filtrar(LoneDbContext db, FiltroPessoas filtro)
+    {
         IQueryable<Pessoa> consulta = db.Pessoas.AsNoTracking();
 
-        if (!filtro.IncluirInativos)
+        if (filtro.SomenteInativos)
+            consulta = consulta.Where(p => p.Situacao == SituacaoPessoa.Inativo || p.Situacao == SituacaoPessoa.Arquivado);
+        else if (filtro.SomenteAtivos)
+            consulta = consulta.Where(p => p.Situacao == SituacaoPessoa.Ativo);
+        else if (!filtro.IncluirInativos)
             consulta = consulta.Where(p => p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise);
+
+        if (filtro.Natureza is { } natureza)
+            consulta = consulta.Where(p => p.Natureza == natureza);
 
         if (filtro.PapelId is Guid papel)
             consulta = consulta.Where(p => p.Papeis.Any(x => x.PapelId == papel && x.Ativo)); // índice (PapelId, Ativo)
@@ -40,10 +69,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         if (!string.IsNullOrWhiteSpace(filtro.Texto))
             consulta = AplicarBusca(consulta, filtro.Texto.Trim(), db);
 
-        return await Resumir(consulta
-            .OrderBy(NomeParaExibirNoBanco)
-            .Take(filtro.Limite), db, nomeComFantasia: true)
-            .ToListAsync(ct);
+        return consulta;
     }
 
     /// <summary>

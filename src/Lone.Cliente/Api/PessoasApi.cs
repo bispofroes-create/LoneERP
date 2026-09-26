@@ -23,6 +23,14 @@ public sealed class PessoasApi
     public Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default) =>
         _api.GetAsync<List<PessoaResumo>>(Rotas.Pessoas.Grupo + Consulta(filtro), ct);
 
+    /// <summary>Tela de Pessoas: uma página (começa em 1) com o total que atende aos filtros.</summary>
+    public Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct = default)
+    {
+        var consulta = Consulta(filtro);
+        var paginacao = $"pagina={pagina}&tamanho={tamanho}";
+        return _api.GetAsync<PaginaListaPessoas>(Rotas.Pessoas.Pagina + (consulta.Length == 0 ? "?" + paginacao : consulta + "&" + paginacao), ct);
+    }
+
     public Task<List<QuantidadePorFaixaEtaria>> ListarFaixasEtariasAsync(TipoPapel? papel, CancellationToken ct = default) =>
         _api.GetAsync<List<QuantidadePorFaixaEtaria>>(Rotas.Pessoas.FaixasEtarias + (papel is { } p ? "?papel=" + p : string.Empty), ct);
 
@@ -100,6 +108,9 @@ public sealed class PessoasApi
         if (filtro.IncluirInativos) partes.Add("incluirInativos=true");
         if (filtro.MunicipioACorrigir) partes.Add("municipioACorrigir=true");
         if (filtro.Limite != FiltroPessoas.LimiteMaximo) partes.Add("limite=" + filtro.Limite);
+        if (filtro.Natureza is { } natureza) partes.Add("natureza=" + natureza);
+        if (filtro.SomenteAtivos) partes.Add("somenteAtivos=true");
+        if (filtro.SomenteInativos) partes.Add("somenteInativos=true");
         return partes.Count == 0 ? string.Empty : "?" + string.Join("&", partes);
     }
 }

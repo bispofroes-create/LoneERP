@@ -12,6 +12,9 @@ public interface IPessoaRepositorio
 {
     Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct);
 
+    /// <summary>Uma página (começa em 1) com o total que atende aos filtros; mesma ordem da lista.</summary>
+    Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct);
+
     /// <summary>Pessoa completa (estabelecimentos, endereços, contatos, papéis, contas, bloqueios), sem rastreamento.</summary>
     Task<Pessoa?> ObterAsync(Guid id, CancellationToken ct);
 

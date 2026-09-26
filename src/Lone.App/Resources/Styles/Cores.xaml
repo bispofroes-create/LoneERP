@@ -37,4 +37,29 @@
     <Color x:Key="Informacao">#1F4E79</Color>
     <Color x:Key="InformacaoFundo">#E7F0F8</Color>
     <Color x:Key="InformacaoFundoEscuro">#172A3C</Color>
+
+    <!-- ===== Design system (redesenho de Pessoas) ===== -->
+    <!-- Ação principal: variações para hover/pressionado. -->
+    <Color x:Key="PrimariaHover">#183F63</Color>
+    <Color x:Key="PrimariaHoverEscuro">#8BBBE5</Color>
+    <!-- Seleção suave (aba ativa, filtro marcado, linha em foco). -->
+    <Color x:Key="Selecao">#E8EFF7</Color>
+    <Color x:Key="SelecaoEscuro">#1D2D3F</Color>
+    <!-- Linha da tabela sob o mouse e cabeçalho da tabela. -->
+    <Color x:Key="SuperficieRealce">#F7F9FB</Color>
+    <Color x:Key="SuperficieRealceEscuro">#22272E</Color>
+    <!-- Borda muito sutil (separadores de linha, seções). -->
+    <Color x:Key="BordaSutil">#E6EAF0</Color>
+    <Color x:Key="BordaSutilEscuro">#2A3038</Color>
+
+    <!-- Menu lateral (escuro nos dois temas: identidade azul do Lone). -->
+    <Color x:Key="MenuFundo">#0F2233</Color>
+    <Color x:Key="MenuTexto">#DCE4ED</Color>
+    <Color x:Key="MenuTextoSecundario">#8A9BAE</Color>
+    <Color x:Key="MenuItemAtivo">#1D3A57</Color>
+    <Color x:Key="MenuDestaque">#6FA8DC</Color>
+
+    <!-- Selos de situação (texto + cor: nunca só a cor). -->
+    <Color x:Key="SeloNeutroFundo">#EEF1F5</Color>
+    <Color x:Key="SeloNeutroFundoEscuro">#2A3038</Color>
 </ResourceDictionary>

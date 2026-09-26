@@ -27,6 +27,8 @@ public static class Rotas
     {
         public const string Grupo = Base + "/pessoas";
         public static string PorId(Guid id) => $"{Grupo}/{id}";
+        /// <summary>Lista paginada com total (tela de Pessoas): ?pagina=1&amp;tamanho=50 mais os filtros da lista.</summary>
+        public const string Pagina = Grupo + "/pagina";
         public static string Historico(Guid id) => $"{Grupo}/{id}/historico";
         public static string Bloquear(Guid id) => $"{Grupo}/{id}/bloqueios";
         public static string LiberarBloqueio(Guid id, Guid bloqueioId) => $"{Grupo}/{id}/bloqueios/{bloqueioId}/liberar";

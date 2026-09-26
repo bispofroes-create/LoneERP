@@ -47,10 +47,11 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, Finalidades.Cadastro); // finalidades de endereço
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>()); // tipos de documento
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos dos documentos
-        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new PaginaListaPessoas
         {
-            new() { Id = Guid.NewGuid(), Codigo = 1, Nome = "Ana", Natureza = NaturezaPessoa.Fisica }
-        });
+            Itens = [new() { Id = Guid.NewGuid(), Codigo = 1, Nome = "Ana", Natureza = NaturezaPessoa.Fisica }],
+            Total = 1
+        }); // primeira página da lista (com o total)
 
         var tela = NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);
@@ -183,7 +184,7 @@ public class PessoasViewModelTests
         gravada.Codigo = 7;
         ambiente.Servidor
             .Responder(HttpStatusCode.OK, new ResultadoSalvarPessoa { Pessoa = gravada, Avisos = ["Já existe \"Carlos\" com o mesmo nome."] })
-            .Responder(HttpStatusCode.OK, new List<PessoaResumo>());
+            .Responder(HttpStatusCode.OK, new PaginaListaPessoas());
 
         await tela.SalvarCommand.ExecuteAsync(null);
 
@@ -259,7 +260,7 @@ public class PessoasViewModelCepTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, Finalidades.Cadastro);
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
-        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PessoaResumo>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new PaginaListaPessoas());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);
         await tela.NovoCommand.ExecuteAsync(null);

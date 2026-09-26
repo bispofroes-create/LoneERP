@@ -290,6 +290,30 @@ public sealed partial class PessoaFormulario : ObservableObject
     public bool TemEstruturaCabecalho => EstruturaCabecalho.Length > 0;
     public bool TemNomeCompletoCabecalho => NomeCompletoCabecalho.Length > 0;
 
+    // ---- Cabeçalho redesenhado (linha 2: tipo + papéis como selos; linha 3: documento, código e local) ----
+
+    /// <summary>"Pessoa física", "Pessoa jurídica" ou "Estrangeiro" (os papéis aparecem como selos ao lado).</summary>
+    public string NaturezaCabecalho => NomesPessoa.Natureza(Natureza.Valor);
+
+    /// <summary>Papéis em vigor, para os selos do cabeçalho.</summary>
+    public IEnumerable<PapelOpcao> PapeisAtivos => Papeis.Where(p => p.Ativo);
+
+    /// <summary>"CNPJ 12.345.678/0001-90 · Código 000123 · Curvelo/MG" (sem a situação: ela vira o selo à direita do nome).</summary>
+    public string IdentificacaoCabecalho => string.Join("  ·  ", new[]
+    {
+        EhJuridica
+            ? (Estabelecimentos.Count > 0 && Principal.Cnpj.Length > 0 ? "CNPJ " + Principal.Cnpj : string.Empty)
+            : Documento.Length > 0 ? (EhFisica ? "CPF " : "Identificação ") + Documento : string.Empty,
+        Nova ? "Novo cadastro" : $"Código {Codigo:000000}",
+        LocalCabecalho
+    }.Where(t => t.Length > 0));
+
+    /// <summary>Cidade/UF do primeiro endereço ativo com município escolhido (vazio = sem endereço).</summary>
+    public string LocalCabecalho =>
+        Enderecos.Where(e => e.Ativo).Select(e => e.Municipio.Selecionado).FirstOrDefault(m => m is not null) is { } m
+            ? $"{m.Nome}/{m.Uf}"
+            : string.Empty;
+
     /// <summary>Etiquetas marcadas (vazio = nenhuma).</summary>
     public string EtiquetasCabecalho => Etiquetas.Marcadas.Count == 0 ? string.Empty : "Etiquetas: " + Etiquetas.Resumo;
 
@@ -304,6 +328,9 @@ public sealed partial class PessoaFormulario : ObservableObject
         OnPropertyChanged(nameof(EstruturaCabecalho));
         OnPropertyChanged(nameof(TemEstruturaCabecalho));
         OnPropertyChanged(nameof(EtiquetasCabecalho));
+        OnPropertyChanged(nameof(NaturezaCabecalho));
+        OnPropertyChanged(nameof(PapeisAtivos));
+        OnPropertyChanged(nameof(IdentificacaoCabecalho));
     }
 
     // ---- Grupo empresarial (só pessoa jurídica; opcional) ----

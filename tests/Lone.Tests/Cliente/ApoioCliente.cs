@@ -113,6 +113,17 @@ internal sealed class DialogosFalsos : IDialogos
         Perguntas.Add(mensagem);
         return Task.FromResult(RespostaPergunta);
     }
+
+    /// <summary>Opção devolvida pelo menu de ações (nulo = cancelou); as opções oferecidas ficam em <see cref="OpcoesOferecidas"/>.</summary>
+    public string? RespostaEscolha { get; set; }
+    public List<string> OpcoesOferecidas { get; } = new();
+
+    public Task<string?> EscolherAsync(string titulo, string cancelar, IReadOnlyList<string> opcoes)
+    {
+        OpcoesOferecidas.Clear();
+        OpcoesOferecidas.AddRange(opcoes);
+        return Task.FromResult(RespostaEscolha);
+    }
 }
 
 /// <summary>Arquivos do aparelho: devolve o arquivo configurado e guarda o que foi aberto.</summary>

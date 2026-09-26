@@ -13,6 +13,14 @@ public partial class AppShell : Shell
 
         // Tela grande: menu fixo ao lado (vários painéis). Celular: menu recolhido para sobrar espaço.
         FlyoutBehavior = DeviceInfo.Current.Idiom == DeviceIdiom.Phone ? FlyoutBehavior.Flyout : FlyoutBehavior.Locked;
+
+        // Cola de interface: o menu (ViewModel) pede a rota; o Shell navega e avisa qual tela ficou aberta.
+        viewModel.Navegar = async rota =>
+        {
+            await GoToAsync("//" + rota);
+            if (FlyoutBehavior == FlyoutBehavior.Flyout) FlyoutIsPresented = false;
+        };
+        Navigated += (_, _) => viewModel.DefinirRotaAtual(CurrentState?.Location?.OriginalString);
     }
 
     /// <summary>

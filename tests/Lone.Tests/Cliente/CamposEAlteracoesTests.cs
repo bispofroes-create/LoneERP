@@ -85,7 +85,7 @@ public class AlteracoesPendentesTests
             .Responder(HttpStatusCode.OK, Finalidades.Cadastro)
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Documentos.TipoDocumentoDto>())
             .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>())
-            .Responder(HttpStatusCode.OK, new List<PessoaResumo>());
+            .Responder(HttpStatusCode.OK, new PaginaListaPessoas());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);
         return (tela, ambiente);
@@ -180,7 +180,7 @@ public class AlteracoesPendentesTests
         ambiente.Dialogos.RespostaPergunta = "Mudou de cidade";
         ambiente.Servidor
             .Responder(HttpStatusCode.OK, inativa)
-            .Responder(HttpStatusCode.OK, new List<PessoaResumo>());
+            .Responder(HttpStatusCode.OK, new PaginaListaPessoas());
 
         await tela.DesativarCommand.ExecuteAsync(null);
 

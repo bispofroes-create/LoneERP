@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!-- Menu principal. No computador e no tablet fica sempre aberto ao lado; no celular, recolhido (☰). -->
+<!-- Shell do Lone. O menu lateral é desenhado por FlyoutContent (seções por módulo, item ativo destacado, rodapé com a
+     conta); os FlyoutItems abaixo só registram as rotas e as permissões (IsVisible) e não aparecem como lista.
+     No computador o menu fica sempre aberto ao lado; no celular, recolhido (☰). -->
 <Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
@@ -7,46 +9,107 @@
        x:Class="Lone.App.AppShell"
        x:DataType="vm:MenuViewModel"
        Title="Lone ERP"
-       FlyoutWidth="280">
+       FlyoutWidth="264">
 
-    <Shell.FlyoutHeader>
-        <VerticalStackLayout Padding="20,24,20,16" Spacing="2"
-                             BackgroundColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource FundoEscuro}}">
-            <Label Text="Lone ERP" FontSize="20" FontAttributes="Bold"
-                   TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
-            <Label Text="{Binding EmpresaAtiva}" FontAttributes="Bold" Margin="0,10,0,0" LineBreakMode="TailTruncation"
-                   TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
-            <Label Text="{Binding EmpresaDetalhe}" FontSize="12" LineBreakMode="WordWrap"
-                   TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoSecundarioEscuro}}" />
-        </VerticalStackLayout>
-    </Shell.FlyoutHeader>
+    <Shell.FlyoutContent>
+        <Grid RowDefinitions="Auto,*,Auto" BackgroundColor="{StaticResource MenuFundo}">
+            <!-- Marca e empresa ativa -->
+            <VerticalStackLayout Padding="20,24,20,16" Spacing="4">
+                <Label Text="Lone ERP" FontSize="20" FontAttributes="Bold" TextColor="White" />
+                <Label Text="{Binding EmpresaAtiva}" FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation"
+                       TextColor="{StaticResource MenuTexto}" Margin="0,8,0,0" />
+                <Label Text="{Binding EmpresaDetalhe}" FontSize="12" LineBreakMode="WordWrap" TextColor="{StaticResource MenuTextoSecundario}" />
+            </VerticalStackLayout>
 
-    <FlyoutItem Title="Início" Route="inicio">
+            <!-- Seções: módulo (título) → telas → ⚙ configurações do módulo -->
+            <ScrollView Grid.Row="1">
+                <VerticalStackLayout Padding="12,0,12,16" BindableLayout.ItemsSource="{Binding Secoes}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SecaoMenu">
+                            <VerticalStackLayout Margin="0,8,0,0">
+                                <Label Text="{Binding Titulo}" IsVisible="{Binding TemTitulo}" FontSize="11" FontAttributes="Bold"
+                                       CharacterSpacing="1" TextColor="{StaticResource MenuTextoSecundario}" Margin="12,12,0,4"
+                                       SemanticProperties.HeadingLevel="Level2" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" Spacing="2">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ItemMenu">
+                                            <Grid ColumnDefinitions="3,*" HeightRequest="36" SemanticProperties.Description="{Binding Texto}">
+                                                <Grid.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding IrCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                                                          CommandParameter="{Binding .}" />
+                                                </Grid.GestureRecognizers>
+                                                <!-- Fundo do item: realce no ativo (e marca à esquerda, para não depender só da cor). -->
+                                                <Border Grid.ColumnSpan="2" StrokeThickness="0" StrokeShape="RoundRectangle 6" BackgroundColor="Transparent">
+                                                    <Border.Triggers>
+                                                        <DataTrigger TargetType="Border" Binding="{Binding Ativo}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{StaticResource MenuItemAtivo}" />
+                                                        </DataTrigger>
+                                                    </Border.Triggers>
+                                                </Border>
+                                                <BoxView WidthRequest="3" Margin="0,8" CornerRadius="2" Color="{StaticResource MenuDestaque}"
+                                                         IsVisible="{Binding Ativo}" />
+                                                <Label Grid.Column="1" Text="{Binding TextoExibido}" FontSize="14" VerticalOptions="Center"
+                                                       Margin="9,0,8,0" LineBreakMode="TailTruncation" TextColor="{StaticResource MenuTexto}">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Ativo}" Value="True">
+                                                            <Setter Property="TextColor" Value="White" />
+                                                            <Setter Property="FontAttributes" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- Conta: quem está logado e as ações da sessão -->
+            <VerticalStackLayout Grid.Row="2" Padding="20,12,20,20" Spacing="8">
+                <BoxView HeightRequest="1" Color="{StaticResource MenuItemAtivo}" Margin="0,0,0,4" />
+                <Grid ColumnDefinitions="32,*" ColumnSpacing="12">
+                    <Border WidthRequest="32" HeightRequest="32" StrokeThickness="0" StrokeShape="RoundRectangle 16"
+                            BackgroundColor="{StaticResource MenuItemAtivo}">
+                        <Label Text="{Binding Iniciais}" FontSize="12" FontAttributes="Bold" TextColor="White"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                        <Label Text="{Binding NomeUsuario}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource MenuTexto}"
+                               LineBreakMode="TailTruncation" />
+                        <Label Text="{Binding Login}" FontSize="12" TextColor="{StaticResource MenuTextoSecundario}" LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                </Grid>
+                <FlexLayout Wrap="Wrap">
+                    <Button Text="Trocar empresa" Command="{Binding TrocarEmpresaCommand}" IsVisible="{Binding PodeTrocarEmpresa}"
+                            Style="{StaticResource BotaoLink}" FontSize="13" TextColor="{StaticResource MenuTexto}" Margin="0,0,16,0" />
+                    <Button Text="Trocar senha" Command="{Binding TrocarSenhaCommand}"
+                            Style="{StaticResource BotaoLink}" FontSize="13" TextColor="{StaticResource MenuTexto}" Margin="0,0,16,0" />
+                    <Button Text="Sair" Command="{Binding SairCommand}"
+                            Style="{StaticResource BotaoLink}" FontSize="13" TextColor="{StaticResource MenuTexto}" />
+                </FlexLayout>
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.FlyoutContent>
+
+    <!-- ===== Rotas (as telas). Permissões em IsVisible; nenhuma aparece como item da lista padrão do Shell. ===== -->
+    <FlyoutItem Title="Início" Route="inicio" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Início" ContentTemplate="{DataTemplate views:InicioPage}" />
     </FlyoutItem>
-
-    <FlyoutItem Title="Pessoas" Route="pessoas" IsVisible="{Binding PodeVerPessoas}">
+    <FlyoutItem Title="Pessoas" Route="pessoas" IsVisible="{Binding PodeVerPessoas}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Pessoas" ContentTemplate="{DataTemplate views:PessoasPage}" />
     </FlyoutItem>
-
-    <FlyoutItem Title="Consulta avançada" Route="consulta-pessoas" IsVisible="{Binding PodeVerPessoas}">
+    <FlyoutItem Title="Consulta avançada" Route="consulta-pessoas" IsVisible="{Binding PodeVerPessoas}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Consulta avançada" ContentTemplate="{DataTemplate views:ConsultaPessoasPage}" />
     </FlyoutItem>
-
-    <FlyoutItem Title="Grupos empresariais" Route="grupos-empresariais" IsVisible="{Binding PodeGerenciarGruposEmpresariais}">
+    <FlyoutItem Title="Grupos empresariais" Route="grupos-empresariais" IsVisible="{Binding PodeGerenciarGruposEmpresariais}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Grupos empresariais" ContentTemplate="{DataTemplate views:GruposEmpresariaisPage}" />
     </FlyoutItem>
-
-    <FlyoutItem Title="Metas" Route="metas" IsVisible="{Binding PodeVerMetas}">
+    <FlyoutItem Title="Metas" Route="metas" IsVisible="{Binding PodeVerMetas}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Metas" ContentTemplate="{DataTemplate views:MetasPage}" />
     </FlyoutItem>
-
-    <FlyoutItem Title="Configurações" Route="configuracoes" IsVisible="{Binding PodeVerConfiguracoes}">
-        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
-    </FlyoutItem>
-
-    <!-- Cadastros de apoio: abertos pela página Configurações. Continuam registrados aqui (mesmas rotas e permissões),
-         mas fora da lista do menu. -->
     <FlyoutItem Title="Campos personalizados" Route="campos-personalizados" IsVisible="{Binding PodeGerenciarCampos}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Campos personalizados" ContentTemplate="{DataTemplate views:CamposPersonalizadosPage}" />
     </FlyoutItem>
@@ -104,16 +167,16 @@
     <FlyoutItem Title="Perfis" Route="perfis" IsVisible="{Binding PodeGerenciarPerfis}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Perfis" ContentTemplate="{DataTemplate views:PerfisPage}" />
     </FlyoutItem>
-
-    <MenuItem Text="Trocar empresa" Command="{Binding TrocarEmpresaCommand}"
-              Shell.FlyoutItemIsVisible="{Binding PodeTrocarEmpresa}" />
-    <MenuItem Text="Trocar senha" Command="{Binding TrocarSenhaCommand}" />
-    <MenuItem Text="Sair" Command="{Binding SairCommand}" />
-
-    <Shell.FlyoutFooter>
-        <VerticalStackLayout Padding="20,12,20,20" Spacing="2">
-            <Label Text="{Binding NomeUsuario}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-            <Label Text="{Binding Login}" Style="{StaticResource Secundario}" />
-        </VerticalStackLayout>
-    </Shell.FlyoutFooter>
+    <FlyoutItem Title="Configurações" Route="configuracoes-pessoas" IsVisible="{Binding PodeVerConfiguracoesPessoas}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Configurações" Route="configuracoes-organizacao" IsVisible="{Binding PodeVerConfiguracoesOrganizacao}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Configurações" Route="configuracoes-metas" IsVisible="{Binding PodeVerConfiguracoesMetas}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Configurações" Route="configuracoes-sistema" IsVisible="{Binding PodeVerConfiguracoesSistema}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
+    </FlyoutItem>
 </Shell>

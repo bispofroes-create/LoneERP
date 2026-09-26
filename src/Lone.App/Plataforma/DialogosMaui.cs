@@ -14,4 +14,11 @@ public sealed class DialogosMaui : IDialogos
     public Task<string?> PerguntarAsync(string titulo, string mensagem, string aceitar, string cancelar, string? dica = null, int tamanhoMaximo = 200) =>
         MainThread.InvokeOnMainThreadAsync(async () =>
             (string?)await Pagina.DisplayPromptAsync(titulo, mensagem, aceitar, cancelar, dica ?? string.Empty, tamanhoMaximo, Keyboard.Text, string.Empty));
+
+    public Task<string?> EscolherAsync(string titulo, string cancelar, IReadOnlyList<string> opcoes) =>
+        MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            var escolha = await Pagina.DisplayActionSheetAsync(titulo, cancelar, null, [.. opcoes]);
+            return escolha is null || escolha == cancelar ? null : escolha;
+        });
 }

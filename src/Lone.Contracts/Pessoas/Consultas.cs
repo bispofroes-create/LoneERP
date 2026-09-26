@@ -22,6 +22,28 @@ public sealed class FiltroPessoas
     /// <summary>Só cadastros com município antigo (texto) ainda por escolher na tabela do IBGE.</summary>
     public bool MunicipioACorrigir { get; set; }
     public int Limite { get; set; } = LimiteMaximo;
+
+    /// <summary>Só pessoas desta natureza (física, jurídica, estrangeiro). Nulo = todas.</summary>
+    public NaturezaPessoa? Natureza { get; set; }
+
+    /// <summary>Só cadastros com situação "Ativo" (sem os "Em análise").</summary>
+    public bool SomenteAtivos { get; set; }
+
+    /// <summary>Só cadastros inativos ou arquivados (os que somem da busca padrão).</summary>
+    public bool SomenteInativos { get; set; }
+}
+
+/// <summary>Uma página da lista de Pessoas, com o total que atende aos filtros (para "Mostrando 1–50 de 1.248").</summary>
+public sealed class PaginaListaPessoas
+{
+    public const int TamanhoPadrao = 50;
+    public const int TamanhoMaximo = 200;
+
+    public List<PessoaResumo> Itens { get; set; } = new();
+    public int Total { get; set; }
+    /// <summary>Começa em 1.</summary>
+    public int Pagina { get; set; } = 1;
+    public int TamanhoPagina { get; set; } = TamanhoPadrao;
 }
 
 /// <summary>Resultado de uma gravação: a pessoa como ficou e avisos que não impediram a gravação.</summary>
@@ -63,6 +85,32 @@ public sealed class PessoaResumo
     public string PapeisTexto => string.Join(" · ", Papeis);
 
     public string Local => Cidade is null ? string.Empty : Uf is null ? Cidade : $"{Cidade}/{Uf}";
+
+    /// <summary>Coluna "Tipo" da lista: PF, PJ ou EX.</summary>
+    public string NaturezaSigla => Natureza switch
+    {
+        NaturezaPessoa.Fisica => "PF",
+        NaturezaPessoa.Juridica => "PJ",
+        _ => "EX"
+    };
+
+    public string NaturezaTexto => Natureza switch
+    {
+        NaturezaPessoa.Fisica => "Pessoa física",
+        NaturezaPessoa.Juridica => "Pessoa jurídica",
+        _ => "Estrangeiro"
+    };
+
+    /// <summary>Texto do selo de situação da tabela (sempre preenchido; a cor nunca é a única indicação).</summary>
+    public string SituacaoSelo => Situacao switch
+    {
+        SituacaoPessoa.Ativo => "Ativo",
+        SituacaoPessoa.EmAnalise => "Em análise",
+        SituacaoPessoa.Inativo => "Inativo",
+        _ => "Arquivado"
+    };
+
+    public bool EmUso => Situacao is SituacaoPessoa.Ativo or SituacaoPessoa.EmAnalise;
 
     public string SituacaoTexto => Situacao == SituacaoPessoa.Ativo ? string.Empty : NomesPessoa.Situacao(Situacao);
 

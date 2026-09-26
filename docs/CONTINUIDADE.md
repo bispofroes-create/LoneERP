@@ -362,6 +362,10 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   **Migração (gerar no PMC):** `Add-Migration PrivacidadeConsentimentos -Project Lone.Infrastructure -StartupProject Lone.Api
   -OutputDir Persistencia/Migracoes`, depois `python Ferramentas/inserir-sql-privacidade.py` (SQL dos consentimentos antigos
   antes da FK). Não aplicar em produção antes de revisar.
+- **Redesenho do módulo Pessoas (26/09/2026; SEM COMMIT, sem compilar):** ver `docs/UX-ARQUITETURA.md`. Menu por módulo
+  (FlyoutContent), configurações por módulo (Pessoas, Organização, Metas, Sistema), lista de Pessoas em tabela paginada
+  (`GET pessoas/pagina`), ficha em tela cheia com cabeçalho novo e abas com indicador, design system em Cores/Estilos.
+  Sem mudança de regra, banco ou migration.
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

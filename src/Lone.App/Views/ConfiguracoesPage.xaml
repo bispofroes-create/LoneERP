@@ -1,47 +1,67 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Cadastros de apoio agrupados (antes soltos no menu lateral). Cada item abre a mesma tela de antes. -->
+<!-- Configurações de um módulo (Pessoas, Organização, Metas) ou do sistema: grupos com os cadastros de apoio.
+     Cada linha abre a mesma tela de antes. Um painel por grupo; linhas separadas por traço fino (sem um cartão por item). -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
              x:Class="Lone.App.Views.ConfiguracoesPage"
              x:DataType="vm:ConfiguracoesViewModel"
-             Title="Configurações">
+             Title="{Binding Titulo}">
     <ScrollView>
-        <VerticalStackLayout Padding="{OnIdiom Phone='16,20', Default='32,28'}" Spacing="20" MaximumWidthRequest="1100">
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="24" MaximumWidthRequest="1200" HorizontalOptions="Fill">
+            <!-- Cabeçalho da página -->
             <VerticalStackLayout Spacing="4">
-                <Label Text="Configurações" Style="{StaticResource Titulo}" />
-                <Label Text="Cadastros de apoio usados nas fichas e nas metas." Style="{StaticResource Secundario}" />
+                <Label Text="{Binding Titulo}" Style="{StaticResource TituloPagina}" />
+                <Label Text="{Binding Descricao}" Style="{StaticResource SubtituloPagina}" />
             </VerticalStackLayout>
 
-            <Label Text="Você não tem acesso a nenhuma configuração." Style="{StaticResource Secundario}" IsVisible="{Binding Vazio}" />
+            <Label Text="Você não tem acesso a nenhuma configuração deste módulo." Style="{StaticResource Secundario}" IsVisible="{Binding Vazio}" />
 
-            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Grupos}" Spacing="20">
+            <!-- Grupos: dois por linha no computador, um no celular. -->
+            <FlexLayout Wrap="Wrap" AlignItems="Start" BindableLayout.ItemsSource="{Binding Grupos}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:GrupoConfiguracao">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="{Binding Titulo}" Style="{StaticResource Subtitulo}" />
-                            <!-- Cartões lado a lado no computador; um embaixo do outro no celular. -->
-                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Itens}">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ItemConfiguracao">
-                                        <Border Style="{StaticResource Cartao}" Margin="0,0,12,12"
-                                                FlexLayout.Basis="{OnIdiom Phone='100%', Default='33%'}">
-                                            <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Command="{Binding AbrirCommand, Source={RelativeSource AncestorType={x:Type vm:ConfiguracoesViewModel}}, x:DataType=vm:ConfiguracoesViewModel}"
-                                                                      CommandParameter="{Binding .}" />
-                                            </Border.GestureRecognizers>
-                                            <VerticalStackLayout Spacing="2">
-                                                <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="15" />
-                                                <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                                            </VerticalStackLayout>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </FlexLayout>
-                        </VerticalStackLayout>
+                        <Border Style="{StaticResource PainelConteudo}" Padding="0" Margin="0,0,24,24"
+                                FlexLayout.Basis="{OnIdiom Phone='100%', Default='48%'}">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Titulo}" Style="{StaticResource SecaoTitulo}" Margin="24,20,24,8" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" Padding="8,0,8,12">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ItemConfiguracao">
+                                            <Grid ColumnDefinitions="*,Auto" Padding="16,12" ColumnSpacing="12"
+                                                  SemanticProperties.Description="{Binding Titulo}">
+                                                <Grid.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding AbrirCommand, Source={RelativeSource AncestorType={x:Type vm:ConfiguracoesViewModel}}, x:DataType=vm:ConfiguracoesViewModel}"
+                                                                          CommandParameter="{Binding .}" />
+                                                </Grid.GestureRecognizers>
+                                                <VisualStateManager.VisualStateGroups>
+                                                    <VisualStateGroupList>
+                                                        <VisualStateGroup x:Name="CommonStates">
+                                                            <VisualState x:Name="Normal" />
+                                                            <VisualState x:Name="PointerOver">
+                                                                <VisualState.Setters>
+                                                                    <Setter Property="BackgroundColor"
+                                                                            Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                                                </VisualState.Setters>
+                                                            </VisualState>
+                                                        </VisualStateGroup>
+                                                    </VisualStateGroupList>
+                                                </VisualStateManager.VisualStateGroups>
+                                                <VerticalStackLayout Spacing="2">
+                                                    <Label Text="{Binding Titulo}" FontSize="14" FontAttributes="Bold" />
+                                                    <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" />
+                                                </VerticalStackLayout>
+                                                <Label Grid.Column="1" Text="›" FontSize="20" VerticalOptions="Center"
+                                                       TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
-            </VerticalStackLayout>
+            </FlexLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

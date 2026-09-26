@@ -8,4 +8,7 @@ public interface IDialogos
 
     /// <summary>Texto digitado, ou nulo se o usuário cancelou.</summary>
     Task<string?> PerguntarAsync(string titulo, string mensagem, string aceitar, string cancelar, string? dica = null, int tamanhoMaximo = 200);
+
+    /// <summary>Lista de ações (menu "⋯"): a opção escolhida, ou nulo se o usuário cancelou.</summary>
+    Task<string?> EscolherAsync(string titulo, string cancelar, IReadOnlyList<string> opcoes);
 }
