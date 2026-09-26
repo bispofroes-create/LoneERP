@@ -13,7 +13,9 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
 
     public void Configure(EntityTypeBuilder<Pessoa> b)
     {
-        b.ToTable("Pessoas");
+        // Grupo empresarial só para pessoa jurídica (a pessoa física participa pelos relacionamentos com as empresas).
+        b.ToTable("Pessoas", t => t.HasCheckConstraint(SqlMigracaoEstruturaEmpresarial.CheckGrupoSoPessoaJuridica,
+            $"[GrupoEmpresarialId] IS NULL OR [Natureza] = {(byte)NaturezaPessoa.Juridica}"));
         b.HasKey(p => p.Id);
 
         // Código sequencial gerado pelo SQL Server; nunca muda depois de criado.
@@ -64,6 +66,8 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         b.HasIndex(p => p.CriadoEm); // filtro avançado: cadastrados no período
 
         b.HasOne<GrupoEconomico>().WithMany().HasForeignKey(p => p.GrupoEconomicoId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<GrupoEmpresarial>().WithMany().HasForeignKey(p => p.GrupoEmpresarialId).OnDelete(DeleteBehavior.NoAction);
+        b.HasIndex(p => p.GrupoEmpresarialId); // empresas de um grupo
         b.HasOne<Pessoa>().WithMany().HasForeignKey(p => p.MescladaEmId).OnDelete(DeleteBehavior.NoAction);
 
         // Partes do agregado: apagadas junto com a pessoa (o que na prática não acontece: pessoas são inativadas).

@@ -282,6 +282,43 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   de `CadastroGeral`): `Add-Migration FinalidadesEndereco -Project Lone.Infrastructure -StartupProject Lone.Api`, depois
   `python Ferramentas/inserir-sql-migracao.py` (coloca `MigrarFinalidades`, `CriarProtecoes` no fim do Up e
   `RemoverProtecoes` no começo do Down). Correções pós-auditoria: `docs/REVISAO-PESSOAS.md` §11.1.
+- **Estrutura empresarial (26/09/2026; código entregue, sem compilar — ambiente sem SDK .NET):**
+  - Decisões do usuário: **Grupo empresarial** é entidade nova (`GruposEmpresariais` + `Pessoas.GrupoEmpresarialId`), só para
+    pessoa jurídica (regra no validador + CHECK `CK_Pessoas_GrupoEmpresarialSoPJ`); **GrupoEconomico fica intacto** (reservado,
+    sem migração nem ligação). Pessoa física participa pelos relacionamentos. `PessoaPapel` continua global (sem EmpresaId);
+    contextos por empresa já existem em `ContasCliente`/`ContasFornecedor.EmpresaId` e `VinculosColaborador`.
+  - **Nome para exibir** (só cabeçalho e lista de Pessoas): nome de exibição → (PJ) nome fantasia do principal → nome social →
+    nome. Regra única em `Lone.Domain/Pessoas/NomePessoa`; a lista usa `PessoaRepositorio.NomeParaExibirNoBanco` (mesma
+    ordem, conferida por teste). Consulta avançada, carteira, metas e colaboradores continuam como antes.
+  - **Relacionamentos entre pessoas** (`PessoaRelacionamento` reaproveitado): coluna `Ativo`, índice único do vínculo em aberto,
+    tipos novos de sistema **Administrador de** e **Parceiro de** (HasData). Operações próprias (fora do Salvar):
+    `GET/POST pessoas/{id}/relacionamentos`, `.../{relId}/encerrar`, `.../{relId}/desativar`, `GET pessoas/estrutura/opcoes`.
+    Sócio/administrador exigem `PESSOAS.ESTRUTURA_EMPRESARIAL` e destino que não seja pessoa física. Aba "Relacionamentos".
+  - **Estabelecimento nunca é apagado:** a gravação recebe todos os gravados (faltou = 400); "Remover" filial gravada desativa;
+    Frases no histórico: incluído, desativado, reativado, troca do principal.
+  - **PJ gravada não vira PF/estrangeiro** (`Lone.Domain/Pessoas/RegrasNaturezaPessoa`, na API e na ficha): a recusa lista o que
+    seria perdido (CNPJs, fantasia, grupo, vínculos societários, sócios da Receita). Cadastro novo e as demais trocas seguem livres.
+  - **Estabelecimento inativo:** continua validado quanto a formato e integridade (CNPJ e raiz, IE, SUFRAMA, CNAE, endereço fiscal
+    da própria pessoa); só deixam de valer para ele "contribuinte precisa de IE" e "endereço fiscal inativo".
+  - Limitações conhecidas: histórico do relacionamento só na auditoria da pessoa de origem; relacionamento desativado não se
+    reativa; ordenação da lista pelo nome de exibição usa subconsulta sem índice; filiais apagadas antes desta versão não voltam.
+  - **Condição de pagamento do fornecedor:** `ContasFornecedor.CondicaoPagamentoId` (FK); o texto antigo fica guardado e a
+    ficha mostra "não convertida" quando não ligou.
+  - Ficha: cabeçalho (nome, razão social, tipo e papéis, documento, código, situação, grupo e estabelecimentos, etiquetas);
+    abas **Comercial** (Cliente + Fornecedor) e **Relacionamentos**; "Relacionamento e LGPD" virou **"Interações e LGPD"**.
+    Menu "Grupos empresariais" (`CADASTROS.GRUPOS_EMPRESARIAIS`).
+    Aba Geral da PJ: Razão social, **Nome fantasia (opcional)** (o mesmo do estabelecimento principal) e **Nome de exibição
+    (opcional)** com ajuda fixa conforme a natureza (`PessoaFormulario.AjudaNomeExibicao`). Só tela; banco inalterado.
+  - **Migração (gerar no PMC):** `Add-Migration EstruturaEmpresarial -Project Lone.Infrastructure -StartupProject Lone.Api
+    -OutputDir Persistencia/Migracoes` e, **no fim do Up**, `migrationBuilder.Sql(SqlMigracaoEstruturaEmpresarial.Dados);`
+    (ativa os relacionamentos existentes e liga condições em texto de mesmo nome; THROW 50040–50041 se algo não conferir).
+    Validada em 26/09/2026: migração gerada e auditada (sem operação destrutiva no Up), compilação sem avisos, 1141 testes
+    aprovados (0 falhas, 0 pulados, com SQL Server).
+    Depois: teste instável de endereços corrigido (`FinalidadesEnderecoTests`, empate de ordem decidido por Guid aleatório;
+    só o teste mudou) e teste novo da aba Geral (1142 no total). Windows e Android validados manualmente.
+    Depois, no próprio PMC: `& .\Ferramentas\validar-estrutura-empresarial.ps1` (roda `auditar-migracao-estrutura-empresarial.ps1`,
+    que confere as operações esperadas, recusa qualquer Drop/Rename/AlterColumn/Delete e insere a linha do Sql; compila; roda
+    todos os testes com Total/Passed/Failed/Skipped; imprime o roteiro manual de Windows e Android).
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

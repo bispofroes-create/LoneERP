@@ -9,6 +9,7 @@ using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
+using Lone.Application.GruposEmpresariais;
 using Lone.Application.Municipios;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -20,6 +21,7 @@ using Lone.Contracts.Enderecos;
 using Lone.Contracts.Documentos;
 using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Comercial;
+using Lone.Contracts.GruposEmpresariais;
 using Lone.Domain.Enums;
 
 namespace Lone.Api.Endpoints;
@@ -47,6 +49,7 @@ public static class CadastrosEndpoints
         MapTiposCarteira(app);
         MapComercial(app);
         MapCnaes(app);
+        MapGruposEmpresariais(app);
         return app;
     }
 
@@ -117,6 +120,40 @@ public static class CadastrosEndpoints
 
         grupo.MapPost("{id:guid}/reativar",
             (Guid id, AlterarSituacaoRequisicao requisicao, ICargoAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    /// <summary>Grupos empresariais: conjuntos de pessoas jurídicas independentes. Nada é excluído: desativa.</summary>
+    private static void MapGruposEmpresariais(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.GruposEmpresariais.Grupo).WithTags("Grupos empresariais").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, IGrupoEmpresarialAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IGrupoEmpresarialAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        // As pessoas jurídicas do grupo, cada uma com a sua contagem de estabelecimentos (matriz e filiais).
+        grupo.MapGet("{id:guid}/empresas", (Guid id, IGrupoEmpresarialAppService servico, CancellationToken ct) =>
+            servico.ListarEmpresasAsync(id, ct));
+
+        grupo.MapPut("{id:guid}", async (Guid id, GrupoEmpresarialDto item, IGrupoEmpresarialAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IGrupoEmpresarialAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IGrupoEmpresarialAppService servico, CancellationToken ct) =>
                 servico.ReativarAsync(id, requisicao, ct));
     }
 

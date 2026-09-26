@@ -70,9 +70,18 @@
                                      HorizontalOptions="Fill">
                     <Button Text="‹ Pessoas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
                             IsVisible="{Binding ModoCompacto}" />
+                    <!-- Cabeçalho: quem é, sem abrir abas. Nome para exibir (PJ: exibição → nome fantasia → razão social),
+                         razão social/nome civil quando diferente, tipo e papéis, documento, código e situação, grupo
+                         empresarial e estabelecimentos (PJ) e etiquetas. Só leitura: tudo vem da própria ficha. -->
                     <VerticalStackLayout Spacing="2">
                         <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                        <Label Text="{Binding Formulario.CodigoTexto}" Style="{StaticResource Secundario}" />
+                        <Label Text="{Binding Formulario.NomeCompletoCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation"
+                               IsVisible="{Binding Formulario.TemNomeCompletoCabecalho}" />
+                        <Label Text="{Binding Formulario.TipoEPapeisCabecalho}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Formulario.DocumentoCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Formulario.EstruturaCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+                               IsVisible="{Binding Formulario.TemEstruturaCabecalho}" />
+                        <Label Text="{Binding Formulario.EtiquetasCabecalho}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
 
                     <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
@@ -103,9 +112,11 @@
                     <pv:SecaoEnderecosView IsVisible="{Binding NosEnderecos}" />
                     <pv:SecaoContatosView IsVisible="{Binding NosContatos}" />
                     <pv:SecaoDocumentosView IsVisible="{Binding NosDocumentos}" />
+                    <!-- Comercial: Cliente e Fornecedor na mesma aba, um bloco por papel ativo (a mesma pessoa pode ter os dois). -->
                     <pv:SecaoClienteView IsVisible="{Binding NoCliente}" />
                     <pv:SecaoFornecedorView IsVisible="{Binding NoFornecedor}" />
                     <pv:SecaoColaboradorView IsVisible="{Binding NoColaborador}" />
+                    <pv:SecaoRelacionamentosView IsVisible="{Binding NosRelacionamentosPessoas}" />
                     <pv:SecaoAdicionaisView IsVisible="{Binding NasAdicionais}" />
                     <pv:SecaoRelacionamentoView IsVisible="{Binding NoRelacionamento}" />
                     <pv:SecaoSituacaoView IsVisible="{Binding NaSituacao}" />

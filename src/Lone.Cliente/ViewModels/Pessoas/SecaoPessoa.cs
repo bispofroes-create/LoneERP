@@ -8,22 +8,26 @@ public enum SecaoPessoa
     Enderecos,
     Contatos,
     Documentos,
-    Cliente,
-    Fornecedor,
+    /// <summary>Cliente e Fornecedor na mesma aba, cada um num bloco (uma pessoa pode ter os dois).</summary>
+    Comercial,
+    /// <summary>Interações, etiquetas e LGPD (o relacionamento comercial do dia a dia).</summary>
     Relacionamento,
     Historico,
     Adicionais,
     Situacao,
-    Colaborador
+    Colaborador,
+    /// <summary>Relacionamentos com outros cadastros (sócio de, administrador de, contato de...).</summary>
+    RelacionamentosPessoas
 }
 
-/// <summary>Aba da ficha. Algumas só aparecem quando fazem sentido (ex.: "Cliente" com o papel ligado).</summary>
+/// <summary>Aba da ficha. Algumas só aparecem quando fazem sentido (ex.: "Comercial" com o papel Cliente ou Fornecedor).</summary>
 public sealed record SecaoOpcao(SecaoPessoa Secao, string Texto)
 {
     /// <summary>
     /// Abas visíveis para a ficha como está agora, na ordem de uso: quem é (geral, dados pessoais ou empresa),
-    /// como falar com ela (contatos, endereços), documentos e dados fiscais, relação comercial (cliente,
-    /// fornecedor), informações adicionais do administrador, LGPD, situação e histórico.
+    /// como falar com ela (contatos, endereços), documentos e dados fiscais, relação comercial (cliente e
+    /// fornecedor juntos), colaborador, relacionamentos com outros cadastros, informações adicionais, interações e
+    /// LGPD, situação e histórico.
     /// </summary>
     public static IReadOnlyList<SecaoOpcao> Para(PessoaFormulario f)
     {
@@ -38,11 +42,12 @@ public sealed record SecaoOpcao(SecaoPessoa Secao, string Texto)
             secoes.Add(new(SecaoPessoa.Documentos, "Documentos"));
             secoes.Add(new(SecaoPessoa.Estabelecimentos, "Dados fiscais"));
         }
-        if (f.PapelCliente.Ativo) secoes.Add(new(SecaoPessoa.Cliente, "Cliente"));
-        if (f.PapelFornecedor.Ativo) secoes.Add(new(SecaoPessoa.Fornecedor, "Fornecedor"));
+        if (f.PapelCliente.Ativo || f.PapelFornecedor.Ativo) secoes.Add(new(SecaoPessoa.Comercial, "Comercial"));
         if (f.TemColaborador) secoes.Add(new(SecaoPessoa.Colaborador, "Colaborador"));
+        // Relacionamentos gravam na hora (fora do Salvar): só depois que o cadastro existe.
+        if (f.Existente) secoes.Add(new(SecaoPessoa.RelacionamentosPessoas, "Relacionamentos"));
         if (f.TemInformacoesAdicionais) secoes.Add(new(SecaoPessoa.Adicionais, "Informações adicionais"));
-        secoes.Add(new(SecaoPessoa.Relacionamento, "Relacionamento e LGPD"));
+        secoes.Add(new(SecaoPessoa.Relacionamento, "Interações e LGPD"));
         secoes.Add(new(SecaoPessoa.Situacao, "Situação"));
         if (f.Existente) secoes.Add(new(SecaoPessoa.Historico, "Histórico"));
         return secoes;

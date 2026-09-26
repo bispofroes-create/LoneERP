@@ -6,6 +6,7 @@
              x:Class="Lone.App.Views.Pessoas.SecaoClienteView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
+        <Label Text="Cliente" Style="{StaticResource Subtitulo}" />
         <Label Text="Condições de venda que valem para todas as empresas do grupo. Mudar crédito exige a permissão &quot;Alterar limite de crédito&quot;."
                Style="{StaticResource Secundario}" />
         <FlexLayout Wrap="Wrap">

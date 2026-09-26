@@ -33,6 +33,12 @@ public sealed class PessoaDto
 
     public DateOnly? DataNascimento { get; set; }
     public Guid? GrupoEconomicoId { get; set; }
+
+    /// <summary>Grupo empresarial (só pessoa jurídica; opcional). Mudar exige a permissão de estrutura empresarial.</summary>
+    public Guid? GrupoEmpresarialId { get; set; }
+
+    /// <summary>Somente leitura: nome do grupo empresarial (cabeçalho da ficha).</summary>
+    public string? GrupoEmpresarialNome { get; set; }
     public Guid? MescladaEmId { get; set; }
     public string? Observacoes { get; set; }
 
@@ -318,6 +324,9 @@ public sealed class ContaFornecedorDto
     public Guid Id { get; set; }
     public Guid? EmpresaId { get; set; }
     public string? CondicaoPagamento { get; set; }
+
+    /// <summary>Condição de pagamento do cadastro (fonte principal). O texto acima é o anterior, preservado.</summary>
+    public Guid? CondicaoPagamentoId { get; set; }
     public int? PrazoMedioDias { get; set; }
     public int? LeadTimeDias { get; set; }
     public Guid? TransportadoraPadraoId { get; set; }

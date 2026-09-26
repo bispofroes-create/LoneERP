@@ -42,6 +42,7 @@ public static class MauiProgram
         builder.Services.AddTransient<PessoasPage>();
         builder.Services.AddTransient<CamposPersonalizadosPage>();
         builder.Services.AddTransient<EtiquetasPage>();
+        builder.Services.AddTransient<GruposEmpresariaisPage>();
         builder.Services.AddTransient<ProfissoesPage>();
         builder.Services.AddTransient<PapeisPage>();
         builder.Services.AddTransient<TiposMeioContatoPage>();

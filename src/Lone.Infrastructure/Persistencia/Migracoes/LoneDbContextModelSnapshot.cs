@@ -523,6 +523,9 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
+                    b.Property<Guid?>("CondicaoPagamentoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
@@ -546,6 +549,8 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CondicaoPagamentoId");
 
                     b.HasIndex("EmpresaId");
 
@@ -1184,6 +1189,43 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsUnique();
 
                     b.ToTable("GruposEconomicos", (string)null);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.GrupoEmpresarial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .UseCollation("Latin1_General_CI_AI");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("GruposEmpresariais", (string)null);
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.HistoricoFiscal", b =>
@@ -2196,6 +2238,9 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Property<Guid?>("GrupoEconomicoId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("GrupoEmpresarialId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte>("IdentidadeGenero")
                         .HasColumnType("tinyint");
 
@@ -2287,6 +2332,8 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("GrupoEconomicoId");
 
+                    b.HasIndex("GrupoEmpresarialId");
+
                     b.HasIndex("MescladaEmId");
 
                     b.HasIndex("NaturalidadeMunicipioId");
@@ -2301,7 +2348,10 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsUnique()
                         .HasFilter("[DocumentoPrincipal] IS NOT NULL AND [Natureza] <> 2");
 
-                    b.ToTable("Pessoas", (string)null);
+                    b.ToTable("Pessoas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Pessoas_GrupoEmpresarialSoPJ", "[GrupoEmpresarialId] IS NULL OR [Natureza] = 1");
+                        });
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.PessoaConsentimento", b =>
@@ -2652,6 +2702,9 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("datetime2");
 
@@ -2684,6 +2737,11 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("PessoaId");
 
                     b.HasIndex("TipoRelacionamentoId");
+
+                    b.HasIndex("PessoaId", "PessoaDestinoId", "TipoRelacionamentoId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PessoaRelacionamentos_Aberto")
+                        .HasFilter("[Ativo] = 1 AND [FimEm] IS NULL");
 
                     b.ToTable("PessoaRelacionamentos", (string)null);
                 });
@@ -3362,6 +3420,22 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                             Nome = "Funcionário de",
                             NomeInverso = "Tem como funcionário",
                             Sistema = true
+                        },
+                        new
+                        {
+                            Id = new Guid("5a0e6f10-0000-0000-0000-000000000007"),
+                            CriadoEm = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Administrador de",
+                            NomeInverso = "Tem como administrador",
+                            Sistema = true
+                        },
+                        new
+                        {
+                            Id = new Guid("5a0e6f10-0000-0000-0000-000000000008"),
+                            CriadoEm = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Parceiro de",
+                            NomeInverso = "Parceiro de",
+                            Sistema = true
                         });
                 });
 
@@ -3676,6 +3750,11 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Lone.Domain.Entidades.ContaFornecedor", b =>
                 {
+                    b.HasOne("Lone.Domain.Entidades.CondicaoPagamento", null)
+                        .WithMany()
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)
                         .WithMany()
                         .HasForeignKey("EmpresaId")
@@ -3972,6 +4051,11 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.HasOne("Lone.Domain.Entidades.GrupoEconomico", null)
                         .WithMany()
                         .HasForeignKey("GrupoEconomicoId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Lone.Domain.Entidades.GrupoEmpresarial", null)
+                        .WithMany()
+                        .HasForeignKey("GrupoEmpresarialId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)

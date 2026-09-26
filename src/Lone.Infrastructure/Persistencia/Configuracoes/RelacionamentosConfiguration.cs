@@ -34,7 +34,9 @@ public class TipoRelacionamentoConfiguration : IEntityTypeConfiguration<TipoRela
             Tipo(TiposRelacionamentoSistema.RepresentanteDe, "Representante de", "Representada por", criacao),
             Tipo(TiposRelacionamentoSistema.ContatoDe, "Contato de", "Tem como contato", criacao),
             Tipo(TiposRelacionamentoSistema.DependenteDe, "Dependente de", "Tem como dependente", criacao),
-            Tipo(TiposRelacionamentoSistema.FuncionarioDe, "Funcionário de", "Tem como funcionário", criacao));
+            Tipo(TiposRelacionamentoSistema.FuncionarioDe, "Funcionário de", "Tem como funcionário", criacao),
+            Tipo(TiposRelacionamentoSistema.AdministradorDe, "Administrador de", "Tem como administrador", criacao),
+            Tipo(TiposRelacionamentoSistema.ParceiroDe, "Parceiro de", "Parceiro de", criacao));
     }
 
     private static TipoRelacionamento Tipo(Guid id, string nome, string inverso, DateTime criacao) =>
@@ -54,5 +56,11 @@ public class PessoaRelacionamentoConfiguration : IEntityTypeConfiguration<Pessoa
 
         b.HasIndex(r => r.PessoaId);
         b.HasIndex(r => r.PessoaDestinoId);
+
+        // O mesmo vínculo (origem, destino, tipo) em aberto só uma vez; períodos encerrados e desativados ficam no histórico.
+        b.HasIndex(r => new { r.PessoaId, r.PessoaDestinoId, r.TipoRelacionamentoId })
+            .IsUnique()
+            .HasFilter("[Ativo] = 1 AND [FimEm] IS NULL")
+            .HasDatabaseName(SqlMigracaoEstruturaEmpresarial.IndiceRelacionamentoAberto);
     }
 }

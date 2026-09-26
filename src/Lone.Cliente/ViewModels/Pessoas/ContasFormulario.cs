@@ -101,6 +101,8 @@ public sealed partial class ContaClienteFormulario : ObservableObject
 public sealed partial class ContaFornecedorFormulario : ObservableObject
 {
     private Guid? _transportadoraPadraoId;
+    private Guid? _condicaoGravada;
+    private bool _opcoesCarregadas;
 
     public ContaFornecedorFormulario() : this(IdSequencial.Novo(), existia: false) { }
 
@@ -113,7 +115,42 @@ public sealed partial class ContaFornecedorFormulario : ObservableObject
     public Guid Id { get; }
     public bool Existia { get; }
 
-    [ObservableProperty] private string _condicaoPagamento = string.Empty;
+    /// <summary>
+    /// Texto anterior ao cadastro de condições (preservado, somente leitura na ficha). A migração ligou ao cadastro o
+    /// que tinha o mesmo nome; o resto aparece como "não convertida" até alguém escolher a condição.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoCondicaoAnterior), nameof(TemCondicaoAnterior))]
+    private string _condicaoPagamento = string.Empty;
+
+    /// <summary>Condição de pagamento do cadastro (fonte principal, como no cliente).</summary>
+    [ObservableProperty] private Opcao<Guid?>[] _condicoes = [OpcoesComercial.Nenhum];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoCondicaoAnterior), nameof(TemCondicaoAnterior))]
+    private Opcao<Guid?> _condicao = OpcoesComercial.Nenhum;
+
+    public Guid? CondicaoId => _opcoesCarregadas ? Condicao.Valor : _condicaoGravada;
+
+    public bool TemCondicaoAnterior => TextoCondicaoAnterior.Length > 0;
+
+    /// <summary>"Condição anterior (texto): 28 dias — não convertida; escolha a condição acima."</summary>
+    public string TextoCondicaoAnterior =>
+        string.IsNullOrWhiteSpace(CondicaoPagamento) ? string.Empty
+        : CondicaoId is null
+            ? $"Condição anterior (texto): {CondicaoPagamento.Trim()} — não convertida; escolha a condição de pagamento acima."
+            : $"Condição anterior (texto, guardada): {CondicaoPagamento.Trim()}";
+
+    public void DefinirOpcoes(OpcoesComercial opcoes)
+    {
+        var condicao = CondicaoId;
+        Condicoes = opcoes.Condicoes(_condicaoGravada);
+        Condicao = OpcoesComercial.Escolher(Condicoes, condicao);
+        _opcoesCarregadas = true;
+        OnPropertyChanged(nameof(TextoCondicaoAnterior));
+        OnPropertyChanged(nameof(TemCondicaoAnterior));
+    }
+
     [ObservableProperty] private string _prazoMedioDias = string.Empty;
     [ObservableProperty] private string _leadTimeDias = string.Empty;
     [ObservableProperty] private string _avaliacao = string.Empty;
@@ -124,6 +161,7 @@ public sealed partial class ContaFornecedorFormulario : ObservableObject
         : new ContaFornecedorFormulario(f.Id, existia: true)
         {
             _transportadoraPadraoId = f.TransportadoraPadraoId,
+            _condicaoGravada = f.CondicaoPagamentoId,
             CondicaoPagamento = f.CondicaoPagamento ?? string.Empty,
             PrazoMedioDias = TextoTela.Inteiro(f.PrazoMedioDias),
             LeadTimeDias = TextoTela.Inteiro(f.LeadTimeDias),
@@ -135,8 +173,8 @@ public sealed partial class ContaFornecedorFormulario : ObservableObject
     {
         if (!TextoTela.TentarInteiro(PrazoMedioDias, out _)) yield return "Fornecedor: prazo médio inválido.";
         if (!TextoTela.TentarInteiro(LeadTimeDias, out _)) yield return "Fornecedor: prazo de entrega inválido.";
-        if (!TextoTela.TentarInteiro(Avaliacao, out var nota) || nota is < 0 or > 5)
-            yield return "Fornecedor: avaliação deve ser de 0 a 5.";
+        if (!TextoTela.TentarInteiro(Avaliacao, out var nota) || nota is < 1 or > 5)
+            yield return "Fornecedor: avaliação deve ser de 1 a 5 (vazio = sem avaliação).";
     }
 
     public ContaFornecedorDto ParaDto()
@@ -149,6 +187,7 @@ public sealed partial class ContaFornecedorFormulario : ObservableObject
             Id = Id,
             EmpresaId = null,
             CondicaoPagamento = TextoTela.Nulo(CondicaoPagamento),
+            CondicaoPagamentoId = CondicaoId,
             PrazoMedioDias = prazo,
             LeadTimeDias = lead,
             TransportadoraPadraoId = _transportadoraPadraoId,

@@ -82,6 +82,7 @@ public class ContaFornecedorConfiguration : IEntityTypeConfiguration<ContaFornec
         b.HasKey(f => f.Id);
 
         b.Property(f => f.CondicaoPagamento).HasMaxLength(60);
+        b.HasOne<CondicaoPagamento>().WithMany().HasForeignKey(f => f.CondicaoPagamentoId).OnDelete(DeleteBehavior.Restrict);
         b.Property(f => f.Observacoes).HasMaxLength(1000);
 
         b.HasOne<Pessoa>().WithMany().HasForeignKey(f => f.EmpresaId).OnDelete(DeleteBehavior.NoAction);

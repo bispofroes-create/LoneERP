@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Relacionamentos com outros cadastros (sócio de, administrador de, contato de, responsável por...). Separados do
+     cadastro e da LGPD. Cada um é gravado na hora (fora do Salvar da ficha) e nunca apagado: encerrar preenche o fim;
+     desativar marca o que foi lançado por engano. Opcionais. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.SecaoRelacionamentosView"
+             x:DataType="pes:PessoasViewModel">
+    <VerticalStackLayout Spacing="8">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Label Text="Vínculos desta pessoa com outros cadastros, nos dois sentidos (ex.: &quot;Sócio de ABC&quot; aqui aparece como &quot;Tem como sócio&quot; na ficha da ABC). Ter sócios em comum não junta empresas: grupo empresarial é sempre escolhido na ficha da empresa."
+                   Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
+            <c:CaixaMarcar Grid.Column="1" Texto="Mostrar encerrados" Marcado="{Binding Formulario.Relacionamentos.MostrarEncerrados}"
+                           IsVisible="{Binding Formulario.Relacionamentos.TemEncerrados}" VerticalOptions="Center" />
+        </Grid>
+
+        <Label Text="Nenhum relacionamento." Style="{StaticResource Secundario}" IsVisible="{Binding Formulario.Relacionamentos.Vazio}" />
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Relacionamentos.Itens}" Spacing="6">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="pes:RelacionamentoItem">
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Visivel}">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Encerrar" Style="{StaticResource BotaoLink}" Command="{Binding EncerrarCommand}"
+                                    IsVisible="{Binding PodeEncerrar}" VerticalOptions="Center" />
+                            <Button Grid.Column="2" Text="Desativar" Style="{StaticResource BotaoLink}" Command="{Binding DesativarCommand}"
+                                    IsVisible="{Binding PodeDesativar}" VerticalOptions="Center"
+                                    ToolTipProperties.Text="Só para o que foi lançado por engano (continua no histórico)" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <!-- Novo relacionamento: tipo (com o sentido), a outra pessoa (busca no servidor), início e observações. -->
+        <Label Text="Novo relacionamento" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+        <FlexLayout Wrap="Wrap" AlignItems="End">
+            <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Formulario.Relacionamentos.Tipos}"
+                            Selecionado="{Binding Formulario.Relacionamentos.NovoTipo}" />
+            <c:Campo Rotulo="Início (opcional)" Texto="{Binding Formulario.Relacionamentos.NovoInicio}" Dica="dd/mm/aaaa" Mascara="Data" />
+        </FlexLayout>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MaximumWidthRequest="640" HorizontalOptions="Start">
+            <SearchBar Text="{Binding Formulario.Relacionamentos.BuscaPessoa}" Placeholder="Outra pessoa: nome, código, CPF ou CNPJ"
+                       SearchCommand="{Binding Formulario.Relacionamentos.BuscarPessoaCommand}" />
+            <Button Grid.Column="1" Text="Buscar" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding Formulario.Relacionamentos.BuscarPessoaCommand}" IsEnabled="{Binding Livre}" />
+        </Grid>
+        <CollectionView ItemsSource="{Binding Formulario.Relacionamentos.ResultadosBusca}" SelectionMode="Single"
+                        SelectedItem="{Binding Formulario.Relacionamentos.PessoaEscolhida}" MaximumHeightRequest="220">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="dto:PessoaResumo">
+                    <VerticalStackLayout Padding="12,6" Spacing="0">
+                        <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                        <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+        <Label Text="{Binding Formulario.Relacionamentos.TextoPessoaEscolhida}" FontAttributes="Bold" LineBreakMode="WordWrap"
+               IsVisible="{Binding Formulario.Relacionamentos.TemPessoaEscolhida}" />
+        <c:Campo Rotulo="Observações (opcional)" Texto="{Binding Formulario.Relacionamentos.NovasObservacoes}" MaximumWidthRequest="640"
+                 HorizontalOptions="Start" />
+        <Button Text="Registrar relacionamento" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
+                Command="{Binding Formulario.Relacionamentos.IncluirCommand}" IsEnabled="{Binding Livre}" />
+        <Label Text="Sócio e administrador exigem a permissão de estrutura empresarial e ligam a pessoa a uma empresa. O vínculo fica no histórico da pessoa de origem."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+    </VerticalStackLayout>
+</ContentView>

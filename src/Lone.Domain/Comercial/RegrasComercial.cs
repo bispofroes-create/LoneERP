@@ -101,6 +101,8 @@ public static class RegrasComercial
 
     public static void Normalizar(Pessoa p)
     {
+        foreach (var f in p.ContasFornecedor)
+            if (f.CondicaoPagamentoId == Guid.Empty) f.CondicaoPagamentoId = null;
         foreach (var e in p.ExcecoesComerciais) e.Motivo = Texto(e.Motivo);
         foreach (var c in p.Carteira) c.Observacao = Texto(c.Observacao);
     }
@@ -179,6 +181,11 @@ public static class RegrasComercial
             Conferir(conta.PerfilComercialId, antes?.PerfilComercialId, c.Perfis, x => x.Ativo, x => x.Nome, "perfil comercial", erros);
             Conferir(conta.CondicaoPagamentoId, antes?.CondicaoPagamentoId, c.Condicoes, x => x.Ativo, x => x.Nome, "condição de pagamento", erros);
         }
+
+        var fornecedorAntes = (anterior?.ContasFornecedor ?? []).ToDictionary(x => x.Id);
+        foreach (var conta in p.ContasFornecedor)
+            Conferir(conta.CondicaoPagamentoId, fornecedorAntes.GetValueOrDefault(conta.Id)?.CondicaoPagamentoId, c.Condicoes,
+                x => x.Ativo, x => x.Nome, "condição de pagamento do fornecedor", erros);
 
         var excecoesAntes = (anterior?.ExcecoesComerciais ?? []).ToDictionary(x => x.Id);
         foreach (var e in p.ExcecoesComerciais)

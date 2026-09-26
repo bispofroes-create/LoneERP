@@ -21,6 +21,9 @@ public static class Permissoes
         public const string Desbloquear = "PESSOAS.DESBLOQUEAR";
         public const string RegistrarInteracao = "PESSOAS.INTERACOES";
         public const string Exportar = "PESSOAS.EXPORTAR";
+
+        /// <summary>Grupo empresarial da pessoa jurídica e vínculos societários (sócio, administrador).</summary>
+        public const string EstruturaEmpresarial = "PESSOAS.ESTRUTURA_EMPRESARIAL";
     }
 
     public static class Cadastros
@@ -34,6 +37,7 @@ public static class Permissoes
         public const string EstruturaOrganizacional = "CADASTROS.ESTRUTURA_ORGANIZACIONAL";
         public const string Comercial = "CADASTROS.COMERCIAL";
         public const string Parametros = "CADASTROS.PARAMETROS";
+        public const string GruposEmpresariais = "CADASTROS.GRUPOS_EMPRESARIAIS";
     }
 
     public static class Metas
@@ -67,6 +71,7 @@ public static class Permissoes
         new(Pessoas.RegistrarInteracao, "Pessoas", "Registrar interações (ligações, visitas, e-mails) com as pessoas"),
         new(Pessoas.Colaborador, "Pessoas", "Ver e alterar os dados de colaborador (vínculos, matrícula, admissão, lotação)"),
         new(Pessoas.Exportar, "Pessoas", "Exportar o resultado da consulta avançada (CSV); cada exportação fica na auditoria"),
+        new(Pessoas.EstruturaEmpresarial, "Pessoas", "Alterar o grupo empresarial de uma empresa e os vínculos societários (sócio, administrador)"),
         new(Cadastros.CamposPersonalizados, "Cadastros", "Criar, alterar, ordenar e desativar campos personalizados"),
         new(Cadastros.TabelasOficiais, "Cadastros", "Atualizar tabelas oficiais (municípios do IBGE, ocupações da CBO)"),
         new(Cadastros.Etiquetas, "Cadastros", "Criar, alterar, mesclar e desativar etiquetas"),
@@ -75,6 +80,7 @@ public static class Permissoes
         new(Cadastros.Tipos, "Cadastros", "Criar, alterar e desativar tipos de telefone/e-mail, de endereço e de documento"),
         new(Cadastros.EstruturaOrganizacional, "Cadastros", "Criar, alterar e desativar cargos, departamentos, setores e centros de custo"),
         new(Cadastros.Parametros, "Cadastros", "Alterar parâmetros do cadastro (regras de inatividade do relacionamento)"),
+        new(Cadastros.GruposEmpresariais, "Cadastros", "Criar, alterar e desativar grupos empresariais"),
         new(Cadastros.Comercial, "Cadastros", "Criar, alterar e desativar perfis comerciais, condições de pagamento e tipos de carteira"),
         new(Metas.Visualizar, "Metas", "Ver metas, participantes e resultados"),
         new(Metas.Gerenciar, "Metas", "Criar e alterar metas, indicadores e equipes; publicar e iniciar a apuração"),

@@ -29,6 +29,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<MunicipiosApi>();
         services.AddSingleton<CamposPersonalizadosApi>();
         services.AddSingleton<EtiquetasApi>();
+        services.AddSingleton<GruposEmpresariaisApi>();
         services.AddSingleton<ProfissoesApi>();
         services.AddSingleton<PapeisApi>();
         services.AddSingleton<TiposMeioContatoApi>();
@@ -53,6 +54,7 @@ public static class ConfiguracaoCliente
         services.AddTransient<PessoasViewModel>();
         services.AddTransient<CamposPersonalizadosViewModel>();
         services.AddTransient<EtiquetasViewModel>();
+        services.AddTransient<GruposEmpresariaisViewModel>();
         services.AddTransient<ProfissoesViewModel>();
         services.AddTransient<PapeisViewModel>();
         services.AddTransient<TiposMeioContatoViewModel>();

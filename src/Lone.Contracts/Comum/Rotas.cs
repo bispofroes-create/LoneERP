@@ -33,6 +33,14 @@ public static class Rotas
         public static string Interacoes(Guid id) => $"{Grupo}/{id}/interacoes";
         public const string ParametrosRelacionamento = Grupo + "/parametros-relacionamento";
 
+        /// <summary>Relacionamentos entre pessoas (sócio de, administrador de...): operações próprias, fora da ficha.</summary>
+        public static string Relacionamentos(Guid id) => $"{Grupo}/{id}/relacionamentos";
+        public static string EncerrarRelacionamento(Guid id, Guid relacionamentoId) => $"{Grupo}/{id}/relacionamentos/{relacionamentoId}/encerrar";
+        public static string DesativarRelacionamento(Guid id, Guid relacionamentoId) => $"{Grupo}/{id}/relacionamentos/{relacionamentoId}/desativar";
+
+        /// <summary>Tipos de relacionamento e grupos empresariais para a ficha (lidos quando a aba abre).</summary>
+        public const string OpcoesEstrutura = Grupo + "/estrutura/opcoes";
+
         /// <summary>Próxima página do histórico: registros anteriores ao Id informado.</summary>
         public static string Historico(Guid id, long? antes, int limite) =>
             $"{Historico(id)}?limite={limite}" + (antes is { } a ? $"&antes={a}" : string.Empty);
@@ -52,6 +60,17 @@ public static class Rotas
         public const string FiltrosSalvos = Consulta + "/filtros";
         public static string FiltroSalvo(Guid id) => $"{FiltrosSalvos}/{id}";
         public static string DesativarFiltro(Guid id) => $"{FiltrosSalvos}/{id}/desativar";
+    }
+
+    /// <summary>Grupos empresariais (conjuntos de pessoas jurídicas independentes). Nada é excluído: desativa.</summary>
+    public static class GruposEmpresariais
+    {
+        public const string Grupo = Base + "/grupos-empresariais";
+        public static string Listar(bool incluirInativos) => incluirInativos ? Grupo + "?incluirInativos=true" : Grupo;
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Empresas(Guid id) => $"{Grupo}/{id}/empresas";
+        public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
     }
 
     /// <summary>Arquivos anexados aos documentos das pessoas. Nada é excluído: remover desativa.</summary>

@@ -97,6 +97,9 @@
         <ShellContent Title="Equipes" ContentTemplate="{DataTemplate views:EquipesPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Grupos empresariais" Route="grupos-empresariais" IsVisible="{Binding PodeGerenciarGruposEmpresariais}">
+        <ShellContent Title="Grupos empresariais" ContentTemplate="{DataTemplate views:GruposEmpresariaisPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Etiquetas" Route="etiquetas" IsVisible="{Binding PodeGerenciarEtiquetas}">
         <ShellContent Title="Etiquetas" ContentTemplate="{DataTemplate views:EtiquetasPage}" />
     </FlyoutItem>

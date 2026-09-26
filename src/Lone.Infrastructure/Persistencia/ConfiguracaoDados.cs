@@ -2,6 +2,8 @@ using Lone.Application.Auditoria;
 using Lone.Application.Empresas;
 using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
+using Lone.Application.GruposEmpresariais;
+using Lone.Application.Relacionamentos;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
@@ -62,6 +64,8 @@ public static class ConfiguracaoDados
         services.AddScoped<IComercialConsultas, ComercialConsultas>();
         services.AddScoped<ICnaeRepositorio, CnaeRepositorio>();
         services.AddScoped<ISituacaoRepositorio, SituacaoRepositorio>();
+        services.AddScoped<IGrupoEmpresarialRepositorio, GrupoEmpresarialRepositorio>();
+        services.AddScoped<IPessoaRelacionamentoRepositorio, PessoaRelacionamentoRepositorio>();
         services.AddScoped<IEquipeRepositorio, EquipeRepositorio>();
         services.AddScoped<IIndicadorRepositorio, IndicadorRepositorio>();
         services.AddScoped<IMetaRepositorio, MetaRepositorio>();

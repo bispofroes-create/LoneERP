@@ -2,6 +2,7 @@ using Lone.Api.Erros;
 using Lone.Application.Consultas;
 using Lone.Application.Documentos;
 using Lone.Application.Pessoas;
+using Lone.Application.Relacionamentos;
 using Lone.Application.Situacoes;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -116,6 +117,21 @@ public static class PessoasEndpoints
                 servico.LiberarAsync(id, bloqueioId, requisicao, ct));
         grupo.MapPost("{id:guid}/interacoes", (Guid id, RegistrarInteracaoRequisicao requisicao, ISituacaoAppService servico, CancellationToken ct) =>
             servico.RegistrarInteracaoAsync(id, requisicao, ct));
+        // Relacionamentos entre pessoas (sócio de, administrador de, contato de...): ações próprias, gravadas na hora e fora
+        // do "Salvar" da ficha. Nunca apagam: encerrar preenche o fim; desativar marca o lançado por engano.
+        grupo.MapGet("estrutura/opcoes", (IPessoaRelacionamentoAppService servico, CancellationToken ct) => servico.OpcoesAsync(ct));
+        grupo.MapGet("{id:guid}/relacionamentos", (Guid id, IPessoaRelacionamentoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(id, ct));
+        grupo.MapPost("{id:guid}/relacionamentos",
+            (Guid id, IncluirRelacionamentoRequisicao requisicao, IPessoaRelacionamentoAppService servico, CancellationToken ct) =>
+                servico.IncluirAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/relacionamentos/{relacionamentoId:guid}/encerrar",
+            (Guid id, Guid relacionamentoId, EncerrarRelacionamentoRequisicao requisicao, IPessoaRelacionamentoAppService servico, CancellationToken ct) =>
+                servico.EncerrarAsync(id, relacionamentoId, requisicao, ct));
+        grupo.MapPost("{id:guid}/relacionamentos/{relacionamentoId:guid}/desativar",
+            (Guid id, Guid relacionamentoId, DesativarRelacionamentoRequisicao requisicao, IPessoaRelacionamentoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, relacionamentoId, requisicao, ct));
+
         grupo.MapGet("parametros-relacionamento", (ISituacaoAppService servico, CancellationToken ct) => servico.ObterParametrosAsync(ct));
         grupo.MapPut("parametros-relacionamento", (ParametrosRelacionamentoDto dto, ISituacaoAppService servico, CancellationToken ct) =>
             servico.SalvarParametrosAsync(dto, ct));

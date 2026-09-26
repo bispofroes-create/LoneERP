@@ -9,8 +9,16 @@ public class ContaFornecedor : EntidadePessoaFilha
     [DisplayName("Empresa")]
     public Guid? EmpresaId { get; set; }
 
-    [DisplayName("Condição de pagamento")]
+    /// <summary>
+    /// Texto livre de antes do cadastro de condições de pagamento. Preservado (nunca apagado): a migração liga à condição
+    /// de mesmo nome quando existe; o que não converteu continua aqui e a ficha mostra como "não convertida".
+    /// </summary>
+    [DisplayName("Condição de pagamento (texto anterior)")]
     public string? CondicaoPagamento { get; set; }
+
+    /// <summary>Condição de pagamento do cadastro (fonte principal, como no cliente).</summary>
+    [DisplayName("Condição de pagamento")]
+    public Guid? CondicaoPagamentoId { get; set; }
 
     [DisplayName("Prazo médio (dias)")]
     public int? PrazoMedioDias { get; set; }

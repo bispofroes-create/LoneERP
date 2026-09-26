@@ -9,6 +9,10 @@
         <FlexLayout Wrap="Wrap">
             <c:CampoEscolha Rotulo="Natureza" Itens="{Binding Formulario.Naturezas}" Selecionado="{Binding Formulario.Natureza}" />
             <c:Campo Rotulo="{Binding Formulario.RotuloNome}" Texto="{Binding Formulario.Nome}" FlexLayout.Basis="100%" />
+            <!-- Razão social = identificação jurídica; nome fantasia = nome comercial; nome de exibição = o que o Lone mostra.
+                 O nome fantasia é o do estabelecimento principal: este campo e o da aba Estabelecimentos são o mesmo dado. -->
+            <c:Campo Rotulo="Nome fantasia (opcional)" Texto="{Binding Formulario.Principal.NomeFantasia}" FlexLayout.Basis="100%"
+                     IsVisible="{Binding Formulario.EhJuridica}" Dica="Nome comercial" />
             <c:Campo Rotulo="{Binding Formulario.RotuloDocumento}" Texto="{Binding Formulario.Documento}"
                      Mascara="{Binding Formulario.MascaraDocumento}" IsVisible="{Binding Formulario.NaoEhJuridica}" />
             <!-- Data e idade lado a lado: a idade é calculada ao digitar. -->
@@ -22,8 +26,10 @@
             <c:Campo Rotulo="Nome social" Texto="{Binding Formulario.NomeSocial}" IsVisible="{Binding Formulario.EhFisica}"
                      Dica="Como a pessoa quer ser chamada; aparece nas listas no lugar do nome civil" />
             <c:Campo Rotulo="Apelido" Texto="{Binding Formulario.Apelido}" IsVisible="{Binding Formulario.EhFisica}" />
-            <c:Campo Rotulo="Nome de exibição (opcional)" Texto="{Binding Formulario.NomeExibicao}"
-                     Dica="Como aparece nas listas, se diferente do nome" />
+            <c:Campo Rotulo="Nome de exibição (opcional)" Texto="{Binding Formulario.NomeExibicao}" FlexLayout.Basis="100%" Padding="0,0,12,0" />
+            <!-- Ajuda fixa (a dica do campo some ao digitar). A regra é a de NomePessoa.ParaExibir. -->
+            <Label Text="{Binding Formulario.AjudaNomeExibicao}" Style="{StaticResource Secundario}"
+                   FlexLayout.Basis="100%" Margin="0,2,12,8" />
         </FlexLayout>
 
         <!-- Pessoa jurídica: o CNPJ do estabelecimento principal, com a consulta à Receita. -->

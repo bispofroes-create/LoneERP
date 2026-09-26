@@ -209,8 +209,9 @@ public class FinalidadesEnderecoTests
     [Fact]
     public void Referencia_e_o_principal_da_finalidade_de_menor_ordem_e_o_fallback_nao_cria_principal()
     {
-        var a = Endereco("1", cidade: "A");
-        var b = Endereco("2", cidade: "B");
+        // Ordens distintas: sem elas o desempate do fallback é pelo Id (Guid aleatório) e o teste falhava ~metade das vezes.
+        var a = Endereco("1", cidade: "A", ordem: 0);
+        var b = Endereco("2", cidade: "B", ordem: 1);
         var p = new Pessoa { Enderecos = [a, b], FinalidadesEnderecos = [Uso(a, Entrega, true), Uso(b, Comercial, true)] };
 
         Assert.Same(b, RegrasFinalidadeEndereco.EnderecoReferencia(p, Cadastro())); // Comercial tem ordem 1

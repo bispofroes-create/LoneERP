@@ -21,6 +21,10 @@ public static class PessoaNormalizador
         p.Observacoes = Texto(p.Observacoes);
         p.SituacaoMotivo = Texto(p.SituacaoMotivo);
 
+        // Grupo empresarial: Guid vazio = nenhum. A natureza não é "corrigida" aqui: pessoa física com grupo é erro
+        // explícito do validador (nunca some em silêncio).
+        if (p.GrupoEmpresarialId == Guid.Empty) p.GrupoEmpresarialId = null;
+
         if (p.Natureza != NaturezaPessoa.Fisica)
         {
             p.NomeSocial = null;

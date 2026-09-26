@@ -15,6 +15,14 @@
                 <c:Campo Rotulo="Porte" Texto="{Binding Formulario.Porte}" />
                 <c:Campo Rotulo="Capital social (R$)" Texto="{Binding Formulario.CapitalSocial}" />
             </FlexLayout>
+
+            <!-- Grupo empresarial (opcional): reúne esta empresa com outras independentes (CNPJs de outra raiz).
+                 Não é matriz/filial. Mudar exige a permissão de estrutura empresarial. -->
+            <c:CampoEscolha Rotulo="Grupo empresarial (opcional)" Itens="{Binding Formulario.GruposEmpresariais}"
+                            Selecionado="{Binding Formulario.GrupoEmpresarial}" IsEnabled="{Binding PodeAlterarEstruturaEmpresarial}"
+                            MaximumWidthRequest="520" HorizontalOptions="Start" />
+            <Label Text="Empresas independentes (outro CNPJ) nunca são filiais: cada uma é um cadastro próprio. Para vê-las juntas, use um grupo empresarial (menu &quot;Grupos empresariais&quot;). Sócios e administradores ficam na aba &quot;Relacionamentos&quot;."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
             <VerticalStackLayout IsVisible="{Binding Formulario.TemSocios}" Spacing="4">
                 <Label Text="Sócios e administradores (Receita Federal)" Style="{StaticResource Rotulo}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Socios}" Spacing="2">
@@ -38,7 +46,7 @@
         </VerticalStackLayout>
 
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Formulario.EhJuridica}">
-            <Label Text="Matriz e filiais. Cada CNPJ tem os seus dados fiscais; a filial pode ter endereço próprio."
+            <Label Text="Matriz e filiais desta empresa (mesma raiz de CNPJ). Cada CNPJ tem os seus dados fiscais; a filial pode ter endereço próprio. Filial gravada não é excluída: é desativada."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />
             <Button Grid.Column="1" Text="Adicionar filial" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarEstabelecimentoCommand}" />
@@ -52,10 +60,16 @@
                             <FlexLayout Wrap="Wrap" AlignItems="Center" JustifyContent="SpaceBetween">
                                 <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="16" />
                                 <HorizontalStackLayout Spacing="16" IsVisible="{Binding FilialDaPJ}">
-                                    <Button Text="Tornar principal" Style="{StaticResource BotaoLink}" Command="{Binding TornarPrincipalCommand}" />
-                                    <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                                    <Button Text="Tornar principal" Style="{StaticResource BotaoLink}" Command="{Binding TornarPrincipalCommand}"
+                                            IsVisible="{Binding PodeTornarPrincipal}" />
+                                    <Button Text="{Binding TextoRemover}" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                            IsVisible="{Binding PodeDesativar}" />
+                                    <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
+                                            IsVisible="{Binding PodeReativar}" />
                                 </HorizontalStackLayout>
                             </FlexLayout>
+                            <Label Text="{Binding TextoInativo}" Style="{StaticResource Secundario}" TextColor="{StaticResource Aviso}"
+                                   LineBreakMode="WordWrap" IsVisible="{Binding PodeReativar}" />
                             <Label Text="{Binding TextoReceita}" Style="{StaticResource Secundario}" />
 
                             <FlexLayout Wrap="Wrap">

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Lone.Domain.Auditoria;
 using Lone.Domain.Enums;
+using Lone.Domain.Pessoas;
 
 namespace Lone.Domain.Entidades;
 
@@ -115,6 +116,13 @@ public class Pessoa : AgregadoRaiz
     [DisplayName("Grupo econômico")]
     public Guid? GrupoEconomicoId { get; set; }
 
+    /// <summary>
+    /// Grupo empresarial (opcional) de uma pessoa JURÍDICA: agrupa empresas independentes. Pessoa física nunca entra
+    /// direto (participa pelos relacionamentos com as empresas); o banco garante com CHECK. Não é o grupo econômico acima.
+    /// </summary>
+    [DisplayName("Grupo empresarial")]
+    public Guid? GrupoEmpresarialId { get; set; }
+
     /// <summary>Quando um cadastro duplicado é arquivado, aponta para o que ficou valendo.</summary>
     [DisplayName("Mesclado em")]
     public Guid? MescladaEmId { get; set; }
@@ -175,10 +183,9 @@ public class Pessoa : AgregadoRaiz
     /// <summary>Vínculos em que esta pessoa é a origem (ex.: "Sócio de" outra pessoa).</summary>
     public List<PessoaRelacionamento> Relacionamentos { get; set; } = new();
 
+    /// <summary>Nome que identifica a pessoa na tela (regra única em <see cref="NomePessoa"/>).</summary>
     public string NomeParaExibir() =>
-        !string.IsNullOrWhiteSpace(NomeExibicao) ? NomeExibicao
-        : !string.IsNullOrWhiteSpace(NomeSocial) ? NomeSocial
-        : Nome;
+        NomePessoa.ParaExibir(Natureza, Nome, NomeExibicao, NomeSocial, EstabelecimentoPrincipal()?.NomeFantasia);
 
     public const int TamanhoMaximoMotivo = 200;
 

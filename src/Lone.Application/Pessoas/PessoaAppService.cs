@@ -9,6 +9,8 @@ using Lone.Application.Documentos;
 using Lone.Application.Colaboradores;
 using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
+using Lone.Application.GruposEmpresariais;
+using Lone.Application.Relacionamentos;
 using Lone.Application.Situacoes;
 using Lone.Application.Municipios;
 using Lone.Application.Seguranca;
@@ -29,6 +31,8 @@ using Lone.Domain.Documentos;
 using Lone.Domain.Colaboradores;
 using Lone.Domain.Comercial;
 using Lone.Domain.Fiscal;
+using Lone.Domain.GruposEmpresariais;
+using Lone.Domain.Pessoas;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -63,6 +67,8 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ISituacaoAppService _situacoes;
     private readonly TimeProvider _relogio;
     private readonly IFinalidadeEnderecoRepositorio _finalidades;
+    private readonly IGrupoEmpresarialRepositorio _gruposEmpresariais;
+    private readonly IPessoaRelacionamentoRepositorio _relacionamentos;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
@@ -71,9 +77,12 @@ public sealed class PessoaAppService : IPessoaAppService
                             ITipoDocumentoRepositorio tiposDocumento, IAnexoRepositorio anexos,
                             IMotivoDaOperacao motivo, ReferenciasColaborador colaborador,
                             ReferenciasComercial comercial, ICnaeRepositorio cnaes,
-                            ISituacaoAppService situacoes, TimeProvider relogio, IFinalidadeEnderecoRepositorio finalidades)
+                            ISituacaoAppService situacoes, TimeProvider relogio, IFinalidadeEnderecoRepositorio finalidades,
+                            IGrupoEmpresarialRepositorio gruposEmpresariais, IPessoaRelacionamentoRepositorio relacionamentos)
     {
         _finalidades = finalidades;
+        _gruposEmpresariais = gruposEmpresariais;
+        _relacionamentos = relacionamentos;
         _repositorio = repositorio;
         _auditoria = auditoria;
         _autorizacao = autorizacao;
@@ -138,6 +147,8 @@ public sealed class PessoaAppService : IPessoaAppService
         }
 
         await _comercial.PreencherNomesAsync(dto.Carteira, ct);
+        if (pessoa.GrupoEmpresarialId is { } grupoId)
+            dto.GrupoEmpresarialNome = (await _gruposEmpresariais.ObterAsync(grupoId, ct))?.Nome;
         dto.Relacionamento = await _situacoes.ObterRelacionamentoAsync(pessoa.Id, ct);
 
         // Fiscal: histórico por período e a descrição do CNAE principal (tabela do IBGE, se já carregada).
@@ -334,6 +345,21 @@ public sealed class PessoaAppService : IPessoaAppService
                 dados.ProfissaoId is { } profissaoId ? await _profissoes.ObterAsync(profissaoId, ct) : null) is { } erroProfissao)
             erros.Add(erroProfissao);
 
+        // Pessoa jurídica gravada não vira outra natureza (nada é perdido em silêncio: recusa com a lista do que se perderia).
+        if (anterior is { Natureza: NaturezaPessoa.Juridica } && dados.Natureza != NaturezaPessoa.Juridica &&
+            RegrasNaturezaPessoa.ValidarTroca(anterior, dados, await _relacionamentos.ContarSocietariosComoEmpresaAsync(dados.Id, ct)) is { } erroNatureza)
+            erros.Add(erroNatureza);
+
+        // Estabelecimentos: gravado nunca é apagado (vem desativado).
+        erros.AddRange(RegrasEstabelecimento.ValidarCompleto(dados, anterior));
+
+        // Grupo empresarial (só PJ, validado no PessoaValidador): do cadastro; um desativado só continua em quem já o tinha.
+        if (RegrasGrupoEmpresarial.ValidarEscolhido(
+                dados.GrupoEmpresarialId,
+                anterior?.GrupoEmpresarialId,
+                dados.GrupoEmpresarialId is { } grupoEscolhido ? await _gruposEmpresariais.ObterAsync(grupoEscolhido, ct) : null) is { } erroGrupo)
+            erros.Add(erroGrupo);
+
         if (dados.DocumentoPrincipal is not null && dados.Natureza != NaturezaPessoa.Estrangeiro)
         {
             var mesmoDocumento = await _repositorio.BuscarPorDocumentoAsync(dados.Natureza, dados.DocumentoPrincipal, dados.Id, ct);
@@ -350,6 +376,17 @@ public sealed class PessoaAppService : IPessoaAppService
         if (anterior is not null)
             foreach (var mudanca in RegrasPapel.Mudancas(papeisAnteriores, dados.Papeis, cadastroPapeis))
                 dados.RegistrarEvento(mudanca);
+
+        // Estrutura empresarial: estabelecimento incluído/desativado/reativado, troca do principal e entrada/saída do grupo.
+        foreach (var mudanca in RegrasEstabelecimento.Mudancas(anterior, dados))
+            dados.RegistrarEvento(mudanca);
+        if (dados.GrupoEmpresarialId != anterior?.GrupoEmpresarialId)
+        {
+            var nomesGrupos = (await _gruposEmpresariais.ListarAsync(ct)).ToDictionary(g => g.Id, g => g.Nome);
+            if (RegrasGrupoEmpresarial.Mudanca(anterior?.GrupoEmpresarialId, dados.GrupoEmpresarialId,
+                    id => nomesGrupos.GetValueOrDefault(id, "(grupo)")) is { } frase)
+                dados.RegistrarEvento(frase);
+        }
 
         // Admissão e desligamento viram frase no histórico (os demais campos aparecem campo a campo).
         if (_autorizacao.Possui(Permissoes.Pessoas.Colaborador) && dados.Vinculos.Count > 0)
@@ -510,7 +547,7 @@ public sealed class PessoaAppService : IPessoaAppService
         dados.SituacaoAlteradaEm = anterior?.SituacaoAlteradaEm;
     }
 
-    /// <summary>Criar/editar, e permissões extras quando mudam crédito ou o papel de empresa do grupo.</summary>
+    /// <summary>Criar/editar, e permissões extras quando mudam crédito, o papel de empresa do grupo ou o grupo empresarial.</summary>
     private void ExigirPermissoes(Pessoa dados, Pessoa? anterior)
     {
         _autorizacao.Exigir(anterior is null ? Permissoes.Pessoas.Criar : Permissoes.Pessoas.Editar);
@@ -520,6 +557,10 @@ public sealed class PessoaAppService : IPessoaAppService
 
         if (dados.TemPapel(TipoPapel.EmpresaDoGrupo) != (anterior?.TemPapel(TipoPapel.EmpresaDoGrupo) ?? false))
             _autorizacao.Exigir(Permissoes.Pessoas.GerenciarEmpresasDoGrupo);
+
+        // Entrar, sair ou trocar de grupo empresarial é mudança de estrutura empresarial.
+        if (dados.GrupoEmpresarialId != anterior?.GrupoEmpresarialId)
+            _autorizacao.Exigir(Permissoes.Pessoas.EstruturaEmpresarial);
     }
 
     /// <summary>Perfil comercial ou exceções (que mudam limite, desconto e prazos) também exigem "alterar crédito".</summary>

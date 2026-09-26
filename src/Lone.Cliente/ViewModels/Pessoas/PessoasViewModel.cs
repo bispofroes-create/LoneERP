@@ -250,9 +250,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NaGeral), nameof(NosPessoais), nameof(NosEstabelecimentos), nameof(NosEnderecos),
-                              nameof(NosContatos), nameof(NosDocumentos), nameof(NoCliente), nameof(NoFornecedor),
+                              nameof(NosContatos), nameof(NosDocumentos), nameof(NoComercial), nameof(NoCliente), nameof(NoFornecedor),
                               nameof(NoRelacionamento), nameof(NoHistorico), nameof(NasAdicionais), nameof(NaSituacao),
-                              nameof(NoColaborador))]
+                              nameof(NoColaborador), nameof(NosRelacionamentosPessoas))]
     private SecaoOpcao? _secaoSelecionada;
 
     public bool NaGeral => Aba == SecaoPessoa.Geral;
@@ -262,8 +262,14 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public bool NosEnderecos => Aba == SecaoPessoa.Enderecos;
     public bool NosContatos => Aba == SecaoPessoa.Contatos;
     public bool NosDocumentos => Aba == SecaoPessoa.Documentos;
-    public bool NoCliente => Aba == SecaoPessoa.Cliente;
-    public bool NoFornecedor => Aba == SecaoPessoa.Fornecedor;
+    /// <summary>Aba "Comercial": um bloco por papel comercial ativo (Cliente e/ou Fornecedor), na mesma pessoa.</summary>
+    public bool NoComercial => Aba == SecaoPessoa.Comercial;
+    public bool NoCliente => NoComercial && Formulario?.PapelCliente.Ativo == true;
+    public bool NoFornecedor => NoComercial && Formulario?.PapelFornecedor.Ativo == true;
+    public bool NosRelacionamentosPessoas => Aba == SecaoPessoa.RelacionamentosPessoas;
+
+    /// <summary>Grupo empresarial e vínculos societários (sócio, administrador) exigem a permissão de estrutura empresarial.</summary>
+    public bool PodeAlterarEstruturaEmpresarial => _sessao.Possui(Permissoes.Pessoas.EstruturaEmpresarial);
     public bool NoHistorico => Aba == SecaoPessoa.Historico;
     public bool NasAdicionais => Aba == SecaoPessoa.Adicionais;
     public bool NaSituacao => Aba == SecaoPessoa.Situacao;
@@ -329,6 +335,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.Situacoes.Acoes.Bloquear = BloquearAsync;
         newValue.Situacoes.Acoes.Liberar = LiberarBloqueioAsync;
         newValue.Situacoes.Acoes.RegistrarInteracao = RegistrarInteracaoAsync;
+        newValue.Relacionamentos.Acoes.BuscarPessoa = BuscarPessoaParaRelacionamentoAsync;
+        newValue.Relacionamentos.Acoes.Incluir = IncluirRelacionamentoAsync;
+        newValue.Relacionamentos.Acoes.Encerrar = EncerrarRelacionamentoAsync;
+        newValue.Relacionamentos.Acoes.Desativar = DesativarRelacionamentoAsync;
         newValue.AcoesAnexos.Abrir = AbrirAnexoAsync;
         newValue.AcoesAnexos.AlterarAtivo = AlterarAnexoAsync;
         newValue.PropertyChanged += Formulario_PropertyChanged;
@@ -346,6 +356,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         formulario.Situacoes.Acoes.Bloquear = null;
         formulario.Situacoes.Acoes.Liberar = null;
         formulario.Situacoes.Acoes.RegistrarInteracao = null;
+        formulario.Relacionamentos.Acoes.BuscarPessoa = null;
+        formulario.Relacionamentos.Acoes.Incluir = null;
+        formulario.Relacionamentos.Acoes.Encerrar = null;
+        formulario.Relacionamentos.Acoes.Desativar = null;
         formulario.AcoesAnexos.Abrir = null;
         formulario.AcoesAnexos.AlterarAtivo = null;
         formulario.PropertyChanged -= Formulario_PropertyChanged;
@@ -359,7 +373,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     private void Papel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PapelOpcao.Ativo)) AtualizarSecoes(manterAba: true);
+        if (e.PropertyName != nameof(PapelOpcao.Ativo)) return;
+        AtualizarSecoes(manterAba: true);
+        // Na aba "Comercial", o bloco do papel aparece ou some na hora (a aba continua a mesma).
+        OnPropertyChanged(nameof(NoCliente));
+        OnPropertyChanged(nameof(NoFornecedor));
     }
 
     /// <summary>Refaz as abas (natureza e papéis mudam quais aparecem), ficando na atual se ela ainda existir.</summary>
@@ -383,8 +401,51 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             _ = CarregarHistoricoAsync(f.Id);
         if (value?.Secao == SecaoPessoa.Colaborador && Formulario is { OpcoesColaboradorCarregadas: false } ficha)
             _ = CarregarOpcoesColaboradorAsync(ficha);
-        if (value?.Secao == SecaoPessoa.Cliente && Formulario is { OpcoesComercialCarregadas: false } fichaCliente)
-            _ = CarregarOpcoesComercialAsync(fichaCliente);
+        if (value?.Secao == SecaoPessoa.Comercial && Formulario is { OpcoesComercialCarregadas: false } fichaComercial)
+            _ = CarregarOpcoesComercialAsync(fichaComercial);
+        if (value?.Secao == SecaoPessoa.Estabelecimentos && Formulario is { EhJuridica: true, OpcoesEstruturaCarregadas: false } fichaEmpresa)
+            _ = CarregarOpcoesEstruturaAsync(fichaEmpresa);
+        if (value?.Secao == SecaoPessoa.RelacionamentosPessoas && Formulario is { Existente: true } fichaRelacoes)
+            _ = CarregarRelacionamentosAsync(fichaRelacoes);
+    }
+
+    /// <summary>Grupos empresariais e tipos de relacionamento: lidos na primeira vez que uma aba precisa, nesta ficha.</summary>
+    private async Task CarregarOpcoesEstruturaAsync(PessoaFormulario ficha)
+    {
+        try
+        {
+            var opcoes = await _pessoas.ListarOpcoesEstruturaAsync();
+            if (!ReferenceEquals(Formulario, ficha)) return;
+            ficha.DefinirGruposEmpresariais(opcoes.GruposEmpresariais); // o grupo gravado continua o mesmo
+            ficha.Relacionamentos.DefinirTipos(opcoes.TiposRelacionamento);
+        }
+        catch (SessaoExpiradaException)
+        {
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ex); // sem as opções, o grupo gravado volta intacto ao salvar
+        }
+    }
+
+    /// <summary>Relacionamentos da pessoa (os dois sentidos), lidos quando a aba abre.</summary>
+    private async Task CarregarRelacionamentosAsync(PessoaFormulario ficha)
+    {
+        try
+        {
+            if (!ficha.OpcoesEstruturaCarregadas) await CarregarOpcoesEstruturaAsync(ficha);
+            if (ficha.Relacionamentos.Carregados) return;
+            var vinculos = await _pessoas.ListarRelacionamentosAsync(ficha.Id);
+            if (!ReferenceEquals(Formulario, ficha)) return;
+            ficha.Relacionamentos.Carregar(vinculos);
+        }
+        catch (SessaoExpiradaException)
+        {
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ex);
+        }
     }
 
     /// <summary>Id do último registro mostrado: a próxima página começa antes dele.</summary>
@@ -573,7 +634,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     [RelayCommand]
     private void AdicionarCarteira() => Formulario?.NovaCarteira();
 
-    /// <summary>Perfis, condições, tipos de carteira e vendedores: lidos na primeira vez que a aba "Cliente" abre nesta ficha.</summary>
+    /// <summary>Perfis, condições, tipos de carteira e vendedores: lidos na primeira vez que a aba "Comercial" abre nesta ficha.</summary>
     private async Task CarregarOpcoesComercialAsync(PessoaFormulario ficha)
     {
         try
@@ -737,6 +798,87 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         s.IncluirInteracao(interacao!);
         Mostrar("Interação registrada.", TipoMensagem.Sucesso);
+    }
+
+    // ---- Relacionamentos com outros cadastros (gravados na hora, à parte do "Salvar" da ficha) ----
+
+    private async Task BuscarPessoaParaRelacionamentoAsync()
+    {
+        if (Formulario is not { } ficha) return;
+        var r = ficha.Relacionamentos;
+        if (string.IsNullOrWhiteSpace(r.BuscaPessoa) || r.BuscaPessoa.Trim().Length < 2)
+        {
+            Mostrar("Digite ao menos 2 letras (nome, código, CPF ou CNPJ) para buscar.", TipoMensagem.Aviso);
+            return;
+        }
+
+        List<PessoaResumo>? achadas = null;
+        if (!await ExecutarAsync(async () => achadas = await _pessoas.ListarAsync(new FiltroPessoas { Texto = r.BuscaPessoa.Trim(), Limite = 20 })))
+            return;
+        r.DefinirResultados(achadas!.Where(p => p.Id != ficha.Id)); // a própria pessoa não se relaciona com ela mesma
+        if (r.ResultadosBusca.Count == 0) Mostrar("Nenhum cadastro encontrado.", TipoMensagem.Informacao);
+    }
+
+    private async Task IncluirRelacionamentoAsync()
+    {
+        if (Formulario is not { Existente: true } ficha)
+        {
+            Mostrar("Salve o cadastro antes de registrar relacionamentos.", TipoMensagem.Aviso);
+            return;
+        }
+        var r = ficha.Relacionamentos;
+        if (r.ValidarNovo() is { Count: > 0 } erros)
+        {
+            Mostrar(string.Join(Environment.NewLine, erros), TipoMensagem.Aviso);
+            return;
+        }
+        if (r.NovoTipo.Valor is { Societario: true } && !PodeAlterarEstruturaEmpresarial)
+        {
+            Mostrar("Vínculos societários (sócio, administrador) exigem a permissão \"Alterar estrutura empresarial\".", TipoMensagem.Aviso);
+            return;
+        }
+
+        PessoaRelacionamentoDto? incluido = null;
+        if (!await ExecutarAsync(async () => incluido = await _pessoas.IncluirRelacionamentoAsync(ficha.Id, r.ParaRequisicao())))
+            return;
+        r.Incluido(incluido!);
+        Mostrar($"Relacionamento registrado: {incluido!.Tipo} {incluido.OutraPessoaNome}.", TipoMensagem.Sucesso);
+    }
+
+    private async Task EncerrarRelacionamentoAsync(RelacionamentoItem item)
+    {
+        if (Formulario is not { } ficha) return;
+        var texto = await PerguntarAsync("Encerrar relacionamento",
+            $"{item.Titulo}: data de fim (dd/mm/aaaa; vazio = hoje). O relacionamento continua gravado, com o período.",
+            "Encerrar", "Cancelar", "dd/mm/aaaa", 10);
+        if (texto is null) return; // cancelou
+        if (!TextoTela.TentarData(texto, out var fim))
+        {
+            Mostrar("Data inválida (use dd/mm/aaaa).", TipoMensagem.Aviso);
+            return;
+        }
+
+        PessoaRelacionamentoDto? encerrado = null;
+        if (!await ExecutarAsync(async () => encerrado = await _pessoas.EncerrarRelacionamentoAsync(ficha.Id, item.Id,
+                new EncerrarRelacionamentoRequisicao { FimEm = fim })))
+            return;
+        ficha.Relacionamentos.Atualizado(item, encerrado!);
+        Mostrar("Relacionamento encerrado (continua no histórico; aparece em \"Mostrar encerrados\").", TipoMensagem.Sucesso);
+    }
+
+    private async Task DesativarRelacionamentoAsync(RelacionamentoItem item)
+    {
+        if (Formulario is not { } ficha) return;
+        var motivo = await PerguntarAsync("Desativar relacionamento",
+            $"{item.Titulo}: use só para o que foi lançado por engano (um vínculo que acabou deve ser encerrado). Motivo (opcional):",
+            "Desativar", "Cancelar", "Ex.: pessoa errada", 250);
+        if (motivo is null) return;
+
+        PessoaRelacionamentoDto? desativado = null;
+        if (!await ExecutarAsync(async () => desativado = await _pessoas.DesativarRelacionamentoAsync(ficha.Id, item.Id, TextoTela.Nulo(motivo))))
+            return;
+        ficha.Relacionamentos.Atualizado(item, desativado!);
+        Mostrar("Relacionamento desativado (continua no histórico).", TipoMensagem.Sucesso);
     }
 
     // ---- Anexos dos documentos (gravados na hora, à parte do "Salvar" da ficha) ----

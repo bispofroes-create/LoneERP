@@ -66,6 +66,7 @@ public class LoneDbContext : DbContext
     public DbSet<Municipio> Municipios => Set<Municipio>();
     public DbSet<PendenciaMunicipio> PendenciasMunicipio => Set<PendenciaMunicipio>();
     public DbSet<GrupoEconomico> GruposEconomicos => Set<GrupoEconomico>();
+    public DbSet<GrupoEmpresarial> GruposEmpresariais => Set<GrupoEmpresarial>();
     public DbSet<TipoRelacionamento> TiposRelacionamento => Set<TipoRelacionamento>();
     public DbSet<PessoaRelacionamento> PessoaRelacionamentos => Set<PessoaRelacionamento>();
     public DbSet<RegistroAuditoria> Auditoria => Set<RegistroAuditoria>();

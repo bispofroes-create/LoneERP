@@ -84,6 +84,17 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
                 .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, Texto = t.Nome + " " + d.Numero })
                 .ToDictionaryAsync(x => x.Id, x => x.Texto, ct));
 
+        // Estrutura empresarial: grupo da empresa, relacionamentos (tipo e a outra pessoa) e condição do fornecedor.
+        await TraduzirIdsAsync(registros, nameof(Pessoa), nameof(Pessoa.GrupoEmpresarialId), "(grupo empresarial)",
+            ids => db.GruposEmpresariais.AsNoTracking().Where(g => ids.Contains(g.Id)).ToDictionaryAsync(g => g.Id, g => g.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaRelacionamento), nameof(PessoaRelacionamento.TipoRelacionamentoId), "(tipo de relacionamento)",
+            ids => db.TiposRelacionamento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(PessoaRelacionamento), nameof(PessoaRelacionamento.PessoaDestinoId), "(cadastro)",
+            ids => db.Pessoas.AsNoTracking().Where(p => ids.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Nome + " (código " + p.Codigo + ")", ct));
+        await TraduzirIdsAsync(registros, nameof(ContaFornecedor), nameof(ContaFornecedor.CondicaoPagamentoId), "(condição de pagamento)",
+            ids => db.CondicoesPagamento.AsNoTracking().Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Nome, ct));
+
         // Gravado em UTC; marcado como tal para o aplicativo converter para o fuso do aparelho.
         foreach (var r in registros)
             r.DataHora = DateTime.SpecifyKind(r.DataHora, DateTimeKind.Utc);

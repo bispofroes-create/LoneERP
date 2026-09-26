@@ -63,15 +63,25 @@ public class PessoasViewModelTests
     [Fact]
     public async Task Abas_acompanham_natureza_e_papeis()
     {
-        var (tela, _) = await AbrirTelaAsync();
+        var (tela, ambiente) = await AbrirTelaAsync();
         await tela.NovoCommand.ExecuteAsync(null);
         var f = tela.Formulario!;
 
-        Assert.Contains(tela.Secoes, s => s.Secao == SecaoPessoa.Cliente);
+        Assert.Contains(tela.Secoes, s => s.Secao == SecaoPessoa.Comercial); // papel Cliente: aba Comercial
         Assert.DoesNotContain(tela.Secoes, s => s.Secao == SecaoPessoa.Historico); // pessoa nova
+        Assert.DoesNotContain(tela.Secoes, s => s.Secao == SecaoPessoa.RelacionamentosPessoas); // só depois de gravar
 
+        // Cliente e Fornecedor: a mesma aba "Comercial", com os dois blocos (uma pessoa só).
         f.PapelFornecedor.Ativo = true;
-        Assert.Contains(tela.Secoes, s => s.Secao == SecaoPessoa.Fornecedor);
+        Assert.Single(tela.Secoes, s => s.Secao == SecaoPessoa.Comercial);
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new Lone.Contracts.Comercial.ComercialOpcoesDto()); // opções lidas quando a aba abre
+        tela.SecaoSelecionada = tela.Secoes.First(s => s.Secao == SecaoPessoa.Comercial);
+        Assert.True(tela.NoCliente);
+        Assert.True(tela.NoFornecedor);
+        f.PapelCliente.Ativo = false;
+        Assert.False(tela.NoCliente);
+        Assert.True(tela.NoFornecedor);
+        f.PapelCliente.Ativo = true;
 
         tela.SecaoSelecionada = tela.Secoes.First(s => s.Secao == SecaoPessoa.Documentos);
         f.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);

@@ -27,6 +27,9 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
 
     public Guid Id { get; }
 
+    /// <summary>Já está gravado: "remover" desativa (fica no histórico), nunca apaga.</summary>
+    public bool Gravado { get; private init; }
+
     /// <summary>Os endereços da própria pessoa, para escolher o endereço fiscal da filial.</summary>
     public ObservableCollection<EnderecoFormulario> EnderecosDisponiveis { get; }
 
@@ -36,7 +39,12 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
 
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo))] private string _cnpj = string.Empty;
     [ObservableProperty] private string _nomeFantasia = string.Empty;
-    [ObservableProperty] private bool _ativo = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Inativo), nameof(PodeTornarPrincipal), nameof(PodeDesativar), nameof(PodeReativar))]
+    private bool _ativo = true;
+
+    public bool Inativo => !Ativo;
 
     [ObservableProperty][NotifyPropertyChangedFor(nameof(TextoReceita))] private string _situacaoReceita = string.Empty;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(TextoReceita))] private DateTime? _consultadoReceitaEm;
@@ -66,16 +74,32 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     private EnderecoFormulario? _enderecoFiscal;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Titulo), nameof(FilialDaPJ), nameof(MostrarNaFicha))]
+    [NotifyPropertyChangedFor(nameof(Titulo), nameof(FilialDaPJ), nameof(MostrarNaFicha), nameof(PodeTornarPrincipal),
+                              nameof(PodeDesativar), nameof(PodeReativar))]
     private bool _ehPrincipal;
 
     /// <summary>Definido pela ficha. Só a pessoa jurídica tem CNPJ, nome fantasia e filiais.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(MostrarNaFicha))]
+    [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(MostrarNaFicha), nameof(PodeTornarPrincipal),
+                              nameof(PodeDesativar), nameof(PodeReativar))]
     private bool _daPessoaJuridica;
 
     /// <summary>Filial de pessoa jurídica: pode virar principal, ser removida e ter endereço próprio.</summary>
     public bool FilialDaPJ => DaPessoaJuridica && !EhPrincipal;
+
+    /// <summary>Só uma filial ativa vira o estabelecimento principal.</summary>
+    public bool PodeTornarPrincipal => FilialDaPJ && Ativo;
+
+    /// <summary>
+    /// Filial gravada: "Desativar" (continua gravada, com histórico, documentos e referências fiscais) e "Reativar".
+    /// Filial nova, ainda não gravada: "Remover" tira da lista.
+    /// </summary>
+    public bool PodeDesativar => FilialDaPJ && Ativo;
+    public bool PodeReativar => FilialDaPJ && !Ativo;
+    public string TextoRemover => Gravado ? "Desativar filial" : "Remover";
+
+    /// <summary>Aviso do cartão da filial desativada.</summary>
+    public string TextoInativo => "Inativa: não opera mais, mas continua gravada (histórico, documentos e referências fiscais). Pode ser reativada.";
 
     /// <summary>Na pessoa física ou estrangeiro aparece só o principal (os dados fiscais).</summary>
     public bool MostrarNaFicha => DaPessoaJuridica || EhPrincipal;
@@ -105,12 +129,17 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     [RelayCommand]
     private void TornarPrincipal() => AoTornarPrincipal?.Invoke();
 
+    /// <summary>Volta a filial desativada para operação (gravado ao salvar a ficha).</summary>
+    [RelayCommand]
+    private void Reativar() => Ativo = true;
+
     [RelayCommand]
     private void UsarEnderecoPrincipal() => EnderecoFiscal = null;
 
     public static EstabelecimentoFormulario De(EstabelecimentoDto e, ObservableCollection<EnderecoFormulario> enderecos) =>
         new(e.Id, enderecos)
         {
+            Gravado = true,
             Cnpj = Documento.Formatar(e.Cnpj),
             NomeFantasia = e.NomeFantasia ?? string.Empty,
             Ativo = e.Ativo,

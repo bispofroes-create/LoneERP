@@ -41,20 +41,42 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             consulta = AplicarBusca(consulta, filtro.Texto.Trim(), db);
 
         return await Resumir(consulta
-            .OrderBy(p => p.NomeExibicao ?? p.NomeSocial ?? p.Nome)
-            .Take(filtro.Limite), db)
+            .OrderBy(NomeParaExibirNoBanco)
+            .Take(filtro.Limite), db, nomeComFantasia: true)
             .ToListAsync(ct);
     }
 
+    /// <summary>
+    /// A mesma regra de <see cref="Lone.Domain.Pessoas.NomePessoa.ParaExibir"/>, traduzida para o banco (lista de Pessoas):
+    /// nome de exibição → (PJ) nome fantasia do estabelecimento principal → nome social → nome. O nome social só existe na
+    /// pessoa física (o normalizador limpa nas outras naturezas). Mudou lá, mude aqui.
+    /// </summary>
+    internal static readonly System.Linq.Expressions.Expression<Func<Pessoa, string>> NomeParaExibirNoBanco = p =>
+        p.NomeExibicao
+        ?? (p.Natureza == NaturezaPessoa.Juridica
+            ? p.Estabelecimentos.Where(e => e.Principal).Select(e => e.NomeFantasia).FirstOrDefault()
+            : null)
+        ?? p.NomeSocial
+        ?? p.Nome;
+
 
     /// <summary>Linha da lista (compartilhada com a consulta avançada: uma só definição do resumo).</summary>
-    internal static IQueryable<PessoaResumo> Resumir(IQueryable<Pessoa> consulta, LoneDbContext db) =>
+    /// <param name="nomeComFantasia">
+    /// Verdadeiro na lista de Pessoas: o nome segue <see cref="NomeParaExibirNoBanco"/> (com o nome fantasia da PJ). A
+    /// consulta avançada continua com o nome de antes (exibição → social → nome) nesta etapa.
+    /// </param>
+    internal static IQueryable<PessoaResumo> Resumir(IQueryable<Pessoa> consulta, LoneDbContext db, bool nomeComFantasia = false) =>
         ComReferencia(consulta, db)
             .Select(r => new PessoaResumo
             {
                 Id = r.P.Id,
                 Codigo = r.P.Codigo,
-                Nome = r.P.NomeExibicao ?? r.P.NomeSocial ?? r.P.Nome,
+                Nome = r.P.NomeExibicao
+                       ?? (nomeComFantasia && r.P.Natureza == NaturezaPessoa.Juridica
+                           ? r.P.Estabelecimentos.Where(e => e.Principal).Select(e => e.NomeFantasia).FirstOrDefault()
+                           : null)
+                       ?? r.P.NomeSocial
+                       ?? r.P.Nome,
                 Natureza = r.P.Natureza,
                 DocumentoPrincipal = r.P.DocumentoPrincipal,
                 CnpjPrincipal = r.P.Estabelecimentos.Where(e => e.Principal).Select(e => e.Cnpj).FirstOrDefault(),
@@ -402,7 +424,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // Endereço × finalidade: casa pelo par (endereço, finalidade), nunca apaga (retirada = inativa, histórico).
         ReaproveitarIds(atual.FinalidadesEnderecos, dados.FinalidadesEnderecos, u => (u.PessoaEnderecoId, u.FinalidadeId));
         SincronizarFilhos(db, atual.Id, atual.FinalidadesEnderecos, dados.FinalidadesEnderecos, apagarAusentes: false);
-        SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos);
+        SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Contatos, dados.Contatos);

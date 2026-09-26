@@ -59,6 +59,27 @@ public sealed class PessoasApi
     public Task<InteracaoDto> RegistrarInteracaoAsync(Guid id, RegistrarInteracaoRequisicao requisicao, CancellationToken ct = default) =>
         _api.PostAsync<InteracaoDto>(Rotas.Pessoas.Interacoes(id), requisicao, ct: ct);
 
+    // ---- Estrutura empresarial: relacionamentos entre pessoas (gravados na hora, fora do "Salvar" da ficha) ----
+
+    /// <summary>Tipos de relacionamento e grupos empresariais (lidos quando a aba precisa).</summary>
+    public Task<EstruturaEmpresarialOpcoesDto> ListarOpcoesEstruturaAsync(CancellationToken ct = default) =>
+        _api.GetAsync<EstruturaEmpresarialOpcoesDto>(Rotas.Pessoas.OpcoesEstrutura, ct);
+
+    /// <summary>Os vínculos da pessoa nos dois sentidos (ex.: "Sócio de ABC" e "Tem como sócio João").</summary>
+    public Task<List<PessoaRelacionamentoDto>> ListarRelacionamentosAsync(Guid id, CancellationToken ct = default) =>
+        _api.GetAsync<List<PessoaRelacionamentoDto>>(Rotas.Pessoas.Relacionamentos(id), ct);
+
+    public Task<PessoaRelacionamentoDto> IncluirRelacionamentoAsync(Guid id, IncluirRelacionamentoRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<PessoaRelacionamentoDto>(Rotas.Pessoas.Relacionamentos(id), requisicao, ct: ct);
+
+    public Task<PessoaRelacionamentoDto> EncerrarRelacionamentoAsync(Guid id, Guid relacionamentoId, EncerrarRelacionamentoRequisicao requisicao,
+                                                                     CancellationToken ct = default) =>
+        _api.PostAsync<PessoaRelacionamentoDto>(Rotas.Pessoas.EncerrarRelacionamento(id, relacionamentoId), requisicao, ct: ct);
+
+    public Task<PessoaRelacionamentoDto> DesativarRelacionamentoAsync(Guid id, Guid relacionamentoId, string? motivo, CancellationToken ct = default) =>
+        _api.PostAsync<PessoaRelacionamentoDto>(Rotas.Pessoas.DesativarRelacionamento(id, relacionamentoId),
+            new DesativarRelacionamentoRequisicao { Motivo = motivo }, ct: ct);
+
     /// <summary>Monta "?texto=...&amp;papel=Cliente&amp;incluirInativos=true" só com o que foi informado.</summary>
     internal static string Consulta(FiltroPessoas filtro)
     {

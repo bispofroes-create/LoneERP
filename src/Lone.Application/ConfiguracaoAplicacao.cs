@@ -1,5 +1,7 @@
 using Lone.Application.CamposPersonalizados;
 using Lone.Application.Etiquetas;
+using Lone.Application.GruposEmpresariais;
+using Lone.Application.Relacionamentos;
 using Lone.Application.Profissoes;
 using Lone.Application.Papeis;
 using Lone.Application.Contatos;
@@ -65,6 +67,8 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ServicoCnaes>();
         services.AddScoped<ICnaeAppService, CnaeAppService>();
         services.AddScoped<ISituacaoAppService, SituacaoAppService>();
+        services.AddScoped<IGrupoEmpresarialAppService, GrupoEmpresarialAppService>();
+        services.AddScoped<IPessoaRelacionamentoAppService, PessoaRelacionamentoAppService>();
         services.AddScoped<IEquipeAppService, EquipeAppService>();
         services.AddScoped<IIndicadorAppService, IndicadorAppService>();
         services.AddScoped<IMetaAppService, MetaAppService>();

@@ -5,14 +5,20 @@
              xmlns:c="clr-namespace:Lone.App.Controles"
              x:Class="Lone.App.Views.Pessoas.SecaoFornecedorView"
              x:DataType="pes:PessoasViewModel">
-    <VerticalStackLayout Spacing="8">
+    <!-- Bloco próprio, abaixo do Cliente: a mesma pessoa pode ser cliente e fornecedor (um cadastro só). -->
+    <VerticalStackLayout Spacing="8" Margin="0,16,0,0">
+        <Label Text="Fornecedor" Style="{StaticResource Subtitulo}" />
         <Label Text="Condições de compra que valem para todas as empresas do grupo." Style="{StaticResource Secundario}" />
         <FlexLayout Wrap="Wrap">
-            <c:Campo Rotulo="Condição de pagamento" Texto="{Binding Formulario.ContaFornecedor.CondicaoPagamento}" Dica="Ex.: 28 dias" />
+            <!-- Condição do cadastro de condições de pagamento (o texto antigo fica guardado, só leitura). -->
+            <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Formulario.ContaFornecedor.Condicoes}"
+                            Selecionado="{Binding Formulario.ContaFornecedor.Condicao}" IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
             <c:Campo Rotulo="Prazo médio de pagamento (dias)" Texto="{Binding Formulario.ContaFornecedor.PrazoMedioDias}" Teclado="Numeric" />
             <c:Campo Rotulo="Prazo de entrega (dias)" Texto="{Binding Formulario.ContaFornecedor.LeadTimeDias}" Teclado="Numeric" />
-            <c:Campo Rotulo="Avaliação (0 a 5)" Texto="{Binding Formulario.ContaFornecedor.Avaliacao}" Teclado="Numeric" />
+            <c:Campo Rotulo="Avaliação (1 a 5)" Texto="{Binding Formulario.ContaFornecedor.Avaliacao}" Teclado="Numeric" Dica="Vazio = sem avaliação" />
             <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaFornecedor.Observacoes}" FlexLayout.Basis="100%" />
         </FlexLayout>
+        <Label Text="{Binding Formulario.ContaFornecedor.TextoCondicaoAnterior}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+               IsVisible="{Binding Formulario.ContaFornecedor.TemCondicaoAnterior}" />
     </VerticalStackLayout>
 </ContentView>

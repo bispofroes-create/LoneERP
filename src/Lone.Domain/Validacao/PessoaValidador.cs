@@ -3,6 +3,7 @@ using Lone.Domain.Enderecos;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
+using Lone.Domain.GruposEmpresariais;
 using Lone.Domain.ObjetosDeValor;
 
 namespace Lone.Domain.Validacao;
@@ -55,6 +56,8 @@ public static class PessoaValidador
 
         if (p.DataNascimento is { } nascimento && nascimento > DateOnly.FromDateTime(DateTime.Today))
             erros.Add("A data de nascimento não pode ser no futuro.");
+        if (RegrasGrupoEmpresarial.ValidarNatureza(p) is { } erroGrupo)
+            erros.Add(erroGrupo);
     }
 
     /// <summary>Dados pessoais, da empresa e de relacionamento (tamanhos batem com as colunas do banco).</summary>
@@ -138,19 +141,22 @@ public static class PessoaValidador
         {
             var e = p.Estabelecimentos[i];
             var rotulo = p.Natureza == NaturezaPessoa.Juridica ? $"Estabelecimento {i + 1}" : "Fiscal";
+            // Integridade e formato valem para todo estabelecimento, ativo ou não (inativo continua existindo).
             ValidarFiscal(e, rotulo, erros);
 
-            // O endereço fiscal precisa ser um dos endereços (ativos) desta mesma pessoa.
+            // O endereço fiscal precisa ser um dos endereços desta mesma pessoa.
             if (e.EnderecoFiscalId is Guid enderecoId && !idsEnderecos.Contains(enderecoId))
                 erros.Add($"{rotulo}: o endereço fiscal escolhido não está entre os endereços do cadastro.");
-            else if (e.EnderecoFiscalId is Guid fiscalId && p.Enderecos.First(x => x.Id == fiscalId) is { Ativo: false })
+            // Operacional (só estabelecimento ativo): um desativado guarda o endereço fiscal da época, mesmo inativo.
+            else if (e.Ativo && e.EnderecoFiscalId is Guid fiscalId && p.Enderecos.First(x => x.Id == fiscalId) is { Ativo: false })
                 erros.Add($"{rotulo}: o endereço fiscal foi removido (inativo). Escolha outro endereço ou use o principal.");
         }
     }
 
     private static void ValidarFiscal(Estabelecimento e, string rotulo, List<string> erros)
     {
-        if (e.IndicadorIE == IndicadorIE.Contribuinte && e.InscricaoEstadual is null)
+        // Operacional (só estabelecimento ativo): um desativado não emite nota; o indicador e a IE ficam como estavam.
+        if (e.Ativo && e.IndicadorIE == IndicadorIE.Contribuinte && e.InscricaoEstadual is null)
             erros.Add($"{rotulo}: contribuinte do ICMS precisa ter inscrição estadual.");
         if (e.InscricaoEstadual is { Length: > 14 })
             erros.Add($"{rotulo}: inscrição estadual com mais de 14 caracteres.");

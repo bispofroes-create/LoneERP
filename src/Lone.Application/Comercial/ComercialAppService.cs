@@ -82,7 +82,8 @@ public sealed class ReferenciasComercial
     public async Task<List<string>> ValidarAsync(Pessoa dados, Pessoa? anterior, IReadOnlyDictionary<Guid, TipoCarteira> tipos, CancellationToken ct)
     {
         var condicoes = dados.ContasCliente.Select(c => c.CondicaoPagamentoId)
-            .Concat(dados.ExcecoesComerciais.Select(e => e.CondicaoPagamentoId)).OfType<Guid>().Distinct().ToList();
+            .Concat(dados.ExcecoesComerciais.Select(e => e.CondicaoPagamentoId))
+            .Concat(dados.ContasFornecedor.Select(f => f.CondicaoPagamentoId)).OfType<Guid>().Distinct().ToList();
         var referencias = new ComercialParaConferir(
             await _perfis.ObterVariosAsync(dados.ContasCliente.Select(c => c.PerfilComercialId).OfType<Guid>().Distinct().ToList(), ct),
             await _condicoes.ObterVariosAsync(condicoes, ct),

@@ -17,6 +17,7 @@ using Lone.Contracts.Municipios;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
+using Lone.Domain.Pessoas;
 using DocumentoFiscal = Lone.Domain.Validacao.Documento;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
@@ -65,7 +66,8 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EhFisica), nameof(EhJuridica), nameof(EhEstrangeiro), nameof(NaoEhJuridica),
-                              nameof(RotuloNome), nameof(RotuloDocumento), nameof(MascaraDocumento), nameof(MostrarCorRaca))]
+                              nameof(RotuloNome), nameof(RotuloDocumento), nameof(MascaraDocumento), nameof(MostrarCorRaca),
+                              nameof(AjudaNomeExibicao))]
     private Opcao<NaturezaPessoa> _natureza = OpcoesPessoa.Naturezas[0];
 
     /// <summary>Ativo ou em análise (o formulário só alterna entre os dois).</summary>
@@ -87,13 +89,13 @@ public sealed partial class PessoaFormulario : ObservableObject
         SituacaoAlteradaEm is { } quando ? $"Desde {quando.ToLocalTime().ToString("dd/MM/yyyy HH:mm", TextoTela.Brasil)}." : null,
         SituacaoMotivo is { Length: > 0 } motivo ? $"Motivo: {motivo}" : null
     }.OfType<string>());
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo))] private string _nome = string.Empty;
-    [ObservableProperty] private string _nomeSocial = string.Empty;
-    [ObservableProperty] private string _nomeExibicao = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo), nameof(NomeCompletoCabecalho))] private string _nome = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo), nameof(NomeCompletoCabecalho))] private string _nomeSocial = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo), nameof(NomeCompletoCabecalho))] private string _nomeExibicao = string.Empty;
     [ObservableProperty] private string _apelido = string.Empty;
 
     /// <summary>CPF (PF) ou identificação do estrangeiro. Na PJ, o CNPJ fica nos estabelecimentos.</summary>
-    [ObservableProperty] private string _documento = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(DocumentoCabecalho))] private string _documento = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Idade))]
@@ -176,6 +178,9 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>Bloqueios (com bloquear/liberar) e relacionamento (interações): ações próprias, gravadas na hora.</summary>
     public SituacoesFormulario Situacoes { get; } = new();
 
+    /// <summary>Relacionamentos com outros cadastros (sócio de, administrador de...): ações próprias, gravadas na hora.</summary>
+    public RelacionamentosFormulario Relacionamentos { get; } = new();
+
     /// <summary>Bloqueios ativos (resumo no topo da ficha).</summary>
     public string TextoBloqueios { get; private set; } = string.Empty;
     public bool TemBloqueios => TextoBloqueios.Length > 0;
@@ -200,6 +205,17 @@ public sealed partial class PessoaFormulario : ObservableObject
     public bool EhEstrangeiro => Natureza.Valor == NaturezaPessoa.Estrangeiro;
 
     public string RotuloNome => EhJuridica ? "Razão social" : "Nome completo";
+
+    /// <summary>
+    /// Ajuda fixa sob o "Nome de exibição": diz o que entra no lugar dele quando fica vazio, na mesma ordem de
+    /// <see cref="NomePessoa.ParaExibir"/> (o nome social só existe na pessoa física).
+    /// </summary>
+    public string AjudaNomeExibicao => Natureza.Valor switch
+    {
+        NaturezaPessoa.Juridica => "Nome usado pelo sistema nas telas e listas. Se não informado, será usado o Nome Fantasia e, na ausência dele, a Razão Social.",
+        NaturezaPessoa.Fisica => "Nome usado pelo sistema nas telas e listas. Se não informado, será usado o Nome social e, na ausência dele, o Nome completo.",
+        _ => "Nome usado pelo sistema nas telas e listas. Se não informado, será usado o Nome completo."
+    };
     public string RotuloDocumento => EhFisica ? "CPF" : "Identificação estrangeira";
 
     /// <summary>CPF com máscara; a identificação de estrangeiro tem formatos variados e fica livre.</summary>
@@ -213,12 +229,116 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// se digita "13/05/19" não aparece a idade de quem nasceu em 2019. Data apagada ou inválida = idade vazia na hora.
     /// </summary>
     public string Idade => global::Lone.Domain.Comum.Idade.Texto(TextoTela.DataCompleta(DataNascimento), Hoje);
-    public string Titulo => string.IsNullOrWhiteSpace(Nome) ? "Nova pessoa" : Nome;
+    /// <summary>
+    /// Nome que identifica a pessoa (regra única <see cref="NomePessoa.ParaExibir"/>): nome de exibição → (PJ) nome
+    /// fantasia do estabelecimento principal → nome social → nome civil / razão social. Só apresentação.
+    /// </summary>
+    public string Titulo
+    {
+        get
+        {
+            var nome = NomePessoa.ParaExibir(Natureza.Valor, Nome, NomeExibicao, NomeSocial,
+                Estabelecimentos.Count > 0 ? Principal.NomeFantasia : null);
+            return string.IsNullOrWhiteSpace(nome) ? "Nova pessoa" : nome;
+        }
+    }
+
+    // ---- Cabeçalho da ficha (só leitura: tudo vem dos campos da própria ficha) ----
+
+    /// <summary>Nome civil / razão social, quando diferente do nome do título (vazio = não repete).</summary>
+    public string NomeCompletoCabecalho =>
+        string.IsNullOrWhiteSpace(Nome) || string.Equals(Nome.Trim(), Titulo, StringComparison.Ordinal) ? string.Empty
+        : EhJuridica ? "Razão social: " + Nome.Trim()
+        : Nome.Trim();
+
+    /// <summary>"Pessoa jurídica · Cliente · Fornecedor".</summary>
+    public string TipoEPapeisCabecalho => string.Join(" · ",
+        new[] { NomesPessoa.Natureza(Natureza.Valor) }.Concat(Papeis.Where(p => p.Ativo).Select(p => p.Nome)));
+
+    /// <summary>"CNPJ 12.345.678/0001-90 · Código 000123" (PJ: o CNPJ do principal; PF: o CPF; estrangeiro: a identificação).</summary>
+    public string DocumentoCabecalho => string.Join(" · ", new[]
+    {
+        EhJuridica
+            ? (Estabelecimentos.Count > 0 && Principal.Cnpj.Length > 0 ? "CNPJ " + Principal.Cnpj : string.Empty)
+            : Documento.Length > 0 ? (EhFisica ? "CPF " : "Identificação ") + Documento : string.Empty,
+        Nova ? "Novo cadastro" : $"Código {Codigo:000000}",
+        "Situação: " + SituacaoTexto
+    }.Where(t => t.Length > 0));
+
+    /// <summary>PJ: grupo empresarial e quantos estabelecimentos (vazio = não se aplica).</summary>
+    public string EstruturaCabecalho
+    {
+        get
+        {
+            if (!EhJuridica) return string.Empty;
+            var ativos = Estabelecimentos.Count(e => e.Ativo);
+            var estabelecimentos = Estabelecimentos.Count == 1
+                ? "1 estabelecimento"
+                : ativos == Estabelecimentos.Count
+                    ? $"{Estabelecimentos.Count} estabelecimentos"
+                    : $"{Estabelecimentos.Count} estabelecimentos ({(ativos == 1 ? "1 ativo" : $"{ativos} ativos")})";
+            var grupo = GrupoEmpresarial.Valor is null ? string.Empty : "Grupo empresarial: " + GrupoEmpresarial.Texto;
+            return string.Join(" · ", new[] { grupo, estabelecimentos }.Where(t => t.Length > 0));
+        }
+    }
+
+    public bool TemEstruturaCabecalho => EstruturaCabecalho.Length > 0;
+    public bool TemNomeCompletoCabecalho => NomeCompletoCabecalho.Length > 0;
+
+    /// <summary>Etiquetas marcadas (vazio = nenhuma).</summary>
+    public string EtiquetasCabecalho => Etiquetas.Marcadas.Count == 0 ? string.Empty : "Etiquetas: " + Etiquetas.Resumo;
+
+    /// <summary>Refaz as linhas do cabeçalho (chamado quando muda algo que elas mostram).</summary>
+    private void AtualizarCabecalho()
+    {
+        OnPropertyChanged(nameof(Titulo));
+        OnPropertyChanged(nameof(NomeCompletoCabecalho));
+        OnPropertyChanged(nameof(TemNomeCompletoCabecalho));
+        OnPropertyChanged(nameof(TipoEPapeisCabecalho));
+        OnPropertyChanged(nameof(DocumentoCabecalho));
+        OnPropertyChanged(nameof(EstruturaCabecalho));
+        OnPropertyChanged(nameof(TemEstruturaCabecalho));
+        OnPropertyChanged(nameof(EtiquetasCabecalho));
+    }
+
+    // ---- Grupo empresarial (só pessoa jurídica; opcional) ----
+
+    public static readonly Opcao<Guid?> SemGrupoEmpresarial = new(null, "Nenhum (empresa independente)");
+
+    /// <summary>Gravado ao abrir: volta intacto enquanto as opções não forem lidas.</summary>
+    private Guid? _grupoEmpresarialGravado;
+
+    /// <summary>Tipo de pessoa como está gravado (pessoa jurídica gravada não vira outra natureza).</summary>
+    private NaturezaPessoa? _naturezaGravada;
+
+    /// <summary>"Nenhum", os grupos ativos e o gravado (mesmo desativado). Array: o Picker precisa de IList.</summary>
+    [ObservableProperty] private Opcao<Guid?>[] _gruposEmpresariais = [SemGrupoEmpresarial];
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(EstruturaCabecalho), nameof(TemEstruturaCabecalho))]
+    private Opcao<Guid?> _grupoEmpresarial = SemGrupoEmpresarial;
+
+    public bool OpcoesEstruturaCarregadas { get; private set; }
+
+    /// <summary>Chamado pela tela quando as opções (grupos e tipos de relacionamento) chegam.</summary>
+    public void DefinirGruposEmpresariais(IReadOnlyList<Lone.Contracts.GruposEmpresariais.GrupoEmpresarialDto> grupos)
+    {
+        var atual = GrupoEmpresarial.Valor;
+        GruposEmpresariais =
+        [
+            SemGrupoEmpresarial,
+            .. grupos.Where(g => g.Ativo || g.Id == _grupoEmpresarialGravado)
+                .OrderBy(g => g.Nome, StringComparer.CurrentCultureIgnoreCase)
+                .Select(g => new Opcao<Guid?>(g.Id, g.Ativo ? g.Nome : g.Nome + " (desativado)"))
+        ];
+        GrupoEmpresarial = GruposEmpresariais.FirstOrDefault(o => o.Valor == atual) ?? SemGrupoEmpresarial;
+        OpcoesEstruturaCarregadas = true;
+    }
     public string CodigoTexto => Nova ? "Novo cadastro" : $"Código {Codigo:000000}";
 
     partial void OnNaturezaChanged(Opcao<NaturezaPessoa> value)
     {
         foreach (var e in Estabelecimentos) e.DaPessoaJuridica = EhJuridica;
+        AtualizarCabecalho();
     }
 
     // ---- Criação e conversão ----
@@ -246,6 +366,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         f.OuvirPapeis();
         f.AdicionarEndereco(new EnderecoFormulario()); // finalidades e principal: escolhidos pelo usuário
         f.AdicionarEstabelecimento();
+        f.OuvirCabecalho();
         return f;
     }
 
@@ -268,6 +389,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             SituacaoAlteradaEm = p.SituacaoAlteradaEm,
             NaturalidadeACorrigir = p.PendenciasMunicipio.FirstOrDefault(x => x.DaNaturalidade)?.Texto ?? string.Empty,
             _grupoEconomicoId = p.GrupoEconomicoId,
+            _grupoEmpresarialGravado = p.GrupoEmpresarialId,
+            _naturezaGravada = p.Natureza,
             _mescladaEmId = p.MescladaEmId,
             _outrasContasCliente = p.ContasCliente.Where(c => c.EmpresaId is not null).ToList(),
             _outrasContasFornecedor = p.ContasFornecedor.Where(c => c.EmpresaId is not null).ToList(),
@@ -317,6 +440,13 @@ public sealed partial class PessoaFormulario : ObservableObject
                 .ToList()
         };
 
+        if (p.GrupoEmpresarialId is { } grupoGravado)
+        {
+            // Antes de ler as opções, a lista tem só o gravado (o cabeçalho já mostra o nome).
+            var gravado = new Opcao<Guid?>(grupoGravado, p.GrupoEmpresarialNome ?? "(grupo empresarial)");
+            f.GruposEmpresariais = [SemGrupoEmpresarial, gravado];
+            f.GrupoEmpresarial = gravado;
+        }
         f.Naturalidade.Definir(p.NaturalidadeMunicipioId, p.NaturalidadeNome, p.NaturalidadeUf);
         f.DefinirProfissoes(profissoes, p.ProfissaoId);
         f.DefinirOrigem(p.OrigemCadastro);
@@ -338,6 +468,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (f.Estabelecimentos.Count == 0)
             f.AdicionarEstabelecimento();
         f.MarcarPrincipal();
+        f.OuvirCabecalho();
 
         foreach (var m in p.MeiosContato.OrderByDescending(m => m.Ativo).ThenBy(m => m.Tipo).ThenByDescending(m => m.Principal))
             f.AdicionarMeio(MeioContatoFormulario.De(m));
@@ -353,6 +484,13 @@ public sealed partial class PessoaFormulario : ObservableObject
     public IReadOnlyList<string> ValidarLocalmente()
     {
         var erros = new List<string>();
+        // Pessoa jurídica gravada não muda de natureza: CNPJ, estabelecimentos, grupo e vínculos seriam perdidos (a API também recusa).
+        if (_naturezaGravada == NaturezaPessoa.Juridica && !EhJuridica)
+            erros.Add("Uma pessoa jurídica gravada não pode virar pessoa física ou estrangeiro: o CNPJ, os estabelecimentos, " +
+                      "o nome fantasia, o grupo empresarial e os vínculos de sócio/administrador seriam perdidos. Volte o tipo para " +
+                      "\"Pessoa jurídica\". Se o tipo está errado, cadastre a pessoa correta e desative este cadastro.");
+        else if (!EhJuridica && GrupoEmpresarial.Valor is not null)
+            erros.Add("Só pessoa jurídica pode fazer parte de um grupo empresarial.");
         if (EhFisica)
         {
             if (!TextoTela.TentarData(DataNascimento, out var nascimento))
@@ -412,6 +550,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             DocumentoPrincipal = EhJuridica ? null : TextoTela.Nulo(Documento),
             DataNascimento = EhFisica ? nascimento : null,
             GrupoEconomicoId = _grupoEconomicoId,
+            // Vai sempre como está: nunca é limpo em silêncio (a API recusa grupo em quem não é pessoa jurídica).
+            GrupoEmpresarialId = GrupoEmpresarial.Valor,
             MescladaEmId = _mescladaEmId,
             Observacoes = TextoTela.Nulo(Observacoes),
             // Só a PJ tem filiais; nas outras naturezas vai o estabelecimento principal (dados fiscais).
@@ -879,11 +1019,23 @@ public sealed partial class PessoaFormulario : ObservableObject
         return estabelecimento;
     }
 
+    /// <summary>
+    /// Filial gravada é desativada (continua na lista e no banco, com histórico, documentos e referências fiscais);
+    /// filial nova, ainda não gravada, sai da lista. O principal não é removido.
+    /// </summary>
     public void RemoverEstabelecimento(EstabelecimentoFormulario estabelecimento)
     {
         if (Estabelecimentos.Count <= 1 || ReferenceEquals(estabelecimento, Principal)) return;
-        Estabelecimentos.Remove(estabelecimento);
-        MarcarPrincipal();
+        if (estabelecimento.Gravado)
+        {
+            estabelecimento.Ativo = false;
+        }
+        else
+        {
+            Estabelecimentos.Remove(estabelecimento);
+            MarcarPrincipal();
+        }
+        AtualizarCabecalho();
     }
 
     /// <summary>O principal é sempre o primeiro da lista.</summary>
@@ -894,6 +1046,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         Estabelecimentos.Move(indice, 0);
         MarcarPrincipal();
         OnPropertyChanged(nameof(Principal));
+        AtualizarCabecalho();
     }
 
     private void Incluir(EstabelecimentoFormulario estabelecimento)
@@ -902,7 +1055,31 @@ public sealed partial class PessoaFormulario : ObservableObject
         estabelecimento.AoRemover = () => RemoverEstabelecimento(estabelecimento);
         estabelecimento.AoTornarPrincipal = () => TornarPrincipal(estabelecimento);
         estabelecimento.AoConsultarCnpj = e => ConsultaCnpj?.Invoke(e) ?? Task.CompletedTask;
+        estabelecimento.PropertyChanged += Estabelecimento_PropertyChanged;
         Estabelecimentos.Add(estabelecimento);
+    }
+
+    /// <summary>Nome fantasia, CNPJ e situação dos estabelecimentos aparecem no cabeçalho.</summary>
+    private void Estabelecimento_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(EstabelecimentoFormulario.NomeFantasia) or nameof(EstabelecimentoFormulario.Cnpj)
+            or nameof(EstabelecimentoFormulario.Ativo))
+            AtualizarCabecalho();
+    }
+
+    /// <summary>Papéis, etiquetas e estabelecimentos incluídos depois mudam o cabeçalho.</summary>
+    private void OuvirCabecalho()
+    {
+        foreach (var papel in Papeis)
+            papel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(PapelOpcao.Ativo)) AtualizarCabecalho();
+            };
+        Etiquetas.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(EtiquetasFormulario.Resumo)) AtualizarCabecalho();
+        };
+        Estabelecimentos.CollectionChanged += (_, _) => AtualizarCabecalho();
     }
 
     private void MarcarPrincipal()
@@ -981,11 +1158,12 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public bool OpcoesComercialCarregadas => _opcoesComercial is not null;
 
-    /// <summary>Chamado pela tela quando a aba "Cliente" abre e as opções chegam.</summary>
+    /// <summary>Chamado pela tela quando a aba "Comercial" abre e as opções chegam.</summary>
     public void DefinirOpcoesComercial(ComercialOpcoesDto dto)
     {
         _opcoesComercial = new OpcoesComercial(dto);
         ContaCliente.DefinirOpcoes(_opcoesComercial);
+        ContaFornecedor.DefinirOpcoes(_opcoesComercial);
         foreach (var e in Excecoes) e.DefinirOpcoes(_opcoesComercial);
         foreach (var c in Carteira) c.DefinirOpcoes(_opcoesComercial);
         OnPropertyChanged(nameof(OpcoesComercialCarregadas));
