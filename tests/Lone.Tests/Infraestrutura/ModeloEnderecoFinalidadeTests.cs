@@ -121,6 +121,20 @@ public class ModeloEnderecoFinalidadeTests
         Assert.DoesNotContain("DROP TABLE", SqlMigracaoFinalidadesEndereco.RemoverProtecoes, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void SQL_da_migracao_fica_num_lote_so_e_desfaz_tudo_em_caso_de_erro()
+    {
+        // Sem GO: no script gerado (Script-Migration) a migração inteira é um lote e uma transação; um GO no meio faria
+        // os lotes seguintes (gatilhos, registro em __EFMigrationsHistory) rodarem mesmo depois de uma conferência falhar.
+        foreach (var sql in new[] { SqlMigracaoFinalidadesEndereco.MigrarFinalidades, SqlMigracaoFinalidadesEndereco.CriarProtecoes,
+                                    SqlMigracaoFinalidadesEndereco.RemoverProtecoes })
+            Assert.DoesNotMatch(@"(?im)^\s*GO\s*$", sql);
+        Assert.StartsWith("-- ", SqlMigracaoFinalidadesEndereco.MigrarFinalidades.TrimStart());
+        Assert.Contains("SET XACT_ABORT ON;", SqlMigracaoFinalidadesEndereco.MigrarFinalidades);
+        Assert.StartsWith("SET XACT_ABORT ON;", SqlMigracaoFinalidadesEndereco.CriarProtecoes.TrimStart());
+        Assert.DoesNotContain("XACT_ABORT OFF", SqlMigracaoFinalidadesEndereco.MigrarFinalidades);
+    }
+
     // ---------------------------------------------------------------- Tradução dos conflitos (I3)
 
     [Fact]

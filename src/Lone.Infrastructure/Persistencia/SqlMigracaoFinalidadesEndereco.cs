@@ -17,7 +17,7 @@ namespace Lone.Infrastructure.Persistencia;
 /// esperado pelos CÓDIGOS das finalidades, não pelos Ids usados para inserir) e desfazem tudo (THROW dentro da
 /// transação da migração) se algo não conferir.
 ///
-/// <see cref="CriarProtecoes"/> (fim do Up): gatilhos que o CHECK não consegue expressar. <see cref="RemoverProtecoes"/>
+/// <see cref="CriarProtecoes"/> (fim do Up): gatilhos que o CHECK não consegue expressar (sem GO: ver o comentário dele). <see cref="RemoverProtecoes"/>
 /// (início do Down): retira os gatilhos (não mexe em dados).
 /// </summary>
 public static class SqlMigracaoFinalidadesEndereco
@@ -38,6 +38,9 @@ public static class SqlMigracaoFinalidadesEndereco
     public const int ErroCodigoFinalidade = 50043;
 
     public const string MigrarFinalidades = """
+        -- Qualquer erro daqui até o fim da migração (os THROW das conferências ou a criação dos gatilhos) desfaz a
+        -- transação inteira, também quando ela roda pelo script gerado (Script-Migration) e não pelo EF.
+        SET XACT_ABORT ON;
         SET NOCOUNT ON;
 
         -- Pré-condições: nada migrado antes; as seis finalidades de sistema existem.
@@ -194,38 +197,42 @@ public static class SqlMigracaoFinalidadesEndereco
             THROW 50031, N'Migração das finalidades de endereço: marca de revisão das pessoas não confere. Nada foi alterado.', 1;
         """;
 
-    /// <summary>Gatilhos das regras que um CHECK não expressa (cruzam tabelas ou comparam antes/depois).</summary>
+    /// <summary>
+    /// Gatilhos das regras que um CHECK não expressa (cruzam tabelas ou comparam antes/depois). Cada CREATE TRIGGER vai
+    /// num EXEC (texto fixo, sem nenhum valor de fora) em vez de lotes separados por GO: assim a migração inteira fica
+    /// num lote só e numa transação só também no script gerado (Script-Migration) — um GO dividiria a transação e, se
+    /// uma conferência falhasse, os lotes seguintes (gatilhos e o registro em __EFMigrationsHistory) ainda rodariam.
+    /// </summary>
     public const string CriarProtecoes = """
-        CREATE TRIGGER TR_PessoaEnderecoFinalidades_PrincipalEnderecoAtivo ON PessoaEnderecoFinalidades
+        SET XACT_ABORT ON;
+        EXEC (N'CREATE TRIGGER TR_PessoaEnderecoFinalidades_PrincipalEnderecoAtivo ON PessoaEnderecoFinalidades
         AFTER INSERT, UPDATE AS
         BEGIN
             SET NOCOUNT ON;
             IF EXISTS (SELECT 1 FROM inserted i JOIN PessoaEnderecos e ON e.Id = i.PessoaEnderecoId
                        WHERE i.Principal = 1 AND e.Ativo = 0)
-                THROW 50040, N'Endereço inativo não pode ser principal de uma finalidade.', 1;
-        END
-        GO
-        CREATE TRIGGER TR_PessoaEnderecos_InativoSemPrincipal ON PessoaEnderecos
+                THROW 50040, N''Endereço inativo não pode ser principal de uma finalidade.'', 1;
+        END');
+        EXEC (N'CREATE TRIGGER TR_PessoaEnderecos_InativoSemPrincipal ON PessoaEnderecos
         AFTER UPDATE AS
         BEGIN
             SET NOCOUNT ON;
             IF UPDATE(Ativo) AND EXISTS (SELECT 1 FROM inserted e JOIN PessoaEnderecoFinalidades u ON u.PessoaEnderecoId = e.Id
                                          WHERE e.Ativo = 0 AND u.Principal = 1)
-                THROW 50041, N'Endereço inativo não pode continuar como principal de uma finalidade.', 1;
-        END
-        GO
-        CREATE TRIGGER TR_FinalidadesEndereco_ProtegerSistema ON FinalidadesEndereco
+                THROW 50041, N''Endereço inativo não pode continuar como principal de uma finalidade.'', 1;
+        END');
+        EXEC (N'CREATE TRIGGER TR_FinalidadesEndereco_ProtegerSistema ON FinalidadesEndereco
         AFTER UPDATE, DELETE AS
         BEGIN
             SET NOCOUNT ON;
             IF EXISTS (SELECT 1 FROM deleted d WHERE d.DoSistema = 1 AND NOT EXISTS (
                            SELECT 1 FROM inserted i WHERE i.Id = d.Id AND i.DoSistema = 1
                              AND i.Codigo COLLATE Latin1_General_BIN2 = d.Codigo COLLATE Latin1_General_BIN2))
-                THROW 50042, N'Finalidade de endereço de sistema: não muda de código, continua de sistema e não é excluída.', 1;
+                THROW 50042, N''Finalidade de endereço de sistema: não muda de código, continua de sistema e não é excluída.'', 1;
             IF EXISTS (SELECT 1 FROM deleted d JOIN inserted i ON i.Id = d.Id
                        WHERE i.Codigo COLLATE Latin1_General_BIN2 <> d.Codigo COLLATE Latin1_General_BIN2)
-                THROW 50043, N'O código de uma finalidade de endereço não pode ser alterado.', 1;
-        END
+                THROW 50043, N''O código de uma finalidade de endereço não pode ser alterado.'', 1;
+        END');
         """;
 
     /// <summary>Down: retira os gatilhos antes de o EF desfazer tabelas e colunas (não mexe em dados).</summary>

@@ -88,7 +88,7 @@ public class ConsolidacaoEnderecoTests
         Assert.True(cobrancaRetiradaNoMantido.Ativo);                       // linha histórica reaproveitada
         Assert.False(cobrancaRetiradaNoMantido.Principal);
         Assert.All(doMantido, u => Assert.True(u.Ativo));
-        Assert.Single(p.FinalidadesEnderecos.Where(u => u.Principal && u.FinalidadeId == Entrega));
+        Assert.Single(p.FinalidadesEnderecos, u => u.Principal && u.FinalidadeId == Entrega);
         Assert.All(p.FinalidadesEnderecos.Where(u => u.PessoaEnderecoId == duplicado.Id), u => Assert.False(u.Principal));
         Assert.Equal(5 + 1, p.FinalidadesEnderecos.Count);                   // só a Fiscal é linha nova; nada apagado
     }
