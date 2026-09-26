@@ -38,6 +38,8 @@ public static class Rotas
             $"{Historico(id)}?limite={limite}" + (antes is { } a ? $"&antes={a}" : string.Empty);
         public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
         public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+        /// <summary>Consolidar um endereço duplicado em outro da mesma pessoa (o servidor decide o resultado).</summary>
+        public static string ConsolidarEnderecos(Guid id) => $"{Grupo}/{id}/enderecos/consolidar";
         public const string QuantidadeClientesAtivos = Grupo + "/indicadores/clientes-ativos";
 
         /// <summary>Pessoas físicas ativas por faixa etária (?papel=Cliente opcional).</summary>

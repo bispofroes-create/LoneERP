@@ -8,11 +8,19 @@ public class PessoaEnderecoConfiguration : IEntityTypeConfiguration<PessoaEndere
 {
     public void Configure(EntityTypeBuilder<PessoaEndereco> b)
     {
-        b.ToTable("PessoaEnderecos");
+        // CHECK: consolidado fica inativo e aponta para outro endereço. Gatilho: endereço inativo não fica principal
+        // de nenhuma finalidade (o CHECK não cruza tabelas). O EF precisa saber do gatilho (não usa OUTPUT puro).
+        b.ToTable("PessoaEnderecos", t =>
+        {
+            t.HasCheckConstraint(SqlMigracaoFinalidadesEndereco.CheckConsolidado,
+                "[MescladoEmId] IS NULL OR ([Ativo] = 0 AND [MescladoEmId] <> [Id])");
+            t.HasTrigger(SqlMigracaoFinalidadesEndereco.GatilhoEnderecoInativo);
+        });
         b.HasKey(e => e.Id);
 
         b.Property(e => e.Descricao).HasMaxLength(60);
         b.Property(e => e.Finalidades).HasConversion<short>();
+        b.Property(e => e.RevisaoMigracao).HasConversion<short>();
         b.Property(e => e.Cep).HasMaxLength(8).IsUnicode(false);
         b.Property(e => e.Logradouro).IsRequired().HasMaxLength(150);
         b.Property(e => e.Numero).HasMaxLength(10);
@@ -36,8 +44,13 @@ public class PessoaEnderecoConfiguration : IEntityTypeConfiguration<PessoaEndere
         // (Id, PessoaId) único: alvo da FK composta das finalidades (relação e endereço sempre da mesma pessoa).
         b.HasAlternateKey(e => new { e.Id, e.PessoaId });
 
-        // Duplicado consolidado em outro endereço da mesma pessoa (o registro fica, inativo).
-        b.HasOne<PessoaEndereco>().WithMany().HasForeignKey(e => e.MescladoEmId).OnDelete(DeleteBehavior.NoAction);
+        // Duplicado consolidado em outro endereço da MESMA pessoa (o registro fica, inativo): FK composta para a chave
+        // alternativa (Id, PessoaId) — o banco recusa apontar para endereço de outra pessoa. Com MescladoEmId nulo a FK
+        // não se aplica (SQL Server não confere FK composta com coluna nula).
+        b.HasOne<PessoaEndereco>().WithMany()
+            .HasForeignKey(e => new { e.MescladoEmId, e.PessoaId })
+            .HasPrincipalKey(e => new { e.Id, e.PessoaId })
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
 
@@ -68,7 +81,13 @@ public class FinalidadeEnderecoCadastroConfiguration : IEntityTypeConfiguration<
 {
     public void Configure(EntityTypeBuilder<FinalidadeEnderecoCadastro> b)
     {
-        b.ToTable("FinalidadesEndereco");
+        // CHECK: finalidade de sistema nunca inativa. Gatilho: finalidade de sistema não muda de código, não deixa de ser
+        // de sistema e não é excluída (regra repetida na aplicação: RegrasFinalidadeEnderecoCadastro).
+        b.ToTable("FinalidadesEndereco", t =>
+        {
+            t.HasCheckConstraint(SqlMigracaoFinalidadesEndereco.CheckSistemaAtiva, "[DoSistema] = 0 OR [Ativo] = 1");
+            t.HasTrigger(SqlMigracaoFinalidadesEndereco.GatilhoFinalidadeSistema);
+        });
         b.HasKey(x => x.Id);
         b.Property(x => x.Codigo).IsRequired().HasMaxLength(FinalidadeEnderecoCadastro.TamanhoMaximoCodigo).IsUnicode(false);
         b.Property(x => x.Nome).IsRequired().HasMaxLength(FinalidadeEnderecoCadastro.TamanhoMaximoNome)
@@ -89,21 +108,28 @@ public class FinalidadeEnderecoCadastroConfiguration : IEntityTypeConfiguration<
 /// - a relação e o endereço são da mesma pessoa (FK composta para a chave alternativa (Id, PessoaId) do endereço);
 /// - uma relação ATIVA por endereço + finalidade (índice único filtrado; retirar e voltar reativa a mesma linha);
 /// - um principal por pessoa + finalidade (índice único filtrado em Principal = 1);
-/// - relação inativa nunca é principal (CHECK).
-/// Endereço inativo sem principal é regra da API (o banco não cruza tabelas num CHECK).
+/// - relação inativa nunca é principal (CHECK);
+/// - endereço inativo nunca é principal (gatilhos nas duas tabelas: o CHECK não cruza tabelas).
+/// Os nomes dos índices são fixos: a gravação traduz a violação de cada um numa mensagem de conflito (409).
 /// </summary>
 public class PessoaEnderecoFinalidadeConfiguration : IEntityTypeConfiguration<PessoaEnderecoFinalidade>
 {
     public void Configure(EntityTypeBuilder<PessoaEnderecoFinalidade> b)
     {
-        b.ToTable("PessoaEnderecoFinalidades", t => t.HasCheckConstraint("CK_PessoaEnderecoFinalidades_PrincipalAtivo", "[Principal] = 0 OR [Ativo] = 1"));
+        b.ToTable("PessoaEnderecoFinalidades", t =>
+        {
+            t.HasCheckConstraint("CK_PessoaEnderecoFinalidades_PrincipalAtivo", "[Principal] = 0 OR [Ativo] = 1");
+            t.HasTrigger(SqlMigracaoFinalidadesEndereco.GatilhoPrincipalEnderecoAtivo);
+        });
         b.HasKey(x => x.Id);
         b.HasOne<PessoaEndereco>().WithMany()
             .HasForeignKey(x => new { x.PessoaEnderecoId, x.PessoaId })
             .HasPrincipalKey(e => new { e.Id, e.PessoaId })
             .OnDelete(DeleteBehavior.NoAction);
         b.HasOne<FinalidadeEnderecoCadastro>().WithMany().HasForeignKey(x => x.FinalidadeId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(x => new { x.PessoaEnderecoId, x.FinalidadeId }).IsUnique().HasFilter("[Ativo] = 1");
-        b.HasIndex(x => new { x.PessoaId, x.FinalidadeId }).IsUnique().HasFilter("[Principal] = 1");
+        b.HasIndex(x => new { x.PessoaEnderecoId, x.FinalidadeId }).IsUnique().HasFilter("[Ativo] = 1")
+            .HasDatabaseName(SqlMigracaoFinalidadesEndereco.IndiceFinalidadeAtiva);
+        b.HasIndex(x => new { x.PessoaId, x.FinalidadeId }).IsUnique().HasFilter("[Principal] = 1")
+            .HasDatabaseName(SqlMigracaoFinalidadesEndereco.IndicePrincipal);
     }
 }

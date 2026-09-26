@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Lone.Domain.Comum;
 using Lone.Contracts.Comum;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,13 @@ public sealed class TratadorDeErros : IExceptionHandler
             return true;
 
         var problema = Problemas.De(erro);
+
+        // Conflito conhecido vindo do banco (índice único, gatilho): o usuário recebe 409 com mensagem amigável, mas o
+        // erro original do SQL fica no log (não é escondido).
+        if (problema is not null && erro is ConflitoDeEdicaoException { InnerException: not null })
+            _log.LogWarning(erro, "Conflito de gravação em {Metodo} {Caminho}: {Mensagem}",
+                contexto.Request.Method, contexto.Request.Path, erro.Message);
+
         if (problema is null)
         {
             var rastreio = Activity.Current?.Id ?? contexto.TraceIdentifier;

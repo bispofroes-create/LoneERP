@@ -568,6 +568,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         endereco.AoPedirPrincipal = AlternarPrincipalAsync;
         endereco.AoUsarExistente = UsarEnderecoExistente;
         endereco.AoConfirmarOutro = e => { e.OutroEnderecoConfirmado = true; AtualizarDuplicidades(); };
+        endereco.AoCancelarNovo = RemoverEndereco;
         endereco.PropertyChanged += Endereco_PropertyChanged;
         endereco.Finalidades.CollectionChanged += (_, _) => AtualizarAvisosEnderecos();
         Enderecos.Add(endereco);
@@ -626,20 +627,26 @@ public sealed partial class PessoaFormulario : ObservableObject
     {
         if (e.PropertyName == nameof(EnderecoFormulario.Ativo)) OnPropertyChanged(nameof(TemEnderecosInativos));
         if (e.PropertyName is not null && CamposFisicos.Contains(e.PropertyName)) AtualizarDuplicidades();
-        else if (e.PropertyName == nameof(EnderecoFormulario.SemFinalidades)) AtualizarAvisosEnderecos();
+        else if (e.PropertyName is nameof(EnderecoFormulario.SemFinalidades) or nameof(EnderecoFormulario.RevisaoMigracao))
+            AtualizarAvisosEnderecos();
     }
 
     /// <summary>Id da finalidade Fiscal no cadastro (pelo código, nunca por número fixo). Vazio = cadastro sem ela.</summary>
     private Guid IdFiscal => _finalidades.FirstOrDefault(f => f.Codigo == Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Fiscal)?.Id ?? Guid.Empty;
 
-    /// <summary>Acrescenta a finalidade Fiscal; principal só se nenhum outro endereço já for o principal fiscal.</summary>
-    private void MarcarFiscal(EnderecoFormulario endereco, bool principalSeLivre)
+    /// <summary>
+    /// Acrescenta a finalidade Fiscal (ou reativa a retirada) — NUNCA marca principal: preenchimento automático não
+    /// escolhe principal (nem por ser o único endereço, o novo ou o do CNPJ). Sem principal fiscal definido, o aviso
+    /// convida o usuário a definir, com a ação explícita "Tornar principal".
+    /// </summary>
+    private void MarcarFiscal(EnderecoFormulario endereco)
     {
         if (IdFiscal == Guid.Empty) return;
         var relacao = endereco.Finalidades.FirstOrDefault(f => f.Ativo && f.FinalidadeId == IdFiscal) ?? endereco.AdicionarFinalidade(IdFiscal);
-        var outroPrincipal = Enderecos.Any(e => !ReferenceEquals(e, endereco) && e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal));
-        if (relacao is not null && principalSeLivre && !outroPrincipal) relacao.Principal = true;
-        endereco.AvisoFinalidade = string.Empty;
+        var temPrincipalFiscal = Enderecos.Any(e => e.Ativo && e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal));
+        endereco.AvisoFinalidade = relacao is null || temPrincipalFiscal ? string.Empty
+            : "Este endereço foi definido como Fiscal pela consulta do CNPJ. Para usá-lo como endereço fiscal principal, " +
+              "toque em \"Tornar principal\" na finalidade Fiscal.";
     }
 
     // ---- Principal por finalidade ----
@@ -686,6 +693,8 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>
     /// Procura, para cada endereço novo, um endereço ativo igual (ou possivelmente igual) já na ficha. Igual: o novo não
     /// pode ser gravado; usa-se o existente. Possível: o usuário decide ("Usar endereço existente" ou "Continuar com outro").
+    /// Igual a um endereço INATIVO gravado (não consolidado): oferece reativar o existente ou cancelar o novo — não se
+    /// cria outra linha física para o mesmo lugar (a API também recusa).
     /// </summary>
     public void AtualizarDuplicidades()
     {
@@ -694,6 +703,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             EnderecoFormulario? igual = null;
             var possivel = false;
             if (!e.Gravado && e.Ativo)
+            {
                 foreach (var outro in Enderecos.Where(o => !ReferenceEquals(o, e) && o.Ativo && Enderecos.IndexOf(o) < Enderecos.IndexOf(e)))
                 {
                     var s = Lone.Domain.Enderecos.DuplicidadeEndereco.Comparar(e.ParaComparacao(), outro.ParaComparacao());
@@ -704,6 +714,13 @@ public sealed partial class PessoaFormulario : ObservableObject
                         possivel = true;
                     }
                 }
+                if (igual is null || possivel)
+                {
+                    var inativo = Enderecos.FirstOrDefault(o => o.Gravado && !o.Ativo && o.MescladoEmId is null &&
+                        Lone.Domain.Enderecos.DuplicidadeEndereco.Comparar(e.ParaComparacao(), o.ParaComparacao()) == Lone.Domain.Enderecos.SemelhancaEndereco.Igual);
+                    if (inativo is not null) { igual = inativo; possivel = false; }
+                }
+            }
             e.DuplicidadePossivel = possivel;
             e.IgualA = igual;
         }
@@ -717,6 +734,11 @@ public sealed partial class PessoaFormulario : ObservableObject
     public void UsarEnderecoExistente(EnderecoFormulario novo)
     {
         if (novo.IgualA is not { } existente || novo.Gravado) return;
+        if (!existente.Ativo)
+        {
+            if (!existente.PodeReativar) return;
+            existente.Ativo = true; // reativa o endereço histórico (volta sem principal); as finalidades do novo vão para ele
+        }
         var jaTinha = new List<string>();
         var acrescentadas = new List<string>();
         foreach (var f in novo.Finalidades.Where(f => f.Ativo).ToList())
@@ -778,6 +800,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             }
         OnPropertyChanged(nameof(TemDuplicadosGravados));
 
+        // Mesmas regras e textos da API (RegrasFinalidadeEndereco): ambiguidade de principal e motivos gravados pela
+        // migração. Endereço sem finalidade, por si só, não é pendência.
         PendenciasRevisao.Clear();
         if (RevisarFinalidadesEndereco)
         {
@@ -785,20 +809,41 @@ public sealed partial class PessoaFormulario : ObservableObject
             foreach (var grupo in ativos.SelectMany(e => e.Finalidades.Where(f => f.Ativo).Select(f => (Endereco: e, Relacao: f)))
                          .GroupBy(x => x.Relacao.FinalidadeId)
                          .Where(g => g.Count() > 1 && !g.Any(x => x.Relacao.Principal)))
-                PendenciasRevisao.Add($"{grupo.First().Relacao.Nome}: existem {grupo.Count()} endereços e nenhum foi definido como principal.");
-            foreach (var e in ativos.Where(e => e.SemFinalidades))
-                PendenciasRevisao.Add($"{e.Resumo}: endereço sem finalidade (escolha para que ele serve).");
+                PendenciasRevisao.Add(Lone.Domain.Enderecos.RegrasFinalidadeEndereco.TextoAmbiguidade(grupo.First().Relacao.Nome, grupo.Count()));
+            foreach (var e in ativos)
+            {
+                var motivo = e.RevisaoMigracao;
+                if (!e.SemFinalidades) motivo &= ~MotivoRevisaoEndereco.AntigoPrincipalSemFinalidade; // já resolvido
+                foreach (var texto in Lone.Domain.Enderecos.RegrasFinalidadeEndereco.TextosMotivo(e.Resumo, motivo))
+                    PendenciasRevisao.Add(texto);
+            }
         }
         OnPropertyChanged(nameof(TemPendenciasRevisao));
     }
 
     /// <summary>
-    /// Consolida o duplicado no endereço mantido, depois de mostrar ao usuário como vai ficar: as finalidades são unidas
-    /// sem repetir (principal preservado), o duplicado fica inativo e marcado como consolidado (nunca é apagado) e as
-    /// filiais que o usavam passam a usar o mantido. A API registra na auditoria o que foi consolidado em quê.
+    /// Definido pela tela: pede ao SERVIDOR a consolidação (só a intenção: origem → destino, com a versão aberta) e
+    /// recarrega a ficha com o resultado. O servidor confere tudo e decide as finalidades resultantes.
+    /// </summary>
+    public Func<Guid, Guid, Task>? ConsolidarNoServidor { get; set; }
+
+    /// <summary>Definido pela tela: há alterações não salvas (a consolidação exige a ficha salva ou descartada).</summary>
+    public Func<bool>? TemAlteracoesNaoSalvas { get; set; }
+
+    /// <summary>
+    /// Consolida o duplicado no endereço mantido: mostra antes como deve ficar (prévia calculada aqui; quem decide é o
+    /// servidor, a partir do que está gravado) e, confirmado, pede a operação ao servidor. A ficha não altera nada por
+    /// conta própria: nada de marcar inativo, MescladoEmId ou finalidades aqui.
     /// </summary>
     public async Task ConsolidarAsync(EnderecoFormulario mantido, EnderecoFormulario duplicado)
     {
+        if (ConsolidarNoServidor is null || !mantido.Gravado || !duplicado.Gravado) return;
+        if (TemAlteracoesNaoSalvas?.Invoke() == true)
+        {
+            mantido.AvisoFinalidade = "Salve ou descarte as alterações da ficha antes de consolidar endereços.";
+            return;
+        }
+
         var resultado = new List<string>();
         foreach (var grupo in mantido.Finalidades.Where(f => f.Ativo).Concat(duplicado.Finalidades.Where(f => f.Ativo))
                      .GroupBy(f => f.FinalidadeId))
@@ -817,23 +862,11 @@ public sealed partial class PessoaFormulario : ObservableObject
             $"Endereço consolidado (fica inativo, no histórico): {duplicado.Resumo}\n\n" +
             $"Finalidades depois de consolidar: {(resultado.Count > 0 ? string.Join(", ", resultado) : "nenhuma")}\n" +
             (diferencas.Count > 0 ? $"Do endereço consolidado não passam: {string.Join("; ", diferencas)} (ficam registrados nele).\n" : string.Empty) +
-            (Estabelecimentos.Any(e => ReferenceEquals(e.EnderecoFiscal, duplicado)) ? "Filiais que usavam o endereço consolidado passam a usar o mantido.\n" : string.Empty);
+            (Estabelecimentos.Any(e => ReferenceEquals(e.EnderecoFiscal, duplicado)) ? "Filiais que usavam o endereço consolidado passam a usar o mantido.\n" : string.Empty) +
+            "\nA consolidação é gravada na hora, conferida pelo servidor com o que está salvo.";
         if (!await ConfirmarAsync("Consolidar endereços", mensagem, "Consolidar", "Cancelar")) return;
 
-        foreach (var f in duplicado.Finalidades.Where(f => f.Ativo).ToList())
-        {
-            var noMantido = mantido.Finalidades.FirstOrDefault(x => x.FinalidadeId == f.FinalidadeId);
-            var eraPrincipal = f.Principal;
-            f.Principal = false;
-            if (noMantido is null) noMantido = mantido.AdicionarFinalidade(f.FinalidadeId);
-            else if (!noMantido.Ativo) { noMantido.Ativo = true; noMantido.Principal = false; }
-            if (noMantido is not null && eraPrincipal) noMantido.Principal = true;
-        }
-        duplicado.Ativo = false;               // perde todo principal; relações ficam como histórico
-        duplicado.MescladoEmId = mantido.Id;   // registra em qual foi consolidado
-        foreach (var e in Estabelecimentos.Where(e => ReferenceEquals(e.EnderecoFiscal, duplicado))) e.EnderecoFiscal = mantido;
-        mantido.AvisoFinalidade = "Endereços consolidados. Salve para gravar.";
-        AtualizarDuplicidades();
+        await ConsolidarNoServidor(duplicado.Id, mantido.Id);
     }
 
     // ---- Estabelecimentos ----
@@ -1094,6 +1127,24 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     // ---- Consulta de CNPJ ----
 
+    /// <summary>
+    /// Endereço existente que recebe o endereço do CNPJ (nulo = criar um novo): o principal fiscal definido pelo
+    /// usuário; senão um ativo que é o mesmo lugar físico (igual ou possível); senão um ativo ainda sem logradouro.
+    /// </summary>
+    private EnderecoFormulario? EnderecoParaCnpj(DadosCnpj d)
+    {
+        var ativos = Enderecos.Where(e => e.Ativo).ToList();
+        var principalFiscal = ativos.FirstOrDefault(e => e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal));
+        if (principalFiscal is not null) return principalFiscal;
+
+        var doCnpj = new EnderecoFormulario();
+        doCnpj.AplicarCnpj(d);
+        var comparacao = doCnpj.ParaComparacao();
+        return ativos.FirstOrDefault(e => Lone.Domain.Enderecos.DuplicidadeEndereco.Comparar(e.ParaComparacao(), comparacao)
+                                          != Lone.Domain.Enderecos.SemelhancaEndereco.Diferente)
+               ?? ativos.FirstOrDefault(e => string.IsNullOrWhiteSpace(e.Logradouro));
+    }
+
     /// <summary>Preenche o estabelecimento (e, no principal, a razão social e o endereço). O usuário confere e salva.</summary>
     public void AplicarCnpj(EstabelecimentoFormulario estabelecimento, DadosCnpj d)
     {
@@ -1103,16 +1154,16 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (ReferenceEquals(estabelecimento, Principal))
         {
             if (d.RazaoSocial.Length > 0) Nome = d.RazaoSocial;
-            // O endereço fiscal da empresa: o principal da finalidade Fiscal; sem ele, o único endereço ativo; senão, um novo.
-            var ativos = Enderecos.Where(e => e.Ativo).ToList();
-            endereco = ativos.FirstOrDefault(e => e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal))
-                       ?? (ativos.Count == 1 ? ativos[0] : null);
+            // Onde entra o endereço do CNPJ: o principal fiscal já definido pelo usuário; senão um endereço ativo que é o
+            // mesmo lugar físico; senão um endereço ainda em branco; senão um novo. Nunca sobrescreve outro lugar (ex.: o
+            // residencial) só por ser o único endereço, e nunca marca principal.
+            endereco = EnderecoParaCnpj(d);
             if (endereco is null)
             {
                 endereco = new EnderecoFormulario();
                 AdicionarEndereco(endereco);
             }
-            MarcarFiscal(endereco, principalSeLivre: true);
+            MarcarFiscal(endereco);
         }
         else
         {
@@ -1122,7 +1173,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             {
                 endereco = new EnderecoFormulario { Descricao = "Filial " + DocumentoFiscal.Formatar(d.Cnpj) };
                 AdicionarEndereco(endereco);
-                MarcarFiscal(endereco, principalSeLivre: false); // o principal fiscal é o da matriz
+                MarcarFiscal(endereco); // o principal fiscal é escolhido pelo usuário
                 estabelecimento.EnderecoFiscal = endereco;
             }
         }

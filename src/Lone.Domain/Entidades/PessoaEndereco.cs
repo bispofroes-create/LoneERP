@@ -4,8 +4,8 @@ using Lone.Domain.Enums;
 namespace Lone.Domain.Entidades;
 
 /// <summary>
-/// Endereço da pessoa. Um endereço serve para vários usos (Finalidades), então não precisa ser
-/// cadastrado de novo para cobrança ou entrega. O padrão de cada uso é o de menor Ordem que o tem.
+/// Endereço físico da pessoa. Os usos (finalidades) e o principal de cada uso ficam em PessoaEnderecoFinalidades:
+/// o mesmo lugar não é cadastrado de novo para outra finalidade, e nada é decidido pela Ordem.
 /// </summary>
 [DisplayName("Endereço")]
 public class PessoaEndereco : EntidadePessoaFilha
@@ -81,10 +81,15 @@ public class PessoaEndereco : EntidadePessoaFilha
     public bool EhBrasil => CodigoPais == CodigoPaisBrasil;
     /// <summary>
     /// Endereço duplicado que foi consolidado neste outro (fica inativo e aponta para o que ficou). Nulo = não mesclado.
+    /// O banco garante que o destino é endereço da MESMA pessoa (FK composta) e que o consolidado fica inativo (CHECK).
+    /// Só a operação de consolidação da API preenche; a ficha não altera.
     /// </summary>
     [DisplayName("Consolidado em")]
     public Guid? MescladoEmId { get; set; }
 
-    /// <summary>Cópia (bits) das finalidades ativas, gravada pela API; a fonte é PessoaEnderecoFinalidades.</summary>
-    public bool Tem(FinalidadeEndereco finalidade) => (Finalidades & finalidade) == finalidade;
+    /// <summary>
+    /// Motivo de revisão deixado pela migração do cadastro antigo (só a migração liga; a API só desliga).
+    /// </summary>
+    [DisplayName("Revisão da migração")]
+    public MotivoRevisaoEndereco RevisaoMigracao { get; set; } = MotivoRevisaoEndereco.Nenhum;
 }

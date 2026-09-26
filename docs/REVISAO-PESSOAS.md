@@ -178,3 +178,26 @@ redirecionadas, evento na auditoria). Nunca DELETE.
 (sem o bit 1); principal: (1) antigo principal com a finalidade; (2) único endereço ativo com ela; (3) 2+ sem antigo
 principal = sem principal + revisão; (4) antigo principal sem finalidade = nada inventado + revisão; (5) dois antigos
 principais = revisão. Endereço inativo = histórico sem principal. Conferências com THROW (desfaz tudo).
+
+### 11.1 Correções depois da auditoria (commit seguinte ao 163cb43)
+
+- **Banco:** `MescladoEmId` com FK composta `(MescladoEmId, PessoaId) → PessoaEnderecos(Id, PessoaId)` (NoAction) e CHECK
+  `CK_PessoaEnderecos_Consolidado` (consolidado inativo e ≠ ele mesmo). Gatilhos (SQL em `SqlMigracaoFinalidadesEndereco.CriarProtecoes`,
+  declarados no modelo com `HasTrigger`): endereço inativo nunca principal (nas duas tabelas) e finalidade de sistema não muda
+  de código nem é excluída; CHECK `CK_FinalidadesEndereco_SistemaAtiva`. Nomes dos índices únicos fixos.
+- **Contrato da ficha:** a gravação recebe o **estado completo** de endereços e finalidades (inclusive inativos); faltou algo
+  gravado → 400. Um registro por endereço + finalidade (reativar reaproveita). `MescladoEmId` e motivos de revisão são da API.
+- **Conflitos do banco:** 2601/2627 nos índices de endereço × finalidade e os gatilhos → 409 com mensagem; erro original no log.
+- **Legado:** pedido só com bits é traduzido em `CompatibilidadeFinalidadesLegado` sem nunca apagar principal.
+- **Principal:** consulta de CNPJ só acrescenta Fiscal (nunca principal) e não sobrescreve outro lugar.
+- **Revisão:** `PessoaEnderecos.RevisaoMigracao` (1 = antigo principal sem finalidade, 2 = antigos principais repetidos) +
+  ambiguidade calculada; endereço sem finalidade não é pendência; motivo só desliga (resolvido ou "marcar como revisado").
+- **Duplicidade:** igual a endereço **inativo** → reativar o existente (a API recusa criar outro). Abreviações PR/AL/EST removidas.
+- **Consolidação:** operação própria `POST pessoas/{id}/enderecos/consolidar` (intenção origem → destino); o servidor carrega o
+  gravado, confere e decide (`ConsolidacaoEndereco`), numa gravação.
+- **Referência da listagem:** ordenação total (… → Ordem → Id), igual no domínio (SqlGuid) e no SQL.
+- **Pendência de município** de endereço desativado: encerrada "sem correção" (não "corrigida"); reaberta se ele voltar.
+- **Migração:** conferências independentes (esperado recalculado pelos códigos, soma aritmética dos bits, principal
+  recalculado declarativamente, motivos e marca de revisão conferidos nos dois sentidos) — THROW 50020–50031.
+- **Testes de banco:** `tests/Lone.Tests/Infraestrutura/*` — modelo do EF (sem banco) e SQL Server real (opcionais: variável
+  `LONE_TESTES_SQLSERVER`; banco temporário próprio).

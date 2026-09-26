@@ -8,7 +8,7 @@ public class ConferenciaInscricaoEstadualTests
 {
     private static Pessoa Empresa(string ie, string uf)
     {
-        var endereco = new PessoaEndereco { Id = Guid.NewGuid(), Uf = uf, Finalidades = FinalidadeEndereco.Principal };
+        var endereco = new PessoaEndereco { Id = Guid.NewGuid(), Uf = uf }; // o principal está na relação, não em bits
         return new Pessoa
         {
             Natureza = NaturezaPessoa.Juridica,

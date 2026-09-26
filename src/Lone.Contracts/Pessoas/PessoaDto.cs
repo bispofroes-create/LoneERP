@@ -181,16 +181,26 @@ public sealed class EnderecoDto
     public bool Ativo { get; set; } = true;
 
     /// <summary>
-    /// Cópia em bits das finalidades ativas (compatibilidade). A fonte é <see cref="Usos"/>; se Usos vier vazio, a API
-    /// monta as finalidades a partir destes bits (clientes antigos), com o principal só na finalidade Principal.
+    /// Cópia em bits das finalidades ativas (compatibilidade; a fonte é <see cref="Usos"/>). Cliente antigo que manda só
+    /// os bits (Usos vazio): a API traduz para as relações preservando o principal já gravado — nunca o apaga — e sem
+    /// criar principal novo.
     /// </summary>
     public FinalidadeEndereco Finalidades { get; set; } = FinalidadeEndereco.Nenhuma;
 
     /// <summary>Finalidades do endereço, com o principal de cada uma (explícito). Retirada = Ativo falso (histórico).</summary>
     public List<FinalidadeDoEnderecoDto> Usos { get; set; } = new();
 
-    /// <summary>Somente leitura: duplicado consolidado neste outro endereço. Enviar preenchido registra a consolidação.</summary>
+    /// <summary>
+    /// Somente leitura: duplicado consolidado neste outro endereço. A ficha não altera (a API mantém o gravado);
+    /// consolidar é a operação própria POST pessoas/{id}/enderecos/consolidar.
+    /// </summary>
     public Guid? MescladoEmId { get; set; }
+
+    /// <summary>
+    /// Motivos de revisão deixados pela migração. O aplicativo só pode desligar (usuário marcou como revisado); a API
+    /// ignora qualquer motivo novo.
+    /// </summary>
+    public MotivoRevisaoEndereco RevisaoMigracao { get; set; } = MotivoRevisaoEndereco.Nenhum;
     public int Ordem { get; set; }
     public string? Cep { get; set; }
     public string Logradouro { get; set; } = string.Empty;

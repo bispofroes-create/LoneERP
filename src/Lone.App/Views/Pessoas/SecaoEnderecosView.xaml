@@ -64,19 +64,27 @@
                                 <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
                                         IsVisible="{Binding Ativo}" />
                                 <Button Grid.Column="2" Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
-                                        IsVisible="{Binding Inativo}" />
+                                        IsVisible="{Binding PodeReativar}" />
                             </Grid>
                             <Label Text="Inativo (removido): continua gravado para o histórico. Ao reativar, volta sem principal." Style="{StaticResource Secundario}"
-                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding PodeReativar}" />
+                            <Label Text="Consolidado em outro endereço: fica no histórico e não volta (use o endereço mantido)." Style="{StaticResource Secundario}"
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Consolidado}" />
+
+                            <!-- Revisão deixada pela migração: o usuário confere e marca como revisado (ação explícita). -->
+                            <Button Text="Marcar este endereço como revisado" Style="{StaticResource BotaoLink}" HorizontalOptions="Start"
+                                    Command="{Binding MarcarRevisadoCommand}" IsVisible="{Binding TemRevisao}" />
 
                             <!-- Endereço novo igual a um existente: não cria outro; oferece usar o existente. -->
                             <Border Style="{StaticResource CartaoItem}" Stroke="{StaticResource Aviso}" IsVisible="{Binding TemDuplicidade}">
                                 <VerticalStackLayout Spacing="4">
                                     <Label Text="{Binding TextoDuplicidade}" LineBreakMode="WordWrap" />
                                     <FlexLayout Wrap="Wrap">
-                                        <Button Text="Usar endereço existente" Style="{StaticResource BotaoSecundario}" Command="{Binding UsarExistenteCommand}" Margin="0,0,8,4" />
+                                        <Button Text="{Binding TextoBotaoUsarExistente}" Style="{StaticResource BotaoSecundario}" Command="{Binding UsarExistenteCommand}" Margin="0,0,8,4" />
                                         <Button Text="Continuar com outro endereço" Style="{StaticResource BotaoLink}" Command="{Binding ContinuarComOutroCommand}"
                                                 IsVisible="{Binding DuplicidadeIncerta}" />
+                                        <Button Text="Cancelar" Style="{StaticResource BotaoLink}" Command="{Binding CancelarNovoCommand}"
+                                                IsVisible="{Binding IgualAInativo}" />
                                     </FlexLayout>
                                 </VerticalStackLayout>
                             </Border>

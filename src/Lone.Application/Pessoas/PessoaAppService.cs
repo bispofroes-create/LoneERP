@@ -224,6 +224,11 @@ public sealed class PessoaAppService : IPessoaAppService
 
         var dados = PessoaMapeamento.ParaEntidade(dto);
 
+        // Endereço × finalidade: pedido antigo (só bits) traduzido sem apagar principal; campos que só a API controla
+        // (consolidação, revisão) e Ids das relações casados com o gravado.
+        CompatibilidadeFinalidadesLegado.Aplicar(dados, dto.Enderecos, anterior);
+        ManterControleDosEnderecos(dados, anterior);
+
         // Papéis: ligados ao cadastro de papéis antes de tudo, porque as regras seguintes (empresa do grupo,
         // dados de funcionário) usam o papel de sistema copiado de lá, nunca o que veio do aplicativo.
         RegrasPapel.CompletarIds(dados);
@@ -292,15 +297,18 @@ public sealed class PessoaAppService : IPessoaAppService
             (anterior?.Enderecos ?? []).ToDictionary(e => e.Id, e => e.TipoEnderecoId),
             await _tiposEndereco.ObterVariosAsync(dados.Enderecos.Select(e => e.TipoEnderecoId).OfType<Guid>().Distinct().ToList(), ct)));
 
-        // Endereço × finalidade (fonte oficial das finalidades e do principal de cada uma): conferido contra o cadastro de
-        // finalidades; endereço físico repetido (novo, reativado ou alterado) não entra: usa-se o existente.
+        // Endereço × finalidade (fonte oficial das finalidades e do principal de cada uma). A ficha manda o estado
+        // COMPLETO (contrato): conferido aqui, as regras abaixo valem sobre exatamente o que ficará gravado.
+        // Endereço físico repetido (novo, reativado ou alterado; igual a um inativo também) não entra.
         var finalidades = (await _finalidades.ListarAsync(ct)).ToDictionary(f => f.Id);
+        if (anterior is not null)
+            erros.AddRange(RegrasFinalidadeEndereco.ValidarCompleto(dados, anterior));
         erros.AddRange(RegrasFinalidadeEndereco.Validar(dados, finalidades, anterior?.FinalidadesEnderecos ?? []));
         erros.AddRange(DuplicidadeEndereco.ErrosDeNovos(dados.Enderecos, anterior?.Enderecos ?? []));
 
-        // Revisão da migração: a marca só se mantém enquanto houver pendência (a API nunca liga, só desliga).
-        dados.RevisarFinalidadesEndereco = (anterior?.RevisarFinalidadesEndereco ?? false) &&
-            RegrasFinalidadeEndereco.PendenciasRevisao(dados, id => finalidades.TryGetValue(id, out var f) ? f.Nome : "Finalidade").Count > 0;
+        // Revisão da migração: motivos só desligam (resolvidos ou conferidos); a marca geral só se mantém enquanto houver
+        // pendência real (a API nunca liga).
+        RegrasFinalidadeEndereco.AtualizarRevisao(dados, anterior);
 
         // Coluna legada de bits: cópia derivada, regravada na mesma transação (compatibilidade; ninguém lê dela).
         var referencia = RegrasFinalidadeEndereco.EnderecoReferencia(dados, finalidades);
@@ -356,16 +364,6 @@ public sealed class PessoaAppService : IPessoaAppService
         if (DuplicidadeEndereco.Pares(dados.Enderecos, incluirPossiveis: false).Count > 0)
             avisos.Add("Há endereços iguais já gravados nesta ficha. Use \"Consolidar endereços\" para juntar as finalidades num só.");
 
-        // Consolidação assistida: fica registrado qual endereço foi consolidado em qual e com quais finalidades.
-        foreach (var e in dados.Enderecos.Where(e => e.MescladoEmId is not null &&
-                                                   anterior?.Enderecos.FirstOrDefault(a => a.Id == e.Id)?.MescladoEmId is null))
-        {
-            var destino = dados.Enderecos.First(x => x.Id == e.MescladoEmId);
-            var usos = dados.FinalidadesEnderecos.Where(u => u.PessoaEnderecoId == destino.Id && u.Ativo)
-                .Select(u => (finalidades.TryGetValue(u.FinalidadeId, out var f) ? f.Nome : "?") + (u.Principal ? " (principal)" : string.Empty));
-            dados.RegistrarEvento($"Endereço '{DuplicidadeEndereco.Resumo(e)}' consolidado em '{DuplicidadeEndereco.Resumo(destino)}'. " +
-                                  $"Finalidades do endereço mantido: {string.Join(", ", usos)}.");
-        }
         await _repositorio.SalvarAsync(dados, nova, OrigemAlteracao.Usuario, ct);
 
         // Relê do banco: volta com o código, a versão nova e tudo como ficou gravado.
@@ -410,6 +408,63 @@ public sealed class PessoaAppService : IPessoaAppService
 
         dados.ValoresDocumentos = resultado;
         return erros;
+    }
+
+    /// <summary>
+    /// Campos de endereço que a ficha não controla: MescladoEmId volta ao gravado (consolidar é operação própria) e as
+    /// relações que casam pela chave (endereço + finalidade) recebem o Id gravado; relação nova com Id de outra gravada
+    /// ganha Id novo (uma relação nunca "muda" de endereço ou de finalidade).
+    /// </summary>
+    private static void ManterControleDosEnderecos(Pessoa dados, Pessoa? anterior)
+    {
+        var gravados = anterior?.Enderecos.ToDictionary(e => e.Id) ?? new Dictionary<Guid, PessoaEndereco>();
+        foreach (var e in dados.Enderecos)
+            e.MescladoEmId = gravados.TryGetValue(e.Id, out var g) ? g.MescladoEmId : null;
+
+        var porChave = (anterior?.FinalidadesEnderecos ?? []).GroupBy(RegrasFinalidadeEndereco.Chave).ToDictionary(x => x.Key, x => x.First().Id);
+        var idsGravados = porChave.Values.ToHashSet();
+        foreach (var u in dados.FinalidadesEnderecos)
+        {
+            if (porChave.TryGetValue(RegrasFinalidadeEndereco.Chave(u), out var id)) u.Id = id;
+            else if (idsGravados.Contains(u.Id) || u.Id == Guid.Empty) u.Id = IdSequencial.Novo();
+        }
+    }
+
+    /// <summary>
+    /// Consolida um endereço duplicado em outro. O aplicativo só informa a intenção (origem → destino); o servidor
+    /// carrega o estado gravado, confere (mesma pessoa, origem e destino ativos, mesmo endereço físico, conflito de
+    /// principal), decide as finalidades resultantes e grava tudo numa gravação só (transação), com evento na auditoria.
+    /// </summary>
+    public async Task<PessoaDto> ConsolidarEnderecosAsync(Guid id, Lone.Contracts.Enderecos.ConsolidarEnderecosRequisicao requisicao,
+                                                          CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Editar);
+        var pessoa = await _repositorio.ObterAsync(id, ct) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
+        var anterior = await _repositorio.ObterAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
+        if (pessoa.Situacao == SituacaoPessoa.Arquivado)
+            throw new ValidacaoException(["Cadastro arquivado é somente leitura."]);
+        pessoa.Versao = requisicao.Versao ?? pessoa.Versao;
+
+        var erros = ConsolidacaoEndereco.Aplicar(pessoa, requisicao.OrigemId, requisicao.DestinoId);
+        if (erros.Count > 0) throw new ValidacaoException(erros);
+
+        var finalidades = (await _finalidades.ListarAsync(ct)).ToDictionary(f => f.Id);
+        RegrasFinalidadeEndereco.Normalizar(pessoa);
+        erros.AddRange(RegrasFinalidadeEndereco.Validar(pessoa, finalidades, anterior.FinalidadesEnderecos));
+        if (erros.Count > 0) throw new ValidacaoException(erros);
+        RegrasFinalidadeEndereco.AtualizarRevisao(pessoa, anterior);
+        RegrasFinalidadeEndereco.SincronizarLegado(pessoa, RegrasFinalidadeEndereco.EnderecoReferencia(pessoa, finalidades));
+
+        var origem = pessoa.Enderecos.First(e => e.Id == requisicao.OrigemId);
+        var destino = pessoa.Enderecos.First(e => e.Id == requisicao.DestinoId);
+        var usos = pessoa.FinalidadesEnderecos.Where(u => u.PessoaEnderecoId == destino.Id && u.Ativo)
+            .Select(u => (finalidades.TryGetValue(u.FinalidadeId, out var f) ? f.Nome : "?") + (u.Principal ? " (principal)" : string.Empty));
+        pessoa.RegistrarEvento($"Endereço '{DuplicidadeEndereco.Resumo(origem)}' consolidado em '{DuplicidadeEndereco.Resumo(destino)}'. " +
+                               $"Finalidades do endereço mantido: {string.Join(", ", usos)}.");
+
+        await _repositorio.SalvarAsync(pessoa, nova: false, OrigemAlteracao.Usuario, ct);
+        var salva = await _repositorio.ObterAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
+        return await ParaTelaAsync(salva, ct);
     }
 
     public Task<PessoaDto> DesativarAsync(Guid id, AlterarSituacaoRequisicao requisicao, CancellationToken ct = default) =>

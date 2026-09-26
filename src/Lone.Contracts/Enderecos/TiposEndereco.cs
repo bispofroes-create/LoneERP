@@ -38,3 +38,14 @@ public sealed class PaginaEnderecosDuplicados
     public List<EnderecosDuplicadosDto> Itens { get; set; } = new();
     public Guid? ProximoId { get; set; }
 }
+
+/// <summary>
+/// Intenção de consolidar um endereço duplicado (origem) em outro (destino) da mesma pessoa. O servidor carrega o
+/// estado gravado, confere tudo e decide as finalidades resultantes; Versao = a que o usuário tinha aberta.
+/// </summary>
+public sealed class ConsolidarEnderecosRequisicao
+{
+    public byte[]? Versao { get; set; }
+    public Guid OrigemId { get; set; }
+    public Guid DestinoId { get; set; }
+}

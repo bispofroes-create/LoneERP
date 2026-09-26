@@ -244,39 +244,172 @@ public class EnderecoFinalidadesTests
     }
 
     [Fact]
-    public async Task Duplicados_gravados_sao_apontados_e_consolidados_so_com_confirmacao_sem_apagar()
+    public async Task Consolidacao_mostra_a_previa_e_so_pede_ao_servidor_a_intencao_sem_mudar_a_ficha()
     {
         var f = ComDuplicadosGravados(out var a, out var b);
         var par = Assert.Single(f.DuplicadosGravados);
         string? resumo = null;
+        (Guid Origem, Guid Destino)? pedido = null;
         f.Confirmar = (_, mensagem, _, _) => { resumo = mensagem; return Task.FromResult(true); };
+        f.ConsolidarNoServidor = (origem, destino) => { pedido = (origem, destino); return Task.CompletedTask; };
 
         await par.ManterPrimeiroCommand.ExecuteAsync(null);
 
-        Assert.Contains("Cobrança (principal)", resumo);            // o usuário vê como vai ficar antes
-        var dto = f.ParaDto();
-        Assert.Equal(2, dto.Enderecos.Count);                        // nada é apagado
-        var mantido = dto.Enderecos.Single(e => e.Id == a);
-        var consolidado = dto.Enderecos.Single(e => e.Id == b);
-        Assert.False(consolidado.Ativo);
-        Assert.Equal(a, consolidado.MescladoEmId);                   // registra em qual foi consolidado
-        Assert.All(consolidado.Usos, u => Assert.False(u.Principal));
-        Assert.Contains(mantido.Usos, u => u.FinalidadeId == Finalidades.Cobranca && u.Principal); // principal preservado
-        Assert.Contains(mantido.Usos, u => u.FinalidadeId == Finalidades.Residencial);
+        Assert.Contains("Cobrança (principal)", resumo);             // o usuário vê como deve ficar antes
+        Assert.Equal((b, a), pedido);                                // só a intenção: consolidar B em A
+        var dto = f.ParaDto();                                       // a ficha não decide nada sozinha
+        Assert.All(dto.Enderecos, e => Assert.True(e.Ativo));
+        Assert.All(dto.Enderecos, e => Assert.Null(e.MescladoEmId));
+    }
+
+    [Fact]
+    public async Task Consolidacao_cancelada_nao_chama_o_servidor_e_manter_separados_tira_o_aviso()
+    {
+        var f = ComDuplicadosGravados(out _, out _);
+        var chamou = false;
+        f.Confirmar = (_, _, _, _) => Task.FromResult(false);
+        f.ConsolidarNoServidor = (_, _) => { chamou = true; return Task.CompletedTask; };
+
+        await f.DuplicadosGravados[0].ManterSegundoCommand.ExecuteAsync(null);
+        Assert.False(chamou);
+
+        f.DuplicadosGravados[0].ManterSeparadosCommand.Execute(null);
         Assert.Empty(f.DuplicadosGravados);
     }
 
     [Fact]
-    public async Task Consolidacao_cancelada_nao_muda_nada_e_manter_separados_tira_o_aviso()
+    public async Task Consolidacao_com_alteracoes_nao_salvas_nao_pergunta_nem_chama_o_servidor()
     {
         var f = ComDuplicadosGravados(out _, out _);
-        f.Confirmar = (_, _, _, _) => Task.FromResult(false);
+        var perguntou = false;
+        var chamou = false;
+        f.TemAlteracoesNaoSalvas = () => true;
+        f.Confirmar = (_, _, _, _) => { perguntou = true; return Task.FromResult(true); };
+        f.ConsolidarNoServidor = (_, _) => { chamou = true; return Task.CompletedTask; };
 
-        await f.DuplicadosGravados[0].ManterSegundoCommand.ExecuteAsync(null);
-        Assert.All(f.ParaDto().Enderecos, e => Assert.True(e.Ativo));
+        await f.DuplicadosGravados[0].ManterPrimeiroCommand.ExecuteAsync(null);
 
-        f.DuplicadosGravados[0].ManterSeparadosCommand.Execute(null);
-        Assert.Empty(f.DuplicadosGravados);
+        Assert.False(perguntou);
+        Assert.False(chamou);
+    }
+
+    // Endereço igual a um INATIVO já gravado ---------------------------------------------------------------------------
+
+    private static PessoaFormulario ComInativoGravado(out Guid inativoId, bool consolidado = false)
+    {
+        inativoId = Guid.NewGuid();
+        var mantidoId = Guid.NewGuid();
+        var dto = new PessoaDto
+        {
+            Id = Guid.NewGuid(), Nome = "Ana", Natureza = NaturezaPessoa.Fisica,
+            Enderecos =
+            [
+                new EnderecoDto
+                {
+                    Id = inativoId, Ativo = false, MescladoEmId = consolidado ? mantidoId : null, Logradouro = "Rua X", Numero = "100",
+                    Bairro = "Centro", Cep = "35790000", MunicipioId = Curvelo, Cidade = "Curvelo", Uf = "MG",
+                    Usos = [new() { Id = Guid.NewGuid(), FinalidadeId = Finalidades.Entrega }]
+                },
+                new EnderecoDto
+                {
+                    Id = mantidoId, Logradouro = "Rua Y", Numero = "1", Bairro = "Centro", Cep = "35790000", MunicipioId = Curvelo,
+                    Cidade = "Curvelo", Uf = "MG"
+                }
+            ]
+        };
+        return PessoaFormulario.De(dto, finalidades: Finalidades.Cadastro);
+    }
+
+    [Fact]
+    public void Igual_a_um_inativo_oferece_reativar_o_existente_sem_criar_outra_linha()
+    {
+        var f = ComInativoGravado(out var inativoId);
+        var novo = Novo(f, e => RuaA(e, logradouro: "Rua X"));
+        novo.AdicionarFinalidade(Finalidades.Cobranca);
+
+        Assert.True(novo.IgualAInativo);
+        Assert.Equal("Reativar endereço existente", novo.TextoBotaoUsarExistente);
+        Assert.Contains("porém ele está inativo", novo.TextoDuplicidade);
+
+        novo.UsarExistenteCommand.Execute(null);
+
+        var dto = f.ParaDto();
+        Assert.Equal(2, dto.Enderecos.Count);                                  // nenhuma linha física nova
+        var reativado = dto.Enderecos.Single(e => e.Id == inativoId);
+        Assert.True(reativado.Ativo);
+        Assert.Contains(reativado.Usos, u => u.FinalidadeId == Finalidades.Cobranca && u.Ativo);
+        Assert.All(reativado.Usos, u => Assert.False(u.Principal));            // reativado volta sem principal
+    }
+
+    [Fact]
+    public void Igual_a_um_inativo_cancelar_tira_o_novo_da_ficha()
+    {
+        var f = ComInativoGravado(out _);
+        var novo = Novo(f, e => RuaA(e, logradouro: "Rua X"));
+
+        novo.CancelarNovoCommand.Execute(null);
+
+        Assert.Equal(2, f.Enderecos.Count);
+        Assert.DoesNotContain(novo, f.Enderecos);
+    }
+
+    [Fact]
+    public void Consolidado_nao_pode_ser_reativado_nem_e_oferecido_para_reuso()
+    {
+        var f = ComInativoGravado(out var inativoId, consolidado: true);
+        var consolidado = f.Enderecos.Single(e => e.Id == inativoId);
+
+        Assert.False(consolidado.PodeReativar);
+        consolidado.ReativarCommand.Execute(null);
+        Assert.False(consolidado.Ativo);
+
+        var novo = Novo(f, e => RuaA(e, logradouro: "Rua X"));
+        Assert.Null(novo.IgualA);
+    }
+
+    // Consulta de CNPJ nunca escolhe principal -------------------------------------------------------------------------
+
+    [Fact]
+    public void Aplicar_CNPJ_acrescenta_Fiscal_mas_nao_cria_principal_nem_no_unico_endereco()
+    {
+        var f = Ficha();
+        f.Natureza = Lone.Cliente.ViewModels.Comum.Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
+        var dados = new Lone.Contracts.Integracoes.DadosCnpj
+        {
+            Cnpj = "11222333000181", RazaoSocial = "Minha Empresa Ltda", Cep = "35790000", Logradouro = "Rua A", Numero = "100",
+            Bairro = "Centro", Cidade = "Curvelo", Uf = "MG", CodigoMunicipioIbge = "3120904", Fonte = "BrasilAPI"
+        };
+
+        f.AplicarCnpj(f.Principal, dados);
+
+        var endereco = Assert.Single(f.Enderecos);                             // o único endereço (em branco) recebeu o CNPJ
+        var fiscal = Assert.Single(endereco.Finalidades, x => x.FinalidadeId == Finalidades.Fiscal);
+        Assert.False(fiscal.Principal);                                        // principal só por ação do usuário
+        Assert.Contains("Tornar principal", endereco.AvisoFinalidade);         // a sugestão exige a ação explícita
+    }
+
+    [Fact]
+    public void Aplicar_CNPJ_nao_sobrescreve_outro_lugar_nem_mexe_nos_principais_existentes()
+    {
+        var f = Ficha();
+        f.Natureza = Lone.Cliente.ViewModels.Comum.Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
+        var residencial = f.Enderecos[0];
+        RuaA(residencial, numero: "999", logradouro: "Rua Casa");
+        var principalResidencial = residencial.AdicionarFinalidade(Finalidades.Residencial)!;
+        principalResidencial.Principal = true;
+        var dados = new Lone.Contracts.Integracoes.DadosCnpj
+        {
+            Cnpj = "11222333000181", RazaoSocial = "Minha Empresa Ltda", Cep = "35790000", Logradouro = "Rua A", Numero = "100",
+            Bairro = "Centro", Cidade = "Curvelo", Uf = "MG", CodigoMunicipioIbge = "3120904", Fonte = "BrasilAPI"
+        };
+
+        f.AplicarCnpj(f.Principal, dados);
+
+        Assert.Equal("Rua Casa", residencial.Logradouro);                      // o residencial não virou o endereço do CNPJ
+        Assert.True(principalResidencial.Principal);
+        Assert.DoesNotContain(residencial.Finalidades, x => x.FinalidadeId == Finalidades.Fiscal);
+        var doCnpj = Assert.Single(f.Enderecos, e => !ReferenceEquals(e, residencial));
+        Assert.False(Assert.Single(doCnpj.Finalidades, x => x.FinalidadeId == Finalidades.Fiscal).Principal);
     }
 
     // Revisão vinda da migração -------------------------------------------------------------------------------------
@@ -296,7 +429,7 @@ public class EnderecoFinalidadesTests
         };
         var f = PessoaFormulario.De(dto, finalidades: Finalidades.Cadastro);
 
-        Assert.Equal("Entrega: existem 2 endereços e nenhum foi definido como principal.", Assert.Single(f.PendenciasRevisao));
+        Assert.Equal(Lone.Domain.Enderecos.RegrasFinalidadeEndereco.TextoAmbiguidade("Entrega", 2), Assert.Single(f.PendenciasRevisao));
 
         await f.AlternarPrincipalAsync(f.Enderecos[0], f.Enderecos[0].Finalidades[0]);
 

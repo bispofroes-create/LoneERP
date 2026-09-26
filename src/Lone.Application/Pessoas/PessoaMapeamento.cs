@@ -357,6 +357,7 @@ public static class PessoaMapeamento
             .Select(u => new FinalidadeDoEnderecoDto { Id = u.Id, FinalidadeId = u.FinalidadeId, Principal = u.Principal, Ativo = u.Ativo })
             .ToList(),
         MescladoEmId = e.MescladoEmId,
+        RevisaoMigracao = e.RevisaoMigracao,
         Descricao = e.Descricao,
         TipoEnderecoId = e.TipoEnderecoId,
         Observacoes = e.Observacoes,
@@ -397,28 +398,22 @@ public static class PessoaMapeamento
         CodigoMunicipioIbge = e.CodigoMunicipioIbge,
         CodigoPais = string.IsNullOrWhiteSpace(e.CodigoPais) ? PessoaEndereco.CodigoPaisBrasil : e.CodigoPais,
         Pais = e.Pais ?? string.Empty,
-        MescladoEmId = e.MescladoEmId
+        // Controlados pela API (PessoaAppService): MescladoEmId volta ao gravado; do motivo de revisão só vale desligar.
+        MescladoEmId = e.MescladoEmId,
+        RevisaoMigracao = e.RevisaoMigracao
     };
 
     /// <summary>
-    /// Finalidades de um endereço vindas da ficha (com o principal explícito de cada uma). Sem a lista (cliente antigo
-    /// que só manda os bits legados), cada bit vira a finalidade inicial correspondente, sem principal: o antigo bit
-    /// "Principal" não diz de qual finalidade o endereço seria o principal, então nada é inventado.
+    /// Finalidades de um endereço vindas da ficha (com o principal explícito de cada uma). Os bits legados NÃO são
+    /// traduzidos aqui: sem o estado gravado não dá para preservar o principal. Pedido antigo (só bits, Usos vazio) é
+    /// tratado em CompatibilidadeFinalidadesLegado, que conhece o gravado.
     /// </summary>
-    private static IEnumerable<PessoaEnderecoFinalidade> Usos(EnderecoDto e, Guid pessoaId, Guid enderecoId)
-    {
-        if (e.Usos.Count > 0)
-            return e.Usos.Select(u => new PessoaEnderecoFinalidade
-            {
-                Id = IdOuNovo(u.Id), PessoaId = pessoaId, PessoaEnderecoId = enderecoId, FinalidadeId = u.FinalidadeId,
-                Principal = u.Principal, Ativo = u.Ativo
-            });
-        return FinalidadesEnderecoIniciais.Todas.Where(f => (e.Finalidades & f.BitLegado) != FinalidadeEndereco.Nenhuma)
-            .Select(f => new PessoaEnderecoFinalidade
-            {
-                Id = IdSequencial.Novo(), PessoaId = pessoaId, PessoaEnderecoId = enderecoId, FinalidadeId = f.Id, Principal = false, Ativo = true
-            });
-    }
+    private static IEnumerable<PessoaEnderecoFinalidade> Usos(EnderecoDto e, Guid pessoaId, Guid enderecoId) =>
+        e.Usos.Select(u => new PessoaEnderecoFinalidade
+        {
+            Id = IdOuNovo(u.Id), PessoaId = pessoaId, PessoaEnderecoId = enderecoId, FinalidadeId = u.FinalidadeId,
+            Principal = u.Principal, Ativo = u.Ativo
+        });
 
     // ---------------------------------------------------------------- Contatos e documentos
 

@@ -5,38 +5,6 @@ using Lone.Domain.Enums;
 
 namespace Lone.Domain.Enderecos;
 
-/// <summary>
-/// As finalidades iniciais (de sistema): nascem com a base, com Ids estáveis (a migração dos dados antigos depende
-/// deles). O resto do sistema usa o Id vindo do cadastro; regra que precisa de uma finalidade específica usa o Código.
-/// O bit legado liga cada uma à coluna antiga PessoaEnderecos.Finalidades (só compatibilidade e migração).
-/// </summary>
-public static class FinalidadesEnderecoIniciais
-{
-    public const string Comercial = "COMERCIAL";
-    public const string Residencial = "RESIDENCIAL";
-    public const string Fiscal = "FISCAL";
-    public const string Entrega = "ENTREGA";
-    public const string Cobranca = "COBRANCA";
-    public const string Correspondencia = "CORRESPONDENCIA";
-
-    public static IReadOnlyList<(Guid Id, string Codigo, string Nome, int Ordem, FinalidadeEndereco BitLegado)> Todas { get; } =
-    [
-        (new Guid("7a9e1c07-0000-0000-0000-000000000001"), Comercial, "Comercial", 1, FinalidadeEndereco.Comercial),
-        (new Guid("7a9e1c07-0000-0000-0000-000000000002"), Residencial, "Residencial", 2, FinalidadeEndereco.Residencial),
-        (new Guid("7a9e1c07-0000-0000-0000-000000000003"), Fiscal, "Fiscal", 3, FinalidadeEndereco.Fiscal),
-        (new Guid("7a9e1c07-0000-0000-0000-000000000004"), Entrega, "Entrega", 4, FinalidadeEndereco.Entrega),
-        (new Guid("7a9e1c07-0000-0000-0000-000000000005"), Cobranca, "Cobrança", 5, FinalidadeEndereco.Cobranca),
-        (new Guid("7a9e1c07-0000-0000-0000-000000000006"), Correspondencia, "Correspondência", 6, FinalidadeEndereco.Correspondencia)
-    ];
-
-    /// <summary>Id estável de uma finalidade de sistema pelo código.</summary>
-    public static Guid Id(string codigo) => Todas.First(t => t.Codigo == codigo).Id;
-
-    /// <summary>Bit da coluna legada para a finalidade (Nenhuma para as criadas pelo usuário).</summary>
-    public static FinalidadeEndereco BitLegado(Guid finalidadeId) =>
-        Todas.Where(t => t.Id == finalidadeId).Select(t => t.BitLegado).FirstOrDefault();
-}
-
 /// <summary>Resultado da comparação de dois endereços físicos.</summary>
 public enum SemelhancaEndereco
 {
@@ -51,14 +19,20 @@ public enum SemelhancaEndereco
 /// <summary>
 /// Compara endereços físicos (nunca a finalidade). Normaliza sem ser agressivo: maiúsculas, acentos, pontuação e
 /// espaços não contam; CEP só dígitos; "S/N", "SN" e vazio são "sem número"; abreviações só no começo do logradouro
-/// e só as inequívocas (R, AV, AL, TV, PC/PCA, ROD, EST). Número e complemento diferentes = endereços diferentes.
+/// e só as inequívocas (R, AV, TV, PC/PCA, ROD). Número e complemento diferentes = endereços diferentes.
 /// </summary>
 public static class DuplicidadeEndereco
 {
+    /// <summary>
+    /// Só abreviações de tipo de logradouro sem outro sentido comum no começo do nome. Ficam de fora, de propósito:
+    /// "PR" e "AL" (também são siglas de UF usadas em rodovias estaduais, ex.: "PR 445", "AL 101") e "EST"
+    /// (Estrada, Estância, Estação). Sem expandir, "Al. Santos" e "Alameda Santos" viram só "possível" ou
+    /// "diferente" — nunca um falso "igual".
+    /// </summary>
     private static readonly Dictionary<string, string> Abreviacoes = new()
     {
-        ["R"] = "RUA", ["AV"] = "AVENIDA", ["AVN"] = "AVENIDA", ["AL"] = "ALAMEDA", ["TV"] = "TRAVESSA", ["TRAV"] = "TRAVESSA",
-        ["PC"] = "PRACA", ["PCA"] = "PRACA", ["PR"] = "PRACA", ["ROD"] = "RODOVIA", ["EST"] = "ESTRADA"
+        ["R"] = "RUA", ["AV"] = "AVENIDA", ["AVN"] = "AVENIDA", ["TV"] = "TRAVESSA", ["TRAV"] = "TRAVESSA",
+        ["PC"] = "PRACA", ["PCA"] = "PRACA", ["ROD"] = "RODOVIA"
     };
 
     /// <summary>Maiúsculas, sem acentos, só letras/dígitos separados por um espaço.</summary>
@@ -145,12 +119,23 @@ public static class DuplicidadeEndereco
         var antes = anteriores.ToDictionary(e => e.Id);
         bool Novo(PessoaEndereco e) =>
             !antes.TryGetValue(e.Id, out var a) || !a.Ativo || Chave(a) != Chave(e);
+        // Endereço incluído agora ou com o local alterado agora (reativar um registro existente não é cadastrar outro).
+        bool CadastradoAgora(PessoaEndereco e) => !antes.TryGetValue(e.Id, out var a) || Chave(a) != Chave(e);
 
-        return Pares(atuais, incluirPossiveis: false)
+        var erros = Pares(atuais, incluirPossiveis: false)
             .Where(p => Novo(p.A) || Novo(p.B))
             .Select(p => $"Este endereço já está cadastrado para esta pessoa: {Resumo(p.A)}. Use o endereço existente e acrescente a finalidade.")
-            .Distinct()
             .ToList();
+
+        // Igual a um endereço INATIVO (histórico): não se cria outra linha física; reativa-se o existente.
+        // O consolidado em outro fica de fora (o igual ativo dele já é conferido acima).
+        var inativos = atuais.Where(e => !e.Ativo && e.MescladoEmId is null).ToList();
+        foreach (var novo in atuais.Where(e => e.Ativo && CadastradoAgora(e)))
+            foreach (var inativo in inativos.Where(i => i.Id != novo.Id && Comparar(novo, i) == SemelhancaEndereco.Igual))
+                erros.Add($"Já existe um endereço igual cadastrado para esta pessoa, porém ele está inativo: {Resumo(inativo)}. " +
+                          "Reative o endereço existente em vez de cadastrar outro.");
+
+        return erros.Distinct().ToList();
     }
 
     /// <summary>Todos os campos físicos normalizados (para saber se o local de um endereço gravado mudou).</summary>

@@ -50,7 +50,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     /// <summary>Já existe no banco: remover desativa em vez de tirar da lista.</summary>
     public bool Gravado { get; }
 
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Visivel), nameof(Inativo), nameof(Resumo), nameof(PodeEditarFinalidades))]
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Visivel), nameof(Inativo), nameof(Resumo), nameof(PodeEditarFinalidades), nameof(PodeReativar), nameof(TemRevisao))]
     private bool _ativo = true;
 
     /// <summary>Endereço desativado perde todo principal; reativado, volta sem principal (o usuário define de novo).</summary>
@@ -60,8 +60,27 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         foreach (var f in Finalidades) f.Principal = false;
     }
 
-    /// <summary>Somente leitura: duplicado já consolidado em outro endereço (fica inativo, no histórico).</summary>
-    public Guid? MescladoEmId { get; set; }
+    /// <summary>
+    /// Somente leitura: duplicado já consolidado em outro endereço (fica inativo, no histórico, e não pode ser reativado:
+    /// usa-se o endereço mantido). Só a consolidação no servidor preenche.
+    /// </summary>
+    public Guid? MescladoEmId { get; private set; }
+
+    public bool Consolidado => MescladoEmId is not null;
+
+    /// <summary>Inativo que pode voltar (o consolidado em outro não volta).</summary>
+    public bool PodeReativar => !Ativo && MescladoEmId is null;
+
+    // ---- Revisão deixada pela migração do cadastro antigo ----
+
+    /// <summary>Motivos gravados pela migração (a ficha só pode apagar: "marcar como revisado").</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemRevisao))]
+    private MotivoRevisaoEndereco _revisaoMigracao = MotivoRevisaoEndereco.Nenhum;
+    public bool TemRevisao => Ativo && RevisaoMigracao != MotivoRevisaoEndereco.Nenhum;
+
+    /// <summary>O usuário conferiu o endereço (decisão explícita): os motivos saem ao salvar.</summary>
+    [RelayCommand]
+    private void MarcarRevisado() => RevisaoMigracao = MotivoRevisaoEndereco.Nenhum;
 
     /// <summary>Ligado pela ficha em "Mostrar inativos".</summary>
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Visivel))]
@@ -71,7 +90,10 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     public bool Inativo => !Ativo;
 
     [RelayCommand]
-    private void Reativar() => Ativo = true;
+    private void Reativar()
+    {
+        if (PodeReativar) Ativo = true; // volta sem principal (o usuário define de novo)
+    }
 
     [ObservableProperty] private string _observacoes = string.Empty;
 
@@ -212,9 +234,13 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     // ---- Duplicidade (preenchido pela ficha) ----
 
-    /// <summary>Endereço já cadastrado que parece ser este (nulo = nenhum).</summary>
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemDuplicidade), nameof(DuplicidadeIncerta))]
+    /// <summary>Endereço já cadastrado que parece ser este (nulo = nenhum). Pode ser um inativo (histórico) igual.</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemDuplicidade), nameof(DuplicidadeIncerta), nameof(IgualAInativo), nameof(TextoBotaoUsarExistente))]
     private EnderecoFormulario? _igualA;
+
+    /// <summary>O igual é um endereço inativo: a ação é reativá-lo (não se cria outra linha física).</summary>
+    public bool IgualAInativo => IgualA is { Ativo: false };
+    public string TextoBotaoUsarExistente => IgualAInativo ? "Reativar endereço existente" : "Usar endereço existente";
 
     /// <summary>Verdadeiro = faltam dados para ter certeza (sem CEP ou bairro de um lado): o usuário confirma.</summary>
     [ObservableProperty][NotifyPropertyChangedFor(nameof(DuplicidadeIncerta))] private bool _duplicidadePossivel;
@@ -226,10 +252,12 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     public bool DuplicidadeIncerta => IgualA is not null && DuplicidadePossivel;
 
     public string TextoDuplicidade => IgualA is not { } e ? string.Empty
-        : (DuplicidadePossivel
-              ? $"Parece o mesmo endereço já cadastrado (falta CEP ou bairro para ter certeza): {e.Resumo}."
-              : $"Este endereço já está cadastrado para esta pessoa: {e.Resumo}.")
-          + $" Finalidades atuais: {e.TextoFinalidades}.";
+        : !e.Ativo
+            ? $"Já existe um endereço igual cadastrado para esta pessoa, porém ele está inativo: {e.Resumo}."
+            : (DuplicidadePossivel
+                  ? $"Parece o mesmo endereço já cadastrado (falta CEP ou bairro para ter certeza): {e.Resumo}."
+                  : $"Este endereço já está cadastrado para esta pessoa: {e.Resumo}.")
+              + $" Finalidades atuais: {e.TextoFinalidades}.";
 
     partial void OnIgualAChanged(EnderecoFormulario? value) => OnPropertyChanged(nameof(TextoDuplicidade));
     partial void OnDuplicidadePossivelChanged(bool value) => OnPropertyChanged(nameof(TextoDuplicidade));
@@ -237,6 +265,11 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     /// <summary>Definidos pela ficha.</summary>
     public Action<EnderecoFormulario>? AoUsarExistente { get; set; }
     public Action<EnderecoFormulario>? AoConfirmarOutro { get; set; }
+    public Action<EnderecoFormulario>? AoCancelarNovo { get; set; }
+
+    /// <summary>"Cancelar" diante de um igual inativo: o endereço novo sai da ficha (nada é criado).</summary>
+    [RelayCommand]
+    private void CancelarNovo() => AoCancelarNovo?.Invoke(this);
 
     [RelayCommand]
     private void UsarExistente() => AoUsarExistente?.Invoke(this);
@@ -356,6 +389,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         Observacoes = e.Observacoes ?? string.Empty,
         Ativo = e.Ativo,
         MescladoEmId = e.MescladoEmId,
+        RevisaoMigracao = e.RevisaoMigracao,
         Cep = CepValor.TentarCriar(e.Cep, out var cep) ? cep!.Formatado : e.Cep ?? string.Empty,
         Logradouro = e.Logradouro,
         Numero = e.Numero ?? string.Empty,
@@ -375,7 +409,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         TipoEnderecoId = _catalogo.Count > 0 ? Tipo?.Valor : _tipoGravado,
         Observacoes = TextoTela.Nulo(Observacoes),
         Ativo = Ativo,
-        MescladoEmId = MescladoEmId,
+        MescladoEmId = MescladoEmId, // a API mantém o gravado (consolidar é operação própria)
+        RevisaoMigracao = RevisaoMigracao,
         // A fonte são os Usos (com o principal de cada finalidade); os bits legados a API é que calcula.
         Finalidades = FinalidadeEndereco.Nenhuma,
         Usos = Finalidades.Select(f => new FinalidadeDoEnderecoDto

@@ -83,6 +83,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
     /// Endereço de referência da listagem (mesma regra de RegrasFinalidadeEndereco.EnderecoReferencia, no banco): o
     /// principal da finalidade ativa de menor ordem no cadastro; sem principal, o primeiro endereço ativo. Serve só para
     /// mostrar cidade/UF em listas e exportações; não é "o principal da pessoa" e não muda principalidade.
+    /// A ordenação é TOTAL (último critério: o Id, único): cidade e UF, lidas com a mesma ordenação, vêm sempre do mesmo
+    /// endereço — não há empate que deixe o banco escolher linhas diferentes para cada campo.
     /// </summary>
     internal static IQueryable<PessoaComReferencia> ComReferencia(IQueryable<Pessoa> consulta, LoneDbContext db) =>
         consulta.Select(p => new PessoaComReferencia
@@ -94,6 +96,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                     .Join(db.FinalidadesEndereco.Where(f => f.Ativo), u => u.FinalidadeId, f => f.Id, (u, f) => (int?)f.Ordem)
                     .Min() ?? int.MaxValue)
                 .ThenBy(e => e.Ordem)
+                .ThenBy(e => e.Id)
                 .Select(e => e.Cidade).FirstOrDefault(),
             Uf = p.Enderecos.Where(e => e.Ativo)
                 .OrderBy(e => p.FinalidadesEnderecos
@@ -101,6 +104,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                     .Join(db.FinalidadesEndereco.Where(f => f.Ativo), u => u.FinalidadeId, f => f.Id, (u, f) => (int?)f.Ordem)
                     .Min() ?? int.MaxValue)
                 .ThenBy(e => e.Ordem)
+                .ThenBy(e => e.Id)
                 .Select(e => e.Uf).FirstOrDefault()
         });
 
@@ -240,31 +244,47 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
         await ResolverPendenciasCorrigidasAsync(db, pessoa, ct);
 
-        // Troca de principal (A deixa de ser, B passa a ser) numa gravação só: o índice único filtrado do banco
-        // (um principal por pessoa + finalidade) exige que A seja desmarcado antes de B ser marcado. O EF não garante
-        // essa ordem para índice filtrado, então os desmarcados vão primeiro, na mesma transação.
+        // Ordem que o banco exige e o EF não garante entre UPDATEs (índice único filtrado e gatilhos):
+        // 1. principais desmarcados primeiro (troca A -> B: A sai antes de B entrar; endereço desativado perde o
+        //    principal antes de ficar inativo);
+        // 2. endereços reativados em seguida (um principal marcado nele na mesma gravação encontra o endereço ativo).
+        // Tudo na mesma transação da gravação: se a versão da pessoa não conferir, nada disso fica.
         var desmarcados = db.ChangeTracker.Entries<PessoaEnderecoFinalidade>()
             .Where(e => e.State == EntityState.Modified && e.OriginalValues.GetValue<bool>(nameof(PessoaEnderecoFinalidade.Principal)) && !e.Entity.Principal)
+            .Select(e => e.Entity.Id)
+            .ToList();
+        var reativados = db.ChangeTracker.Entries<PessoaEndereco>()
+            .Where(e => e.State == EntityState.Modified && !e.OriginalValues.GetValue<bool>(nameof(PessoaEndereco.Ativo)) && e.Entity.Ativo)
             .Select(e => e.Entity.Id)
             .ToList();
 
         try
         {
-            if (desmarcados.Count == 0)
+            if (desmarcados.Count == 0 && reativados.Count == 0)
             {
                 await db.SaveChangesAsync(ct);
                 return;
             }
 
             await using var transacao = await db.Database.BeginTransactionAsync(ct);
-            await db.PessoaEnderecoFinalidades.Where(u => desmarcados.Contains(u.Id))
-                .ExecuteUpdateAsync(s => s.SetProperty(u => u.Principal, false), ct);
-            await db.SaveChangesAsync(ct); // usa a transação aberta; a auditoria registra a mudança normalmente
+            if (desmarcados.Count > 0)
+                await db.PessoaEnderecoFinalidades.Where(u => desmarcados.Contains(u.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(u => u.Principal, false), ct);
+            if (reativados.Count > 0)
+                await db.PessoaEnderecos.Where(e => reativados.Contains(e.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(e => e.Ativo, true), ct);
+            await db.SaveChangesAsync(ct); // usa a transação aberta; a auditoria registra as mudanças normalmente
             await transacao.CommitAsync(ct);
         }
         catch (DbUpdateConcurrencyException ex)
         {
             throw new ConflitoDeEdicaoException(ex);
+        }
+        catch (Exception ex) when (ConflitosEnderecoFinalidade.Mensagem(ex) is { } mensagem)
+        {
+            // Índice único / gatilho barrou (ex.: outro usuário marcou outro principal ao mesmo tempo): 409 com mensagem
+            // clara; o erro original vai junto (e para o log). Outros erros de banco seguem como erro inesperado.
+            throw new ConflitoDeEdicaoException(mensagem, ex);
         }
     }
 
@@ -297,7 +317,16 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             {
                 var endereco = pessoa.Enderecos.FirstOrDefault(e => e.Id == pendencia.RegistroId);
                 municipio = endereco?.MunicipioId;
-                corrigida = endereco is null || municipio is not null || !endereco.EhBrasil || !endereco.Ativo;
+                if (endereco is { Ativo: false } && municipio is null && endereco.EhBrasil)
+                {
+                    // Endereço desativado (removido ou consolidado) sem o município corrigido: a pendência é ENCERRADA,
+                    // não "corrigida" — fica registrado que o texto antigo nunca foi ligado ao IBGE.
+                    pendencia.ResolvidaEm = DateTime.UtcNow;
+                    pendencia.ResolvidaPor = db.Usuario;
+                    pendencia.Observacao = EncerradaPorInativacao;
+                    continue;
+                }
+                corrigida = endereco is null || municipio is not null || !endereco.EhBrasil;
             }
 
             if (!corrigida) continue;
@@ -306,7 +335,24 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             pendencia.ResolvidaPor = db.Usuario;
             pendencia.Observacao = null;
         }
+
+        // Endereço reativado ainda sem município da tabela: a pendência encerrada pela desativação volta a valer.
+        var reativadosSemMunicipio = pessoa.Enderecos.Where(e => e.Ativo && e.EhBrasil && e.MunicipioId is null).Select(e => e.Id).ToList();
+        if (reativadosSemMunicipio.Count == 0) return;
+        var encerradas = await db.PendenciasMunicipio
+            .Where(p => p.PessoaId == pessoa.Id && p.Origem == OrigemPendenciaMunicipio.Endereco && p.ResolvidaEm != null &&
+                        p.Observacao == EncerradaPorInativacao && reativadosSemMunicipio.Contains(p.RegistroId))
+            .ToListAsync(ct);
+        foreach (var pendencia in encerradas)
+        {
+            pendencia.ResolvidaEm = null;
+            pendencia.ResolvidaPor = null;
+            pendencia.Observacao = "Reaberta: endereço reativado sem município da tabela do IBGE.";
+        }
     }
+
+    /// <summary>Observação da pendência de município encerrada porque o endereço saiu de uso (não foi corrigida).</summary>
+    internal const string EncerradaPorInativacao = "Encerrada sem correção: endereço desativado.";
 
     /// <summary>
     /// Carrega a pessoa do banco e aplica só o que mudou (é isso que alimenta a auditoria).

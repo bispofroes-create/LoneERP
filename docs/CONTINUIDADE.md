@@ -280,7 +280,10 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   limites de texto das metas validados, permissão conferida antes na mudança de situação da meta.
 - **Revisão de Pessoas — endereço × finalidade (26/09/2026):** ver `docs/REVISAO-PESSOAS.md` §11. **Migração nova** (depois
   de `CadastroGeral`): `Add-Migration FinalidadesEndereco -Project Lone.Infrastructure -StartupProject Lone.Api`, depois
-  `python Ferramentas/inserir-sql-migracao.py` (coloca `SqlMigracaoFinalidadesEndereco.MigrarFinalidades` no ponto certo).
+  `python Ferramentas/inserir-sql-migracao.py` (coloca `MigrarFinalidades`, `CriarProtecoes` no fim do Up e
+  `RemoverProtecoes` no começo do Down). Correções pós-auditoria: `docs/REVISAO-PESSOAS.md` §11.1.
+- **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
+  sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados
   acima, os SQL de `SqlMigracaoCadastroGeral`: `AtivarEnderecos`, `LigarDocumentosAosTipos` (antes da FK dos
   documentos para `TiposDocumento`), `CamposVisiveis`, `CarteiraDosVendedoresPadrao` (depois do insert de

@@ -10,4 +10,7 @@ public class ConflitoDeEdicaoException : Exception
     public ConflitoDeEdicaoException(Exception? interna = null) : base(MensagemPadrao, interna) { }
 
     public ConflitoDeEdicaoException(string mensagem) : base(mensagem) { }
+
+    /// <summary>Conflito conhecido detectado pelo banco (ex.: índice único): mensagem para o usuário + erro original (log).</summary>
+    public ConflitoDeEdicaoException(string mensagem, Exception interna) : base(mensagem, interna) { }
 }

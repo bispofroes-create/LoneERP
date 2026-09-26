@@ -21,6 +21,12 @@ public interface IPessoaAppService
     /// </summary>
     Task<ResultadoSalvarPessoa> SalvarAsync(PessoaDto pessoa, CancellationToken ct = default);
 
+    /// <summary>
+    /// Consolida um endereço duplicado em outro da mesma pessoa. O servidor decide o resultado a partir do gravado.
+    /// Lança ValidacaoException (regra), AcessoNegadoException ou ConflitoDeEdicaoException.
+    /// </summary>
+    Task<PessoaDto> ConsolidarEnderecosAsync(Guid id, Lone.Contracts.Enderecos.ConsolidarEnderecosRequisicao requisicao, CancellationToken ct = default);
+
     /// <summary>Tira o cadastro de uso (sem apagar nada). Exige a permissão de inativar; registra o evento.</summary>
     Task<PessoaDto> DesativarAsync(Guid id, AlterarSituacaoRequisicao requisicao, CancellationToken ct = default);
 

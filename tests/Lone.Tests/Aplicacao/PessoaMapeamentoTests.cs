@@ -12,7 +12,8 @@ public class PessoaMapeamentoTests
         var endereco = new EnderecoDto
         {
             Id = Guid.NewGuid(),
-            Finalidades = FinalidadeEndereco.Principal | FinalidadeEndereco.Fiscal,
+            // Formato atual: finalidades nas relações (Usos), com o principal explícito; os bits legados não são a fonte.
+            Usos = [new FinalidadeDoEnderecoDto { Id = Guid.NewGuid(), FinalidadeId = Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Id(Lone.Domain.Enderecos.FinalidadesEnderecoIniciais.Fiscal), Principal = true }],
             Cep = "01310100",
             Logradouro = "Avenida Paulista",
             Numero = "1000",

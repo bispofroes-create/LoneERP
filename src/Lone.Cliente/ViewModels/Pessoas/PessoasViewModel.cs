@@ -321,6 +321,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.PodeVerDadosSensiveis = _sessao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis);
         newValue.ConsultaCep = ConsultarCepAsync;
         newValue.Confirmar = ConfirmarAsync; // diálogo da base (CadastroViewModelBase)
+        newValue.ConsolidarNoServidor = ConsolidarEnderecosAsync;
+        newValue.TemAlteracoesNaoSalvas = () => TemAlteracoes;
         newValue.ConsultaCnpj = ConsultarCnpjAsync;
         newValue.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
         newValue.AcoesAnexos.Anexar = AnexarAsync;
@@ -517,6 +519,22 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         MarcarFichaSemAlteracoes();
         Mostrar(desativar ? "Cadastro desativado. Ele continua no filtro \"Inativos\"." : "Cadastro reativado.", TipoMensagem.Sucesso);
         await AtualizarListaAposGravarAsync();
+    }
+
+    /// <summary>
+    /// Consolidação de endereços: operação própria da API (como desativar), gravada na hora. Não mistura com alterações
+    /// não salvas (a ficha confere antes de perguntar); depois, a ficha mostra o que o servidor gravou.
+    /// </summary>
+    private async Task ConsolidarEnderecosAsync(Guid origemId, Guid destinoId)
+    {
+        if (Formulario is not { Existente: true } formulario) return;
+        PessoaDto? gravada = null;
+        if (!await ExecutarAsync(async () => gravada = await _pessoas.ConsolidarEnderecosAsync(formulario.Id, formulario.Versao, origemId, destinoId)))
+            return;
+
+        MostrarGravada(gravada!);
+        MarcarFichaSemAlteracoes();
+        Mostrar("Endereços consolidados. O endereço consolidado ficou inativo, no histórico.", TipoMensagem.Sucesso);
     }
 
     // ---- Itens das listas da ficha ----

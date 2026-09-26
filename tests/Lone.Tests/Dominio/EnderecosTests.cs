@@ -7,9 +7,9 @@ namespace Lone.Tests.Dominio;
 
 public class EnderecosTests
 {
-    private static PessoaEndereco Endereco(bool ativo = true, FinalidadeEndereco finalidades = FinalidadeEndereco.Comercial) => new()
+    private static PessoaEndereco Endereco(bool ativo = true) => new()
     {
-        Id = Guid.NewGuid(), Logradouro = "Rua A", Cidade = "Cidade Antiga", Ativo = ativo, Finalidades = finalidades
+        Id = Guid.NewGuid(), Logradouro = "Rua A", Cidade = "Cidade Antiga", Ativo = ativo // finalidades: nas relações
     };
 
     [Fact]

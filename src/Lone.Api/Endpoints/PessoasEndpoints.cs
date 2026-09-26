@@ -92,6 +92,12 @@ public static class PessoasEndpoints
             (Guid id, AlterarSituacaoRequisicao requisicao, IPessoaAppService servico, CancellationToken ct) =>
                 servico.ReativarAsync(id, requisicao, ct));
 
+        // Consolidação de endereço duplicado: o aplicativo manda só a intenção (origem → destino) e a versão aberta;
+        // o servidor confere e decide tudo a partir do gravado, numa transação.
+        grupo.MapPost("{id:guid}/enderecos/consolidar",
+            (Guid id, Lone.Contracts.Enderecos.ConsolidarEnderecosRequisicao requisicao, IPessoaAppService servico, CancellationToken ct) =>
+                servico.ConsolidarEnderecosAsync(id, requisicao, ct));
+
         grupo.MapGet("{id:guid}/historico",
             (Guid id, long? antes, int? limite, IPessoaAppService servico, CancellationToken ct) =>
                 servico.ListarHistoricoAsync(id, antes, limite, ct));

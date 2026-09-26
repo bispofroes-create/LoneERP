@@ -78,15 +78,28 @@ def main():
     def pos_depois(*chamadas_):
         return max(fim for _, fim in chamadas_)
 
-    # Migração das finalidades de endereço (endereço × finalidade): um trecho só, de outra classe.
+    # Migração das finalidades de endereço (endereço × finalidade), de outra classe:
+    # - MigrarFinalidades (dados): depois da tabela nova, dos dados iniciais e das colunas novas; antes dos índices únicos;
+    # - CriarProtecoes (gatilhos): no fim do Up, com tudo criado e os dados já migrados;
+    # - RemoverProtecoes: no começo do Down, antes de o EF desfazer tabelas e colunas.
     if chamadas(up, "CreateTable", name="PessoaEnderecoFinalidades"):
         classe = "SqlMigracaoFinalidadesEndereco"
-        pontos = {
-            "MigrarFinalidades": pos_depois(uma(up, "CreateTable", name="PessoaEnderecoFinalidades"),
-                                            uma(up, "InsertData", table="FinalidadesEndereco"),
-                                            uma(up, "AddColumn", name="RevisarFinalidadesEndereco", table="Pessoas")),
-        }
-        return gravar(caminho, texto, up_ini, up_fim, up, pontos, classe, bom, crlf)
+        dados = pos_depois(uma(up, "CreateTable", name="PessoaEnderecoFinalidades"),
+                           uma(up, "InsertData", table="FinalidadesEndereco"),
+                           uma(up, "AddColumn", name="RevisarFinalidadesEndereco", table="Pessoas"),
+                           uma(up, "AddColumn", name="RevisaoMigracao", table="PessoaEnderecos"))
+        for indice in ("IX_PessoaEnderecoFinalidades_PessoaEnderecoId_FinalidadeId", "IX_PessoaEnderecoFinalidades_PessoaId_FinalidadeId"):
+            if uma(up, "CreateIndex", name=indice)[0] < dados:
+                raise SystemExit(f"O índice {indice} vem antes do ponto dos dados: ajuste a ordem à mão. Nada foi gravado.")
+        fim_up = up.rfind("\n", 0, up.rstrip().rfind("}")) + 1   # começo da linha da chave que fecha o método Up
+        pontos = {"MigrarFinalidades": dados, "CriarProtecoes": fim_up}
+        texto = texto[:up_ini] + inserir(up, pontos, classe) + texto[up_fim:]
+
+        down_ini = texto.index("protected override void Down(")
+        abre = texto.index("{", down_ini) + 1
+        if f"{classe}.RemoverProtecoes" not in texto[down_ini:]:
+            texto = texto[:abre] + f"\n            migrationBuilder.Sql({classe}.RemoverProtecoes);\n" + texto[abre:]
+        return escrever(caminho, texto, bom, crlf)
 
     fk_doc = uma(up, "AddForeignKey", name="FK_PessoaDocumentos_TiposDocumento_TipoDocumentoId")
     pontos = {
@@ -110,20 +123,26 @@ def main():
     return gravar(caminho, texto, up_ini, up_fim, up, pontos, "SqlMigracaoCadastroGeral", bom, crlf)
 
 
-def gravar(caminho, texto, up_ini, up_fim, up, pontos, classe, bom, crlf):
-    novos = 0
+def inserir(up, pontos, classe):
+    """Coloca migrationBuilder.Sql(classe.nome) em cada ponto do Up (de trás para frente; não repete o que já está)."""
     for nome, pos in sorted(pontos.items(), key=lambda x: -x[1]):   # de trás para frente: posições continuam valendo
         linha = f"            migrationBuilder.Sql({classe}.{nome});\n"
         if f"{classe}.{nome}" in up:
             continue
         up = up[:pos] + "\n" + linha + "\n" + up[pos:]
-        novos += 1
+    return up
 
-    texto = texto[:up_ini] + up + texto[up_fim:]
+
+def escrever(caminho, texto, bom, crlf):
     if crlf:
         texto = texto.replace("\n", "\r\n")
     open(caminho, "wb").write((b"\xef\xbb\xbf" if bom else b"") + texto.encode("utf-8"))
-    print(f"{os.path.basename(caminho)}: {novos} trecho(s) inserido(s).")
+    print(f"{os.path.basename(caminho)}: trechos de SQL conferidos/inseridos.")
+
+
+def gravar(caminho, texto, up_ini, up_fim, up, pontos, classe, bom, crlf):
+    texto = texto[:up_ini] + inserir(up, pontos, classe) + texto[up_fim:]
+    escrever(caminho, texto, bom, crlf)
 
 
 if __name__ == "__main__":
