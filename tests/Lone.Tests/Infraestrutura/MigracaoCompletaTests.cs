@@ -94,7 +94,8 @@ public class MigracaoCompletaTests
 
             // 5. Down: volta ao esquema anterior sem deixar gatilho órfão; e sobe de novo.
             await migrador.MigrateAsync(Anterior);
-            Assert.Empty((await NomesAsync(sql, "SELECT name FROM sys.triggers")).Where(Gatilhos.Contains));
+            var gatilhosDepoisDoDown = await NomesAsync(sql, "SELECT name FROM sys.triggers");
+            foreach (var gatilho in Gatilhos) Assert.DoesNotContain(gatilho, gatilhosDepoisDoDown);
             await migrador.MigrateAsync();
             Assert.Empty(await db.Database.GetPendingMigrationsAsync());
         }
