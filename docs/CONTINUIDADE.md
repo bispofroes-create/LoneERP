@@ -346,6 +346,15 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     sendo gravado como veio.
   - Colaborador: revisão de textos (dica do desligamento).
   - Testes: `EstruturaEmpresarialFormularioTests` (condição do cliente, ordem/nome da aba fiscal), `PessoasViewModelTests` ajustado.
+- **Consolidação de Pessoas — Fase 5 (26/09/2026; código entregue, sem compilar):** menu lateral só com a operação
+  (Início, Pessoas, Consulta avançada, Grupos empresariais, Metas, **Configurações**). Página **Configurações**
+  (`ConfiguracoesViewModel` + `ConfiguracoesPage`) com os cadastros de apoio em grupos (Pessoas, Comercial, Organização,
+  Metas, Sistema), em ordem alfabética, cada um com a mesma permissão de antes. As telas continuam registradas no
+  `AppShell` com as mesmas rotas, mas com `Shell.FlyoutItemIsVisible="False"`; a página abre com `GoToAsync("//rota")`
+  (a pergunta de alterações não salvas continua valendo). Para voltar, usa-se "Configurações" no menu.
+  Testes: `ConfiguracoesViewModelTests`. Fase 4 (Situação, Informações adicionais, Histórico): conferidas, sem mudança.
+  **Fase 3 (Privacidade) pendente de decisão do usuário** sobre a precedência entre consentimento LGPD, "Aceita
+  comunicações" do meio e "Marketing" do e-mail.
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

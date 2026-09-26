@@ -9,7 +9,7 @@
         <!-- Telefones e e-mails da própria pessoa: a mesma coleção em duas listas (só apresentação; nada muda no que é gravado).
              Remover um já gravado só desativa (fica no histórico). -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Label Text="Os telefones e e-mails desta pessoa. Os tipos (Comercial, Residencial...) ficam em &quot;Tipos de telefone/e-mail&quot;."
+            <Label Text="Os telefones e e-mails desta pessoa. Os tipos (Comercial, Residencial...) ficam em Configurações, &quot;Tipos de telefone e e-mail&quot;."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarMeiosInativos}"
                            IsVisible="{Binding Formulario.TemMeiosInativos}" VerticalOptions="Center" />

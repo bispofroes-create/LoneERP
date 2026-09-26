@@ -101,7 +101,7 @@
                     Command="{Binding NovaEtiquetaCommand}" IsVisible="{Binding PodeCriarEtiqueta}" IsEnabled="{Binding Livre}" />
         </Grid>
         <Label Text="{Binding Formulario.Etiquetas.Resumo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-        <Label Text="Nenhuma etiqueta cadastrada ainda. Quem gerencia etiquetas pode criá-las no menu Etiquetas."
+        <Label Text="Nenhuma etiqueta cadastrada ainda. Quem gerencia etiquetas pode criá-las em Configurações, &quot;Etiquetas&quot;."
                Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.Etiquetas.Vazio}" />
         <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Etiquetas.Visiveis}">
             <BindableLayout.ItemTemplate>

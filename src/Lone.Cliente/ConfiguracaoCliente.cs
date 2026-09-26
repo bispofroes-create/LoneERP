@@ -49,6 +49,7 @@ public static class ConfiguracaoCliente
         services.AddTransient<TrocarSenhaViewModel>();
         services.AddTransient<MenuViewModel>();
         services.AddTransient<InicioViewModel>();
+        services.AddTransient<ConfiguracoesViewModel>();
         services.AddTransient<UsuariosViewModel>();
         services.AddTransient<PerfisViewModel>();
         services.AddTransient<PessoasViewModel>();

@@ -46,7 +46,7 @@
 
         <!-- Remover um documento já gravado só desativa (fica no histórico; volta em "Mostrar inativos"). -->
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <Label Text="Outros documentos: RG, CNH, passaporte, alvará, contrato social... Os tipos ficam em &quot;Tipos de documento&quot;."
+            <Label Text="Outros documentos: RG, CNH, passaporte, alvará, contrato social... Os tipos ficam em Configurações, &quot;Tipos de documento&quot;."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarDocumentosInativos}"
                            IsVisible="{Binding Formulario.TemDocumentosInativos}" VerticalOptions="Center" />

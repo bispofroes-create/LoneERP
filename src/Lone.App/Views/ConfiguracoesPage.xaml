@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Cadastros de apoio agrupados (antes soltos no menu lateral). Cada item abre a mesma tela de antes. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
+             x:Class="Lone.App.Views.ConfiguracoesPage"
+             x:DataType="vm:ConfiguracoesViewModel"
+             Title="Configurações">
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,20', Default='32,28'}" Spacing="20" MaximumWidthRequest="1100">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Configurações" Style="{StaticResource Titulo}" />
+                <Label Text="Cadastros de apoio usados nas fichas e nas metas." Style="{StaticResource Secundario}" />
+            </VerticalStackLayout>
+
+            <Label Text="Você não tem acesso a nenhuma configuração." Style="{StaticResource Secundario}" IsVisible="{Binding Vazio}" />
+
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Grupos}" Spacing="20">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GrupoConfiguracao">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="{Binding Titulo}" Style="{StaticResource Subtitulo}" />
+                            <!-- Cartões lado a lado no computador; um embaixo do outro no celular. -->
+                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Itens}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ItemConfiguracao">
+                                        <Border Style="{StaticResource Cartao}" Margin="0,0,12,12"
+                                                FlexLayout.Basis="{OnIdiom Phone='100%', Default='33%'}">
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding AbrirCommand, Source={RelativeSource AncestorType={x:Type vm:ConfiguracoesViewModel}}, x:DataType=vm:ConfiguracoesViewModel}"
+                                                                      CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="15" />
+                                                <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

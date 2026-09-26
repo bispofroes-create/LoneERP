@@ -727,7 +727,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (Formulario is not { } formulario) return;
         var nome = await PerguntarAsync(
             "Nova profissão",
-            "Nome da profissão. Ela fica disponível para todos os cadastros (a ocupação CBO pode ser informada depois, no menu Profissões):",
+            "Nome da profissão. Ela fica disponível para todos os cadastros (a ocupação CBO pode ser informada depois, em Configurações, \"Profissões\"):",
             "Criar", "Cancelar", "Ex.: Advogado", global::Lone.Domain.Entidades.Profissao.TamanhoMaximoNome);
         if (string.IsNullOrWhiteSpace(nome)) return;
 

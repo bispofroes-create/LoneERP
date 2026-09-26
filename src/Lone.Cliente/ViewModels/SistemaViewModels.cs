@@ -62,6 +62,9 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);
     public bool PodeVerSeguranca => PodeGerenciarUsuarios || PodeGerenciarPerfis;
 
+    /// <summary>Página "Configurações" (cadastros de apoio): aparece quando ao menos um deles é permitido.</summary>
+    public bool PodeVerConfiguracoes => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui);
+
     [RelayCommand]
     private Task TrocarEmpresaAsync() => _navegacao.IrParaAsync(Tela.EscolherEmpresa);
 

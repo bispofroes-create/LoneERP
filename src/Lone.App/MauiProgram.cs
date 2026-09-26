@@ -36,6 +36,7 @@ public static class MauiProgram
         builder.Services.AddTransient<EscolherEmpresaPage>();
         builder.Services.AddTransient<TrocarSenhaPage>();
         builder.Services.AddTransient<InicioPage>();
+        builder.Services.AddTransient<ConfiguracoesPage>();
         builder.Services.AddTransient<EmConstrucaoPage>();
         builder.Services.AddTransient<UsuariosPage>();
         builder.Services.AddTransient<PerfisPage>();
