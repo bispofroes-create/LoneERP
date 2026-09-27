@@ -50,6 +50,10 @@ public static class PessoasEndpoints
                     Limite = limite ?? FiltroPessoas.LimiteMaximo
                 }, ct));
 
+        // Ficha: CPF/raiz de CNPJ já cadastrado em outra pessoa (POST: o documento não vai na URL).
+        grupo.MapPost("documento-em-uso", (DocumentoEmUsoRequisicao requisicao, IPessoaAppService servico, CancellationToken ct) =>
+            servico.DocumentoEmUsoAsync(requisicao, ct));
+
         // Consulta avançada: critérios tipados no corpo (POST para não expor dados pessoais na URL).
         grupo.MapPost("consulta", (ConsultaPessoasRequisicao requisicao, IConsultaPessoasAppService servico, CancellationToken ct) =>
             servico.ConsultarAsync(requisicao, ct));

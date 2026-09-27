@@ -29,6 +29,8 @@ public static class Rotas
         public static string PorId(Guid id) => $"{Grupo}/{id}";
         /// <summary>Lista paginada com total (tela de Pessoas): ?pagina=1&amp;tamanho=50 mais os filtros da lista.</summary>
         public const string Pagina = Grupo + "/pagina";
+        /// <summary>CPF ou CNPJ (raiz) já cadastrado em outra pessoa. POST: o documento vai no corpo, não na URL.</summary>
+        public const string DocumentoEmUso = Grupo + "/documento-em-uso";
         public static string Historico(Guid id) => $"{Grupo}/{id}/historico";
         public static string Bloquear(Guid id) => $"{Grupo}/{id}/bloqueios";
         public static string LiberarBloqueio(Guid id, Guid bloqueioId) => $"{Grupo}/{id}/bloqueios/{bloqueioId}/liberar";

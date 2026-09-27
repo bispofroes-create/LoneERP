@@ -18,6 +18,24 @@ public static class TiposDocumentoSistema
     /// <summary>Id fixo do tipo de sistema (chamadas antigas mandam só o enum).</summary>
     public static Guid Id(TipoDocumento tipo) =>
         Todos.FirstOrDefault(t => t.Tipo == tipo) is { Id: var id } && id != Guid.Empty ? id : Todos[^1].Id;
+
+    /// <summary>
+    /// A quem o tipo se aplica: RG e CNH só pessoa física; passaporte, física e estrangeiro; documento estrangeiro,
+    /// só estrangeiro. "Outro" e os tipos criados pelo usuário (sem tipo de sistema) valem para todos.
+    /// </summary>
+    public static bool AplicaA(TipoDocumento? tipoSistema, NaturezaPessoa natureza) => tipoSistema switch
+    {
+        TipoDocumento.Rg or TipoDocumento.Cnh => natureza == NaturezaPessoa.Fisica,
+        TipoDocumento.Passaporte => natureza != NaturezaPessoa.Juridica,
+        TipoDocumento.DocumentoEstrangeiro => natureza == NaturezaPessoa.Estrangeiro,
+        _ => true
+    };
+
+    /// <summary>Documento pessoal de sistema (RG, CNH, passaporte, documento estrangeiro): tem órgão emissor.</summary>
+    public static bool TemOrgaoEmissor(TipoDocumento? tipoSistema) => tipoSistema is not (null or TipoDocumento.Outro);
+
+    /// <summary>RG e CNH são emitidos por um estado: têm UF.</summary>
+    public static bool TemUf(TipoDocumento? tipoSistema) => tipoSistema is TipoDocumento.Rg or TipoDocumento.Cnh;
 }
 
 /// <summary>Regras dos documentos da pessoa e do cadastro de tipos de documento. Não acessa banco.</summary>
@@ -54,8 +72,12 @@ public static class RegrasDocumento
     /// Validade obrigatória só para documentos ativos (um antigo, já removido, não trava a gravação).
     /// </summary>
     /// <param name="anteriores">Tipo gravado de cada documento (Id do documento → Id do tipo).</param>
+    /// <param name="natureza">
+    /// Natureza da pessoa: um tipo que não se aplica a ela (RG numa empresa) não vale em documento novo nem em troca de tipo;
+    /// o documento que já o tinha continua como está (nada some sem ação do usuário).
+    /// </param>
     public static List<string> Aplicar(IReadOnlyList<PessoaDocumento> documentos, IReadOnlyDictionary<Guid, Guid> anteriores,
-                                       IReadOnlyDictionary<Guid, TipoDocumentoCadastro> cadastro)
+                                       IReadOnlyDictionary<Guid, TipoDocumentoCadastro> cadastro, NaturezaPessoa? natureza = null)
     {
         var erros = new List<string>();
         for (var i = 0; i < documentos.Count; i++)
@@ -70,11 +92,20 @@ public static class RegrasDocumento
             d.Tipo = tipo.TipoSistema ?? TipoDocumento.Outro;
             if (!tipo.Ativo && anteriores.GetValueOrDefault(d.Id) != tipo.Id)
                 erros.Add($"O tipo de documento \"{tipo.Nome}\" está desativado e não pode ser escolhido em novos documentos.");
+            if (natureza is { } n && !TiposDocumentoSistema.AplicaA(tipo.TipoSistema, n) && anteriores.GetValueOrDefault(d.Id) != tipo.Id)
+                erros.Add($"O tipo de documento \"{tipo.Nome}\" não se aplica a {NomeNatureza(n)}.");
             if (d.Ativo && tipo.ExigeValidade && d.ValidoAte is null)
                 erros.Add($"Documento {i + 1} ({tipo.Nome}): informe a validade.");
         }
         return erros.Distinct().ToList();
     }
+
+    private static string NomeNatureza(NaturezaPessoa n) => n switch
+    {
+        NaturezaPessoa.Fisica => "pessoa física",
+        NaturezaPessoa.Juridica => "pessoa jurídica",
+        _ => "pessoa estrangeira"
+    };
 
     /// <summary>Válido, vence em breve (dentro da antecedência do tipo) ou vencido. Vence no fim do dia "válido até".</summary>
     public static SituacaoValidade Situacao(DateOnly? validoAte, int diasAviso, DateOnly hoje)

@@ -37,6 +37,10 @@ public sealed class PessoasApi
     public Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default) =>
         _api.GetOuNuloAsync<PessoaDto>(Rotas.Pessoas.PorId(id), ct);
 
+    /// <summary>CPF ou raiz de CNPJ já usado por outro cadastro (aviso na ficha; a gravação confere de novo).</summary>
+    public Task<DocumentoEmUsoResposta> DocumentoEmUsoAsync(DocumentoEmUsoRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<DocumentoEmUsoResposta>(Rotas.Pessoas.DocumentoEmUso, requisicao, ct: ct);
+
     /// <summary>Inclui ou altera (o Id da pessoa nova é gerado no aparelho).</summary>
     public Task<ResultadoSalvarPessoa> SalvarAsync(PessoaDto pessoa, CancellationToken ct = default) =>
         _api.PutAsync<ResultadoSalvarPessoa>(Rotas.Pessoas.PorId(pessoa.Id), pessoa, ct);

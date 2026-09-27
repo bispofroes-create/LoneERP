@@ -18,7 +18,12 @@ public partial class PessoasPage : ContentPage
         BindingContext = _viewModel = viewModel;
         _viewModel.ModoCompacto = true; // lista OU ficha, nunca lado a lado
         _viewModel.AbrirConfiguracoesDoModulo = () => Shell.Current.GoToAsync("//" + ModulosConfiguracao.Rota(ModulosConfiguracao.Pessoas));
-        SizeChanged += (_, _) => _viewModel.DefinirLarguraDaLista(Width - Lista.Padding.HorizontalThickness);
+        SizeChanged += (_, _) =>
+        {
+            _viewModel.DefinirLarguraDaLista(Width - Lista.Padding.HorizontalThickness);
+            // Largura útil da ficha (margens de 32 de cada lado, até o máximo de 1600): decide se o resumo vai para o lado.
+            _viewModel.Resumo.DefinirLargura(Math.Min(Width - 64, 1600));
+        };
     }
 
     protected override void OnAppearing()

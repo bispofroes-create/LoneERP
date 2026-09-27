@@ -581,7 +581,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _historicoDe = null;
         _ultimoDoHistorico = null;
         TemMaisHistorico = false;
-        if (newValue is null) return;
+        if (newValue is null)
+        {
+            Resumo.Atualizar(null, IrParaAba);
+            return;
+        }
 
         newValue.PodeVerDadosSensiveis = _sessao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis);
         newValue.PodeVerPrivacidade = _sessao.Possui(Permissoes.Pessoas.Privacidade);
@@ -596,6 +600,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.ConsolidarNoServidor = ConsolidarEnderecosAsync;
         newValue.TemAlteracoesNaoSalvas = () => TemAlteracoes;
         newValue.ConsultaCnpj = ConsultarCnpjAsync;
+        newValue.AoCompletarDocumento = () => DocumentoCompletoAsync(newValue);
         newValue.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
         newValue.AcoesAnexos.Anexar = AnexarAsync;
         newValue.Situacoes.Acoes.Bloquear = BloquearAsync;
@@ -617,6 +622,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         formulario.ConsultaCep = null;
         formulario.Confirmar = null;
         formulario.ConsultaCnpj = null;
+        formulario.AoCompletarDocumento = null;
         formulario.FonteMunicipios = null;
         formulario.AcoesAnexos.Anexar = null;
         formulario.Situacoes.Acoes.Bloquear = null;
@@ -669,9 +675,17 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     partial void OnSecaoSelecionadaChanged(SecaoOpcao? value) => CarregarDaAba(value);
 
+    /// <summary>Resumo da pessoa (painel ao lado ou cartão): refeito ao abrir a ficha, ao trocar de aba e depois de salvar.</summary>
+    public ResumoPessoa Resumo { get; } = new();
+
+    /// <summary>Tocar num item do resumo leva à aba onde o assunto é resolvido (se ela existir para esta pessoa).</summary>
+    private void IrParaAba(SecaoPessoa aba) =>
+        SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? SecaoSelecionada;
+
     /// <summary>Cargas sob demanda: cada uma só na primeira vez que a aba precisa, nesta ficha.</summary>
     private void CarregarDaAba(SecaoOpcao? value)
     {
+        Resumo.Atualizar(Formulario, IrParaAba);
         if (value?.Secao == SecaoPessoa.Historico && Formulario is { Existente: true } f && _historicoDe != f.Id)
             _ = CarregarHistoricoAsync(f.Id);
         if (value?.Secao == SecaoPessoa.Colaborador && Formulario is { OpcoesColaboradorCarregadas: false } ficha)
@@ -1013,6 +1027,46 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     }
 
     // ---- Consultas externas ----
+
+    /// <summary>
+    /// CPF/CNPJ completo na ficha: avisa se já está em outro cadastro; na PJ nova (e sem duplicidade), consulta a Receita
+    /// sozinha. Cadastro já gravado só consulta pelo botão (não sobrescreve dados sem o usuário pedir).
+    /// </summary>
+    private async Task DocumentoCompletoAsync(PessoaFormulario ficha)
+    {
+        var documento = ficha.DocumentoCompleto;
+        DocumentoEmUsoResposta? resposta = null;
+        try
+        {
+            resposta = await _pessoas.DocumentoEmUsoAsync(new DocumentoEmUsoRequisicao
+            {
+                Natureza = ficha.Natureza.Valor, Documento = documento, IgnorarId = ficha.Id
+            });
+        }
+        catch (Exception)
+        {
+            // O aviso é uma ajuda: sem ele (rede, permissão), a gravação continua recusando o documento duplicado.
+        }
+
+        // O usuário mudou o documento (ou trocou de ficha) enquanto a pergunta ia e voltava: a resposta não vale mais.
+        if (!ReferenceEquals(Formulario, ficha) || ficha.DocumentoCompleto != documento) return;
+
+        if (resposta is { EmUso: true })
+        {
+            ficha.DefinirDocumentoEmUso(resposta);
+            return;
+        }
+        if (ficha.EhJuridica && ficha.Nova)
+            await ConsultarCnpjAsync(ficha.Principal);
+    }
+
+    /// <summary>Abre o cadastro que já tem o documento (pergunta antes se houver alterações não salvas).</summary>
+    [RelayCommand]
+    private void AbrirCadastroEmUso()
+    {
+        if (Formulario?.DocumentoEmUsoId is { } id)
+            Selecionado = new PessoaResumo { Id = id };
+    }
 
     private async Task ConsultarCnpjAsync(EstabelecimentoFormulario estabelecimento)
     {

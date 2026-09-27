@@ -117,6 +117,29 @@ public sealed class PessoaAppService : IPessoaAppService
         return _repositorio.ListarPaginaAsync(filtro, Math.Max(1, pagina), Math.Clamp(tamanho, 1, PaginaListaPessoas.TamanhoMaximo), ct);
     }
 
+    /// <summary>
+    /// Mesma regra da gravação (que continua recusando o duplicado): PF pelo CPF; PJ pela raiz do CNPJ (a filial de
+    /// uma empresa já cadastrada entra como estabelecimento dela). Estrangeiro e documento inválido: não confere.
+    /// </summary>
+    public async Task<DocumentoEmUsoResposta> DocumentoEmUsoAsync(DocumentoEmUsoRequisicao requisicao, CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
+        var chave = requisicao.Natureza switch
+        {
+            NaturezaPessoa.Fisica when global::Lone.Domain.Validacao.Documento.CpfValido(requisicao.Documento) =>
+                global::Lone.Domain.Validacao.Documento.Normalizar(requisicao.Documento),
+            NaturezaPessoa.Juridica when global::Lone.Domain.Validacao.Documento.CnpjValido(requisicao.Documento) =>
+                global::Lone.Domain.Validacao.Documento.Normalizar(requisicao.Documento)[..8],
+            _ => null
+        };
+        if (chave is null) return new DocumentoEmUsoResposta();
+
+        var outra = await _repositorio.BuscarPorDocumentoAsync(requisicao.Natureza, chave, requisicao.IgnorarId, ct);
+        return outra is null
+            ? new DocumentoEmUsoResposta()
+            : new DocumentoEmUsoResposta { EmUso = true, Id = outra.Id, Codigo = outra.Codigo, Nome = outra.Nome };
+    }
+
     public async Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
@@ -260,6 +283,7 @@ public sealed class PessoaAppService : IPessoaAppService
 
         var erros = PessoaValidador.Validar(dados);
         erros.AddRange(errosPapeis);
+        erros.AddRange(RegrasFiscal.ValidarCamposDeEmpresa(dados, anterior));
         erros.AddRange(RegrasColaborador.Validar(dados));
         erros.AddRange(await _colaborador.ValidarAsync(dados, anterior, ct));
 
@@ -321,7 +345,8 @@ public sealed class PessoaAppService : IPessoaAppService
         erros.AddRange(RegrasDocumento.Aplicar(
             dados.Documentos,
             (anterior?.Documentos ?? []).ToDictionary(d => d.Id, d => d.TipoDocumentoId),
-            await _tiposDocumento.ObterVariosAsync(dados.Documentos.Select(d => d.TipoDocumentoId).Distinct().ToList(), ct)));
+            await _tiposDocumento.ObterVariosAsync(dados.Documentos.Select(d => d.TipoDocumentoId).Distinct().ToList(), ct),
+            dados.Natureza));
 
         // Campos personalizados dos documentos (D4): cada documento só com os campos do seu tipo.
         erros.AddRange(AplicarValoresDocumentos(dados, anterior,

@@ -241,7 +241,8 @@
              ===================================================================================================== -->
         <Grid RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
             <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1200"
+                <!-- Até 1600 de largura: em tela larga, a ficha ocupa mais e o resumo da pessoa fica ao lado. -->
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1600"
                                      HorizontalOptions="Fill">
                     <Button Text="←  Voltar para Pessoas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
                             FontSize="14" SemanticProperties.Description="Voltar para a lista de pessoas" />
@@ -285,6 +286,22 @@
                     </Grid>
 
                     <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                    <!-- Ficha (coluna 0) e resumo da pessoa ao lado (coluna 1, só em tela larga e se não foi recolhido). -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+                    <VerticalStackLayout Spacing="16">
+
+                    <!-- Resumo em cartão: tela estreita (abre/fecha) ou tela larga com o painel recolhido. -->
+                    <Border Style="{StaticResource PainelConteudo}" Padding="16,10" IsVisible="{Binding Resumo.MostrarCartao}">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label Text="{Binding Resumo.TextoCabecalho}" FontAttributes="Bold" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="{Binding Resumo.TextoBotao}" Style="{StaticResource BotaoLink}"
+                                        Command="{Binding Resumo.AlternarCommand}" />
+                            </Grid>
+                            <pv:ResumoPessoaView BindingContext="{Binding Resumo}" IsVisible="{Binding Resumo.MostrarCorpoNoCartao}" />
+                        </VerticalStackLayout>
+                    </Border>
 
                     <Border Style="{StaticResource PainelConteudo}" Padding="16" IsVisible="{Binding Formulario.TemBloqueios}"
                             Stroke="{StaticResource Aviso}">
@@ -359,6 +376,21 @@
                         <pv:SecaoHistoricoView IsVisible="{Binding NoHistorico}" />
                         </VerticalStackLayout>
                     </Border>
+                    </VerticalStackLayout>
+
+                    <!-- Resumo da pessoa ao lado (tela larga): o que importa sem abrir as abas; tocar num item leva à aba. -->
+                    <Border Grid.Column="1" Style="{StaticResource PainelConteudo}" Padding="16" WidthRequest="300"
+                            VerticalOptions="Start" IsVisible="{Binding Resumo.MostrarPainelLateral}">
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Resumo da pessoa" Style="{StaticResource SecaoTitulo}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="Recolher" Style="{StaticResource BotaoLink}"
+                                        Command="{Binding Resumo.RecolherCommand}" ToolTipProperties.Text="Esconde o resumo (volta pelo cartão acima das abas)" />
+                            </Grid>
+                            <pv:ResumoPessoaView BindingContext="{Binding Resumo}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    </Grid>
                 </VerticalStackLayout>
             </ScrollView>
 

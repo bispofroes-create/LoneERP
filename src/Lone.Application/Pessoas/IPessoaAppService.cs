@@ -11,6 +11,9 @@ public interface IPessoaAppService
     Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default);
     Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct = default);
     Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>CPF ou raiz de CNPJ já usado por outro cadastro (aviso na ficha, antes de salvar).</summary>
+    Task<DocumentoEmUsoResposta> DocumentoEmUsoAsync(DocumentoEmUsoRequisicao requisicao, CancellationToken ct = default);
     Task<int> ContarClientesAtivosAsync(CancellationToken ct = default);
 
     /// <summary>Pessoas físicas ativas por faixa de idade (todas, ou só as de um papel).</summary>

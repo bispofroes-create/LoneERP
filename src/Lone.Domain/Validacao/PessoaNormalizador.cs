@@ -86,6 +86,12 @@ public static class PessoaNormalizador
                 e.IndicadorIE = IndicadorIE.NaoContribuinte;
                 e.InscricaoEstadual = null;
             }
+            // Pessoa física que não é produtor rural: nas notas é "não contribuinte". Só preenche o que não foi informado;
+            // um indicador já gravado (cadastro antigo) fica como estava.
+            else if (p.Natureza == NaturezaPessoa.Fisica && !e.ProdutorRural && e.IndicadorIE == IndicadorIE.NaoInformado)
+            {
+                e.IndicadorIE = IndicadorIE.NaoContribuinte;
+            }
         }
 
         MarcarUm(p.Estabelecimentos, e => e.Principal, (e, v) => e.Principal = v);

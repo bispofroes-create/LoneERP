@@ -12,14 +12,32 @@
     <VerticalStackLayout Spacing="8">
         <Label Text="Dados principais" Style="{StaticResource SecaoTitulo}" />
         <FlexLayout Wrap="Wrap">
-            <c:CampoEscolha Rotulo="Natureza" Itens="{Binding Formulario.Naturezas}" Selecionado="{Binding Formulario.Natureza}" />
+            <c:CampoEscolha Rotulo="Natureza" Itens="{Binding Formulario.Naturezas}" Selecionado="{Binding Formulario.NaturezaNaTela}" />
+            <!-- O documento vem logo depois da natureza: na PJ, o CNPJ consulta a Receita e preenche o resto da ficha
+                 (cadastro novo: sozinho ao completar o CNPJ). PF: CPF; estrangeiro: identificação. -->
+            <c:Campo Rotulo="{Binding Formulario.RotuloDocumento}" Texto="{Binding Formulario.Documento}"
+                     Mascara="{Binding Formulario.MascaraDocumento}" IsVisible="{Binding Formulario.NaoEhJuridica}" />
+            <!-- CNPJ do estabelecimento principal: único ponto de edição dele. Sem teclado numérico (CNPJ alfanumérico). -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Formulario.EhJuridica}"
+                  FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,8">
+                <c:Campo Rotulo="CNPJ do estabelecimento principal" Texto="{Binding Formulario.Principal.Cnpj}" Mascara="Cnpj"
+                         Padding="0" />
+                <Button Grid.Column="1" Text="Consultar CNPJ" Style="{StaticResource BotaoSecundario}" VerticalOptions="End"
+                        Command="{Binding Formulario.Principal.ConsultarCnpjCommand}" />
+            </Grid>
+            <!-- CPF/CNPJ já em outro cadastro: aviso antes de preencher o resto (a gravação também recusa). -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" FlexLayout.Basis="100%" Padding="0,0,12,8"
+                  IsVisible="{Binding Formulario.TemAvisoDocumentoEmUso}">
+                <Label Text="{Binding Formulario.AvisoDocumentoEmUso}" TextColor="{StaticResource Aviso}" FontAttributes="Bold"
+                       LineBreakMode="WordWrap" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="Abrir cadastro" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding AbrirCadastroEmUsoCommand}" />
+            </Grid>
             <c:Campo Rotulo="{Binding Formulario.RotuloNome}" Texto="{Binding Formulario.Nome}" FlexLayout.Basis="100%" />
             <!-- Razão social = identificação jurídica; nome fantasia = nome comercial; nome de exibição = o que o Lone mostra.
                  O nome fantasia é o do estabelecimento principal e só é editado aqui (o cartão do principal mostra como leitura). -->
             <c:Campo Rotulo="Nome fantasia (opcional)" Texto="{Binding Formulario.Principal.NomeFantasia}" FlexLayout.Basis="100%"
                      IsVisible="{Binding Formulario.EhJuridica}" Dica="Nome comercial" />
-            <c:Campo Rotulo="{Binding Formulario.RotuloDocumento}" Texto="{Binding Formulario.Documento}"
-                     Mascara="{Binding Formulario.MascaraDocumento}" IsVisible="{Binding Formulario.NaoEhJuridica}" />
             <!-- Data e idade lado a lado: a idade é calculada ao digitar. -->
             <Grid ColumnDefinitions="*,110" ColumnSpacing="8" IsVisible="{Binding Formulario.EhFisica}"
                   FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,8">
@@ -37,14 +55,6 @@
                    FlexLayout.Basis="100%" Margin="0,2,12,8" />
         </FlexLayout>
 
-        <!-- Pessoa jurídica: o CNPJ do estabelecimento principal, com a consulta à Receita (único ponto de edição dele). -->
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Formulario.EhJuridica}">
-            <!-- Sem teclado numérico: o CNPJ pode ter letras (CNPJ alfanumérico). -->
-            <c:Campo Rotulo="CNPJ do estabelecimento principal" Texto="{Binding Formulario.Principal.Cnpj}" Mascara="Cnpj" />
-            <Button Grid.Column="1" Text="Consultar CNPJ" Style="{StaticResource BotaoSecundario}" VerticalOptions="End"
-                    Margin="0,0,0,8" Command="{Binding Formulario.Principal.ConsultarCnpjCommand}" />
-        </Grid>
-
         <!-- Pessoa jurídica: identidade da empresa (raiz do CNPJ), preenchida pela consulta à Receita. -->
         <VerticalStackLayout IsVisible="{Binding Formulario.EhJuridica}" Spacing="6">
             <BoxView Style="{StaticResource Separador}" />
@@ -53,7 +63,9 @@
                 <c:Campo Rotulo="Data de abertura" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.DataAbertura}" />
                 <c:Campo Rotulo="Porte" Texto="{Binding Formulario.Porte}" />
                 <c:Campo Rotulo="Capital social (R$)" Texto="{Binding Formulario.CapitalSocial}" />
-                <c:Campo Rotulo="Natureza jurídica" Texto="{Binding Formulario.Principal.NaturezaJuridica}" />
+                <!-- Da tabela de natureza jurídica (busca por código ou nome); grava o código. -->
+                <c:CampoLista Rotulo="Natureza jurídica" BindingContext="{Binding Formulario.Principal.NaturezaJuridicaLista}"
+                              FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,8" />
             </FlexLayout>
 
             <!-- Grupo empresarial (opcional): reúne esta empresa com outras independentes (CNPJs de outra raiz).

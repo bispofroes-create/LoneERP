@@ -217,3 +217,24 @@ public static class NomesPessoa
         _ => canal.ToString()
     };
 }
+
+/// <summary>Pergunta da ficha: este CPF (ou a raiz deste CNPJ) já está em outro cadastro?</summary>
+public sealed class DocumentoEmUsoRequisicao
+{
+    public NaturezaPessoa Natureza { get; set; }
+
+    /// <summary>CPF ou CNPJ completo, com ou sem máscara.</summary>
+    public string Documento { get; set; } = string.Empty;
+
+    /// <summary>O próprio cadastro (não conta como duplicado).</summary>
+    public Guid IgnorarId { get; set; }
+}
+
+/// <summary>Resposta: EmUso falso quando não há outro cadastro (ou o documento não é válido).</summary>
+public sealed class DocumentoEmUsoResposta
+{
+    public bool EmUso { get; set; }
+    public Guid? Id { get; set; }
+    public int Codigo { get; set; }
+    public string? Nome { get; set; }
+}

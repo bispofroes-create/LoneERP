@@ -67,8 +67,81 @@ public sealed partial class PessoaFormulario : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EhFisica), nameof(EhJuridica), nameof(EhEstrangeiro), nameof(NaoEhJuridica),
                               nameof(RotuloNome), nameof(RotuloDocumento), nameof(MascaraDocumento), nameof(MostrarCorRaca),
-                              nameof(AjudaNomeExibicao))]
+                              nameof(AjudaNomeExibicao), nameof(NaturezaNaTela))]
     private Opcao<NaturezaPessoa> _natureza = OpcoesPessoa.Naturezas[0];
+
+    // ---- Troca de natureza pela tela: sair de pessoa jurídica com dados da empresa pede confirmação ----
+
+    /// <summary>
+    /// O que a lista "Natureza" mostra e escolhe. Sair de pessoa jurídica com dados da empresa (CNPJ, consulta à Receita,
+    /// razão social consultada...) pergunta antes e, se confirmado, limpa esses dados; se não, a lista volta para PJ.
+    /// Sem dados da empresa, troca direto.
+    /// </summary>
+    public Opcao<NaturezaPessoa> NaturezaNaTela
+    {
+        get => Natureza;
+        set
+        {
+            if (value is null || Equals(value, Natureza)) return;
+            if (EhJuridica && value.Valor != NaturezaPessoa.Juridica && TemDadosDaEmpresa && Confirmar is not null)
+            {
+                _ = TrocarNaturezaComConfirmacaoAsync(value);
+                return;
+            }
+            Natureza = value;
+        }
+    }
+
+    /// <summary>Razão social que veio da última consulta de CNPJ (se o nome ainda for ela, sai junto com os dados da empresa).</summary>
+    private string _razaoSocialConsultada = string.Empty;
+
+    public bool TemDadosDaEmpresa =>
+        Estabelecimentos.Count > 0 &&
+        (Principal.Cnpj.Trim().Length > 0 || Principal.NomeFantasia.Trim().Length > 0 || Principal.SituacaoReceita.Length > 0 ||
+         DataAbertura.Trim().Length > 0 || Porte.Trim().Length > 0 || CapitalSocial.Trim().Length > 0 || Socios.Count > 0);
+
+    private async Task TrocarNaturezaComConfirmacaoAsync(Opcao<NaturezaPessoa> nova)
+    {
+        // A lista volta a mostrar "Pessoa jurídica" enquanto o usuário decide (depois do clique que a mudou).
+        await Task.Yield();
+        OnPropertyChanged(nameof(NaturezaNaTela));
+
+        var confirmar = Confirmar;
+        if (confirmar is null || !await confirmar(
+                "Trocar a natureza",
+                $"Esta ficha tem dados de empresa (CNPJ, consulta à Receita, razão social, dados fiscais). Ao trocar para " +
+                $"\"{nova.Texto}\", esses dados serão limpos. Endereços e telefones vindos da consulta continuam: revise-os.",
+                "Trocar e limpar",
+                "Continuar como pessoa jurídica"))
+            return;
+
+        LimparDadosDaEmpresa();
+        Natureza = nova;
+    }
+
+    /// <summary>Tira da ficha os dados que só existem na PJ (vale ao salvar; o servidor também os descarta fora da PJ).</summary>
+    private void LimparDadosDaEmpresa()
+    {
+        var principal = Principal;
+        if (_razaoSocialConsultada.Length > 0 && Nome.Trim() == _razaoSocialConsultada.Trim()) Nome = string.Empty;
+        _razaoSocialConsultada = string.Empty;
+        principal.Cnpj = string.Empty;
+        principal.NomeFantasia = string.Empty;
+        principal.NaturezaJuridica = string.Empty;
+        principal.SituacaoReceita = string.Empty;
+        principal.ConsultadoReceitaEm = null;
+        principal.CnaePrincipal = string.Empty;
+        principal.CnaesSecundarios = string.Empty;
+        principal.Regime = OpcoesPessoa.Regimes[0];
+        principal.InscricaoEstadual = string.Empty;
+        principal.IndicadorIE = OpcoesPessoa.IndicadoresIE[0];
+        DataAbertura = string.Empty;
+        Porte = string.Empty;
+        CapitalSocial = string.Empty;
+        Socios.Clear();
+        OnPropertyChanged(nameof(TemSocios));
+        GrupoEmpresarial = SemGrupoEmpresarial;
+    }
 
     /// <summary>Ativo ou em análise (o formulário só alterna entre os dois).</summary>
     [ObservableProperty] private Opcao<SituacaoPessoa> _situacao = OpcoesPessoa.SituacoesEditaveis[0];
@@ -95,7 +168,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     [ObservableProperty] private string _apelido = string.Empty;
 
     /// <summary>CPF (PF) ou identificação do estrangeiro. Na PJ, o CNPJ fica nos estabelecimentos.</summary>
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(DocumentoCabecalho))] private string _documento = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(DocumentoCabecalho), nameof(DocumentoPrincipalResumo))] private string _documento = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Idade))]
@@ -270,6 +343,21 @@ public sealed partial class PessoaFormulario : ObservableObject
         "Situação: " + SituacaoTexto
     }.Where(t => t.Length > 0));
 
+    /// <summary>
+    /// Aba Documentos: uma linha com o documento principal ("CNPJ 12.345.678/0001-90 · alterado na aba Identificação").
+    /// Um só ponto de edição: a Identificação.
+    /// </summary>
+    public string DocumentoPrincipalResumo
+    {
+        get
+        {
+            var (rotulo, valor) = EhJuridica
+                ? ("CNPJ", Estabelecimentos.Count > 0 ? Principal.Cnpj : string.Empty)
+                : (EhFisica ? "CPF" : "Identificação estrangeira", Documento);
+            return (valor.Length > 0 ? $"{rotulo} {valor}" : $"{rotulo} não informado") + " · alterado na aba \"Identificação\"";
+        }
+    }
+
     /// <summary>PJ: grupo empresarial e quantos estabelecimentos (vazio = não se aplica).</summary>
     public string EstruturaCabecalho
     {
@@ -322,6 +410,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         OnPropertyChanged(nameof(TemNomeCompletoCabecalho));
         OnPropertyChanged(nameof(TipoEPapeisCabecalho));
         OnPropertyChanged(nameof(DocumentoCabecalho));
+        OnPropertyChanged(nameof(DocumentoPrincipalResumo));
         OnPropertyChanged(nameof(EstruturaCabecalho));
         OnPropertyChanged(nameof(TemEstruturaCabecalho));
         OnPropertyChanged(nameof(EtiquetasCabecalho));
@@ -365,8 +454,14 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     partial void OnNaturezaChanged(Opcao<NaturezaPessoa> value)
     {
-        foreach (var e in Estabelecimentos) e.DaPessoaJuridica = EhJuridica;
+        foreach (var e in Estabelecimentos)
+        {
+            e.DaPessoaJuridica = EhJuridica;
+            e.DaPessoaEstrangeira = EhEstrangeiro;
+        }
+        foreach (var d in Documentos) d.DefinirNatureza(value.Valor);
         AtualizarCabecalho();
+        ConferirDocumento();
     }
 
     // ---- Criação e conversão ----
@@ -500,6 +595,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         foreach (var d in p.Documentos)
             f.AdicionarDocumento(DocumentoFormulario.De(d));
 
+        f._documentoConferido = f.ChaveDocumento(); // o gravado não é conferido de novo ao abrir
         return f;
     }
 
@@ -525,6 +621,10 @@ public sealed partial class PessoaFormulario : ObservableObject
             erros.Add(naturalidade);
         if (EhFisica && Profissao.Validar("Profissão") is { } profissao)
             erros.Add(profissao);
+        if (EhJuridica)
+            foreach (var e in Estabelecimentos)
+                if (e.NaturezaJuridicaLista.Validar(e.EhPrincipal ? "Natureza jurídica" : $"Natureza jurídica ({e.Titulo})") is { } natureza)
+                    erros.Add(natureza);
         // Endereço físico repetido: não grava um novo igual a um existente (usa-se o existente e acrescenta a finalidade).
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].IgualA is { } igual)
@@ -1036,6 +1136,52 @@ public sealed partial class PessoaFormulario : ObservableObject
         await ConsolidarNoServidor(duplicado.Id, mantido.Id);
     }
 
+    // ---- Documento principal completo: confere se já está em outro cadastro e, na PJ nova, consulta a Receita ----
+
+    /// <summary>Definido pela tela: chamado quando o CPF (PF) ou o CNPJ do principal (PJ) fica completo, válido e diferente do último.</summary>
+    public Func<Task>? AoCompletarDocumento { get; set; }
+
+    private string _documentoConferido = string.Empty;
+
+    /// <summary>CPF (PF) ou CNPJ do principal (PJ), completo e válido, sem máscara; vazio se incompleto. Estrangeiro: vazio.</summary>
+    public string DocumentoCompleto => EhJuridica
+        ? (Estabelecimentos.Count > 0 && DocumentoFiscal.CnpjValido(Principal.Cnpj) ? DocumentoFiscal.Normalizar(Principal.Cnpj) : string.Empty)
+        : EhFisica && DocumentoFiscal.CpfValido(Documento) ? DocumentoFiscal.Normalizar(Documento) : string.Empty;
+
+    private string ChaveDocumento() => DocumentoCompleto is { Length: > 0 } d ? $"{Natureza.Valor}:{d}" : string.Empty;
+
+    /// <summary>"Esta empresa já está cadastrada: 000012 - ..." (vazio = sem aviso).</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAvisoDocumentoEmUso))]
+    private string _avisoDocumentoEmUso = string.Empty;
+
+    public bool TemAvisoDocumentoEmUso => AvisoDocumentoEmUso.Length > 0;
+
+    /// <summary>O outro cadastro com o mesmo documento (para "Abrir cadastro").</summary>
+    public Guid? DocumentoEmUsoId { get; private set; }
+
+    partial void OnDocumentoChanged(string value) => ConferirDocumento();
+
+    private void ConferirDocumento()
+    {
+        var chave = ChaveDocumento();
+        if (chave == _documentoConferido) return;
+        _documentoConferido = chave;
+        DocumentoEmUsoId = null;
+        AvisoDocumentoEmUso = string.Empty;
+        if (chave.Length > 0) _ = AoCompletarDocumento?.Invoke();
+    }
+
+    /// <summary>Resposta da API. A gravação continua recusando o duplicado; aqui é só o aviso antecipado.</summary>
+    public void DefinirDocumentoEmUso(DocumentoEmUsoResposta resposta)
+    {
+        DocumentoEmUsoId = resposta.EmUso ? resposta.Id : null;
+        AvisoDocumentoEmUso = !resposta.EmUso ? string.Empty
+            : EhJuridica
+                ? $"Esta empresa (mesma raiz de CNPJ) já está cadastrada: {resposta.Codigo:000000} - {resposta.Nome}. " +
+                  "Para uma filial, abra esse cadastro e adicione o CNPJ como estabelecimento."
+                : $"Este CPF já está cadastrado: {resposta.Codigo:000000} - {resposta.Nome}.";
+    }
+
     // ---- Estabelecimentos ----
 
     public EstabelecimentoFormulario AdicionarEstabelecimento()
@@ -1079,6 +1225,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     private void Incluir(EstabelecimentoFormulario estabelecimento)
     {
         estabelecimento.DaPessoaJuridica = EhJuridica;
+        estabelecimento.DaPessoaEstrangeira = EhEstrangeiro;
         estabelecimento.AoRemover = () => RemoverEstabelecimento(estabelecimento);
         estabelecimento.AoTornarPrincipal = () => TornarPrincipal(estabelecimento);
         estabelecimento.AoConsultarCnpj = e => ConsultaCnpj?.Invoke(e) ?? Task.CompletedTask;
@@ -1092,6 +1239,8 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (e.PropertyName is nameof(EstabelecimentoFormulario.NomeFantasia) or nameof(EstabelecimentoFormulario.Cnpj)
             or nameof(EstabelecimentoFormulario.Ativo))
             AtualizarCabecalho();
+        if (e.PropertyName == nameof(EstabelecimentoFormulario.Cnpj) && Estabelecimentos.Count > 0 && ReferenceEquals(sender, Principal))
+            ConferirDocumento();
     }
 
     /// <summary>Papéis, etiquetas e estabelecimentos incluídos depois mudam o cabeçalho.</summary>
@@ -1183,6 +1332,7 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public void AdicionarDocumento(DocumentoFormulario documento)
     {
+        documento.DefinirNatureza(Natureza.Valor);
         documento.DefinirCatalogo(_tiposDocumento);
         documento.DefinirCampos(_camposDocumento);
         documento.Acoes = AcoesAnexos;
@@ -1384,7 +1534,11 @@ public sealed partial class PessoaFormulario : ObservableObject
         EnderecoFormulario? endereco;
         if (ReferenceEquals(estabelecimento, Principal))
         {
-            if (d.RazaoSocial.Length > 0) Nome = d.RazaoSocial;
+            if (d.RazaoSocial.Length > 0)
+            {
+                Nome = d.RazaoSocial;
+                _razaoSocialConsultada = d.RazaoSocial;
+            }
             // Onde entra o endereço do CNPJ: o principal fiscal já definido pelo usuário; senão um endereço ativo que é o
             // mesmo lugar físico; senão um endereço ainda em branco; senão um novo. Nunca sobrescreve outro lugar (ex.: o
             // residencial) só por ser o único endereço, e nunca marca principal.

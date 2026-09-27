@@ -108,8 +108,12 @@ public sealed partial class SituacoesFormulario : ObservableObject
         Interacoes.Clear();
         foreach (var i in relacionamento?.Interacoes ?? []) Interacoes.Add(InteracaoItem.De(i));
         TextoRelacionamento = Texto(relacionamento);
+        EstadoRelacionamento = relacionamento?.UltimaInteracaoEm is null ? null : relacionamento.Situacao;
         OnPropertyChanged(nameof(TemBloqueioAtivo));
     }
+
+    /// <summary>Situação do relacionamento (nulo = sem interação registrada). Usada pelo resumo da ficha.</summary>
+    public SituacaoRelacionamento? EstadoRelacionamento { get; private set; }
 
     public void IncluirBloqueio(BloqueioDto b)
     {
@@ -129,6 +133,7 @@ public sealed partial class SituacoesFormulario : ObservableObject
         Interacoes.Insert(0, InteracaoItem.De(i));
         NovaDescricao = string.Empty;
         TextoRelacionamento = "Relacionamento ativo · última interação: " + Quando(i.DataHora);
+        EstadoRelacionamento = global::Lone.Domain.Enums.SituacaoRelacionamento.Ativo;
     }
 
     private static string Quando(DateTime utc) => DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime().ToString("dd/MM/yyyy HH:mm", TextoTela.Brasil);

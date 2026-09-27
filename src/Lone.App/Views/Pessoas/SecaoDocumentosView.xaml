@@ -27,22 +27,8 @@
                                Escolha="{StaticResource ModeloEscolha}" />
     </ContentView.Resources>
     <VerticalStackLayout Spacing="8">
-        <!-- Documento principal (CPF/CNPJ/identificação estrangeira): só resumo; um só ponto de edição, na Identificação. -->
-        <Border Style="{StaticResource CartaoItem}">
-            <VerticalStackLayout Spacing="2">
-                <Label IsVisible="{Binding Formulario.NaoEhJuridica}" FontAttributes="Bold">
-                    <Label.FormattedText>
-                        <FormattedString>
-                            <Span Text="{Binding Formulario.RotuloDocumento}" />
-                            <Span Text=": " />
-                            <Span Text="{Binding Formulario.Documento}" />
-                        </FormattedString>
-                    </Label.FormattedText>
-                </Label>
-                <Label Text="{Binding Formulario.Principal.Titulo}" FontAttributes="Bold" IsVisible="{Binding Formulario.EhJuridica}" />
-                <Label Text="O documento principal é alterado na aba &quot;Identificação&quot;." Style="{StaticResource Secundario}" />
-            </VerticalStackLayout>
-        </Border>
+        <!-- Documento principal (CPF/CNPJ/identificação estrangeira): uma linha; um só ponto de edição, na Identificação. -->
+        <Label Text="{Binding Formulario.DocumentoPrincipalResumo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
         <!-- Remover um documento já gravado só desativa (fica no histórico; volta em "Mostrar inativos"). -->
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
@@ -70,8 +56,9 @@
                             <FlexLayout Wrap="Wrap">
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
-                                <c:Campo Rotulo="Órgão emissor" Texto="{Binding OrgaoEmissor}" />
-                                <c:Campo Rotulo="UF" Texto="{Binding Uf}" />
+                                <!-- Só nos documentos pessoais (RG, CNH, passaporte...) ou quando já preenchidos. -->
+                                <c:Campo Rotulo="Órgão emissor" Texto="{Binding OrgaoEmissor}" IsVisible="{Binding MostrarOrgaoEmissor}" />
+                                <c:Campo Rotulo="UF" Texto="{Binding Uf}" IsVisible="{Binding MostrarUf}" />
                                 <c:Campo Rotulo="Emitido em" Texto="{Binding EmitidoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />

@@ -394,6 +394,78 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   documentos para `TiposDocumento`), `CamposVisiveis`, `CarteiraDosVendedoresPadrao` (depois do insert de
   `TiposCarteira`), `HistoricoFiscalECnaes`. Depois: compilar, rodar todos os testes e testar o app.
 
+- **Aba Fiscal da pessoa física e do estrangeiro (27/09/2026; código entregue, sem compilar; sem mudança no banco):**
+  - PF: "Produtor rural" no topo. Sem produtor, a aba mostra só o resumo "Não contribuinte do ICMS · Consumidor final
+    (padrão nas vendas)"; com produtor, Indicador de IE (sem "Não informado"; marcar sugere "Contribuinte") e IE.
+    Inscrição municipal por "Adicionar inscrição municipal". Regime, CNAE e SUFRAMA não aparecem (são de empresa).
+    Estrangeiro: só o resumo. O título "Estabelecimento principal" aparece só na PJ.
+  - Dados antigos: PF/estrangeiro com regime, CNAE ou SUFRAMA gravados vê o bloco "Dados que não se aplicam..." (leitura)
+    com "Remover estes dados" (vale ao salvar). IE gravada sem produtor rural continua à vista. Carregar não altera nada.
+  - Servidor: `PessoaNormalizador` grava "Não contribuinte" na PF sem produtor rural que estava "Não informado";
+    `RegrasFiscal.ValidarCamposDeEmpresa` (chamado no `PessoaAppService`) impede incluir/alterar regime, CNAE e SUFRAMA em
+    PF/estrangeiro, mas aceita manter o gravado ou apagar; `RegrasFiscal.AtualizarHistorico`: quando a mudança só preenche
+    dado vazio, corrige o período aberto em vez de abrir outro (decisão A, estendida a todas as naturezas; ver abaixo).
+  - Testes: `Dominio/FiscalTests` (normalização, histórico, campos de empresa), `Cliente/FiscalPessoaFisicaFormularioTests`.
+- **Documentos por natureza e ajustes do Fiscal da PJ (27/09/2026; código entregue, sem compilar; sem mudança no banco):**
+  - Documentos e Fiscal continuam em abas separadas (decisão do usuário, como nos ERPs maduros); a ligação documento ↔
+    estabelecimento fica para a migration abaixo.
+  - Documento novo começa em "Escolha o tipo" (não grava sem tipo). `TiposDocumentoSistema.AplicaA`: RG e CNH só PF;
+    passaporte PF e estrangeiro; documento estrangeiro só estrangeiro; "Outro" e tipos do usuário para todos. A lista do
+    documento acompanha a natureza (trocar a natureza tira de um documento novo o tipo que deixou de valer); o tipo
+    gravado continua como está. A API recusa tipo que não se aplica em documento novo ou troca de tipo
+    (`RegrasDocumento.Aplicar`, parâmetro `natureza`). Órgão emissor só nos documentos pessoais de sistema; UF só RG e CNH
+    (ou quando já preenchidos). O quadro do documento principal virou uma linha (`DocumentoPrincipalResumo`).
+  - Fiscal: natureza jurídica mostrada com a descrição (`NaturezasJuridicas`, tabela CONCLA, dígito calculado);
+    consulta de CNPJ preenche "Regime normal" quando a Receita diz que não é optante do Simples (ou, sem registro no
+    Simples, só se o regime estava "Não informado"); histórico fiscal: preencher dado vazio (regime/indicador "não
+    informado", IE ou situação sem valor) corrige o período aberto; alterar um dado preenchido ou produtor rural abre
+    período novo.
+  - Testes: `Cliente/DocumentosPorNaturezaTests`, `Dominio/FiscalTests` (histórico e natureza jurídica).
+- **Identificação: documento primeiro, natureza jurídica da tabela, consulta automática e duplicidade (27/09/2026; código
+  entregue, sem compilar; sem mudança no banco):**
+  - Ordem: Natureza → CPF / CNPJ do principal + "Consultar CNPJ" / identificação estrangeira → nome... (como Omie, Bling,
+    Conta Azul: o documento preenche o resto).
+  - Natureza jurídica (Identificação e filial) é um `CampoLista` com a tabela `NaturezasJuridicas` (busca por código ou
+    nome); grava o código de 4 dígitos, como antes. Código fora da tabela aparece como está; texto sem escolher não grava.
+  - `PessoaFormulario.AoCompletarDocumento`: CPF ou CNPJ do principal completo, válido e diferente do último conferido
+    (o gravado não é conferido ao abrir). A tela pergunta `POST pessoas/documento-em-uso` (mesma regra da gravação:
+    CPF; raiz do CNPJ) e mostra o aviso com "Abrir cadastro"; sem duplicidade e em PJ nova, consulta a Receita sozinha
+    (cadastro gravado: só pelo botão). Falha na pergunta não impede nada: a gravação continua recusando o duplicado.
+  - Testes: `Cliente/IdentificacaoDocumentoTests`. Atenção ao rodar: testes de tela que digitam CPF/CNPJ válido agora
+    geram a chamada `documento-em-uso` (e, na PJ nova, a consulta de CNPJ) — se algum teste conta chamadas ao servidor
+    falso, ajustar.
+- **Ficha mais larga, três colunas, resumo da pessoa e confirmação ao sair de PJ (27/09/2026; código entregue, sem
+  compilar; sem mudança no banco):**
+  - Ficha de Pessoas até 1600 de largura (antes 1200). `Controles/ColunasAdaptaveis` (ligado a todo FlexLayout pelo
+    estilo implícito): com o FlexLayout a partir de 1000 de largura, campos de meia linha (base 50%) viram um terço;
+    100%, automático e celular não mudam.
+  - "Resumo da pessoa" (`ResumoPessoa`, `Views/Pessoas/ResumoPessoaView`): ficha a partir de 1280 → painel de 300 à
+    direita (pode ser recolhido; volta pelo cartão); mais estreita → cartão acima das abas, fechado por padrão. Blocos
+    por fontes (`IFonteResumoPessoa`): Situação (situação, bloqueios ativos, relacionamento), Documentos (vencidos e
+    vencendo), Cadastro (documento em uso/faltando, endereço, município a corrigir, telefone/e-mail, contribuinte sem
+    IE, regime). Tocar num item leva à aba. Refeito ao abrir, ao trocar de aba e depois de salvar. Módulos futuros
+    (comercial, financeiro) acrescentam uma fonte, sem mudar a tela.
+  - Natureza pela tela (`NaturezaNaTela`): sair de PJ com dados da empresa pergunta; confirmado, limpa CNPJ, dados da
+    Receita, fiscais, sócios, grupo e a razão social vinda da consulta (endereços e telefones ficam); senão volta a PJ.
+  - Testes: `Cliente/ResumoETrocaNaturezaTests`.
+- **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
+  padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
+  dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.
+- **Fase futura: produtor rural e retenções (desenho registrado em 27/09/2026; nada implementado):**
+  - Motivo: comprar de produtor rural PF envolve a contribuição previdenciária sobre a produção rural (Funrural), com
+    retenção/sub-rogação pelo adquirente em muitos casos, e a declaração da aquisição (EFD-Reinf); contratar autônomo PF
+    envolve retenções (INSS, IRRF, ISS conforme o município).
+  - Dados previstos: opção do produtor pela contribuição sobre a folha (anual), indicadores de sub-rogação/retenção;
+    no autônomo, NIT/PIS, contribuição já recolhida em outra fonte e inscrição municipal.
+  - Onde moram: dados que mudam com o tempo (opção anual do produtor) no histórico fiscal por período (`HistoricoFiscal`),
+    ao lado de produtor rural e IE; os demais no estabelecimento. Avaliar junto um "perfil tributário do participante"
+    (como o grupo tributário dos ERPs maduros), usado pelo motor fiscal para CFOP/ICMS/retenções.
+  - Depende do módulo de compras/entrada de notas e da apuração: só implementar quando houver quem consuma os dados.
+    Exige migração (aprovação do usuário). Validar as regras com um contador na época (mudaram várias vezes e a reforma
+    tributária — IBS/CBS — também trata do produtor rural).
+  - Lembrete do módulo fiscal: cada nota deve gravar a cópia dos dados do destinatário na emissão; o histórico do cadastro
+    não substitui essa cópia.
+
 O plano completo está no documento Claude Docs "Plano" (id `B8MD9y5X6U5SctK9tUdfZ5`), na conta antiga. Se ele não estiver acessível na conta nova, este arquivo substitui.
 
 ---

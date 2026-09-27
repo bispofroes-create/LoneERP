@@ -22,7 +22,13 @@ public sealed partial class DocumentoFormulario : ItemDeLista
 {
     private IReadOnlyList<TipoDocumentoDto> _catalogo = [];
     private Guid _tipoGravado;
-    private bool _catalogoDefinido;
+    private NaturezaPessoa _natureza = NaturezaPessoa.Fisica;
+
+    /// <summary>Documento novo começa sem tipo: o usuário escolhe (nada de "RG" pré-escolhido numa empresa).</summary>
+    public static readonly Opcao<Guid> SemTipo = new(Guid.Empty, "Escolha o tipo");
+
+    /// <summary>Órgão emissor ou UF gravados: continuam à vista mesmo num tipo que não os usa.</summary>
+    private bool _orgaoOuUfGravados;
 
     public DocumentoFormulario() : this(IdSequencial.Novo(), gravado: false) { }
 
@@ -30,8 +36,8 @@ public sealed partial class DocumentoFormulario : ItemDeLista
     {
         Id = id;
         Gravado = gravado;
-        _tipos = TiposSemCadastro(Guid.Empty);
-        _tipo = _tipos[0];
+        _tipos = [SemTipo, .. TiposSemCadastro(Guid.Empty)];
+        _tipo = SemTipo;
     }
 
     public Guid Id { get; }
@@ -48,26 +54,43 @@ public sealed partial class DocumentoFormulario : ItemDeLista
     [ObservableProperty] private Opcao<Guid>[] _tipos;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AvisoValidade), nameof(TemAvisoValidade), nameof(Vencido), nameof(RotuloValidade))]
+    [NotifyPropertyChangedFor(nameof(AvisoValidade), nameof(TemAvisoValidade), nameof(Vencido), nameof(RotuloValidade),
+                              nameof(MostrarOrgaoEmissor), nameof(MostrarUf))]
     private Opcao<Guid> _tipo;
 
     /// <summary>Chamado pela ficha ao incluir o item: a lista de tipos do cadastro (vazia = não foi possível ler).</summary>
     public void DefinirCatalogo(IReadOnlyList<TipoDocumentoDto> catalogo)
     {
-        var atual = _catalogoDefinido ? Tipo.Valor : _tipoGravado;
         _catalogo = catalogo;
-        Tipos = catalogo.Count == 0
+        MontarTipos();
+    }
+
+    /// <summary>Chamado pela ficha ao incluir o item e quando a natureza muda: só os tipos que se aplicam a ela.</summary>
+    public void DefinirNatureza(NaturezaPessoa natureza)
+    {
+        _natureza = natureza;
+        MontarTipos();
+    }
+
+    /// <summary>
+    /// Tipos ativos que se aplicam à natureza da pessoa, mais o gravado (mesmo desativado ou de outra natureza: volta intacto).
+    /// Sem tipo escolhido (ou com um que deixou de se aplicar, num documento novo), a lista começa em "Escolha o tipo".
+    /// </summary>
+    private void MontarTipos()
+    {
+        var atual = Tipo.Valor;
+        var lista = _catalogo.Count == 0
             ? TiposSemCadastro(_tipoGravado)
-            :
-            [
-                .. catalogo
-                    .Where(t => t.Ativo || t.Id == _tipoGravado)
-                    .OrderBy(t => t.Ordem).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
-                    .Select(t => new Opcao<Guid>(t.Id, t.Ativo ? t.Nome : t.Nome + " (desativado)"))
-            ];
-        if (Tipos.Length == 0) Tipos = TiposSemCadastro(_tipoGravado);
-        Tipo = Tipos.FirstOrDefault(o => o.Valor == atual) ?? Tipos[0];
-        _catalogoDefinido = true;
+                .Where(o => o.Valor == _tipoGravado || TiposDocumentoSistema.AplicaA(TipoSistemaDe(o.Valor), _natureza)).ToList()
+            : _catalogo
+                .Where(t => t.Id == _tipoGravado || (t.Ativo && TiposDocumentoSistema.AplicaA(t.TipoSistema, _natureza)))
+                .OrderBy(t => t.Ordem).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
+                .Select(t => new Opcao<Guid>(t.Id, t.Ativo ? t.Nome : t.Nome + " (desativado)"))
+                .ToList();
+        var escolhido = lista.FirstOrDefault(o => o.Valor == atual);
+        if (escolhido is null) lista.Insert(0, SemTipo);
+        Tipos = [.. lista];
+        Tipo = escolhido ?? SemTipo;
     }
 
     /// <summary>Sem o cadastro (falha ao ler): os tipos de sistema, mais o gravado se for outro — ele volta intacto.</summary>
@@ -78,6 +101,18 @@ public sealed partial class DocumentoFormulario : ItemDeLista
             sistema.Insert(0, new Opcao<Guid>(gravado, "(tipo gravado)"));
         return [.. sistema];
     }
+
+    /// <summary>O enum de sistema do tipo (nulo = tipo criado pelo usuário).</summary>
+    private TipoDocumento? TipoSistemaDe(Guid tipoId) =>
+        _catalogo.FirstOrDefault(t => t.Id == tipoId) is { } doCadastro
+            ? doCadastro.TipoSistema
+            : TiposDocumentoSistema.Todos.Where(t => t.Id == tipoId).Select(t => (TipoDocumento?)t.Tipo).FirstOrDefault();
+
+    /// <summary>Órgão emissor: documentos pessoais de sistema (RG, CNH, passaporte, estrangeiro) ou já preenchido.</summary>
+    public bool MostrarOrgaoEmissor => _orgaoOuUfGravados || TiposDocumentoSistema.TemOrgaoEmissor(TipoSistemaDe(Tipo.Valor));
+
+    /// <summary>UF: RG e CNH (emitidos por um estado) ou já preenchida.</summary>
+    public bool MostrarUf => _orgaoOuUfGravados || TiposDocumentoSistema.TemUf(TipoSistemaDe(Tipo.Valor));
 
     // ---- Campos personalizados do tipo do documento (D4) ----
 
@@ -208,6 +243,7 @@ public sealed partial class DocumentoFormulario : ItemDeLista
         var f = new DocumentoFormulario(d.Id, gravado: true)
         {
             _tipoGravado = tipo,
+            _orgaoOuUfGravados = d.OrgaoEmissor is not null || d.Uf is not null,
             _anexosGravados = d.Anexos,
             _valoresGravados = d.ValoresPersonalizados,
             Numero = d.Numero,
@@ -226,6 +262,11 @@ public sealed partial class DocumentoFormulario : ItemDeLista
     /// <summary>Datas que não dá para entender e validade obrigatória (o resto a API valida).</summary>
     public IEnumerable<string> Validar()
     {
+        if (Tipo.Valor == Guid.Empty)
+        {
+            yield return "Documento" + (Numero.Length > 0 ? " " + Numero : string.Empty) + ": escolha o tipo.";
+            yield break;
+        }
         var nome = Tipo.Texto + (Numero.Length > 0 ? " " + Numero : string.Empty);
         if (!TextoTela.TentarData(EmitidoEm, out _)) yield return $"{nome}: data de emissão inválida (use dd/mm/aaaa).";
         if (!TextoTela.TentarData(ValidoAte, out var validade)) yield return $"{nome}: validade inválida (use dd/mm/aaaa).";

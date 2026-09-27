@@ -6,6 +6,7 @@ using Lone.Contracts.Integracoes;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
+using Lone.Domain.Fiscal;
 using Lone.Domain.Validacao;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
@@ -17,12 +18,20 @@ namespace Lone.Cliente.ViewModels.Pessoas;
 public sealed partial class EstabelecimentoFormulario : ItemDeLista
 {
     public EstabelecimentoFormulario(ObservableCollection<EnderecoFormulario> enderecosDaPessoa)
-        : this(IdSequencial.Novo(), enderecosDaPessoa) { }
+        : this(IdSequencial.Novo(), enderecosDaPessoa) => _pronto = true;
+
+    /// <summary>Falso enquanto os dados gravados são carregados: carregar não dispara os preenchimentos automáticos.</summary>
+    private bool _pronto;
 
     private EstabelecimentoFormulario(Guid id, ObservableCollection<EnderecoFormulario> enderecosDaPessoa)
     {
         Id = id;
         EnderecosDisponiveis = enderecosDaPessoa;
+        NaturezaJuridicaLista.DefinirItens(ItensNaturezaJuridica);
+        NaturezaJuridicaLista.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(SeletorDeLista.Selecionado) or nameof(SeletorDeLista.Texto)) NaturezaJuridicaDaLista();
+        };
     }
 
     public Guid Id { get; }
@@ -52,18 +61,82 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     [ObservableProperty] private Opcao<IndicadorIE> _indicadorIE = OpcoesPessoa.IndicadoresIE[0];
     [ObservableProperty] private string _inscricaoEstadual = string.Empty;
     [ObservableProperty] private string _inscricaoMunicipal = string.Empty;
-    [ObservableProperty] private string _inscricaoSuframa = string.Empty;
-    [ObservableProperty] private Opcao<RegimeTributario> _regime = OpcoesPessoa.Regimes[0];
-    [ObservableProperty] private string _cnaePrincipal = string.Empty;
-    [ObservableProperty] private bool _produtorRural;
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemDadosDeEmpresa), nameof(DadosDeEmpresa))]
+    private string _inscricaoSuframa = string.Empty;
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemDadosDeEmpresa), nameof(DadosDeEmpresa))]
+    private Opcao<RegimeTributario> _regime = OpcoesPessoa.Regimes[0];
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemDadosDeEmpresa), nameof(DadosDeEmpresa))]
+    private string _cnaePrincipal = string.Empty;
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(MostrarDadosIE), nameof(MostrarResumoFiscal))]
+    private bool _produtorRural;
 
     /// <summary>Somente leitura: "0111-3/01 · Cultivo de arroz" (tabela CNAE, se carregada no servidor).</summary>
     public string CnaePrincipalDescricao { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Cadastro gravado de pessoa física com inscrição estadual (ou contribuinte/isento) sem ser produtor rural:
+    /// os campos de IE continuam à vista para não esconder um dado gravado.
+    /// </summary>
+    private bool _inscricaoSemProdutor;
+
+    /// <summary>Pessoa física: a inscrição municipal aparece se já existe ou se o usuário pediu ("Adicionar inscrição municipal").</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(MostrarInscricaoMunicipal), nameof(PodeAdicionarInscricaoMunicipal))]
+    private bool _inscricaoMunicipalPedida;
+
     /// <summary>Somente leitura: situação fiscal por período ("desde 01/03/2026: Simples Nacional · contribuinte · IE 123").</summary>
     public IReadOnlyList<string> HistoricoFiscal { get; private set; } = [];
     public bool TemHistoricoFiscal => HistoricoFiscal.Count > 1;
-    [ObservableProperty] private string _naturezaJuridica = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(NaturezaJuridicaDescricao), nameof(NaturezaJuridicaTexto))]
+    private string _naturezaJuridica = string.Empty;
+
+    // ---- Natureza jurídica: escolhida da tabela (busca por código ou nome); grava o código de 4 dígitos ("2054") ----
+
+    private static readonly ItemSeletor[] ItensNaturezaJuridica =
+        [.. NaturezasJuridicas.Todas.Select(n => new ItemSeletor(n.Codigo, n.Texto, n.Codigo))];
+
+    /// <summary>Campo com busca da natureza jurídica (Identificação e filial). Código fora da tabela aparece como está.</summary>
+    public SeletorDeLista NaturezaJuridicaLista { get; } = new() { Dica = "Digite o código ou parte do nome" };
+
+    private bool _sincronizandoNatureza;
+
+    /// <summary>Escolheu na lista: grava o código. Apagou o texto: sem natureza. Digitando sem escolher: fica o anterior (a ficha avisa).</summary>
+    private void NaturezaJuridicaDaLista()
+    {
+        if (_sincronizandoNatureza) return;
+        string? codigo = NaturezaJuridicaLista.Selecionado?.Chave
+            ?? (string.IsNullOrWhiteSpace(NaturezaJuridicaLista.Texto) ? string.Empty : null);
+        if (codigo is null || codigo == NaturezaJuridica) return;
+        _sincronizandoNatureza = true;
+        try { NaturezaJuridica = codigo; }
+        finally { _sincronizandoNatureza = false; }
+    }
+
+    /// <summary>Código vindo do gravado ou da consulta: mostra na lista (o da tabela com a descrição).</summary>
+    partial void OnNaturezaJuridicaChanged(string value)
+    {
+        if (_sincronizandoNatureza) return;
+        _sincronizandoNatureza = true;
+        try
+        {
+            NaturezaJuridicaLista.Definir(value.Length == 0
+                ? null
+                : ItensNaturezaJuridica.FirstOrDefault(i => i.Chave == DocumentoFiscalNatureza(value)) ?? new ItemSeletor(value, value));
+        }
+        finally { _sincronizandoNatureza = false; }
+    }
+
+    /// <summary>"205-4" ou "2054" → "2054" (o que a tabela usa como chave).</summary>
+    private static string DocumentoFiscalNatureza(string valor) => new(valor.Where(char.IsAsciiDigit).ToArray());
+
+    /// <summary>"204-6 · Sociedade Anônima Aberta" (vazio sem código).</summary>
+    public string NaturezaJuridicaDescricao => NaturezasJuridicas.Descrever(NaturezaJuridica);
+
+    /// <summary>Para o campo só leitura: a descrição, ou o que estiver gravado se não for um código.</summary>
+    public string NaturezaJuridicaTexto => NaturezaJuridicaDescricao.Length > 0 ? NaturezaJuridicaDescricao : NaturezaJuridica;
 
     /// <summary>Códigos separados por vírgula (vêm da consulta de CNPJ; podem ser editados).</summary>
     [ObservableProperty] private string _cnaesSecundarios = string.Empty;
@@ -81,8 +154,54 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     /// <summary>Definido pela ficha. Só a pessoa jurídica tem CNPJ, nome fantasia e filiais.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FilialDaPJ), nameof(PrincipalDaPJ), nameof(MostrarNaFicha), nameof(PodeTornarPrincipal),
-                              nameof(PodeDesativar), nameof(PodeReativar))]
+                              nameof(PodeDesativar), nameof(PodeReativar), nameof(DaPessoaFisica), nameof(IndicadoresIE),
+                              nameof(MostrarDadosIE), nameof(MostrarResumoFiscal), nameof(MostrarInscricaoMunicipal),
+                              nameof(PodeAdicionarInscricaoMunicipal), nameof(TemDadosDeEmpresa), nameof(TituloDadosDeEmpresa))]
     private bool _daPessoaJuridica;
+
+    /// <summary>Definido pela ficha. No exterior: nas notas é sempre não contribuinte, sem inscrição estadual.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DaPessoaFisica), nameof(MostrarDadosIE), nameof(MostrarResumoFiscal), nameof(ResumoFiscal),
+                              nameof(MostrarInscricaoMunicipal), nameof(PodeAdicionarInscricaoMunicipal), nameof(TituloDadosDeEmpresa))]
+    private bool _daPessoaEstrangeira;
+
+    public bool DaPessoaFisica => !DaPessoaJuridica && !DaPessoaEstrangeira;
+
+    // ---- Aba fiscal por natureza: a PJ vê tudo; a PF só o que usa (produtor rural, IE de produtor, inscrição municipal);
+    //      o estrangeiro, só o resumo. ----
+
+    /// <summary>Indicador e inscrição estadual: PJ; PF produtor rural (ou com IE já gravada).</summary>
+    public bool MostrarDadosIE => DaPessoaJuridica || (DaPessoaFisica && (ProdutorRural || _inscricaoSemProdutor));
+
+    /// <summary>PF sem dados de IE e estrangeiro: o sistema usa o padrão, e a aba só o descreve.</summary>
+    public bool MostrarResumoFiscal => !MostrarDadosIE;
+
+    public string ResumoFiscal => DaPessoaEstrangeira
+        ? "Não contribuinte do ICMS (destinatário no exterior) · sem inscrição estadual"
+        : "Não contribuinte do ICMS · Consumidor final (padrão nas vendas)";
+
+    public bool MostrarInscricaoMunicipal => DaPessoaJuridica || (DaPessoaFisica && InscricaoMunicipalPedida);
+    public bool PodeAdicionarInscricaoMunicipal => DaPessoaFisica && !InscricaoMunicipalPedida;
+
+    /// <summary>
+    /// Regime, CNAE e SUFRAMA gravados numa PF ou num estrangeiro (cadastro antigo ou natureza trocada): não se aplicam,
+    /// mas aparecem como leitura até o usuário removê-los; nada some sozinho.
+    /// </summary>
+    public bool TemDadosDeEmpresa => !DaPessoaJuridica &&
+        (Regime.Valor != RegimeTributario.NaoInformado || CnaePrincipal.Length > 0 || InscricaoSuframa.Length > 0);
+
+    public string TituloDadosDeEmpresa => DaPessoaEstrangeira
+        ? "Dados que não se aplicam a pessoa no exterior"
+        : "Dados que não se aplicam a pessoa física";
+
+    public IReadOnlyList<string> DadosDeEmpresa => new[]
+    {
+        Regime.Valor != RegimeTributario.NaoInformado ? "Regime tributário: " + Regime.Texto : string.Empty,
+        CnaePrincipal.Length > 0
+            ? "CNAE principal: " + (CnaePrincipalDescricao.Length > 0 ? CnaePrincipalDescricao : CnaePrincipal)
+            : string.Empty,
+        InscricaoSuframa.Length > 0 ? "Inscrição SUFRAMA: " + InscricaoSuframa : string.Empty
+    }.Where(t => t.Length > 0).ToList();
 
     /// <summary>Filial de pessoa jurídica: pode virar principal, ser removida e ter endereço próprio.</summary>
     public bool FilialDaPJ => DaPessoaJuridica && !EhPrincipal;
@@ -111,7 +230,13 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     public bool MostrarNaFicha => DaPessoaJuridica || EhPrincipal;
     public bool TemEnderecoProprio => EnderecoFiscal is not null;
 
-    public IReadOnlyList<Opcao<IndicadorIE>> IndicadoresIE => OpcoesPessoa.IndicadoresIE;
+    /// <summary>Na PF não existe "não informado": a nota precisa do indicador (sem produtor rural, o padrão é "não contribuinte").</summary>
+    public IReadOnlyList<Opcao<IndicadorIE>> IndicadoresIE => DaPessoaJuridica
+        ? OpcoesPessoa.IndicadoresIE
+        : IndicadoresPessoaFisica;
+
+    private static readonly Opcao<IndicadorIE>[] IndicadoresPessoaFisica =
+        OpcoesPessoa.IndicadoresIE.Where(o => o.Valor != global::Lone.Domain.Enums.IndicadorIE.NaoInformado).ToArray();
     public IReadOnlyList<Opcao<RegimeTributario>> Regimes => OpcoesPessoa.Regimes;
 
     public string Titulo
@@ -142,9 +267,42 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     [RelayCommand]
     private void UsarEnderecoPrincipal() => EnderecoFiscal = null;
 
-    public static EstabelecimentoFormulario De(EstabelecimentoDto e, ObservableCollection<EnderecoFormulario> enderecos) =>
-        new(e.Id, enderecos)
+    [RelayCommand]
+    private void AdicionarInscricaoMunicipal() => InscricaoMunicipalPedida = true;
+
+    /// <summary>Tira da PF/estrangeiro o regime, o CNAE e a SUFRAMA (vale ao salvar, com auditoria e histórico).</summary>
+    [RelayCommand]
+    private void RemoverDadosDeEmpresa()
+    {
+        Regime = OpcoesPessoa.Regimes[0];
+        CnaePrincipal = string.Empty;
+        InscricaoSuframa = string.Empty;
+        CnaePrincipalDescricao = string.Empty;
+        OnPropertyChanged(nameof(CnaePrincipalDescricao));
+    }
+
+    /// <summary>
+    /// PF: marcar produtor rural sugere "contribuinte do ICMS" (IE de produtor); desmarcar volta a "não contribuinte".
+    /// A inscrição digitada não é apagada. Não age ao carregar dados gravados.
+    /// </summary>
+    partial void OnProdutorRuralChanged(bool value)
+    {
+        if (!_pronto || !DaPessoaFisica) return;
+        var indicador = IndicadorIE.Valor;
+        if (value && indicador is global::Lone.Domain.Enums.IndicadorIE.NaoInformado or global::Lone.Domain.Enums.IndicadorIE.NaoContribuinte)
+            IndicadorIE = Opcao.De(OpcoesPessoa.IndicadoresIE, global::Lone.Domain.Enums.IndicadorIE.Contribuinte);
+        else if (!value && !_inscricaoSemProdutor)
+            IndicadorIE = Opcao.De(OpcoesPessoa.IndicadoresIE, global::Lone.Domain.Enums.IndicadorIE.NaoContribuinte);
+    }
+
+    public static EstabelecimentoFormulario De(EstabelecimentoDto e, ObservableCollection<EnderecoFormulario> enderecos)
+    {
+        var formulario = new EstabelecimentoFormulario(e.Id, enderecos)
         {
+            _inscricaoSemProdutor = !e.ProdutorRural &&
+                (e.InscricaoEstadual is not null || e.IndicadorIE is global::Lone.Domain.Enums.IndicadorIE.Contribuinte
+                                                                   or global::Lone.Domain.Enums.IndicadorIE.Isento),
+            InscricaoMunicipalPedida = e.InscricaoMunicipal is not null,
             Gravado = true,
             Cnpj = Documento.Formatar(e.Cnpj),
             NomeFantasia = e.NomeFantasia ?? string.Empty,
@@ -174,6 +332,9 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
             EhPrincipal = e.Principal,
             EnderecoFiscal = e.EnderecoFiscalId is { } id ? enderecos.FirstOrDefault(x => x.Id == id) : null
         };
+        formulario._pronto = true;
+        return formulario;
+    }
 
     public EstabelecimentoDto ParaDto() => new()
     {
@@ -214,6 +375,12 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
         // MEI também é optante do Simples: o MEI é o mais específico.
         if (d.OpcaoMei == true) Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.Mei);
         else if (d.OpcaoSimples == true) Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.SimplesNacional);
+        // A Receita diz que não é optante: regime normal (lucro presumido ou real; para o ICMS é o mesmo "regime normal").
+        else if (d.OpcaoSimples == false) Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.RegimeNormal);
+        // Sem registro no Simples (a consulta respondeu os dados da empresa, mas sem a opção): só preenche o vazio,
+        // nunca troca um regime escolhido pelo usuário.
+        else if (d.OpcaoMei is null && d.CnaePrincipal is not null && Regime.Valor == RegimeTributario.NaoInformado)
+            Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.RegimeNormal);
 
         // Inscrição ativa no estado do endereço do CNPJ.
         var inscricao = d.InscricoesEstaduais.FirstOrDefault(i => i.Ativa && string.Equals(i.Uf, d.Uf, StringComparison.OrdinalIgnoreCase));

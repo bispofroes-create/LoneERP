@@ -7,8 +7,11 @@
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
         <!-- Dados fiscais por CNPJ. Identidade da empresa (dados, grupo, sócios) fica na Identificação. -->
-        <Label Text="Dados fiscais desta pessoa (inscrições, regime e CNAE)." Style="{StaticResource Secundario}"
-               IsVisible="{Binding Formulario.NaoEhJuridica}" />
+        <!-- PF e estrangeiro: só o que se aplica (regime, CNAE e SUFRAMA são de empresa). -->
+        <Label Text="Dados fiscais desta pessoa. Marque &quot;Produtor rural&quot; quando ela tiver inscrição estadual de produtor."
+               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.EhFisica}" />
+        <Label Text="Dados fiscais desta pessoa no exterior." Style="{StaticResource Secundario}"
+               IsVisible="{Binding Formulario.EhEstrangeiro}" />
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Formulario.EhJuridica}">
             <Label Text="Matriz e filiais desta empresa (mesma raiz de CNPJ). Cada CNPJ tem os seus dados fiscais; a filial pode ter endereço próprio. Filial gravada não é excluída: é desativada."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />
@@ -22,7 +25,7 @@
                     <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding MostrarNaFicha}">
                         <VerticalStackLayout Spacing="4">
                             <FlexLayout Wrap="Wrap" AlignItems="Center" JustifyContent="SpaceBetween">
-                                <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="16" />
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="16" IsVisible="{Binding DaPessoaJuridica}" />
                                 <HorizontalStackLayout Spacing="16" IsVisible="{Binding FilialDaPJ}">
                                     <Button Text="Tornar principal" Style="{StaticResource BotaoLink}" Command="{Binding TornarPrincipalCommand}"
                                             IsVisible="{Binding PodeTornarPrincipal}" />
@@ -45,27 +48,59 @@
                                             VerticalOptions="End" Margin="0,0,12,8" Command="{Binding ConsultarCnpjCommand}" />
                                 </Grid>
                                 <c:Campo Rotulo="Nome fantasia" Texto="{Binding NomeFantasia}" IsVisible="{Binding FilialDaPJ}" />
-                                <c:Campo Rotulo="Natureza jurídica" Texto="{Binding NaturezaJuridica}" IsVisible="{Binding FilialDaPJ}" />
+                                <!-- Filial: natureza jurídica da tabela (o contêiner mostra/esconde; a lista tem o próprio contexto). -->
+                                <ContentView IsVisible="{Binding FilialDaPJ}" FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}"
+                                             Padding="0,0,12,8">
+                                    <c:CampoLista Rotulo="Natureza jurídica" BindingContext="{Binding NaturezaJuridicaLista}" />
+                                </ContentView>
                                 <!-- Principal: um só ponto de edição (Identificação); aqui só leitura. -->
                                 <c:Campo Rotulo="Nome fantasia" Texto="{Binding NomeFantasia, Mode=OneWay}" SomenteLeitura="True"
                                          IsVisible="{Binding PrincipalDaPJ}" />
-                                <c:Campo Rotulo="Natureza jurídica" Texto="{Binding NaturezaJuridica, Mode=OneWay}" SomenteLeitura="True"
+                                <c:Campo Rotulo="Natureza jurídica" Texto="{Binding NaturezaJuridicaTexto, Mode=OneWay}" SomenteLeitura="True"
                                          IsVisible="{Binding PrincipalDaPJ}" />
                                 <Label Text="CNPJ, nome fantasia e natureza jurídica do principal são alterados na aba &quot;Identificação&quot;."
                                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" FlexLayout.Basis="100%"
                                        Margin="0,0,12,8" IsVisible="{Binding PrincipalDaPJ}" />
-                                <c:CampoEscolha Rotulo="Indicador de IE" Itens="{Binding IndicadoresIE}" Selecionado="{Binding IndicadorIE}" />
-                                <c:Campo Rotulo="Inscrição estadual" Texto="{Binding InscricaoEstadual}" />
-                                <c:Campo Rotulo="Inscrição municipal" Texto="{Binding InscricaoMunicipal}" />
-                                <c:Campo Rotulo="Inscrição Suframa" Texto="{Binding InscricaoSuframa}" Teclado="Numeric" />
-                                <c:CampoEscolha Rotulo="Regime tributário" Itens="{Binding Regimes}" Selecionado="{Binding Regime}" />
-                                <c:Campo Rotulo="CNAE principal" Texto="{Binding CnaePrincipal}" Teclado="Numeric" />
-                                <Label Text="{Binding CnaePrincipalDescricao}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+                                <!-- PF: produtor rural primeiro, porque decide o resto da aba. -->
+                                <c:CaixaMarcar Texto="Produtor rural" Marcado="{Binding ProdutorRural}" IsVisible="{Binding DaPessoaFisica}"
+                                               FlexLayout.Basis="100%" />
+                                <Label Text="{Binding ResumoFiscal}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+                                       FlexLayout.Basis="100%" Margin="0,0,12,8" IsVisible="{Binding MostrarResumoFiscal}" />
+                                <c:CampoEscolha Rotulo="Indicador de IE" Itens="{Binding IndicadoresIE}" Selecionado="{Binding IndicadorIE}"
+                                                IsVisible="{Binding MostrarDadosIE}" />
+                                <c:Campo Rotulo="Inscrição estadual" Texto="{Binding InscricaoEstadual}" IsVisible="{Binding MostrarDadosIE}" />
+                                <c:Campo Rotulo="Inscrição municipal" Texto="{Binding InscricaoMunicipal}" IsVisible="{Binding MostrarInscricaoMunicipal}" />
+                                <!-- Só pessoa jurídica: SUFRAMA, regime e CNAE. -->
+                                <c:Campo Rotulo="Inscrição Suframa" Texto="{Binding InscricaoSuframa}" Teclado="Numeric"
+                                         IsVisible="{Binding DaPessoaJuridica}" />
+                                <c:CampoEscolha Rotulo="Regime tributário" Itens="{Binding Regimes}" Selecionado="{Binding Regime}"
+                                                IsVisible="{Binding DaPessoaJuridica}" />
+                                <c:Campo Rotulo="CNAE principal" Texto="{Binding CnaePrincipal}" Teclado="Numeric" IsVisible="{Binding DaPessoaJuridica}" />
+                                <Label Text="{Binding CnaePrincipalDescricao}" Style="{StaticResource Secundario}" VerticalOptions="Center"
+                                       IsVisible="{Binding DaPessoaJuridica}" />
                                 <c:Campo Rotulo="CNAEs secundários" Texto="{Binding CnaesSecundarios}" IsVisible="{Binding DaPessoaJuridica}"
                                          Dica="Códigos separados por vírgula" FlexLayout.Basis="100%" />
                                 <c:CaixaMarcar Texto="Estabelecimento ativo" Marcado="{Binding Ativo}" IsVisible="{Binding DaPessoaJuridica}" />
-                                <c:CaixaMarcar Texto="Produtor rural" Marcado="{Binding ProdutorRural}" />
+                                <c:CaixaMarcar Texto="Produtor rural" Marcado="{Binding ProdutorRural}" IsVisible="{Binding DaPessoaJuridica}" />
                             </FlexLayout>
+                            <Button Text="Adicionar inscrição municipal" Style="{StaticResource BotaoLink}" HorizontalOptions="Start"
+                                    Command="{Binding AdicionarInscricaoMunicipalCommand}" IsVisible="{Binding PodeAdicionarInscricaoMunicipal}" />
+
+                            <!-- PF/estrangeiro com regime, CNAE ou SUFRAMA gravados: leitura até o usuário remover (vale ao salvar). -->
+                            <VerticalStackLayout IsVisible="{Binding TemDadosDeEmpresa}" Spacing="2">
+                                <Label Text="{Binding TituloDadosDeEmpresa}" Style="{StaticResource Rotulo}" />
+                                <Label Text="São dados de empresa gravados neste cadastro. Continuam gravados até você removê-los."
+                                       Style="{StaticResource Secundario}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding DadosDeEmpresa}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Button Text="Remover estes dados" Style="{StaticResource BotaoLink}" HorizontalOptions="Start"
+                                        Command="{Binding RemoverDadosDeEmpresaCommand}" />
+                            </VerticalStackLayout>
 
                             <!-- Histórico fiscal (mantido pelo servidor): regime, IE e situação por período. -->
                             <VerticalStackLayout IsVisible="{Binding TemHistoricoFiscal}" Spacing="2">

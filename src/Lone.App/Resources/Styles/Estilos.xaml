@@ -128,6 +128,10 @@
     </Style>
 
     <!-- ===== Fichas ===== -->
+    <!-- Todo FlexLayout de campos: três por linha quando há largura de sobra (ColunasAdaptaveis). -->
+    <Style TargetType="FlexLayout">
+        <Setter Property="c:ColunasAdaptaveis.Ativo" Value="True" />
+    </Style>
     <!-- Campos dentro de um FlexLayout: dois por linha no computador, um por linha no celular. -->
     <Style TargetType="c:Campo">
         <Setter Property="FlexLayout.Basis" Value="{OnIdiom Phone='100%', Default='50%'}" />
