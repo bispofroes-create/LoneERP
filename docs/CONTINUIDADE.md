@@ -375,8 +375,8 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     `IX_PreferenciasMenu_UsuarioId_Rota`); nenhum SQL de dados, nada é alterado nas tabelas existentes.
   - **Defeito corrigido:** abrir a ficha de qualquer PJ fechava o app no Windows (COMException 0x80004005 no Measure do
     cabeçalho). Elemento confirmado por diagnóstico (desligá-lo resolveu): os selos de papéis — uma lista (`FlexLayout` +
-    `BindableLayout`) dentro de outra `FlexLayout` que quebra linha. Tornar a coleção fixa (`PapeisAtivos` sincronizada no
-    lugar, `CabecalhoPapeisTests`) NÃO bastou; a linha virou texto simples (`TipoEPapeisCabecalho`, "Pessoa jurídica ·
+    `BindableLayout`) dentro de outra `FlexLayout` que quebra linha. Tornar a coleção fixa (sincronizada no lugar) NÃO
+    bastou; a linha virou texto simples (`TipoEPapeisCabecalho`, "Pessoa jurídica ·
     Cliente · Fornecedor"). Evitar lista com `BindableLayout` dentro de `FlexLayout` no cabeçalho da ficha.
   - **Papéis e Etiquetas na Identificação** (só interface e ViewModel; sem banco, sem migração, sem mudança de regra): a ficha
     mostra só o que a pessoa tem; "+ Adicionar" abre painel com pesquisa; papéis em cartões com interruptor (vale ao salvar)

@@ -295,17 +295,6 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>"Pessoa física", "Pessoa jurídica" ou "Estrangeiro" (os papéis aparecem como selos ao lado).</summary>
     public string NaturezaCabecalho => NomesPessoa.Natureza(Natureza.Valor);
 
-    /// <summary>
-    /// Papéis em vigor, para os selos do cabeçalho. Coleção fixa, atualizada no lugar e só quando um papel é marcado ou
-    /// desmarcado: refazer os selos a cada mudança do cabeçalho (ex.: a leitura dos grupos empresariais ao abrir uma PJ)
-    /// recriava os elementos enquanto o Windows montava a tela e o aplicativo fechava (COMException no Measure).
-    /// </summary>
-    public System.Collections.ObjectModel.ObservableCollection<PapelOpcao> PapeisAtivos { get; } = new();
-
-    /// <summary>Deixa <see cref="PapeisAtivos"/> igual aos papéis marcados, na ordem deles, sem mexer no que já está certo.</summary>
-    private void SincronizarPapeisAtivos() =>
-        ColecaoSincronizada.Sincronizar(PapeisAtivos, Papeis.Where(p => p.Ativo).ToList());
-
     /// <summary>"CNPJ 12.345.678/0001-90 · Código 000123 · Curvelo/MG" (sem a situação: ela vira o selo à direita do nome).</summary>
     public string IdentificacaoCabecalho => string.Join("  ·  ", new[]
     {
@@ -337,7 +326,6 @@ public sealed partial class PessoaFormulario : ObservableObject
         OnPropertyChanged(nameof(TemEstruturaCabecalho));
         OnPropertyChanged(nameof(EtiquetasCabecalho));
         OnPropertyChanged(nameof(NaturezaCabecalho));
-        SincronizarPapeisAtivos();
         OnPropertyChanged(nameof(IdentificacaoCabecalho));
     }
 
@@ -1109,7 +1097,6 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>Papéis, etiquetas e estabelecimentos incluídos depois mudam o cabeçalho.</summary>
     private void OuvirCabecalho()
     {
-        SincronizarPapeisAtivos();
         foreach (var papel in Papeis)
             papel.PropertyChanged += (_, e) =>
             {
