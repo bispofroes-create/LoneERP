@@ -72,14 +72,8 @@
                 <Label Text="E-mail (opcional)" Style="{StaticResource Rotulo}" />
                 <Entry Text="{Binding Formulario.Email}" Keyboard="Email" SemanticProperties.Description="E-mail" />
 
-                <HorizontalStackLayout Spacing="4" Margin="0,8,0,0">
-                    <CheckBox IsChecked="{Binding Formulario.Ativo}" VerticalOptions="Center" />
-                    <Label Text="Ativo (pode entrar no sistema)" VerticalOptions="Center" />
-                </HorizontalStackLayout>
-                <HorizontalStackLayout Spacing="4">
-                    <CheckBox IsChecked="{Binding Formulario.DeveTrocarSenha}" VerticalOptions="Center" />
-                    <Label Text="Trocar a senha no próximo acesso" VerticalOptions="Center" />
-                </HorizontalStackLayout>
+                <c:CaixaMarcar Texto="Ativo (pode entrar no sistema)" Marcado="{Binding Formulario.Ativo}" Margin="0,8,0,0" />
+                <c:CaixaMarcar Texto="Trocar a senha no próximo acesso" Marcado="{Binding Formulario.DeveTrocarSenha}" />
 
                 <!-- Situação do acesso (usuário já cadastrado) -->
                 <Border Style="{StaticResource Cartao}" Padding="14" Margin="0,8,0,0" IsVisible="{Binding Formulario.Existente}">

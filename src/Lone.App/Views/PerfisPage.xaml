@@ -67,14 +67,8 @@
                 <Label Text="Descrição (opcional)" Style="{StaticResource Rotulo}" />
                 <Entry Text="{Binding Formulario.Descricao}" SemanticProperties.Description="Descrição do perfil" />
 
-                <HorizontalStackLayout Spacing="4" Margin="0,8,0,0">
-                    <CheckBox IsChecked="{Binding Formulario.Ativo}" VerticalOptions="Center" />
-                    <Label Text="Ativo" VerticalOptions="Center" />
-                </HorizontalStackLayout>
-                <HorizontalStackLayout Spacing="4">
-                    <CheckBox IsChecked="{Binding Formulario.Administrador}" VerticalOptions="Center" />
-                    <Label Text="Administrador (acesso a tudo, inclusive telas futuras)" VerticalOptions="Center" LineBreakMode="WordWrap" />
-                </HorizontalStackLayout>
+                <c:CaixaMarcar Texto="Ativo" Marcado="{Binding Formulario.Ativo}" Margin="0,8,0,0" />
+                <c:CaixaMarcar Texto="Administrador (acesso a tudo, inclusive telas futuras)" Marcado="{Binding Formulario.Administrador}" />
 
                 <!-- Permissões por módulo -->
                 <VerticalStackLayout IsVisible="{Binding Formulario.MostrarPermissoes}" Spacing="8" Margin="0,12,0,0">
@@ -88,11 +82,7 @@
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Permissoes}">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="seg:PermissaoMarcavel">
-                                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
-                                                        <CheckBox IsChecked="{Binding Marcada}" VerticalOptions="Center" />
-                                                        <Label Grid.Column="1" Text="{Binding Descricao}" VerticalOptions="Center"
-                                                               LineBreakMode="WordWrap" />
-                                                    </Grid>
+                                                    <c:CaixaMarcar Texto="{Binding Descricao}" Marcado="{Binding Marcada}" Padding="0" />
                                                 </DataTemplate>
                                             </BindableLayout.ItemTemplate>
                                         </VerticalStackLayout>

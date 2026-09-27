@@ -91,8 +91,22 @@ internal sealed class NavegacaoGravada : INavegacao
         return Task.CompletedTask;
     }
 
-    public Task AbrirTrocaDeSenhaAsync() => Task.CompletedTask;
+    public int TrocasDeSenhaAbertas { get; private set; }
+    public bool Encerrou { get; private set; }
+
+    public Task AbrirTrocaDeSenhaAsync()
+    {
+        TrocasDeSenhaAbertas++;
+        return Task.CompletedTask;
+    }
+
     public Task FecharAsync() => Task.CompletedTask;
+
+    public Task EncerrarAplicativoAsync()
+    {
+        Encerrou = true;
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Diálogos com respostas programadas (o que o "usuário" escolhe) e registro das perguntas feitas.</summary>

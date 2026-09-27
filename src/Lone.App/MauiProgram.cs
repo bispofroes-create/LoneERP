@@ -17,6 +17,9 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
 
+        // Caixas de marcar compactas (texto logo ao lado da caixa), em todas as telas.
+        AjusteCaixaMarcar.Aplicar();
+
         // Implementações de plataforma usadas por Lone.Cliente.
         builder.Services.AddSingleton<IArmazenamentoSeguro, ArmazenamentoSeguroMaui>();
         builder.Services.AddSingleton<IPreferencias, PreferenciasMaui>();

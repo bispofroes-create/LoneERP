@@ -19,7 +19,8 @@ public class MenuLateralTests
     {
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao()); // administrador: vê tudo
-        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, new NavegacaoGravada(), new MenuUsuarioApi(ambiente.Api));
+        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, new NavegacaoGravada(), new MenuUsuarioApi(ambiente.Api),
+            ambiente.Dialogos);
         return (ambiente, menu);
     }
 
@@ -62,11 +63,15 @@ public class MenuLateralTests
     {
         var secoes = MenuViewModel.CriarSecoes(p => p == Permissoes.Pessoas.Visualizar);
 
-        var pessoas = Assert.Single(secoes);
-        Assert.Equal(new[] { "pessoas", "consulta-pessoas" }, pessoas.Itens.Select(i => i.Rota).ToArray()); // sem configurações
+        // Pessoas e Configurações do sistema (esta sempre aparece: "Minha conta › Trocar senha" é de todos).
+        Assert.Equal(new string?[] { "Pessoas", null }, secoes.Select(s => s.Titulo).ToArray());
+        Assert.Equal(new[] { "pessoas", "consulta-pessoas" }, secoes[0].Itens.Select(i => i.Rota).ToArray()); // sem configurações
+        Assert.Equal("configuracoes-sistema", Assert.Single(secoes[1].Itens).Rota);
 
         var soConfiguracao = MenuViewModel.CriarSecoes(p => p == Permissoes.Cadastros.Etiquetas);
-        Assert.Equal(new[] { "configuracoes-pessoas" }, Assert.Single(soConfiguracao).Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "configuracoes-pessoas" }, soConfiguracao[0].Itens.Select(i => i.Rota).ToArray());
+
+        Assert.Equal("configuracoes-sistema", Assert.Single(Assert.Single(MenuViewModel.CriarSecoes(_ => false)).Itens).Rota);
     }
 
     [Fact]
@@ -297,5 +302,60 @@ public class MenuLateralTests
         await menu.IrCommand.ExecuteAsync(Item(menu, "metas"));
 
         Assert.Equal("metas", destino);
+    }
+
+    [Fact]
+    public async Task Tocar_no_usuario_oferece_trocar_de_usuario_e_sair()
+    {
+        var ambiente = new AmbienteCliente();
+        await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
+        var navegacao = new NavegacaoGravada();
+        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, navegacao, new MenuUsuarioApi(ambiente.Api), ambiente.Dialogos);
+
+        ambiente.Dialogos.RespostaEscolha = null; // cancelou: nada acontece
+        await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
+        Assert.Equal(new[] { MenuViewModel.OpcaoTrocarUsuario, MenuViewModel.OpcaoSair }, ambiente.Dialogos.OpcoesOferecidas);
+        Assert.Empty(navegacao.Telas);
+        Assert.True(ambiente.Sessao.Autenticada);
+
+        ambiente.Servidor.Responder(HttpStatusCode.NoContent); // encerra a sessão na API
+        ambiente.Dialogos.RespostaEscolha = MenuViewModel.OpcaoTrocarUsuario;
+        await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
+        Assert.Equal(new[] { Lone.Cliente.Navegacao.Tela.Login }, navegacao.Telas);
+        Assert.False(navegacao.Encerrou);
+        Assert.False(ambiente.Sessao.Autenticada);
+    }
+
+    [Fact]
+    public async Task Sair_do_Lone_encerra_a_sessao_e_fecha_o_aplicativo()
+    {
+        var ambiente = new AmbienteCliente();
+        await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
+        var navegacao = new NavegacaoGravada();
+        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, navegacao, new MenuUsuarioApi(ambiente.Api), ambiente.Dialogos);
+        ambiente.Servidor.Responder(HttpStatusCode.NoContent);
+        ambiente.Dialogos.RespostaEscolha = MenuViewModel.OpcaoSair;
+
+        await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
+
+        Assert.True(navegacao.Encerrou);
+        Assert.False(ambiente.Sessao.Autenticada);
+    }
+
+    [Fact]
+    public async Task Trocar_senha_pela_busca_abre_a_troca_de_senha_sem_navegar_no_Shell()
+    {
+        var ambiente = new AmbienteCliente();
+        await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
+        var navegacao = new NavegacaoGravada();
+        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, navegacao, new MenuUsuarioApi(ambiente.Api), ambiente.Dialogos);
+        string? destino = null;
+        menu.Navegar = rota => { destino = rota; return Task.CompletedTask; };
+
+        menu.Busca = "senha";
+        await menu.AbrirPrimeiroResultadoCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, navegacao.TrocasDeSenhaAbertas);
+        Assert.Null(destino);
     }
 }

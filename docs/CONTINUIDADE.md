@@ -383,6 +383,10 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     e histórico dos períodos; etiquetas em chips. Padrão registrado em `docs/UX-ARQUITETURA.md`.
   - API: `GET api/v1/menu/preferencias`, `PUT api/v1/menu/favoritos`, `POST api/v1/menu/acessos` (só login; cada usuário
     mexe nos próprios dados).
+- **Caixas de marcar e barra de título (26/09/2026, noite; sem commit até o usuário testar):** caixas de marcar compactas em
+  todo o app (`Plataforma/AjusteCaixaMarcar`, espaço `CaixaMarcar.EspacoTexto`; Usuários e Perfis passaram a usar
+  `CaixaMarcar`). Empresa e usuário na barra de título do Windows; Trocar senha em Configurações do sistema › Minha conta;
+  menu do usuário com Trocar de usuário / Sair do Lone. Ver `docs/UX-ARQUITETURA.md`. Sem banco.
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

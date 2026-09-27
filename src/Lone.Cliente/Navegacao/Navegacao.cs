@@ -23,6 +23,9 @@ public interface INavegacao
 
     /// <summary>Fecha a tela aberta por cima (troca de senha opcional).</summary>
     Task FecharAsync();
+
+    /// <summary>Fecha o aplicativo (menu do usuário › Sair, depois de encerrar a sessão).</summary>
+    Task EncerrarAplicativoAsync();
 }
 
 /// <summary>

@@ -68,6 +68,17 @@ Papéis e Etiquetas na Identificação da pessoa (`PapeisDaFicha`, `EtiquetasFor
 - **Listas da tela atualizadas no lugar** (`ColecaoSincronizada`): nunca trocar a coleção inteira a cada mudança (causa do
   fechamento da ficha de PJ no Windows).
 
+## Barra de título, conta e empresa (decisão do usuário, 26/09/2026)
+
+- **Windows:** empresa e usuário ficam à direita da barra de título, junto de minimizar/restaurar/fechar
+  (`Controles/BarraTituloSistema` como `TrailingContent` do `TitleBar`; instalada por `NavegacaoMaui` só enquanto o
+  sistema está aberto). "⇄ Trocar empresa" aparece com mais de uma empresa. Tocar no usuário abre **Trocar de usuário**
+  (encerra a sessão e volta ao login) / **Sair do Lone** (encerra a sessão e fecha o app).
+- **Celular:** sem barra de título — os mesmos itens ficam no rodapé do menu.
+- **Trocar senha:** Configurações do sistema › **Minha conta** (grupo de todos os usuários; por isso Configurações do
+  sistema aparece para qualquer um; Usuários e Perfis continuam com as permissões deles). Rota especial
+  `ModulosConfiguracao.RotaTrocarSenha` (abre por cima, não é tela do Shell; vale também na busca e nos favoritos).
+
 ## Design system
 
 - Espaçamento: 4 · 8 · 12 · 16 · 24 · 32. Raios: 6 (controles, selos) e 8 (superfícies). Bordas `BordaSutil`; sem sombras.

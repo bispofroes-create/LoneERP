@@ -31,6 +31,8 @@ public sealed class NavegacaoMaui : INavegacao
             _ => throw new ArgumentOutOfRangeException(nameof(tela), tela, null)
         };
         Janela.Page = pagina;
+        // Barra de título com empresa e usuário só dentro do sistema (no Windows); nas telas de entrada, a padrão.
+        Janela.TitleBar = pagina is AppShell shell ? shell.BarraDeTitulo : null;
     });
 
     public Task AbrirTrocaDeSenhaAsync() => MainThread.InvokeOnMainThreadAsync(() =>
@@ -41,6 +43,8 @@ public sealed class NavegacaoMaui : INavegacao
         if (Janela.Page?.Navigation.ModalStack.Count > 0)
             await Janela.Page.Navigation.PopModalAsync();
     });
+
+    public Task EncerrarAplicativoAsync() => MainThread.InvokeOnMainThreadAsync(() => Application.Current?.Quit());
 
     private LoginPage Login(string? mensagem)
     {

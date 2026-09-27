@@ -24,7 +24,24 @@ public partial class AppShell : Shell
 
         // Favoritos e recentes do usuário vêm da API; o menu já funciona antes da resposta.
         viewModel.CarregarPreferenciasCommand.Execute(null);
+
+        // Windows: empresa e usuário no canto direito da barra de título (a navegação instala ao abrir o sistema).
+        if (DeviceInfo.Current.Platform == DevicePlatform.WinUI)
+            BarraDeTitulo = new TitleBar
+            {
+                Title = "Lone ERP",
+                HeightRequest = 48,
+                BackgroundColor = Cor("MenuFundo"),
+                ForegroundColor = Colors.White,
+                TrailingContent = new Controles.BarraTituloSistema { BindingContext = viewModel }
+            };
     }
+
+    /// <summary>Barra de título da janela enquanto o sistema está aberto (nula fora do Windows).</summary>
+    public TitleBar? BarraDeTitulo { get; }
+
+    private static Color Cor(string chave) =>
+        Application.Current?.Resources.TryGetValue(chave, out var valor) == true && valor is Color cor ? cor : Colors.Black;
 
     /// <summary>
     /// Trocar de tela pelo menu com uma ficha alterada e não salva: pergunta antes (mesma regra do Fechar/Descartar).

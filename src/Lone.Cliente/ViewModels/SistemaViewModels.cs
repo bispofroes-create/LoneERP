@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
 using Lone.Cliente.Navegacao;
+using Lone.Cliente.Plataforma;
 using Lone.Cliente.Sessao;
 using Lone.Contracts.Menu;
 using Lone.Contracts.Seguranca;
@@ -22,6 +23,7 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     private readonly ServicoAutenticacao _autenticacao;
     private readonly INavegacao _navegacao;
     private readonly MenuUsuarioApi _preferencias;
+    private readonly IDialogos _dialogos;
 
     /// <summary>Todas as telas que o perfil pode abrir (itens dos módulos + cadastros de configuração): base da busca e dos atalhos.</summary>
     private List<ItemMenu> _catalogo = new();
@@ -30,12 +32,14 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     private List<string> _favoritos = new();
     private List<string> _recentes = new();
 
-    public MenuViewModel(SessaoCliente sessao, ServicoAutenticacao autenticacao, INavegacao navegacao, MenuUsuarioApi preferencias)
+    public MenuViewModel(SessaoCliente sessao, ServicoAutenticacao autenticacao, INavegacao navegacao, MenuUsuarioApi preferencias,
+                         IDialogos dialogos)
     {
         _sessao = sessao;
         _autenticacao = autenticacao;
         _navegacao = navegacao;
         _preferencias = preferencias;
+        _dialogos = dialogos;
 
         // Empresas do grupo ou permissões mudaram (sessão relida): o menu se atualiza sem sair do sistema.
         _sessao.Alterada += Sessao_Alterada;
@@ -179,9 +183,11 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private Task IrAsync(ItemMenu? item)
     {
-        if (item is null || Navegar is null) return Task.CompletedTask;
+        if (item is null) return Task.CompletedTask;
         Busca = string.Empty; // escolheu pela busca: o menu volta ao normal
-        return Navegar(item.Rota);
+        // "Trocar senha" (busca ou favorito) não é tela do Shell: abre por cima da tela atual.
+        if (item.Rota == ModulosConfiguracao.RotaTrocarSenha) return _navegacao.AbrirTrocaDeSenhaAsync();
+        return Navegar is null ? Task.CompletedTask : Navegar(item.Rota);
     }
 
     // ---- Favoritos e recentes (guardados na API, por usuário) ----
@@ -385,14 +391,24 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private Task TrocarEmpresaAsync() => _navegacao.IrParaAsync(Tela.EscolherEmpresa);
 
-    [RelayCommand]
-    private Task TrocarSenhaAsync() => _navegacao.AbrirTrocaDeSenhaAsync();
+    public const string OpcaoTrocarUsuario = "Trocar de usuário";
+    public const string OpcaoSair = "Sair do Lone";
 
+    /// <summary>
+    /// Toque no usuário (barra de título no Windows; rodapé do menu no celular). "Trocar de usuário" encerra a sessão e
+    /// volta ao login; "Sair do Lone" encerra a sessão e fecha o aplicativo. A troca de senha fica em Configurações do sistema.
+    /// </summary>
     [RelayCommand]
-    private async Task SairAsync()
+    private async Task OpcoesDoUsuarioAsync()
     {
+        var escolha = await _dialogos.EscolherAsync($"{NomeUsuario} ({Login})", "Cancelar", [OpcaoTrocarUsuario, OpcaoSair]);
+        if (escolha is null) return;
+
         await _autenticacao.SairAsync();
-        await _navegacao.IrParaAsync(Tela.Login);
+        if (escolha == OpcaoSair)
+            await _navegacao.EncerrarAplicativoAsync();
+        else
+            await _navegacao.IrParaAsync(Tela.Login);
     }
 }
 

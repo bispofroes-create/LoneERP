@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.Sessao;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Seguranca;
@@ -26,6 +27,12 @@ public static class ModulosConfiguracao
     public const string Sistema = "sistema";
 
     public static IReadOnlyList<string> Todos { get; } = [Pessoas, Organizacao, Metas, Sistema];
+
+    /// <summary>
+    /// "Trocar senha" (Configurações do sistema › Minha conta): não é uma tela do Shell — abre a troca de senha por cima da
+    /// tela atual. O menu e a página de configurações tratam esta rota à parte.
+    /// </summary>
+    public const string RotaTrocarSenha = "trocar-senha";
 
     /// <summary>Rota da página de configurações do módulo no Shell (ex.: "configuracoes-pessoas").</summary>
     public static string Rota(string modulo) => "configuracoes-" + modulo;
@@ -75,8 +82,13 @@ public static class ModulosConfiguracao
 public partial class ConfiguracoesViewModel : ViewModelBase
 {
     private readonly SessaoCliente _sessao;
+    private readonly INavegacao _navegacao;
 
-    public ConfiguracoesViewModel(SessaoCliente sessao) => _sessao = sessao;
+    public ConfiguracoesViewModel(SessaoCliente sessao, INavegacao navegacao)
+    {
+        _sessao = sessao;
+        _navegacao = navegacao;
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Titulo), nameof(Descricao))]
@@ -101,8 +113,15 @@ public partial class ConfiguracoesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task AbrirAsync(ItemConfiguracao? item) =>
-        item is null || Navegar is null ? Task.CompletedTask : Navegar(item.Rota);
+    private Task AbrirAsync(ItemConfiguracao? item) => item switch
+    {
+        null => Task.CompletedTask,
+        { Rota: ModulosConfiguracao.RotaTrocarSenha } => _navegacao.AbrirTrocaDeSenhaAsync(),
+        _ => Navegar?.Invoke(item.Rota) ?? Task.CompletedTask
+    };
+
+    /// <summary>Item sem permissão própria: todo usuário logado vê (ex.: trocar a própria senha).</summary>
+    private const string ParaTodos = "";
 
     private static readonly (string Modulo, string Grupo, string Permissao, ItemConfiguracao Item)[] Catalogo =
     [
@@ -133,6 +152,9 @@ public partial class ConfiguracoesViewModel : ViewModelBase
         (ModulosConfiguracao.Metas, "Cadastros de metas", Permissoes.Metas.Gerenciar, new ItemConfiguracao("Equipes", "Equipes e seus membros", "equipes")),
         (ModulosConfiguracao.Metas, "Cadastros de metas", Permissoes.Metas.Gerenciar, new ItemConfiguracao("Indicadores", "O que as metas medem", "indicadores")),
         // ---- Sistema (transversal) ----
+        // "Minha conta" vem primeiro e é de todos: por isso Configurações do sistema aparece para qualquer usuário.
+        (ModulosConfiguracao.Sistema, "Minha conta", ParaTodos,
+            new ItemConfiguracao("Trocar senha", "Altere a senha que você usa para entrar no Lone", ModulosConfiguracao.RotaTrocarSenha)),
         (ModulosConfiguracao.Sistema, "Usuários e permissões", Permissoes.Seguranca.GerenciarPerfis, new ItemConfiguracao("Perfis de acesso", "Permissões por perfil e empresa", "perfis")),
         (ModulosConfiguracao.Sistema, "Usuários e permissões", Permissoes.Seguranca.GerenciarUsuarios, new ItemConfiguracao("Usuários", "Quem acessa o sistema", "usuarios")),
     ];
@@ -143,7 +165,7 @@ public partial class ConfiguracoesViewModel : ViewModelBase
         var doModulo = Catalogo.Where(t => t.Modulo == modulo).ToList();
         var ordem = doModulo.Select(t => t.Grupo).Distinct().ToList();
         return doModulo
-            .Where(t => possui(t.Permissao))
+            .Where(t => t.Permissao == ParaTodos || possui(t.Permissao))
             .GroupBy(t => t.Grupo)
             .OrderBy(g => ordem.IndexOf(g.Key))
             .Select(g => new GrupoConfiguracao(g.Key,

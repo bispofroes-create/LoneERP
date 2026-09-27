@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Lado direito da barra de título (Windows), perto de minimizar/restaurar/fechar: trocar empresa e o usuário logado.
+     Tocar no usuário abre "Trocar de usuário" / "Sair do Lone". No celular estes itens ficam no rodapé do menu. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
+             x:Class="Lone.App.Controles.BarraTituloSistema"
+             x:DataType="vm:MenuViewModel">
+    <HorizontalStackLayout Spacing="8" VerticalOptions="Center" Margin="0,0,12,0">
+        <Button Text="⇄  Trocar empresa" Command="{Binding TrocarEmpresaCommand}" IsVisible="{Binding PodeTrocarEmpresa}"
+                ToolTipProperties.Text="{Binding EmpresaAtiva}" SemanticProperties.Description="Trocar a empresa em que você está trabalhando"
+                BackgroundColor="Transparent" BorderWidth="0" TextColor="{StaticResource MenuTexto}" FontSize="13"
+                FontAttributes="None" Padding="10,4" MinimumHeightRequest="32" HeightRequest="32" VerticalOptions="Center" />
+
+        <!-- Usuário: iniciais, nome e login; o toque abre as opções da sessão. -->
+        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="8,4" BackgroundColor="Transparent"
+                VerticalOptions="Center" SemanticProperties.Description="{Binding NomeUsuario}"
+                ToolTipProperties.Text="Trocar de usuário ou sair">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding OpcoesDoUsuarioCommand}" />
+            </Border.GestureRecognizers>
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroupList>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualState x:Name="Normal" />
+                        <VisualState x:Name="PointerOver">
+                            <VisualState.Setters>
+                                <Setter Property="BackgroundColor" Value="{StaticResource MenuItemAtivo}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </VisualStateManager.VisualStateGroups>
+            <Grid ColumnDefinitions="28,Auto,Auto" ColumnSpacing="8">
+                <Border WidthRequest="28" HeightRequest="28" StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                        BackgroundColor="{StaticResource MenuItemAtivo}" VerticalOptions="Center">
+                    <Label Text="{Binding Iniciais}" FontSize="11" FontAttributes="Bold" TextColor="White"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
+                    <Label Text="{Binding NomeUsuario}" FontSize="13" FontAttributes="Bold" TextColor="White" LineBreakMode="TailTruncation"
+                           MaximumWidthRequest="200" />
+                    <Label Text="{Binding Login}" FontSize="11" TextColor="{StaticResource MenuTextoSecundario}" LineBreakMode="TailTruncation"
+                           MaximumWidthRequest="200" />
+                </VerticalStackLayout>
+                <Label Grid.Column="2" Text="›" FontSize="16" Rotation="90" VerticalOptions="Center"
+                       TextColor="{StaticResource MenuTextoSecundario}" />
+            </Grid>
+        </Border>
+    </HorizontalStackLayout>
+</ContentView>

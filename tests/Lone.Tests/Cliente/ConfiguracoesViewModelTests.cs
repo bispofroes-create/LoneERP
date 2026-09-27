@@ -26,15 +26,17 @@ public class ConfiguracoesViewModelTests
     {
         var rotas = ModulosConfiguracao.Todos.SelectMany(m => ConfiguracoesViewModel.Montar(_ => true, m))
             .SelectMany(g => g.Itens).Select(i => i.Rota).ToList();
-        Assert.Equal(19, rotas.Count);
+        Assert.Equal(20, rotas.Count); // 19 cadastros + "Trocar senha" (Minha conta)
         Assert.Equal(rotas.Count, rotas.Distinct().Count());
     }
 
     [Fact]
     public void Sistema_so_tem_o_que_e_transversal()
     {
-        var sistema = Assert.Single(ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Sistema));
-        Assert.Equal(new[] { "perfis", "usuarios" }, sistema.Itens.Select(i => i.Rota).ToArray());
+        var sistema = ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Sistema);
+        Assert.Equal(new[] { "Minha conta", "Usuários e permissões" }, sistema.Select(g => g.Titulo).ToArray());
+        Assert.Equal(new[] { ModulosConfiguracao.RotaTrocarSenha }, sistema[0].Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "perfis", "usuarios" }, sistema[1].Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "cargos", "centros-custo", "departamentos", "setores" },
             Assert.Single(ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Organizacao)).Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "equipes", "indicadores" },
@@ -53,6 +55,11 @@ public class ConfiguracoesViewModelTests
         Assert.False(ConfiguracoesViewModel.AlgumaPermitida(_ => false, ModulosConfiguracao.Pessoas));
         Assert.True(ConfiguracoesViewModel.AlgumaPermitida(p => p == Permissoes.Seguranca.GerenciarUsuarios, ModulosConfiguracao.Sistema));
         Assert.False(ConfiguracoesViewModel.AlgumaPermitida(p => p == Permissoes.Seguranca.GerenciarUsuarios, ModulosConfiguracao.Pessoas));
+
+        // Sem nenhuma permissão, o sistema ainda mostra "Minha conta › Trocar senha" (a própria senha é de todos).
+        var semPermissao = Assert.Single(ConfiguracoesViewModel.Montar(_ => false, ModulosConfiguracao.Sistema));
+        Assert.Equal("Minha conta", semPermissao.Titulo);
+        Assert.True(ConfiguracoesViewModel.AlgumaPermitida(_ => false, ModulosConfiguracao.Sistema));
     }
 
     [Fact]
@@ -70,7 +77,7 @@ public class ConfiguracoesViewModelTests
     {
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao()); // administrador: pode tudo
-        var tela = new ConfiguracoesViewModel(ambiente.Sessao) { Modulo = ModulosConfiguracao.Pessoas };
+        var tela = new ConfiguracoesViewModel(ambiente.Sessao, new NavegacaoGravada()) { Modulo = ModulosConfiguracao.Pessoas };
         string? destino = null;
         tela.Navegar = rota => { destino = rota; return Task.CompletedTask; };
 
@@ -81,5 +88,22 @@ public class ConfiguracoesViewModelTests
         await tela.AbrirCommand.ExecuteAsync(etiquetas);
 
         Assert.Equal("etiquetas", destino);
+    }
+
+    [Fact]
+    public async Task Trocar_senha_abre_a_troca_de_senha_por_cima_sem_navegar()
+    {
+        var ambiente = new AmbienteCliente();
+        await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
+        var navegacao = new NavegacaoGravada();
+        var tela = new ConfiguracoesViewModel(ambiente.Sessao, navegacao) { Modulo = ModulosConfiguracao.Sistema };
+        string? destino = null;
+        tela.Navegar = rota => { destino = rota; return Task.CompletedTask; };
+
+        tela.AtualizarCommand.Execute(null);
+        await tela.AbrirCommand.ExecuteAsync(tela.Grupos[0].Itens.Single());
+
+        Assert.Equal(1, navegacao.TrocasDeSenhaAbertas);
+        Assert.Null(destino);
     }
 }
