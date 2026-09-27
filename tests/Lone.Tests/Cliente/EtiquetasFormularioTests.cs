@@ -15,12 +15,48 @@ public class EtiquetasFormularioTests
     private static readonly EtiquetaDto Esquecida = new() { Id = Guid.NewGuid(), Nome = "Esquecida", Ativo = false };
 
     [Fact]
-    public void Mostra_as_ativas_e_as_desativadas_que_a_pessoa_ja_tem_marcadas_primeiro()
+    public void Ficha_mostra_so_as_atribuidas_e_o_painel_so_as_ativas_que_faltam()
     {
         var f = EtiquetasFormulario.Criar([Vip, Atacado, Antiga, Esquecida], [Vip.Id, Antiga.Id]);
 
-        Assert.Equal(new[] { "Antiga (desativada)", "VIP", "Atacado" }, f.Visiveis.Select(e => e.Texto));
+        Assert.Equal(new[] { "Antiga (desativada)", "VIP" }, f.Atribuidas.Select(e => e.Texto)); // desativada continua em quem já tem
+        Assert.Equal(new[] { "Atacado" }, f.Disponiveis.Select(e => e.Nome)); // desativadas não são oferecidas
         Assert.Equal(new[] { Antiga.Id, Vip.Id }, f.Marcadas);
+    }
+
+    [Fact]
+    public void Adicionar_pelo_painel_e_remover_pelo_x_mudam_so_a_ficha()
+    {
+        var f = EtiquetasFormulario.Criar([Vip, Atacado, Promocao], [Vip.Id]);
+        f.AlternarEscolhaCommand.Execute(null);
+        Assert.True(f.Escolhendo);
+
+        f.AdicionarCommand.Execute(f.Disponiveis.Single(e => e.Id == Promocao.Id));
+
+        Assert.Equal(new[] { "Promoção", "VIP" }, f.Atribuidas.Select(e => e.Nome)); // ordem alfabética
+        Assert.DoesNotContain(f.Disponiveis, e => e.Id == Promocao.Id);
+        Assert.True(f.Escolhendo); // continua aberto para escolher outras
+
+        f.RemoverCommand.Execute(f.Atribuidas.Single(e => e.Id == Vip.Id));
+
+        Assert.Equal(new[] { Promocao.Id }, f.Marcadas);
+        Assert.Contains(f.Disponiveis, e => e.Id == Vip.Id); // volta a ser oferecida
+        Assert.Equal("Promoção", f.Resumo);
+    }
+
+    [Fact]
+    public void Sem_permissao_de_editar_so_mostra()
+    {
+        var f = EtiquetasFormulario.Criar([Vip, Atacado], [Vip.Id]);
+
+        f.DefinirPermissao(podeEditar: false);
+        f.AlternarEscolhaCommand.Execute(null);
+        f.RemoverCommand.Execute(f.Atribuidas[0]);
+        f.AdicionarCommand.Execute(f.Disponiveis[0]);
+
+        Assert.False(f.Escolhendo);
+        Assert.False(f.Atribuidas[0].Removivel);
+        Assert.Equal(new[] { Vip.Id }, f.Marcadas);
     }
 
     [Fact]
@@ -39,7 +75,7 @@ public class EtiquetasFormularioTests
 
         f.Busca = "promocao";
 
-        Assert.Equal("Promoção", Assert.Single(f.Visiveis).Nome);
+        Assert.Equal("Promoção", Assert.Single(f.Disponiveis).Nome);
         Assert.Equal(new[] { Vip.Id }, f.Marcadas);
     }
 
@@ -54,7 +90,8 @@ public class EtiquetasFormularioTests
 
         Assert.Equal(string.Empty, f.Busca);
         Assert.Equal(new[] { nova.Id }, f.Marcadas);
-        Assert.Equal(2, f.Visiveis.Count);
+        Assert.Equal(new[] { "Nova" }, f.Atribuidas.Select(e => e.Nome));
+        Assert.Equal(new[] { "VIP" }, f.Disponiveis.Select(e => e.Nome));
     }
 
     [Fact]

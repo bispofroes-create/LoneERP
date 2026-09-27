@@ -585,6 +585,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
         newValue.PodeVerDadosSensiveis = _sessao.Possui(Permissoes.Pessoas.VisualizarDadosSensiveis);
         newValue.PodeVerPrivacidade = _sessao.Possui(Permissoes.Pessoas.Privacidade);
+        // Papéis e etiquetas: a tela respeita as mesmas permissões da gravação (a API continua conferindo).
+        var podeEditar = !newValue.EstaArquivado && _sessao.Possui(newValue.Nova ? Permissoes.Pessoas.Criar : Permissoes.Pessoas.Editar);
+        newValue.PapeisFicha.DefinirPermissoes(podeEditar, _sessao.Possui(Permissoes.Pessoas.GerenciarEmpresasDoGrupo));
+        newValue.Etiquetas.DefinirPermissao(podeEditar);
         newValue.Privacidade.Acoes.Conceder = ConcederConsentimentoAsync;
         newValue.Privacidade.Acoes.Revogar = RevogarConsentimentoAsync;
         newValue.ConsultaCep = ConsultarCepAsync;

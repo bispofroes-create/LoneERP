@@ -96,7 +96,7 @@ public class PessoaDadosComplementaresTests
         Assert.Contains("Rádio", f.Origens);
         Assert.Equal("VIP", f.Etiquetas.Resumo);
 
-        f.Etiquetas.Visiveis.Single(e => e.Id == atacado.Id).Marcada = true;
+        f.Etiquetas.AdicionarCommand.Execute(f.Etiquetas.Disponiveis.Single(e => e.Id == atacado.Id));
         var dto = f.ParaDto();
 
         Assert.Equal(new[] { vip.Id, atacado.Id }, dto.EtiquetaIds);

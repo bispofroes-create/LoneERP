@@ -295,8 +295,16 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>"Pessoa física", "Pessoa jurídica" ou "Estrangeiro" (os papéis aparecem como selos ao lado).</summary>
     public string NaturezaCabecalho => NomesPessoa.Natureza(Natureza.Valor);
 
-    /// <summary>Papéis em vigor, para os selos do cabeçalho.</summary>
-    public IEnumerable<PapelOpcao> PapeisAtivos => Papeis.Where(p => p.Ativo);
+    /// <summary>
+    /// Papéis em vigor, para os selos do cabeçalho. Coleção fixa, atualizada no lugar e só quando um papel é marcado ou
+    /// desmarcado: refazer os selos a cada mudança do cabeçalho (ex.: a leitura dos grupos empresariais ao abrir uma PJ)
+    /// recriava os elementos enquanto o Windows montava a tela e o aplicativo fechava (COMException no Measure).
+    /// </summary>
+    public System.Collections.ObjectModel.ObservableCollection<PapelOpcao> PapeisAtivos { get; } = new();
+
+    /// <summary>Deixa <see cref="PapeisAtivos"/> igual aos papéis marcados, na ordem deles, sem mexer no que já está certo.</summary>
+    private void SincronizarPapeisAtivos() =>
+        ColecaoSincronizada.Sincronizar(PapeisAtivos, Papeis.Where(p => p.Ativo).ToList());
 
     /// <summary>"CNPJ 12.345.678/0001-90 · Código 000123 · Curvelo/MG" (sem a situação: ela vira o selo à direita do nome).</summary>
     public string IdentificacaoCabecalho => string.Join("  ·  ", new[]
@@ -329,7 +337,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         OnPropertyChanged(nameof(TemEstruturaCabecalho));
         OnPropertyChanged(nameof(EtiquetasCabecalho));
         OnPropertyChanged(nameof(NaturezaCabecalho));
-        OnPropertyChanged(nameof(PapeisAtivos));
+        SincronizarPapeisAtivos();
         OnPropertyChanged(nameof(IdentificacaoCabecalho));
     }
 
@@ -638,18 +646,19 @@ public sealed partial class PessoaFormulario : ObservableObject
     private static List<PapelOpcao> MontarPapeis(IReadOnlyList<PapelCadastroDto>? cadastro, IReadOnlyList<PapelDto> periodos,
                                                  out List<PapelDto> desconhecidos)
     {
-        var itens = (cadastro ?? []).Select(c => (c.Id, c.PapelSistema, c.Nome, c.Ativo, c.Ordem)).ToList();
+        var itens = (cadastro ?? []).Select(c => (c.Id, c.PapelSistema, c.Nome, c.Ativo, c.Ordem, c.Descricao)).ToList();
         foreach (var sistema in global::Lone.Domain.Papeis.PapeisSistema.Todos.Where(s => itens.All(i => i.PapelSistema != s.Tipo)))
-            itens.Add((sistema.Id, sistema.Tipo, sistema.Nome, true, sistema.Ordem));
+            itens.Add((sistema.Id, sistema.Tipo, sistema.Nome, true, sistema.Ordem, (string?)null));
 
         // Período sem o Id do cadastro (dado antigo) é reconhecido pelo papel de sistema.
         bool DoPapel(PapelDto periodo, Guid id, TipoPapel? sistema) =>
             periodo.PapelId == id || (periodo.PapelId == Guid.Empty && periodo.Papel is not null && periodo.Papel == sistema);
 
+        // Papel desativado no cadastro entra se a pessoa tem ou já teve período dele (o histórico aparece na ficha).
         var opcoes = itens
-            .Where(i => i.Ativo || periodos.Any(p => p.Ativo && DoPapel(p, i.Id, i.PapelSistema)))
+            .Where(i => i.Ativo || periodos.Any(p => DoPapel(p, i.Id, i.PapelSistema)))
             .OrderBy(i => i.Ordem).ThenBy(i => i.Nome, StringComparer.CurrentCultureIgnoreCase)
-            .Select(i => new PapelOpcao(i.Id, i.PapelSistema, i.Nome, i.Ativo, periodos.Where(p => DoPapel(p, i.Id, i.PapelSistema))))
+            .Select(i => new PapelOpcao(i.Id, i.PapelSistema, i.Nome, i.Ativo, periodos.Where(p => DoPapel(p, i.Id, i.PapelSistema)), i.Descricao))
             .ToList();
         desconhecidos = periodos.Where(p => !opcoes.Any(o => DoPapel(p, o.PapelId, o.Papel))).ToList();
         return opcoes;
@@ -699,9 +708,13 @@ public sealed partial class PessoaFormulario : ObservableObject
             .Select(c => CampoPersonalizadoFormulario.Criar(c, valores.FirstOrDefault(v => v.CampoId == c.Id)))
             .ToList();
 
+    /// <summary>Papéis na Identificação: só os que a pessoa tem ou já teve, com "Adicionar papel" para os outros.</summary>
+    public PapeisDaFicha PapeisFicha { get; private set; } = new([]);
+
     /// <summary>A cor/raça depende do papel de funcionário: acompanha quando ele é ligado ou desligado.</summary>
     private void OuvirPapeis()
     {
+        PapeisFicha = new PapeisDaFicha(Papeis);
         foreach (var papel in Papeis)
             papel.PropertyChanged += (_, e) =>
             {
@@ -1096,6 +1109,7 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>Papéis, etiquetas e estabelecimentos incluídos depois mudam o cabeçalho.</summary>
     private void OuvirCabecalho()
     {
+        SincronizarPapeisAtivos();
         foreach (var papel in Papeis)
             papel.PropertyChanged += (_, e) =>
             {

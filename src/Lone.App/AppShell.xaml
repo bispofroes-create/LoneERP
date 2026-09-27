@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!-- Shell do Lone. O menu lateral é desenhado por FlyoutContent (seções por módulo, item ativo destacado, rodapé com a
-     conta); os FlyoutItems abaixo só registram as rotas e as permissões (IsVisible) e não aparecem como lista.
+<!-- Shell do Lone. O menu lateral é desenhado por FlyoutContent (busca, Início, Favoritos, Recentes, módulos que abrem e
+     fecham, item ativo destacado, rodapé com a conta); os FlyoutItems abaixo só registram as rotas e as permissões (IsVisible) e não aparecem como lista.
      No computador o menu fica sempre aberto ao lado; no celular, recolhido (☰). -->
 <Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
@@ -11,64 +11,242 @@
        Title="Lone ERP"
        FlyoutWidth="264">
 
+    <Shell.Resources>
+        <!-- Linhas do menu. O toque no texto abre a tela; o toque na estrela (☆/★) marca ou desmarca o favorito — são
+             elementos irmãos, para um toque nunca disparar os dois. Estado ativo com fundo E marca à esquerda (não só cor). -->
+        <DataTemplate x:Key="LinhaDoModulo" x:DataType="vm:ItemMenu">
+            <Grid ColumnDefinitions="3,*,32" HeightRequest="36">
+                <Border Grid.ColumnSpan="3" StrokeThickness="0" StrokeShape="RoundRectangle 6" BackgroundColor="Transparent">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding Ativo}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource MenuItemAtivo}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                </Border>
+                <BoxView WidthRequest="3" Margin="0,8" CornerRadius="2" Color="{StaticResource MenuDestaque}" IsVisible="{Binding Ativo}" />
+                <Label Grid.Column="1" Text="{Binding TextoExibido}" FontSize="14" VerticalOptions="Fill" VerticalTextAlignment="Center"
+                       Padding="9,0,4,0" LineBreakMode="TailTruncation" TextColor="{StaticResource MenuTexto}"
+                       SemanticProperties.Description="{Binding Descricao}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding IrCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Ativo}" Value="True">
+                            <Setter Property="TextColor" Value="White" />
+                            <Setter Property="FontAttributes" Value="Bold" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+                <Label Grid.Column="2" Text="{Binding Estrela}" IsVisible="{Binding PodeFavoritar}" FontSize="15"
+                       VerticalOptions="Fill" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource MenuTextoSecundario}" Opacity="0.7"
+                       SemanticProperties.Description="{Binding DescricaoFavorito}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AlternarFavoritoCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Favorito}" Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource MenuDestaque}" />
+                            <Setter Property="Opacity" Value="1" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Favoritos e recentes: nome completo ("Cadastro de pessoas"), porque aparecem fora do módulo. -->
+        <DataTemplate x:Key="LinhaDeAtalho" x:DataType="vm:ItemMenu">
+            <Grid ColumnDefinitions="3,*,32" HeightRequest="36">
+                <Border Grid.ColumnSpan="3" StrokeThickness="0" StrokeShape="RoundRectangle 6" BackgroundColor="Transparent">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding Ativo}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource MenuItemAtivo}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                </Border>
+                <BoxView WidthRequest="3" Margin="0,8" CornerRadius="2" Color="{StaticResource MenuDestaque}" IsVisible="{Binding Ativo}" />
+                <Label Grid.Column="1" Text="{Binding Descricao}" FontSize="14" VerticalOptions="Fill" VerticalTextAlignment="Center"
+                       Padding="9,0,4,0" LineBreakMode="TailTruncation" TextColor="{StaticResource MenuTexto}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding IrCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Ativo}" Value="True">
+                            <Setter Property="TextColor" Value="White" />
+                            <Setter Property="FontAttributes" Value="Bold" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+                <Label Grid.Column="2" Text="{Binding Estrela}" IsVisible="{Binding PodeFavoritar}" FontSize="15"
+                       VerticalOptions="Fill" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource MenuTextoSecundario}" Opacity="0.7"
+                       SemanticProperties.Description="{Binding DescricaoFavorito}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AlternarFavoritoCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Favorito}" Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource MenuDestaque}" />
+                            <Setter Property="Opacity" Value="1" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Resultado da busca: nome completo e, embaixo, onde a tela fica ("Pessoas › Configurações"). -->
+        <DataTemplate x:Key="LinhaDeResultado" x:DataType="vm:ItemMenu">
+            <Grid ColumnDefinitions="3,*,32" MinimumHeightRequest="44">
+                <Border Grid.ColumnSpan="3" StrokeThickness="0" StrokeShape="RoundRectangle 6" BackgroundColor="Transparent">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding Ativo}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource MenuItemAtivo}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                </Border>
+                <BoxView WidthRequest="3" Margin="0,8" CornerRadius="2" Color="{StaticResource MenuDestaque}" IsVisible="{Binding Ativo}" />
+                <VerticalStackLayout Grid.Column="1" Padding="9,6,4,6" VerticalOptions="Center" SemanticProperties.Description="{Binding Descricao}">
+                    <VerticalStackLayout.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding IrCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </VerticalStackLayout.GestureRecognizers>
+                    <Label Text="{Binding Descricao}" FontSize="14" LineBreakMode="TailTruncation" TextColor="{StaticResource MenuTexto}" />
+                    <Label Text="{Binding Caminho}" IsVisible="{Binding TemCaminho}" FontSize="12" LineBreakMode="TailTruncation"
+                           TextColor="{StaticResource MenuTextoSecundario}" />
+                </VerticalStackLayout>
+                <Label Grid.Column="2" Text="{Binding Estrela}" IsVisible="{Binding PodeFavoritar}" FontSize="15"
+                       VerticalOptions="Fill" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource MenuTextoSecundario}" Opacity="0.7"
+                       SemanticProperties.Description="{Binding DescricaoFavorito}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding AlternarFavoritoCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
+                                              CommandParameter="{Binding .}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Favorito}" Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource MenuDestaque}" />
+                            <Setter Property="Opacity" Value="1" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+            </Grid>
+        </DataTemplate>
+    </Shell.Resources>
+
     <Shell.FlyoutContent>
-        <Grid RowDefinitions="Auto,*,Auto" BackgroundColor="{StaticResource MenuFundo}">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" BackgroundColor="{StaticResource MenuFundo}">
             <!-- Marca e empresa ativa -->
-            <VerticalStackLayout Padding="20,24,20,16" Spacing="4">
+            <VerticalStackLayout Padding="20,24,20,12" Spacing="4">
                 <Label Text="Lone ERP" FontSize="20" FontAttributes="Bold" TextColor="White" />
                 <Label Text="{Binding EmpresaAtiva}" FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation"
                        TextColor="{StaticResource MenuTexto}" Margin="0,8,0,0" />
                 <Label Text="{Binding EmpresaDetalhe}" FontSize="12" LineBreakMode="WordWrap" TextColor="{StaticResource MenuTextoSecundario}" />
             </VerticalStackLayout>
 
-            <!-- Seções: módulo (título) → telas → ⚙ configurações do módulo -->
-            <ScrollView Grid.Row="1">
-                <VerticalStackLayout Padding="12,0,12,16" BindableLayout.ItemsSource="{Binding Secoes}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SecaoMenu">
-                            <VerticalStackLayout Margin="0,8,0,0">
-                                <Label Text="{Binding Titulo}" IsVisible="{Binding TemTitulo}" FontSize="11" FontAttributes="Bold"
-                                       CharacterSpacing="1" TextColor="{StaticResource MenuTextoSecundario}" Margin="12,12,0,4"
-                                       SemanticProperties.HeadingLevel="Level2" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" Spacing="2">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:ItemMenu">
-                                            <Grid ColumnDefinitions="3,*" HeightRequest="36" SemanticProperties.Description="{Binding Texto}">
-                                                <Grid.GestureRecognizers>
-                                                    <TapGestureRecognizer Command="{Binding IrCommand, Source={RelativeSource AncestorType={x:Type vm:MenuViewModel}}, x:DataType=vm:MenuViewModel}"
-                                                                          CommandParameter="{Binding .}" />
-                                                </Grid.GestureRecognizers>
-                                                <!-- Fundo do item: realce no ativo (e marca à esquerda, para não depender só da cor). -->
-                                                <Border Grid.ColumnSpan="2" StrokeThickness="0" StrokeShape="RoundRectangle 6" BackgroundColor="Transparent">
-                                                    <Border.Triggers>
-                                                        <DataTrigger TargetType="Border" Binding="{Binding Ativo}" Value="True">
-                                                            <Setter Property="BackgroundColor" Value="{StaticResource MenuItemAtivo}" />
-                                                        </DataTrigger>
-                                                    </Border.Triggers>
-                                                </Border>
-                                                <BoxView WidthRequest="3" Margin="0,8" CornerRadius="2" Color="{StaticResource MenuDestaque}"
-                                                         IsVisible="{Binding Ativo}" />
-                                                <Label Grid.Column="1" Text="{Binding TextoExibido}" FontSize="14" VerticalOptions="Center"
-                                                       Margin="9,0,8,0" LineBreakMode="TailTruncation" TextColor="{StaticResource MenuTexto}">
-                                                    <Label.Triggers>
-                                                        <DataTrigger TargetType="Label" Binding="{Binding Ativo}" Value="True">
-                                                            <Setter Property="TextColor" Value="White" />
-                                                            <Setter Property="FontAttributes" Value="Bold" />
-                                                        </DataTrigger>
-                                                    </Label.Triggers>
-                                                </Label>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
+            <!-- Busca no menu: digitar mostra só as telas encontradas; Enter abre a primeira. -->
+            <VerticalStackLayout Grid.Row="1" Padding="12,0,12,4" Spacing="6">
+                <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" BackgroundColor="{StaticResource MenuItemAtivo}" Padding="10,0">
+                    <Entry Text="{Binding Busca}" Placeholder="Pesquisar no menu" FontSize="14" MinimumHeightRequest="36"
+                           TextColor="White" PlaceholderColor="{StaticResource MenuTextoSecundario}"
+                           BackgroundColor="{StaticResource MenuItemAtivo}" ClearButtonVisibility="WhileEditing"
+                           ReturnType="Search" ReturnCommand="{Binding AbrirPrimeiroResultadoCommand}"
+                           SemanticProperties.Description="Pesquisar no menu" />
+                </Border>
+                <Label Text="{Binding Aviso}" IsVisible="{Binding TemAviso}" FontSize="12" LineBreakMode="WordWrap"
+                       TextColor="{StaticResource MenuTexto}" Margin="4,0" />
+            </VerticalStackLayout>
+
+            <ScrollView Grid.Row="2">
+                <Grid Padding="12,4,12,16">
+                    <!-- Resultados da busca (no lugar do menu enquanto há texto) -->
+                    <VerticalStackLayout IsVisible="{Binding Buscando}" Spacing="2">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Resultados}" Spacing="2"
+                                             BindableLayout.ItemTemplate="{StaticResource LinhaDeResultado}" />
+                        <Label Text="Nenhuma tela encontrada." IsVisible="{Binding SemResultados}" FontSize="13" Margin="12,8"
+                               TextColor="{StaticResource MenuTextoSecundario}" />
+                    </VerticalStackLayout>
+
+                    <!-- Menu: Início · Favoritos · Recentes · módulos (abrem e fecham) · Configurações do sistema -->
+                    <VerticalStackLayout IsVisible="{Binding MostrarMenu}" Spacing="2">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding ItensDoTopo}"
+                                             BindableLayout.ItemTemplate="{StaticResource LinhaDoModulo}" />
+
+                        <!-- Favoritos e Recentes: só aparecem quando têm itens -->
+                        <ContentView BindingContext="{Binding Favoritos}">
+                            <VerticalStackLayout x:DataType="vm:GrupoAtalhosMenu" IsVisible="{Binding TemItens}" Margin="0,8,0,0">
+                                <Grid ColumnDefinitions="*,Auto" HeightRequest="28" Padding="12,0,10,0" SemanticProperties.Description="{Binding DescricaoCabecalho}">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding AlternarCommand}" />
+                                    </Grid.GestureRecognizers>
+                                    <Label Text="{Binding Titulo}" TextTransform="Uppercase" FontSize="11" FontAttributes="Bold" CharacterSpacing="1"
+                                           VerticalOptions="Center" TextColor="{StaticResource MenuTextoSecundario}" SemanticProperties.HeadingLevel="Level2" />
+                                    <Label Grid.Column="1" Text="›" FontSize="16" VerticalOptions="Center" Rotation="{Binding RotacaoSeta}"
+                                           TextColor="{StaticResource MenuTextoSecundario}" />
+                                </Grid>
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" IsVisible="{Binding Expandida}" Spacing="2"
+                                                     BindableLayout.ItemTemplate="{StaticResource LinhaDeAtalho}" />
                             </VerticalStackLayout>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                        </ContentView>
+                        <ContentView BindingContext="{Binding Recentes}">
+                            <VerticalStackLayout x:DataType="vm:GrupoAtalhosMenu" IsVisible="{Binding TemItens}" Margin="0,8,0,0">
+                                <Grid ColumnDefinitions="*,Auto" HeightRequest="28" Padding="12,0,10,0" SemanticProperties.Description="{Binding DescricaoCabecalho}">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding AlternarCommand}" />
+                                    </Grid.GestureRecognizers>
+                                    <Label Text="{Binding Titulo}" TextTransform="Uppercase" FontSize="11" FontAttributes="Bold" CharacterSpacing="1"
+                                           VerticalOptions="Center" TextColor="{StaticResource MenuTextoSecundario}" SemanticProperties.HeadingLevel="Level2" />
+                                    <Label Grid.Column="1" Text="›" FontSize="16" VerticalOptions="Center" Rotation="{Binding RotacaoSeta}"
+                                           TextColor="{StaticResource MenuTextoSecundario}" />
+                                </Grid>
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" IsVisible="{Binding Expandida}" Spacing="2"
+                                                     BindableLayout.ItemTemplate="{StaticResource LinhaDeAtalho}" />
+                            </VerticalStackLayout>
+                        </ContentView>
+
+                        <!-- Módulos: tocar no nome abre/fecha; a seta gira. Fechado com a tela aberta dentro, o nome fica destacado. -->
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Secoes}" Margin="0,8,0,0" Spacing="2">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SecaoMenu">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto" HeightRequest="36" Padding="12,0,10,0" IsVisible="{Binding TemTitulo}"
+                                              SemanticProperties.Description="{Binding DescricaoCabecalho}">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding AlternarCommand}" />
+                                            </Grid.GestureRecognizers>
+                                            <Label Text="{Binding Titulo}" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
+                                                   TextColor="{StaticResource MenuTexto}" SemanticProperties.HeadingLevel="Level2">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding ContemAtivo}" Value="True">
+                                                        <Setter Property="TextColor" Value="White" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                            <Label Grid.Column="1" Text="›" FontSize="18" VerticalOptions="Center" Rotation="{Binding RotacaoSeta}"
+                                                   TextColor="{StaticResource MenuTextoSecundario}" />
+                                        </Grid>
+                                        <!-- Itens do módulo recuados sob o nome; entradas soltas (sem cabeçalho) sem recuo. -->
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" IsVisible="{Binding MostrarItens}" Spacing="2"
+                                                             BindableLayout.ItemTemplate="{StaticResource LinhaDoModulo}">
+                                            <VerticalStackLayout.Triggers>
+                                                <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding TemTitulo}" Value="True">
+                                                    <Setter Property="Padding" Value="12,0,0,0" />
+                                                </DataTrigger>
+                                            </VerticalStackLayout.Triggers>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Grid>
             </ScrollView>
 
             <!-- Conta: quem está logado e as ações da sessão -->
-            <VerticalStackLayout Grid.Row="2" Padding="20,12,20,20" Spacing="8">
+            <VerticalStackLayout Grid.Row="3" Padding="20,12,20,20" Spacing="8">
                 <BoxView HeightRequest="1" Color="{StaticResource MenuItemAtivo}" Margin="0,0,0,4" />
                 <Grid ColumnDefinitions="32,*" ColumnSpacing="12">
                     <Border WidthRequest="32" HeightRequest="32" StrokeThickness="0" StrokeShape="RoundRectangle 16"

@@ -7,7 +7,8 @@
              x:Class="Lone.App.Views.Pessoas.SecaoGeralView"
              x:DataType="pes:PessoasViewModel">
     <!-- Identificação em grupos (dados principais · empresa · papéis · etiquetas · observações), separados por título e
-         traço fino dentro da mesma superfície (sem um cartão por campo). -->
+         traço fino dentro da mesma superfície. Papéis e etiquetas: a ficha mostra só o que a pessoa tem (padrão do Lone:
+         o cadastro auxiliar oferece as opções; a ficha mostra as utilizadas). -->
     <VerticalStackLayout Spacing="8">
         <Label Text="Dados principais" Style="{StaticResource SecaoTitulo}" />
         <FlexLayout Wrap="Wrap">
@@ -83,37 +84,173 @@
             </VerticalStackLayout>
         </VerticalStackLayout>
 
+        <!-- ===== PAPÉIS: só os que a pessoa tem ou já teve (cartão com estado, período, interruptor e histórico).
+             Os outros ficam em "Adicionar papel". O interruptor muda a ficha; o período é aberto/encerrado ao salvar. ===== -->
         <BoxView Style="{StaticResource Separador}" />
-        <Label Text="Papéis" Style="{StaticResource SecaoTitulo}" />
-        <Label Text="O que esta pessoa é para a empresa. Um mesmo cadastro pode ser cliente e fornecedor. Desmarcar encerra o período (fica no histórico)."
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <VerticalStackLayout Spacing="0">
+                <Label Text="Papéis" Style="{StaticResource SecaoTitulo}" />
+                <Label Text="Como esta pessoa se relaciona com a empresa. Uma pessoa pode ter vários papéis ao mesmo tempo."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1" Text="{Binding Formulario.PapeisFicha.TextoBotaoAdicionar}" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding Formulario.PapeisFicha.AlternarEscolhaCommand}" IsVisible="{Binding Formulario.PapeisFicha.PodeEditar}"
+                    VerticalOptions="Start" />
+        </Grid>
+
+        <!-- Adicionar papel: mesmo padrão do painel "Filtros" da lista (abre na própria tela), com pesquisa. -->
+        <Border Style="{StaticResource PainelConteudo}" Padding="16" IsVisible="{Binding Formulario.PapeisFicha.Escolhendo}">
+            <VerticalStackLayout Spacing="8">
+                <SearchBar Text="{Binding Formulario.PapeisFicha.Busca}" Placeholder="Pesquisar papel" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.PapeisFicha.Disponiveis}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="pes:PapelOpcao">
+                            <Grid ColumnDefinitions="*,Auto" Padding="12,8" SemanticProperties.Description="{Binding Nome}">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Formulario.PapeisFicha.AdicionarCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroupList>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver">
+                                                <VisualState.Setters>
+                                                    <Setter Property="BackgroundColor"
+                                                            Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateGroupList>
+                                </VisualStateManager.VisualStateGroups>
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding Nome}" FontSize="14" FontAttributes="Bold" />
+                                    <Label Text="{Binding Descricao}" IsVisible="{Binding TemDescricao}" Style="{StaticResource Secundario}" />
+                                    <Label Text="{Binding Periodo}" Style="{StaticResource Secundario}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="+ Adicionar" FontSize="13" VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+                <Label Text="{Binding Formulario.PapeisFicha.TextoSemDisponiveis}" IsVisible="{Binding Formulario.PapeisFicha.SemDisponiveis}"
+                       Style="{StaticResource Secundario}" Margin="12,4" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Label Text="Nenhum papel atribuído a esta pessoa." IsVisible="{Binding Formulario.PapeisFicha.Vazio}"
                Style="{StaticResource Secundario}" />
-        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Papeis}">
+
+        <!-- Cartões: duas colunas no computador, uma no celular. Estado com texto e marca (● / ○), não só cor. -->
+        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.PapeisFicha.NaFicha}">
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:PapelOpcao">
-                    <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='50%', Default='25%'}" Margin="0,0,0,4">
-                        <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Ativo}" />
-                        <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" Margin="32,-6,0,0" />
-                    </VerticalStackLayout>
+                    <ContentView FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,12">
+                        <Border Style="{StaticResource CartaoPapel}">
+                            <VerticalStackLayout Spacing="4">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="{Binding Texto}" FontSize="15" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Descricao}" IsVisible="{Binding TemDescricao}" Style="{StaticResource Secundario}"
+                                               LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                    <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Start">
+                                        <Label Text="{Binding EstadoTexto}" FontSize="13" FontAttributes="Bold" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding Ativo}" Value="True">
+                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Switch IsToggled="{Binding Ativo}" IsEnabled="{Binding Editavel}" VerticalOptions="Center"
+                                                OnColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}"
+                                                SemanticProperties.Description="{Binding DescricaoInterruptor}" />
+                                    </HorizontalStackLayout>
+                                </Grid>
+                                <Label Text="{Binding Periodo}" Style="{StaticResource Secundario}" />
+                                <Button Text="{Binding TextoHistorico}" Style="{StaticResource BotaoLink}" FontSize="13"
+                                        Command="{Binding AlternarHistoricoCommand}" IsVisible="{Binding TemHistorico}" />
+                                <!-- Períodos reais gravados (início → fim). Quem alterou e o motivo: aba Histórico (auditoria). -->
+                                <VerticalStackLayout IsVisible="{Binding MostrarHistorico}" Spacing="6" Margin="0,4,0,0">
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Historico}" Spacing="6">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="pes:PeriodoPapel">
+                                                <Grid ColumnDefinitions="110,*" ColumnSpacing="8">
+                                                    <Label Text="{Binding Estado}" FontSize="13" />
+                                                    <Label Grid.Column="1" Text="{Binding Intervalo}" FontSize="13" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                    <Label Text="Quem alterou e o motivo ficam na aba Histórico." Style="{StaticResource Secundario}" FontSize="12" />
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </ContentView>
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
         </FlexLayout>
 
-        <!-- Etiquetas do cadastro de etiquetas: marcar/desmarcar; a busca só filtra o que aparece. -->
+        <!-- ===== ETIQUETAS: classificação livre, sem período. Só as atribuídas, como chips; "×" tira ao salvar
+             (a auditoria registra). As outras ficam em "Adicionar etiqueta". ===== -->
         <BoxView Style="{StaticResource Separador}" />
-        <Label Text="Etiquetas" Style="{StaticResource SecaoTitulo}" />
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <SearchBar Text="{Binding Formulario.Etiquetas.Busca}" Placeholder="Buscar etiqueta" />
-            <Button Grid.Column="1" Text="Nova etiqueta" Style="{StaticResource BotaoSecundario}"
-                    Command="{Binding NovaEtiquetaCommand}" IsVisible="{Binding PodeCriarEtiqueta}" IsEnabled="{Binding Livre}" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <VerticalStackLayout Spacing="0">
+                <Label Text="Etiquetas" Style="{StaticResource SecaoTitulo}" />
+                <Label Text="Classificações livres para agrupar e encontrar pessoas." Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1" Text="{Binding Formulario.Etiquetas.TextoBotaoAdicionar}" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding Formulario.Etiquetas.AlternarEscolhaCommand}" IsVisible="{Binding Formulario.Etiquetas.PodeEditar}"
+                    VerticalOptions="Start" />
         </Grid>
-        <Label Text="{Binding Formulario.Etiquetas.Resumo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-        <Label Text="Nenhuma etiqueta cadastrada ainda. Quem gerencia etiquetas pode criá-las em Configurações, &quot;Etiquetas&quot;."
-               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.Etiquetas.Vazio}" />
-        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Etiquetas.Visiveis}">
+
+        <Border Style="{StaticResource PainelConteudo}" Padding="16" IsVisible="{Binding Formulario.Etiquetas.Escolhendo}">
+            <VerticalStackLayout Spacing="8">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <SearchBar Text="{Binding Formulario.Etiquetas.Busca}" Placeholder="Pesquisar etiqueta" />
+                    <Button Grid.Column="1" Text="Nova etiqueta" Style="{StaticResource BotaoTerciario}"
+                            Command="{Binding NovaEtiquetaCommand}" IsVisible="{Binding PodeCriarEtiqueta}" IsEnabled="{Binding Livre}" />
+                </Grid>
+                <!-- Tocar numa etiqueta atribui; o painel fica aberto para escolher outras. -->
+                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Etiquetas.Disponiveis}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="pes:EtiquetaMarcavel">
+                            <Border Style="{StaticResource Chip}" SemanticProperties.Description="{Binding Nome}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Formulario.Etiquetas.AdicionarCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding Nome}" FontSize="13" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+                <Label Text="{Binding Formulario.Etiquetas.TextoSemDisponiveis}" IsVisible="{Binding Formulario.Etiquetas.SemDisponiveis}"
+                       Style="{StaticResource Secundario}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Label Text="Nenhuma etiqueta atribuída." IsVisible="{Binding Formulario.Etiquetas.SemAtribuidas}" Style="{StaticResource Secundario}" />
+        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Etiquetas.Atribuidas}">
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:EtiquetaMarcavel">
-                    <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Marcada}"
-                                   FlexLayout.Basis="{OnIdiom Phone='100%', Default='33%'}" />
+                    <Border Style="{StaticResource Chip}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}">
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="{Binding Texto}" FontSize="13" VerticalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                            <Label Text="×" FontSize="15" VerticalOptions="Center" IsVisible="{Binding Removivel}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}"
+                                   SemanticProperties.Description="{Binding DescricaoRemover}" ToolTipProperties.Text="{Binding DescricaoRemover}">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Formulario.Etiquetas.RemoverCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                          CommandParameter="{Binding .}" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                        </HorizontalStackLayout>
+                    </Border>
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
         </FlexLayout>

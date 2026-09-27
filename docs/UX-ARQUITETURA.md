@@ -1,22 +1,28 @@
 # Arquitetura de UX do Lone (redesenho do módulo Pessoas, 26/09/2026)
 
 Decisão: **cada módulo tem as suas telas e as suas configurações**; a página "Configurações do sistema" fica só com o que é
-transversal. O menu lateral é organizado por módulo.
+transversal. O menu lateral é organizado por módulo, em **dois níveis** (padrão dos ERPs maduros: Protheus, Dynamics 365,
+Bling/Omie): tocar no nome do módulo abre e fecha as telas dele.
 
 ```
-Início
-PESSOAS            Pessoas · Consulta avançada · ⚙ Configurações de Pessoas
-ORGANIZAÇÃO        Grupos empresariais · ⚙ Configurações de Organização
-METAS              Metas · ⚙ Configurações de Metas
-⚙ Configurações do sistema
-(futuro) VENDAS / COMPRAS / ESTOQUE / FINANCEIRO / FISCAL — cada um com "⚙ Configurações de …"
+[ Pesquisar no menu ]
+  Início
+FAVORITOS  ›            (só aparece com favoritos; ☆/★ em cada tela)
+RECENTES   ›            (as 5 últimas telas abertas)
+⌄ Pessoas
+     Cadastro · Consulta avançada · ⚙ Configurações
+› Organização           (Grupos empresariais · ⚙ Configurações)
+› Metas                 (Painel · ⚙ Configurações)
+  ⚙ Configurações do sistema
+(futuro) Vendas / Compras / Estoque / Financeiro / Fiscal — cada um com "⚙ Configurações"
 ```
 
 ## Onde está
 
 | Peça | Arquivo |
 |---|---|
-| Estrutura do menu (seções, itens, item ativo, permissões) | `Lone.Cliente/ViewModels/MenuLateral.cs` + `MenuViewModel.CriarSecoes` (`SistemaViewModels.cs`) |
+| Estrutura do menu (seções, itens, item ativo, permissões, busca, favoritos, recentes) | `Lone.Cliente/ViewModels/MenuLateral.cs` + `MenuViewModel` (`CriarSecoes`, `CriarCatalogo`, `Pesquisar` em `SistemaViewModels.cs`) |
+| Favoritos e recentes guardados por usuário | API `api/v1/menu` (`MenuEndpoints`) → `MenuUsuarioAppService` → tabela `PreferenciasMenu`; cliente `MenuUsuarioApi` |
 | Desenho do menu (FlyoutContent) e rotas | `Lone.App/AppShell.xaml(.cs)` — os `FlyoutItem` só registram rotas/permissões |
 | Configurações por módulo (catálogo, grupos, permissões) | `Lone.Cliente/ViewModels/ConfiguracoesViewModel.cs` (`ModulosConfiguracao`) + `Views/ConfiguracoesPage` |
 | Lista de Pessoas (atalhos, filtros, paginação, colunas, ⋯) | `PessoasViewModel` (seção "Lista") + `ListaPessoas.cs` + `Views/PessoasPage.xaml` |
@@ -24,6 +30,43 @@ METAS              Metas · ⚙ Configurações de Metas
 
 **Para um módulo novo:** uma constante em `ModulosConfiguracao` (título/descrição), os itens no catálogo de
 `ConfiguracoesViewModel`, uma seção em `MenuViewModel.CriarSecoes`, e um `FlyoutItem` `configuracoes-<modulo>` no AppShell.
+
+**Menu em dois níveis (decisões do usuário, 26/09/2026):**
+- Dentro do módulo, os itens não repetem o nome dele ("Cadastro", "Consulta avançada", "Painel", "⚙ Configurações"). O nome
+  completo ("Cadastro de pessoas", "Configurações de Pessoas") fica em `ItemMenu.Descricao`: aparece em Favoritos, Recentes,
+  na busca e no leitor de tela; o título da página continua completo.
+- Módulos começam fechados; o da tela aberta abre sozinho (e o nome fica destacado se o usuário fechá-lo). Vários podem ficar
+  abertos; o app lembra quais enquanto está aberto (nada é gravado; ao entrar de novo, só o da tela atual).
+- **Busca no menu:** procura em todas as telas que o perfil pode abrir, inclusive os cadastros das Configurações (ex.:
+  "Papéis", em "Pessoas › Configurações"), sem acento/maiúsculas e com todas as palavras; Enter abre a primeira.
+- **Favoritos e recentes guardados no servidor, por usuário** (acompanham o usuário em qualquer aparelho). Até 20 favoritos
+  (na ordem em que foram marcados); recentes = as 5 últimas telas abertas (Início não conta). Tela sem permissão não aparece,
+  mas continua guardada. Tabela `PreferenciasMenu` (uma linha por usuário + rota, nunca apagada; fora da auditoria, como
+  `UsuarioAcessos`).
+- Setas: o caractere "›" gira 90° quando o grupo está aberto (sem depender de fonte de ícones).
+
+**Aparência das páginas de Configurações (decisão do usuário, 26/09/2026):** cabeçalho novo (título e descrição do módulo),
+mas os cadastros continuam em **cartões separados** (estilo `Cartao`, três por linha no computador, um no celular), agrupados
+pelo título do grupo — como antes do redesenho. O painel com linhas foi descartado.
+
+## Padrão: cadastros auxiliares oferecem, a ficha mostra o que é usado (decisão do usuário, 26/09/2026)
+
+A ficha de uma entidade mostra **somente as opções efetivamente usadas** nela; as demais ficam num painel "+ Adicionar …"
+com pesquisa (o mesmo padrão do painel "Filtros" da lista: abre na própria tela, sem popover novo). Primeira aplicação:
+Papéis e Etiquetas na Identificação da pessoa (`PapeisDaFicha`, `EtiquetasFormulario`, `SecaoGeralView`).
+
+- **Papéis** (relacionamento com período): cartão compacto com nome, descrição do cadastro (se houver), estado com texto e
+  marca (● Ativo / ○ Inativo), período ("Desde…", "Último período: … → …"), interruptor e "Histórico ›" com os períodos
+  gravados. Duas colunas no computador, uma no celular. O interruptor **só muda a ficha**: ao salvar vale a regra de
+  sempre (desligar encerra o período, religar abre outro, nada é apagado); quem alterou e o motivo ficam na auditoria (aba
+  Histórico) — não há tela de histórico por papel com dados que o período não tem. Aparecem os papéis ativos e os que a
+  pessoa já teve (inclusive desativados no cadastro, sem poder religar); nunca atribuídos só no painel.
+- **Etiquetas** (classificação livre, sem período): chips com as atribuídas, em ordem alfabética; "×" tira a associação ao
+  salvar (a auditoria registra). Sem interruptor. O painel oferece as ativas que faltam e "Nova etiqueta".
+- **Permissões na tela:** sem permissão de editar a pessoa, só consulta (sem painel, interruptor travado, sem ×). "Empresa
+  do grupo" também exige `PESSOAS.EMPRESAS_DO_GRUPO` na tela.
+- **Listas da tela atualizadas no lugar** (`ColecaoSincronizada`): nunca trocar a coleção inteira a cada mudança (causa do
+  fechamento da ficha de PJ no Windows).
 
 ## Design system
 

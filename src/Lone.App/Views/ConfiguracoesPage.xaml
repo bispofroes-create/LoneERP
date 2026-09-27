@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!-- Configurações de um módulo (Pessoas, Organização, Metas) ou do sistema: grupos com os cadastros de apoio.
-     Cada linha abre a mesma tela de antes. Um painel por grupo; linhas separadas por traço fino (sem um cartão por item). -->
+     Cada cartão abre a mesma tela de antes. Um cartão por cadastro, agrupados por título (escolha do usuário). -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
@@ -17,51 +17,35 @@
 
             <Label Text="Você não tem acesso a nenhuma configuração deste módulo." Style="{StaticResource Secundario}" IsVisible="{Binding Vazio}" />
 
-            <!-- Grupos: dois por linha no computador, um no celular. -->
-            <FlexLayout Wrap="Wrap" AlignItems="Start" BindableLayout.ItemsSource="{Binding Grupos}">
+            <!-- Grupos um embaixo do outro; cada cadastro num cartão próprio (aparência de antes do redesenho, a pedido do usuário). -->
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Grupos}" Spacing="20">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:GrupoConfiguracao">
-                        <Border Style="{StaticResource PainelConteudo}" Padding="0" Margin="0,0,24,24"
-                                FlexLayout.Basis="{OnIdiom Phone='100%', Default='48%'}">
-                            <VerticalStackLayout>
-                                <Label Text="{Binding Titulo}" Style="{StaticResource SecaoTitulo}" Margin="24,20,24,8" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" Padding="8,0,8,12">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:ItemConfiguracao">
-                                            <Grid ColumnDefinitions="*,Auto" Padding="16,12" ColumnSpacing="12"
-                                                  SemanticProperties.Description="{Binding Titulo}">
-                                                <Grid.GestureRecognizers>
-                                                    <TapGestureRecognizer Command="{Binding AbrirCommand, Source={RelativeSource AncestorType={x:Type vm:ConfiguracoesViewModel}}, x:DataType=vm:ConfiguracoesViewModel}"
-                                                                          CommandParameter="{Binding .}" />
-                                                </Grid.GestureRecognizers>
-                                                <VisualStateManager.VisualStateGroups>
-                                                    <VisualStateGroupList>
-                                                        <VisualStateGroup x:Name="CommonStates">
-                                                            <VisualState x:Name="Normal" />
-                                                            <VisualState x:Name="PointerOver">
-                                                                <VisualState.Setters>
-                                                                    <Setter Property="BackgroundColor"
-                                                                            Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
-                                                                </VisualState.Setters>
-                                                            </VisualState>
-                                                        </VisualStateGroup>
-                                                    </VisualStateGroupList>
-                                                </VisualStateManager.VisualStateGroups>
-                                                <VerticalStackLayout Spacing="2">
-                                                    <Label Text="{Binding Titulo}" FontSize="14" FontAttributes="Bold" />
-                                                    <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" />
-                                                </VerticalStackLayout>
-                                                <Label Grid.Column="1" Text="›" FontSize="20" VerticalOptions="Center"
-                                                       TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
-                            </VerticalStackLayout>
-                        </Border>
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="{Binding Titulo}" Style="{StaticResource Subtitulo}" />
+                            <!-- Cartões lado a lado no computador; um embaixo do outro no celular. -->
+                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Itens}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ItemConfiguracao">
+                                        <Border Style="{StaticResource Cartao}" Margin="0,0,12,12"
+                                                FlexLayout.Basis="{OnIdiom Phone='100%', Default='33%'}"
+                                                SemanticProperties.Description="{Binding Titulo}">
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding AbrirCommand, Source={RelativeSource AncestorType={x:Type vm:ConfiguracoesViewModel}}, x:DataType=vm:ConfiguracoesViewModel}"
+                                                                      CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="15" />
+                                                <Label Text="{Binding Descricao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
-            </FlexLayout>
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

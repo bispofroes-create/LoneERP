@@ -21,6 +21,9 @@ public partial class AppShell : Shell
             if (FlyoutBehavior == FlyoutBehavior.Flyout) FlyoutIsPresented = false;
         };
         Navigated += (_, _) => viewModel.DefinirRotaAtual(CurrentState?.Location?.OriginalString);
+
+        // Favoritos e recentes do usuário vêm da API; o menu já funciona antes da resposta.
+        viewModel.CarregarPreferenciasCommand.Execute(null);
     }
 
     /// <summary>

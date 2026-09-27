@@ -39,6 +39,18 @@ public static class ModulosConfiguracao
         return modulo is not null && Todos.Contains(modulo) ? modulo : null;
     }
 
+    /// <summary>Nome do módulo no menu (cabeçalho da seção e caminho dos atalhos).</summary>
+    public static string Nome(string modulo) => modulo switch
+    {
+        Pessoas => "Pessoas",
+        Organizacao => "Organização",
+        Metas => "Metas",
+        _ => "Sistema"
+    };
+
+    /// <summary>Onde ficam os cadastros de configuração do módulo (ex.: "Pessoas › Configurações"), mostrado na busca.</summary>
+    public static string Caminho(string modulo) => modulo == Sistema ? Titulo(Sistema) : $"{Nome(modulo)} › Configurações";
+
     public static string Titulo(string modulo) => modulo switch
     {
         Pessoas => "Configurações de Pessoas",

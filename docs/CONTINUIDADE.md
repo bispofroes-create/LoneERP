@@ -1,6 +1,6 @@
 # Lone ERP — documento de continuidade
 
-Situação em 26/09/2026. Serve para quem continuar o trabalho, seja outra conta ou outro assistente.
+Situação em 26/09/2026 (noite; passagem de conta em `docs/PASSAGEM-DE-CONTA.md`). Serve para quem continuar o trabalho, seja outra conta ou outro assistente.
 Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este documento explica o que existe, as decisões tomadas e o que falta.
 
 ---
@@ -355,17 +355,34 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   Testes: `ConfiguracoesViewModelTests`. Fase 4 (Situação, Informações adicionais, Histórico): conferidas, sem mudança.
   **Fase 3 (Privacidade) pendente de decisão do usuário** sobre a precedência entre consentimento LGPD, "Aceita
   comunicações" do meio e "Marketing" do e-mail.
-- **Fase 3 — Privacidade e LGPD (26/09/2026; código entregue, SEM COMMIT, sem compilar):** ver `docs/FASE3-PRIVACIDADE.md`
+- **Fase 3 — Privacidade e LGPD (26/09/2026; commit `097ed98`, compilada e testada, migration aplicada no desenvolvimento):** ver `docs/FASE3-PRIVACIDADE.md`
   (e a auditoria em `docs/FASE3-PRIVACIDADE-AUDITORIA.md`). Consentimento por finalidade em períodos (canal opcional),
   cadastro `FinalidadesTratamento` (Marketing; "Registro anterior" só histórico), regra central
   `RegrasComunicacao.PodeComunicar`, ações próprias de conceder/revogar (`PESSOAS.PRIVACIDADE`), abas Interações + Privacidade.
   **Migração (gerar no PMC):** `Add-Migration PrivacidadeConsentimentos -Project Lone.Infrastructure -StartupProject Lone.Api
   -OutputDir Persistencia/Migracoes`, depois `python Ferramentas/inserir-sql-privacidade.py` (SQL dos consentimentos antigos
   antes da FK). Não aplicar em produção antes de revisar.
-- **Redesenho do módulo Pessoas (26/09/2026; SEM COMMIT, sem compilar):** ver `docs/UX-ARQUITETURA.md`. Menu por módulo
+- **Redesenho do módulo Pessoas (26/09/2026; commit `49b9f96`; build 0 avisos/0 erros; 1181 testes aprovados, 0 falhas, 22 ignorados sem SQL Server; falta conferir no app):** ver `docs/UX-ARQUITETURA.md`. Menu por módulo
   (FlyoutContent), configurações por módulo (Pessoas, Organização, Metas, Sistema), lista de Pessoas em tabela paginada
   (`GET pessoas/pagina`), ficha em tela cheia com cabeçalho novo e abas com indicador, design system em Cores/Estilos.
   Sem mudança de regra, banco ou migration.
+- **Ajustes pós-redesenho (26/09/2026, noite; código entregue, sem compilar — ambiente sem SDK .NET; sem commit):**
+  - Configurações de cada módulo voltaram aos **cartões separados** agrupados por título (cabeçalho novo mantido).
+  - **Menu em dois níveis** (módulos abrem e fecham), **busca no menu**, **favoritos** (☆/★) e **recentes**, guardados no
+    servidor por usuário. Detalhes em `docs/UX-ARQUITETURA.md`.
+  - **Migration nova (gerar no PMC):** `Add-Migration MenuFavoritosRecentes -Project Lone.Infrastructure -StartupProject Lone.Api
+    -OutputDir Persistencia/Migracoes`. Só cria a tabela `PreferenciasMenu` (FK para `Usuarios`, índice único
+    `IX_PreferenciasMenu_UsuarioId_Rota`); nenhum SQL de dados, nada é alterado nas tabelas existentes.
+  - **Defeito corrigido:** abrir a ficha de qualquer PJ fechava o app no Windows (COMException 0x80004005 no Measure do
+    cabeçalho). Elemento confirmado por diagnóstico (desligá-lo resolveu): os selos de papéis — uma lista (`FlexLayout` +
+    `BindableLayout`) dentro de outra `FlexLayout` que quebra linha. Tornar a coleção fixa (`PapeisAtivos` sincronizada no
+    lugar, `CabecalhoPapeisTests`) NÃO bastou; a linha virou texto simples (`TipoEPapeisCabecalho`, "Pessoa jurídica ·
+    Cliente · Fornecedor"). Evitar lista com `BindableLayout` dentro de `FlexLayout` no cabeçalho da ficha.
+  - **Papéis e Etiquetas na Identificação** (só interface e ViewModel; sem banco, sem migração, sem mudança de regra): a ficha
+    mostra só o que a pessoa tem; "+ Adicionar" abre painel com pesquisa; papéis em cartões com interruptor (vale ao salvar)
+    e histórico dos períodos; etiquetas em chips. Padrão registrado em `docs/UX-ARQUITETURA.md`.
+  - API: `GET api/v1/menu/preferencias`, `PUT api/v1/menu/favoritos`, `POST api/v1/menu/acessos` (só login; cada usuário
+    mexe nos próprios dados).
 - **Testes no SQL Server (opcionais):** defina `LONE_TESTES_SQLSERVER` (ex.: `Server=.\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`);
   sem ela os testes de banco aparecem como pulados.
 - **Passo final (do usuário):** gerar **uma** migração depois de `MeiosContatoETipos` e inserir, nos pontos indicados

@@ -264,20 +264,11 @@
                                     <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource SeloTexto}" />
                                 </Border>
                             </FlexLayout>
-                            <FlexLayout Wrap="Wrap" AlignItems="Center">
-                                <Label Text="{Binding Formulario.NaturezaCabecalho}" FontAttributes="Bold" Margin="0,0,12,4" VerticalOptions="Center" />
-                                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.PapeisAtivos}">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="pes:PapelOpcao">
-                                            <Border Style="{StaticResource Selo}" Margin="0,0,6,4"
-                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}">
-                                                <Label Text="{Binding Nome}" Style="{StaticResource SeloTexto}"
-                                                       TextColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
-                                            </Border>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </FlexLayout>
-                            </FlexLayout>
+                            <!-- Tipo e papéis em uma linha de texto ("Pessoa jurídica · Cliente · Fornecedor"). Os selos numa lista
+                                 dentro de outra que quebra linha derrubavam o app no Windows ao abrir a ficha (COMException no
+                                 Measure; confirmado ao desligá-los em 26/09/2026). Texto simples: nada é recriado ao montar a tela. -->
+                            <Label Text="{Binding Formulario.TipoEPapeisCabecalho}" FontAttributes="Bold" LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
                             <Label Text="{Binding Formulario.IdentificacaoCabecalho}" Style="{StaticResource SubtituloPagina}" />
                             <Label Text="{Binding Formulario.NomeCompletoCabecalho}" Style="{StaticResource Secundario}"
                                    IsVisible="{Binding Formulario.TemNomeCompletoCabecalho}" />

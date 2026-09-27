@@ -78,6 +78,7 @@ public static class ConfiguracaoDados
         services.AddScoped<Lone.Application.Enderecos.IFinalidadeEnderecoRepositorio, FinalidadeEnderecoRepositorio>();
         services.AddScoped<Lone.Application.Enderecos.IEnderecosDuplicadosConsulta, EnderecosDuplicadosConsulta>();
         services.AddScoped<IFiltroSalvoRepositorio, FiltroSalvoRepositorio>();
+        services.AddScoped<Lone.Application.Menu.IPreferenciaMenuRepositorio, PreferenciaMenuRepositorio>();
 
         return services;
     }

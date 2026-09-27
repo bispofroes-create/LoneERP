@@ -41,6 +41,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<ComercialApi>();
         services.AddSingleton<MetasApi>();
         services.AddSingleton<ConsultaPessoasApi>();
+        services.AddSingleton<MenuUsuarioApi>();
         services.AddSingleton<FluxoDeEntrada>();
 
         // Um ViewModel novo a cada abertura de tela.

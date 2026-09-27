@@ -76,6 +76,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IIndicadorAppService, IndicadorAppService>();
         services.AddScoped<IMetaAppService, MetaAppService>();
         services.AddScoped<IConsultaPessoasAppService, ConsultaPessoasAppService>();
+        services.AddScoped<Menu.IMenuUsuarioAppService, Menu.MenuUsuarioAppService>();
         services.AddScoped<Enderecos.IFinalidadeEnderecoAppService, Enderecos.FinalidadeEnderecoAppService>();
         services.AddScoped<Enderecos.IEnderecosDuplicadosAppService, Enderecos.EnderecosDuplicadosAppService>();
 

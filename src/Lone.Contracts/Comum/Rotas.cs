@@ -288,6 +288,15 @@ public static class Rotas
         public const string Permissoes = Grupo + "/permissoes";
     }
 
+    /// <summary>Menu do usuário logado: favoritos e recentes (dados dele mesmo, sem permissão própria).</summary>
+    public static class Menu
+    {
+        public const string Grupo = Base + "/menu";
+        public const string Preferencias = Grupo + "/preferencias";
+        public const string Favoritos = Grupo + "/favoritos";
+        public const string Acessos = Grupo + "/acessos";
+    }
+
     public static class Consultas
     {
         public const string Grupo = Base + "/consultas";

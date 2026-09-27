@@ -218,6 +218,15 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}" />
     </Style>
 
+    <!-- Cartão compacto de um papel na ficha (borda suave, sem sombra), dentro da superfície da aba. -->
+    <Style x:Key="CartaoPapel" TargetType="Border">
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}" />
+    </Style>
+
     <!-- Separador fino entre grupos de uma superfície. -->
     <Style x:Key="Separador" TargetType="BoxView">
         <Setter Property="HeightRequest" Value="1" />
