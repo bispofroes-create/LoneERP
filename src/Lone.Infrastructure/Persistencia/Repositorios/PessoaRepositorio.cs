@@ -1,6 +1,7 @@
 using Lone.Application.Pessoas;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Pessoas;
+using Lone.Domain.Comercial;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
@@ -14,15 +15,21 @@ namespace Lone.Infrastructure.Persistencia.Repositorios;
 /// <summary>Persistência do agregado Pessoa (SQL Server via EF Core).</summary>
 public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 {
-    public PessoaRepositorio(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario)
-        : base(fabrica, usuario) { }
+    private readonly IEscopoPessoas _escopo;
+
+    public PessoaRepositorio(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario, IEscopoPessoas escopo)
+        : base(fabrica, usuario)
+    {
+        _escopo = escopo;
+    }
 
     // ---------------------------------------------------------------- Leitura
 
     public async Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
-        return await Resumir(Filtrar(db, filtro)
+        return await Resumir(Filtrar(db, filtro, escopo)
             .OrderBy(NomeParaExibirNoBanco)
             .Take(filtro.Limite), db, nomeComFantasia: true)
             .ToListAsync(ct);
@@ -30,8 +37,9 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
     public async Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
-        var consulta = Filtrar(db, filtro);
+        var consulta = Filtrar(db, filtro, escopo);
         var total = await consulta.CountAsync(ct);
         var itens = await Resumir(consulta
             .OrderBy(NomeParaExibirNoBanco).ThenBy(p => p.Id) // desempate estável entre páginas
@@ -43,7 +51,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         return new PaginaListaPessoas
         {
             Itens = itens, Total = total, Pagina = pagina, TamanhoPagina = tamanho,
-            Atalhos = pagina == 1 ? await ContarAtalhosAsync(SemAtalho(db, filtro), ct) : null
+            Atalhos = pagina == 1 ? await ContarAtalhosAsync(SemAtalho(db, filtro, escopo), ct) : null
         };
     }
 
@@ -52,14 +60,14 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         [global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Telefone, global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Email];
 
     /// <summary>A mesma consulta da lista sem o atalho (natureza, papel, só ativos/inativos): base das contagens das abas.</summary>
-    private static IQueryable<Pessoa> SemAtalho(LoneDbContext db, FiltroPessoas filtro) => Filtrar(db, new FiltroPessoas
+    private static IQueryable<Pessoa> SemAtalho(LoneDbContext db, FiltroPessoas filtro, EscopoResolvido escopo) => Filtrar(db, new FiltroPessoas
     {
         Texto = filtro.Texto,
         EtiquetaId = filtro.EtiquetaId,
         IncluirInativos = filtro.IncluirInativos,
         MunicipioACorrigir = filtro.MunicipioACorrigir,
         Limite = filtro.Limite
-    });
+    }, escopo);
 
     /// <summary>
     /// Quantos há em cada aba possível: duas consultas, qualquer que seja o número de abas escolhidas — uma por natureza e
@@ -91,11 +99,12 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                                                             IReadOnlyList<string> colunas, OrdenacaoLista? ordenacao, DateOnly hoje,
                                                             int pagina, int tamanho, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
         var parametros = condicoes.Any(c => c.Campo == global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Relacionamento)
             ? await db.ParametrosRelacionamento.AsNoTracking().FirstOrDefaultAsync(ct) ?? new ParametrosRelacionamento()
             : new ParametrosRelacionamento();
-        var consulta = Consultas.FiltrosPessoasSql.Aplicar(Filtrar(db, filtro), condicoes,
+        var consulta = Consultas.FiltrosPessoasSql.Aplicar(Filtrar(db, filtro, escopo), condicoes,
             new Consultas.FiltrosPessoasSql.Contexto(db, hoje, parametros));
         var total = await consulta.CountAsync(ct);
 
@@ -113,15 +122,18 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         // Abas: mesma busca e mesmas condições, sem o atalho escolhido.
         ContagensAtalhosPessoas? atalhos = null;
         if (pagina == 1)
-            atalhos = await ContarAtalhosAsync(Consultas.FiltrosPessoasSql.Aplicar(SemAtalho(db, filtro), condicoes,
+            atalhos = await ContarAtalhosAsync(Consultas.FiltrosPessoasSql.Aplicar(SemAtalho(db, filtro, escopo), condicoes,
                 new Consultas.FiltrosPessoasSql.Contexto(db, hoje, parametros)), ct);
         return new PaginaListaPessoas { Itens = itens, Total = total, Pagina = pagina, TamanhoPagina = tamanho, Atalhos = atalhos };
     }
 
-    /// <summary>Filtros da lista de Pessoas (a mesma regra para a lista simples e a paginada).</summary>
-    private static IQueryable<Pessoa> Filtrar(LoneDbContext db, FiltroPessoas filtro)
+    /// <summary>
+    /// Filtros da lista de Pessoas (a mesma regra para a lista simples e a paginada). Começa pelo escopo de acesso (Fase
+    /// 2a-2): lista, abas, indicadores e prévia só enxergam o que está no alcance do usuário.
+    /// </summary>
+    private static IQueryable<Pessoa> Filtrar(LoneDbContext db, FiltroPessoas filtro, EscopoResolvido escopo)
     {
-        IQueryable<Pessoa> consulta = db.Pessoas.AsNoTracking();
+        var consulta = Consultas.EscopoPessoasSql.Pessoas(db, escopo);
 
         if (filtro.SomenteInativos)
             consulta = consulta.Where(p => p.Situacao == SituacaoPessoa.Inativo || p.Situacao == SituacaoPessoa.Arquivado);
@@ -275,6 +287,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
     public async Task<Pessoa?> ObterAsync(Guid id, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: por id, e toda rota com o id de uma pessoa passa antes pelo filtro de escopo da API (Fase 2a-2).
         return await db.Pessoas.AsNoTracking()
             .Include(p => p.Estabelecimentos)
             .Include(p => p.Documentos)
@@ -302,16 +315,18 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
     public async Task<int> ContarClientesAtivosAsync(CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
-        return await db.Pessoas.CountAsync(p =>
+        return await Consultas.EscopoPessoasSql.Pessoas(db, escopo).CountAsync(p =>
             (p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise) &&
             p.Papeis.Any(x => x.Papel == TipoPapel.Cliente && x.Ativo), ct);
     }
 
     public async Task<List<DateOnly?>> ListarNascimentosAsync(TipoPapel? papel, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
-        var consulta = db.Pessoas.AsNoTracking().Where(p =>
+        var consulta = Consultas.EscopoPessoasSql.Pessoas(db, escopo).Where(p =>
             p.Natureza == NaturezaPessoa.Fisica &&
             (p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise));
         if (papel is { } tipo)
@@ -323,6 +338,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         NaturezaPessoa natureza, string documento, Guid ignorarId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: a base inteira, de propósito (Fase 2a-2, E5): o documento não pode repetir nem fora do alcance.
+        // Quem chama (PessoaAppService) esconde o nome e o código do que estiver fora dele.
         return await db.Pessoas.AsNoTracking()
             .Where(p => p.Natureza == natureza && p.DocumentoPrincipal == documento && p.Id != ignorarId)
             .Select(p => new PessoaIdentificacao(p.Id, p.Codigo, p.Nome))
@@ -332,10 +349,12 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
     public async Task<List<PessoaIdentificacao>> BuscarSemelhantesAsync(
         Guid ignorarId, string nome, IReadOnlyCollection<string> contatos, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
         var valores = contatos.ToList();
 
-        return await db.Pessoas.AsNoTracking()
+        // Só as do alcance (Fase 2a-2): o aviso mostra nome e código.
+        return await Consultas.EscopoPessoasSql.Pessoas(db, escopo)
             .Where(p => p.Id != ignorarId &&
                         (p.Nome == nome ||
                          p.MeiosContato.Any(m => m.Ativo && valores.Contains(m.Valor)) ||
@@ -359,6 +378,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             // Bloqueios e relacionamentos têm operações próprias; nunca entram pelo cadastro.
             pessoa.Bloqueios.Clear();
             pessoa.Relacionamentos.Clear();
+            // Sem escopo: gravação (o cadastro novo com alcance restrito segue F4 e E4 no PessoaAppService).
             db.Pessoas.Add(pessoa);
         }
         else
@@ -526,6 +546,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
     /// </summary>
     private static async Task AplicarAlteracoesAsync(LoneDbContext db, Pessoa dados, CancellationToken ct)
     {
+        // Sem escopo: gravação de um cadastro que a rota já conferiu (filtro de escopo da API).
         var atual = await db.Pessoas
             .Include(p => p.Estabelecimentos)
             .Include(p => p.Documentos)

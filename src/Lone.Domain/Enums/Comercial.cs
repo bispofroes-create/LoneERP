@@ -32,7 +32,13 @@ public enum OrigemVinculoCarteira : byte
     Distribuicao = 3,
 
     /// <summary>Importação de arquivo.</summary>
-    Importacao = 4
+    Importacao = 4,
+
+    /// <summary>
+    /// Incluído sozinho no cadastro do cliente novo, com quem cadastrou como responsável da conta (alcance restrito; F4 da
+    /// Fase 2a-2).
+    /// </summary>
+    Cadastro = 5
 }
 
 /// <summary>

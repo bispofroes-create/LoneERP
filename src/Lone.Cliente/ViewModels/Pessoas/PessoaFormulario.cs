@@ -1148,10 +1148,13 @@ public sealed partial class PessoaFormulario : ObservableObject
     private string ChaveDocumento() => DocumentoCompleto is { Length: > 0 } d ? $"{Natureza.Valor}:{d}" : string.Empty;
 
     /// <summary>"Esta empresa já está cadastrada: 000012 - ..." (vazio = sem aviso).</summary>
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAvisoDocumentoEmUso))]
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAvisoDocumentoEmUso), nameof(PodeAbrirDocumentoEmUso))]
     private string _avisoDocumentoEmUso = string.Empty;
 
     public bool TemAvisoDocumentoEmUso => AvisoDocumentoEmUso.Length > 0;
+
+    /// <summary>"Abrir cadastro" só quando o outro cadastro está no alcance do usuário (E5: fora dele não vem o Id).</summary>
+    public bool PodeAbrirDocumentoEmUso => TemAvisoDocumentoEmUso && DocumentoEmUsoId is not null;
 
     /// <summary>O outro cadastro com o mesmo documento (para "Abrir cadastro").</summary>
     public Guid? DocumentoEmUsoId { get; private set; }
@@ -1171,8 +1174,11 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>Resposta da API. A gravação continua recusando o duplicado; aqui é só o aviso antecipado.</summary>
     public void DefinirDocumentoEmUso(DocumentoEmUsoResposta resposta)
     {
-        DocumentoEmUsoId = resposta.EmUso ? resposta.Id : null;
+        DocumentoEmUsoId = resposta.EmUso && !resposta.ForaDoAlcance ? resposta.Id : null;
         AvisoDocumentoEmUso = !resposta.EmUso ? string.Empty
+            : resposta.ForaDoAlcance
+                ? (EhJuridica ? "Esta empresa (mesma raiz de CNPJ) já está cadastrada" : "Este CPF já está cadastrado") +
+                  ", fora do seu alcance. Peça acesso ao responsável pelo cliente."
             : EhJuridica
                 ? $"Esta empresa (mesma raiz de CNPJ) já está cadastrada: {resposta.Codigo:000000} - {resposta.Nome}. " +
                   "Para uma filial, abra esse cadastro e adicione o CNPJ como estabelecimento."

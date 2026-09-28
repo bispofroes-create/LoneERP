@@ -17,6 +17,7 @@ public class SituacaoRepositorio : ServicoDadosBase, ISituacaoRepositorio
     public async Task<SituacaoPessoa?> SituacaoDaPessoaAsync(Guid pessoaId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: por id, e a rota com o id da pessoa passa antes pelo filtro de escopo da API.
         return await db.Pessoas.AsNoTracking().Where(p => p.Id == pessoaId).Select(p => (SituacaoPessoa?)p.Situacao).FirstOrDefaultAsync(ct);
     }
 

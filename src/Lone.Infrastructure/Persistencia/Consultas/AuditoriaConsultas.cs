@@ -92,6 +92,7 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
         await TraduzirIdsAsync(registros, nameof(PessoaRelacionamento), nameof(PessoaRelacionamento.TipoRelacionamentoId), "(tipo de relacionamento)",
             ids => db.TiposRelacionamento.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(PessoaRelacionamento), nameof(PessoaRelacionamento.PessoaDestinoId), "(cadastro)",
+            // Sem escopo: o nome do cadastro relacionado no histórico (E3: o nome aparece; abrir a ficha segue o alcance).
             ids => db.Pessoas.AsNoTracking().Where(p => ids.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.Nome + " (código " + p.Codigo + ")", ct));
         await TraduzirIdsAsync(registros, nameof(ContaFornecedor), nameof(ContaFornecedor.CondicaoPagamentoId), "(condição de pagamento)",

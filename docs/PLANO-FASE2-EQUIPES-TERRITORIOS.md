@@ -154,7 +154,7 @@
 
 ## 7. Andamento
 
-### 2a-1 — banco e cadastros (28/09/2026, código aplicado; aguardando build, test e migration)
+### 2a-1 — banco e cadastros (commit `784b3b3`, 28/09/2026; migration aplicada e telas testadas)
 
 - Usuário ligado a uma pessoa (F1): `Usuarios.PessoaId` opcional, índice único filtrado (uma pessoa por usuário), FK sem cascata. Tela de Usuários: busca da pessoa, "Ligar à pessoa escolhida" (escolher na lista não liga sozinho) e "Tirar". A conferência (pessoa ativa e livre) só roda quando a pessoa muda.
 - Alcance no perfil (F2): `Perfis.AlcanceComercial` (0 = Tudo, padrão dos perfis existentes). Administrador fica sempre em Tudo. Ainda **não** filtra nada: o filtro é a 2a-2.
@@ -163,4 +163,114 @@
 - Migração: gerar `Fase2aEscopoEquipes`; no Up, logo depois do AddColumn de `MembrosEquipe.Papel`, inserir `migrationBuilder.Sql(SqlMigracaoEquipes.LiderComoMembro);` (o líder gravado vira membro com papel Líder; não apaga nada).
 - Testes novos: `Dominio/EquipesTests`, `Aplicacao/UsuarioPessoaTests`, `Infraestrutura/ModeloEquipesTests`, `Cliente/EquipesEUsuarioPessoaTests`.
 
-### Próximo: 2a-2 — escopo nas consultas (Pessoas, ficha, Comercial, metas; F4 e F5).
+### 2a-2 — escopo nas consultas (plano aprovado em 28/09/2026, 16h57: E1 a E8 na opção A)
+
+**Tamanho:** a 2a-2 cobre Pessoas (lista, ficha e tudo o que pende da ficha), F4 e F5. As telas do Comercial (carteira
+vencendo, carteira em uma data, coberturas, transferências) e as metas ficam na **2a-3**, para a entrega caber num
+build e num teste seus (**[E8]**). Não há migration prevista.
+
+**1. A regra, no domínio** (`Lone.Domain/Comercial/RegrasEscopo.cs`, testável sem banco):
+- entrada: o alcance, a pessoa do usuário, as equipes (com pai e membros) e as coberturas vigentes, e o dia;
+- saída (`EscopoResolvido`): **Tudo**, **Nenhum** ou uma lista de **fontes**. Cada fonte é um vendedor, com papel e empresa
+  opcionais (a cobertura pode valer só para um papel ou uma empresa);
+- **Minha carteira** = a própria pessoa + os titulares que ela cobre hoje com "pode acessar" (também quando a cobertura é
+  da equipe dela);
+- **Minha equipe** = o de cima + os membros vigentes das equipes que ela lidera hoje e das equipes abaixo delas (sem
+  ciclo, pela `RegrasEquipe`) + as coberturas desses membros;
+- o vínculo conta se estiver **ativo e vigente hoje ou começar depois** (**[E7]**: quem recebe uma transferência para a
+  semana que vem já enxerga o cliente; quem entrega deixa de ver no dia seguinte ao fim);
+- a empresa do vínculo: conta o vínculo **da empresa ativa ou sem empresa** (**[E6]**).
+
+**2. O alcance do usuário** (Aplicação):
+- `AcessoEfetivo` ganha o `Alcance`: com vários perfis na empresa, **vale o maior** (**[E1]**), como as permissões, que
+  somam. Administrador = Tudo;
+- `IEscopoPessoas` (um por requisição): resolve o escopo uma vez e guarda; `ContemAsync(pessoaId)` e `ExigirAsync(pessoaId)`;
+- usuário **sem pessoa ligada** e alcance restrito: não vê nenhum cadastro, e a lista mostra "Seu usuário não está ligado
+  a uma pessoa do cadastro. Peça ao administrador." (**[E2]**).
+
+**3. No banco** (Infraestrutura, só LINQ parametrizado):
+- `EscopoPessoasSql.Aplicar(consulta, escopo, db, hoje)`: `EXISTS` em `CarteiraClientes` pelas fontes, usando o índice
+  `(VendedorId, Ativo, FimEm)`;
+- `PessoasNoEscopo(db)` substitui `db.Pessoas` em `PessoaRepositorio.Filtrar` (lista, contagens das abas, indicadores,
+  prévia), em `ConsultaPessoas` (consulta avançada, exportação, filtros salvos e suas contagens), nas faixas etárias,
+  nos clientes ativos e nos endereços duplicados;
+- **F5:** com alcance restrito, só aparecem clientes da carteira; quem não é cliente não aparece.
+
+**4. A ficha e tudo o que pende dela** (API):
+- um **filtro de endpoint** no grupo de Pessoas confere o escopo de toda rota com o id da pessoa: abrir, gravar,
+  desativar, reativar, consolidar endereços, histórico, privacidade, consentimentos, bloqueios, interações,
+  relacionamentos e anexos (o anexo resolve a pessoa dele);
+- fora do escopo, a resposta é **a mesma de um cadastro que não existe** ("Você não tem acesso a este cadastro ou ele não
+  existe mais."), para não revelar nada;
+- **pessoas relacionadas a um cliente do alcance** (sócios, contatos, filiais): aparecem pelo nome na ficha do cliente,
+  mas abrir a ficha delas segue o alcance (**[E3]**).
+
+**5. Cadastro novo com alcance restrito** (F4):
+- cliente novo sem responsável da conta: o usuário entra como responsável da conta desde o dia do cadastro (100% de
+  crédito, padrão MC-9), com a origem nova **"Cadastro"** (valor 5 no enum, sem migration);
+- cliente novo que já vem com outro responsável: o usuário **também** entra? Não: vale o que ele escolheu, e o aviso
+  "Este cliente não ficará no seu alcance" aparece antes de salvar;
+- cadastro novo que **não é cliente** (fornecedor, funcionário): **recusado**, com "Seu alcance permite cadastrar só
+  clientes." (**[E4]**), porque senão ele some da lista na hora de salvar.
+
+**6. Duplicados:** "documento em uso" continua olhando a base inteira (sem isso, nasce cadastro em dobro), mas, fora do
+alcance, só diz "Este documento já está cadastrado. Peça acesso ao responsável.", sem nome nem código (**[E5]**). As
+"possíveis duplicadas" mostram só as do alcance.
+
+**7. No app:** alcance **Nenhum** esconde Pessoas do menu. Alcance restrito mostra uma faixa discreta na lista:
+"Mostrando a sua carteira" ou "Mostrando a carteira da sua equipe".
+
+**8. Testes:**
+- domínio: `EscopoTests` (níveis, hierarquia de 3 níveis, líder que saiu, cobertura com e sem acesso, por papel e por
+  empresa, vínculo futuro e encerrado, vários perfis);
+- aplicação: F4, F5, cadastro de não-cliente recusado, documento em uso fora do alcance;
+- **arquitetura:** (a) na Infraestrutura, `db.Pessoas` só aparece nos arquivos da lista de exceções, cada uma com o
+  porquê; (b) toda rota do grupo de Pessoas com id de pessoa tem o filtro de escopo.
+
+**Decisões novas (recomendado: A em todas):**
+- **[E1]** Vários perfis com alcances diferentes: **A** vale o maior; B vale o menor.
+- **[E2]** Usuário sem pessoa ligada e alcance restrito: **A** não vê nada, com o aviso; B vê tudo até ser ligado.
+- **[E3]** Pessoas relacionadas a um cliente: **A** o nome aparece na ficha do cliente, e a ficha delas segue o alcance;
+  B abrem também.
+- **[E4]** Cadastro de quem não é cliente, com alcance restrito: **A** recusado; B permitido (e some da lista).
+- **[E5]** Documento já cadastrado fora do alcance: **A** avisa sem mostrar nome nem código; B mostra o nome.
+- **[E6]** Empresa do vínculo: **A** conta o da empresa ativa ou sem empresa; B conta qualquer empresa.
+- **[E7]** Vínculo que começa no futuro: **A** já dá acesso; B só a partir do início.
+- **[E8]** Dividir em 2a-2 (Pessoas) e 2a-3 (telas do Comercial e metas): **A** sim; B tudo junto.
+
+**Andamento da 2a-2 (28/09/2026): build, testes e telas aprovados pelo usuário (18h31); commitada. Sem migration.**
+
+- **Domínio** (`Lone.Domain/Comercial/RegrasEscopo.cs`): `Resolver` (níveis, hierarquia, coberturas), `VinculoNoEscopo` (a
+  expressão única, que vai para o banco e roda em memória nos testes), `Maior` (E1) e `ResponsavelDoCadastro` (F4, só num
+  papel de responsável que o usuário pode ocupar pelo "Quem pode ser"). Origem nova do vínculo: `Cadastro` (5).
+- **Aplicação:** `AcessoEfetivo.Alcance` (o maior dos perfis da empresa; administrador = Tudo), `AcessoDoUsuario.PessoaId`,
+  `IAlcanceDoUsuario`, `IEscopoPessoas`/`EscopoPessoas` (resolve uma vez por requisição; Tudo não faz consulta nenhuma),
+  `ForaDoEscopoException`. `PessoaAppService`: E4 (só clientes; sem pessoa ligada ou com alcance Nenhum, recusa), F4, E5
+  (documento em uso fora do alcance, sem nome nem código, na checagem da ficha e na gravação) e o aviso "Gravado. Este
+  cadastro ficou fora do seu alcance..." depois de salvar.
+- **Infraestrutura:** `EscopoPessoasSql` (EXISTS em CarteiraClientes) na lista, abas, indicadores, prévia, consulta
+  avançada, exportação, filtros salvos, faixas etárias, clientes ativos, possíveis duplicadas, endereços duplicados e nas
+  opções de porte e origem. Os outros `db.Pessoas` levam o comentário "Sem escopo: motivo" (os do Comercial e das metas
+  ficam marcados para a 2a-3).
+- **API:** `FiltroEscopoPessoa` no grupo de Pessoas inteiro e `FiltroEscopoAnexo` nos anexos. Com alcance restrito, o id
+  inexistente e o fora do alcance recebem a mesma resposta (404, "Este cadastro não existe ou está fora do seu alcance."),
+  menos no PUT da ficha, que cria o cadastro novo.
+- **Aplicativo:** faixa acima da lista ("Mostrando a sua carteira..."), Pessoas fora do menu com alcance Nenhum (a sessão
+  traz `Alcance` e `PessoaId`), documento em uso fora do alcance sem "Abrir cadastro".
+- **Testes:** `Dominio/EscopoTests`, `Aplicacao/EscopoPessoasTests`, `Cliente/AlcanceClienteTests` e
+  `Arquitetura/EscopoArquiteturaTests` (lê o código-fonte: `db.Pessoas` sem "Sem escopo:" na Infraestrutura, filtro nos
+  grupos de rotas, nome do id da pessoa nas rotas).
+
+**Pontos em aberto da 2a-2 (para o usuário decidir ou para a próxima parte):**
+- **Contatos e sócios com alcance restrito:** E4 recusa cadastrar quem não é cliente, e a busca de pessoa para um
+  relacionamento só acha o que está no alcance. Então o vendedor com "Minha carteira" não consegue ligar um contato ou
+  sócio (pessoa física) ao cliente dele. Caminho possível: aceitar pessoa sem carteira quando ela nasce já relacionada a um
+  cliente do alcance (e ela entra no alcance por esse relacionamento). Decidir antes da 2a-3.
+- **F4 sem papel possível:** se nenhum papel de responsável aceita a classificação da pessoa do usuário, o cliente é gravado
+  sem ele e o aviso "fora do seu alcance" aparece. Configurar o "Quem pode ser" do papel responsável resolve.
+- **Faixa da lista:** é lida ao abrir a tela; depois de trocar de empresa com alcance diferente, só atualiza ao reabrir
+  Pessoas (o mesmo vale hoje para os botões que dependem de permissão).
+- **PUT da ficha:** com alcance restrito, um PUT num id conhecido ainda distingue "não existe" (segue para a gravação) de
+  "fora do alcance" (404). Os ids têm 8 bytes aleatórios, então só vale para ids já vistos. Aceito.
+- **Configurações** (grupos empresariais, profissões) e o histórico mostram nomes de cadastros fora do alcance; são telas
+  com permissão própria. As telas do Comercial e as metas recebem o escopo na 2a-3.

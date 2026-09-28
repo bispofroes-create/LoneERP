@@ -24,6 +24,7 @@ public class TransferenciaCarteiraRepositorio : ServicoDadosBase, ITransferencia
                         (papel == null || v.TipoCarteiraId == papel) &&
                         (empresa == null || v.EmpresaId == empresa))
             .Select(v => v.PessoaId).Distinct();
+        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): clientes da transferência.
         var lista = await db.Pessoas.AsNoTracking()
             .Where(p => clientes.Contains(p.Id))
             .Select(p => new { p.Id, Nome = p.NomeExibicao ?? p.Nome })

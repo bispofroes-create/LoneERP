@@ -50,5 +50,13 @@ public sealed class SessaoDto
     public bool Administrador { get; set; }
     public List<string> Permissoes { get; set; } = new();
 
+    /// <summary>
+    /// Alcance em Pessoas e no Comercial na empresa ativa (Fase 2a-2), só para a tela avisar e esconder: quem decide é a API.
+    /// </summary>
+    public Lone.Domain.Enums.AlcanceComercial Alcance { get; set; }
+
+    /// <summary>A pessoa do cadastro ligada ao usuário (nula = não ligado).</summary>
+    public Guid? PessoaId { get; set; }
+
     public bool Possui(string permissao) => Administrador || Permissoes.Contains(permissao);
 }

@@ -1,7 +1,11 @@
 namespace Lone.Application.Seguranca;
 
 /// <summary>Usuário ativo e o que ele pode fazer na empresa da requisição.</summary>
-public sealed record AcessoDoUsuario(Guid UsuarioId, string Nome, bool DeveTrocarSenha, AcessoEfetivo Acesso);
+public sealed record AcessoDoUsuario(Guid UsuarioId, string Nome, bool DeveTrocarSenha, AcessoEfetivo Acesso)
+{
+    /// <summary>A pessoa do cadastro ligada ao usuário (Fase 2a): base do alcance "Minha carteira" e "Minha equipe".</summary>
+    public Guid? PessoaId { get; init; }
+}
 
 /// <summary>
 /// Calcula as permissões do usuário numa empresa. A API chama no início de cada requisição autenticada
@@ -29,6 +33,6 @@ public sealed class AcessoService : IAcessoService
             return null;
 
         var efetivo = RegrasDeAcesso.Efetivo(RegrasDeAcesso.PerfisAtivos(usuario), empresaId);
-        return new AcessoDoUsuario(usuario.Id, usuario.Nome, usuario.DeveTrocarSenha, efetivo);
+        return new AcessoDoUsuario(usuario.Id, usuario.Nome, usuario.DeveTrocarSenha, efetivo) { PessoaId = usuario.PessoaId };
     }
 }

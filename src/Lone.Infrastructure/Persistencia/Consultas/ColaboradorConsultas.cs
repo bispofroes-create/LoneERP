@@ -14,6 +14,7 @@ public class ColaboradorConsultas : ServicoDadosBase, IColaboradorConsultas
     public async Task<List<PessoaOpcaoDto>> ListarGestoresAsync(DateOnly hoje, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: gestores e colaboradores (RH), não clientes; telas com permissão própria.
         return await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo && p.Natureza == NaturezaPessoa.Fisica &&
                         db.VinculosColaborador.Any(v => v.PessoaId == p.Id && v.AdmissaoEm <= hoje &&
@@ -28,6 +29,7 @@ public class ColaboradorConsultas : ServicoDadosBase, IColaboradorConsultas
         if (ids.Count == 0) return new();
         await using var db = await AbrirAsync(ct);
         var lista = ids.Distinct().ToList();
+        // Sem escopo: gestores e colaboradores (RH), não clientes; telas com permissão própria.
         return await db.Pessoas.AsNoTracking().Where(p => lista.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, p => p.NomeExibicao ?? p.Nome, ct);
     }
@@ -37,6 +39,7 @@ public class ColaboradorConsultas : ServicoDadosBase, IColaboradorConsultas
         if (ids.Count == 0) return new();
         await using var db = await AbrirAsync(ct);
         var lista = ids.Distinct().ToList();
+        // Sem escopo: gestores e colaboradores (RH), não clientes; telas com permissão própria.
         return (await db.Pessoas.AsNoTracking()
             .Where(p => lista.Contains(p.Id) && p.Natureza == NaturezaPessoa.Fisica && p.Situacao == SituacaoPessoa.Ativo)
             .Select(p => p.Id).ToListAsync(ct)).ToHashSet();

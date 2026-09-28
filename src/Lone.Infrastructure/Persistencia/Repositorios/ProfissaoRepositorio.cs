@@ -43,6 +43,7 @@ public class ProfissaoRepositorio : ServicoDadosBase, IProfissaoRepositorio
     public async Task<Dictionary<Guid, int>> ContarPessoasAsync(Guid? somenteProfissaoId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: configuração de profissões (contagem de uso e troca em lote), sem mostrar cadastros.
         var pessoas = db.Pessoas.AsNoTracking().Where(p => p.ProfissaoId != null);
         if (somenteProfissaoId is { } id) pessoas = pessoas.Where(p => p.ProfissaoId == id);
         // Índice em Pessoas.ProfissaoId: agrupa sem ler o resto do cadastro.
@@ -74,6 +75,7 @@ public class ProfissaoRepositorio : ServicoDadosBase, IProfissaoRepositorio
         while (true)
         {
             db.ChangeTracker.Clear();
+            // Sem escopo: configuração de profissões (contagem de uso e troca em lote), sem mostrar cadastros.
             var lote = await db.Pessoas
                 .Where(p => p.ProfissaoId == origem.Id)
                 .OrderBy(p => p.Id)

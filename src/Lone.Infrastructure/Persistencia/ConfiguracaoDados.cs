@@ -80,6 +80,7 @@ public static class ConfiguracaoDados
         services.AddScoped<IMetaConsultas, MetaConsultas>();
         services.AddScoped<IFonteIndicadores, FonteIndicadoresCadastro>();
         services.AddScoped<IConsultaPessoas, ConsultaPessoas>();
+        services.AddScoped<IPessoasNoEscopo, PessoasNoEscopo>(); // Fase 2a-2
         services.AddScoped<Lone.Application.Enderecos.IFinalidadeEnderecoRepositorio, FinalidadeEnderecoRepositorio>();
         services.AddScoped<Lone.Application.Enderecos.IEnderecosDuplicadosConsulta, EnderecosDuplicadosConsulta>();
         services.AddScoped<IFiltroSalvoRepositorio, FiltroSalvoRepositorio>();

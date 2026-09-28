@@ -15,6 +15,7 @@ public class EmpresaConsultas : ServicoDadosBase, IEmpresaConsultas
     public async Task<List<EmpresaAtiva>> ListarEstabelecimentosAsync(CancellationToken ct = default)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: as empresas do próprio grupo (sessão e cadastros), não clientes.
         var linhas = await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo &&
                         p.Papeis.Any(x => x.Papel == TipoPapel.EmpresaDoGrupo && x.Ativo))
@@ -38,6 +39,7 @@ public class EmpresaConsultas : ServicoDadosBase, IEmpresaConsultas
     public async Task<List<EmpresaResumo>> ListarEmpresasAsync(CancellationToken ct = default)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: as empresas do próprio grupo (sessão e cadastros), não clientes.
         var linhas = await db.Pessoas.AsNoTracking()
             .Where(p => p.Papeis.Any(x => x.Papel == TipoPapel.EmpresaDoGrupo))
             .OrderBy(p => p.NomeExibicao ?? p.Nome)

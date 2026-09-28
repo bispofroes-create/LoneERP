@@ -69,6 +69,9 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IFinalidadeEnderecoRepositorio _finalidades;
     private readonly IGrupoEmpresarialRepositorio _gruposEmpresariais;
     private readonly IPessoaRelacionamentoRepositorio _relacionamentos;
+    private readonly IEscopoPessoas _escopo;
+    private readonly IPessoasNoEscopo _noEscopo;
+    private readonly IAlcanceDoUsuario _alcance;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
@@ -78,8 +81,12 @@ public sealed class PessoaAppService : IPessoaAppService
                             IMotivoDaOperacao motivo, ReferenciasColaborador colaborador,
                             ReferenciasComercial comercial, ICnaeRepositorio cnaes,
                             ISituacaoAppService situacoes, TimeProvider relogio, IFinalidadeEnderecoRepositorio finalidades,
-                            IGrupoEmpresarialRepositorio gruposEmpresariais, IPessoaRelacionamentoRepositorio relacionamentos)
+                            IGrupoEmpresarialRepositorio gruposEmpresariais, IPessoaRelacionamentoRepositorio relacionamentos,
+                            IEscopoPessoas escopo, IPessoasNoEscopo noEscopo, IAlcanceDoUsuario alcance)
     {
+        _escopo = escopo;
+        _noEscopo = noEscopo;
+        _alcance = alcance;
         _finalidades = finalidades;
         _gruposEmpresariais = gruposEmpresariais;
         _relacionamentos = relacionamentos;
@@ -134,10 +141,20 @@ public sealed class PessoaAppService : IPessoaAppService
         };
         if (chave is null) return new DocumentoEmUsoResposta();
 
+        // A base inteira, de propósito (E5): sem isso, quem tem alcance restrito cadastraria em dobro. Fora do alcance, só
+        // "existe", sem Id, código nem nome.
         var outra = await _repositorio.BuscarPorDocumentoAsync(requisicao.Natureza, chave, requisicao.IgnorarId, ct);
-        return outra is null
-            ? new DocumentoEmUsoResposta()
+        if (outra is null) return new DocumentoEmUsoResposta();
+        return await ForaDoAlcanceAsync(outra.Id, ct)
+            ? new DocumentoEmUsoResposta { EmUso = true, ForaDoAlcance = true }
             : new DocumentoEmUsoResposta { EmUso = true, Id = outra.Id, Codigo = outra.Codigo, Nome = outra.Nome };
+    }
+
+    /// <summary>O cadastro existe e está fora do alcance do usuário (alcance Tudo: nunca).</summary>
+    private async Task<bool> ForaDoAlcanceAsync(Guid pessoaId, CancellationToken ct)
+    {
+        var escopo = await _escopo.ObterAsync(ct);
+        return escopo.Restrito && await _noEscopo.SituacaoAsync(pessoaId, escopo, ct) == SituacaoNoEscopo.ForaDoEscopo;
     }
 
     public Task<PaginaListaPessoas> ListarPaginaAsync(ListaPessoasRequisicao requisicao, CancellationToken ct = default)
@@ -309,6 +326,12 @@ public sealed class PessoaAppService : IPessoaAppService
         ExigirPermissoes(dados, anterior);
 
         var erros = PessoaValidador.Validar(dados);
+
+        // Alcance restrito (Fase 2a-2): só clientes entram (E4) e o cliente novo sem responsável da conta recebe quem o
+        // cadastrou (F4), senão sumiria da lista dele ao salvar.
+        var escopo = await _escopo.ObterAsync(ct);
+        if (nova && escopo.Restrito)
+            erros.AddRange(ErrosDoCadastroRestrito(dados, escopo));
         erros.AddRange(errosPapeis);
         erros.AddRange(RegrasFiscal.ValidarCamposDeEmpresa(dados, anterior));
         erros.AddRange(RegrasColaborador.Validar(dados));
@@ -316,11 +339,17 @@ public sealed class PessoaAppService : IPessoaAppService
 
         // Comercial: perfis, condições, exceções com vigência e carteira (política dos papéis; o responsável da conta vigente vira o vendedor padrão).
         var tiposCarteira = await _comercial.TiposAsync(ct);
+        CarteiraCliente? doCadastro = null;
+        if (nova && escopo.Restrito && _alcance.PessoaId is { } eu && RegrasEscopo.EhCliente(dados) &&
+            await _comercial.ClassificacoesAsync(eu, ct) is { } minhas)
+            doCadastro = RegrasEscopo.ResponsavelDoCadastro(dados, eu, minhas, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime));
+        if (doCadastro is not null) dados.Carteira.Add(doCadastro);
         erros.AddRange(RegrasComercial.Validar(dados, tiposCarteira, anterior));
         erros.AddRange(RegrasComercial.ValidarHistorico(dados, anterior, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime)));
         erros.AddRange(RegrasComercial.ValidarCarteira(dados, anterior, tiposCarteira));
         erros.AddRange(await _comercial.ValidarAsync(dados, anterior, tiposCarteira, ct));
         RegrasComercial.DefinirOrigens(dados, anterior, tiposCarteira);
+        if (doCadastro is not null) doCadastro.Origem = OrigemVinculoCarteira.Cadastro; // DefinirOrigens marca os novos como Manual
         RegrasComercial.AtualizarVendedorPadrao(dados, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime));
 
         // Fiscal: CNAEs em tabela (a partir dos campos de texto) e histórico com vigência (regime, IE, situação, produtor rural).
@@ -409,7 +438,10 @@ public sealed class PessoaAppService : IPessoaAppService
         if (dados.DocumentoPrincipal is not null && dados.Natureza != NaturezaPessoa.Estrangeiro)
         {
             var mesmoDocumento = await _repositorio.BuscarPorDocumentoAsync(dados.Natureza, dados.DocumentoPrincipal, dados.Id, ct);
-            if (mesmoDocumento is not null)
+            if (mesmoDocumento is not null && await ForaDoAlcanceAsync(mesmoDocumento.Id, ct))
+                erros.Add((dados.Natureza == NaturezaPessoa.Juridica ? "Esta empresa (mesma raiz de CNPJ) já está cadastrada" : "Este CPF já está cadastrado") +
+                          ", fora do seu alcance. Peça acesso ao responsável pelo cliente.");
+            else if (mesmoDocumento is not null)
                 erros.Add(dados.Natureza == NaturezaPessoa.Juridica
                     ? $"Esta empresa (mesma raiz de CNPJ) já está cadastrada: {mesmoDocumento}. Para uma filial, abra esse cadastro e adicione o CNPJ como estabelecimento."
                     : $"Este CPF já está cadastrado: {mesmoDocumento}.");
@@ -460,9 +492,32 @@ public sealed class PessoaAppService : IPessoaAppService
 
         await _repositorio.SalvarAsync(dados, nova, OrigemAlteracao.Usuario, ct);
 
+        // Gravou, mas saiu do alcance (cliente novo com outro responsável, ou quem atende foi trocado): avisa agora, porque
+        // da próxima vez o cadastro não abre mais para este usuário.
+        if (escopo.Restrito && await _noEscopo.SituacaoAsync(dados.Id, escopo, ct) == SituacaoNoEscopo.ForaDoEscopo)
+            avisos.Add(AvisoForaDoAlcance);
+
         // Relê do banco: volta com o código, a versão nova e tudo como ficou gravado.
         var salva = await _repositorio.ObterAsync(dados.Id, ct) ?? throw new ConflitoDeEdicaoException();
         return new ResultadoSalvarPessoa { Pessoa = await ParaTelaAsync(salva, ct), Avisos = avisos };
+    }
+
+    /// <summary>Gravado, mas fora do alcance do usuário (Fase 2a-2).</summary>
+    public const string AvisoForaDoAlcance =
+        "Gravado. Este cadastro ficou fora do seu alcance: ele não aparece mais na sua lista nem abre de novo para você.";
+
+    /// <summary>
+    /// Cadastro novo com alcance restrito (Fase 2a-2): sem pessoa ligada ou com alcance "Nenhum" não há onde o cadastro
+    /// ficar; e só clientes entram (E4), porque fornecedor, funcionário e outros ficam fora de qualquer carteira (F5).
+    /// </summary>
+    internal static IEnumerable<string> ErrosDoCadastroRestrito(Pessoa dados, EscopoResolvido escopo)
+    {
+        if (escopo.SemPessoaLigada)
+            yield return "Seu usuário não está ligado a uma pessoa do cadastro, então o cadastro novo ficaria fora do seu alcance. Peça ao administrador para ligar.";
+        else if (escopo.Alcance == AlcanceComercial.Nenhum)
+            yield return "Seu perfil não dá acesso ao cadastro de Pessoas.";
+        else if (!RegrasEscopo.EhCliente(dados))
+            yield return RegrasEscopo.SoClientes;
     }
 
     /// <summary>

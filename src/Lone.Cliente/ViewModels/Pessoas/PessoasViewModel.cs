@@ -171,6 +171,23 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
 
     /// <summary>
+    /// Faixa acima da lista quando o perfil tem alcance restrito (Fase 2a-2): diz o que a lista está mostrando, para ninguém
+    /// achar que a base "sumiu". Vazio = sem faixa (alcance Tudo). Quem filtra de verdade é a API.
+    /// </summary>
+    public string AvisoAlcance => AvisoDeAlcance(_sessao.Atual?.Alcance ?? AlcanceComercial.Tudo, _sessao.Atual?.PessoaId);
+
+    public bool TemAvisoAlcance => AvisoAlcance.Length > 0;
+
+    public static string AvisoDeAlcance(AlcanceComercial alcance, Guid? pessoaId) => alcance switch
+    {
+        AlcanceComercial.MinhaCarteira or AlcanceComercial.MinhaEquipe when pessoaId is null =>
+            "Seu usuário não está ligado a uma pessoa do cadastro, então nenhum cadastro aparece. Peça ao administrador para ligar.",
+        AlcanceComercial.MinhaCarteira => "Mostrando a sua carteira de clientes (e a de quem você cobre numa ausência).",
+        AlcanceComercial.MinhaEquipe => "Mostrando a carteira da sua equipe e das equipes abaixo dela.",
+        _ => string.Empty
+    };
+
+    /// <summary>
     /// Falha ao ler as etiquetas não impede a lista de aparecer (o filtro e a ficha ficam sem opções, e as já
     /// marcadas numa pessoa voltam intactas ao salvar). Falha ao ler os
     /// campos personalizados também não: a ficha abre sem a aba "Informações adicionais" e avisa.

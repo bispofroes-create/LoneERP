@@ -29,6 +29,7 @@ public class AnexoRepositorio : ServicoDadosBase, IAnexoRepositorio
         await using var db = await AbrirAsync(ct);
         return await db.PessoaDocumentos.AsNoTracking()
             .Where(d => d.Id == documentoId && d.PessoaId == pessoaId)
+            // Sem escopo: por id, e a rota do anexo passa antes pelo filtro de escopo da API (pela pessoa do anexo).
             .Join(db.Pessoas, d => d.PessoaId, p => p.Id, (d, p) => new DocumentoParaAnexo(d.Ativo, p.Situacao))
             .FirstOrDefaultAsync(ct);
     }

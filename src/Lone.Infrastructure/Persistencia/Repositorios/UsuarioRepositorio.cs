@@ -70,6 +70,7 @@ public class UsuarioRepositorio : ServicoDadosBase, IUsuarioRepositorio
                 UltimoAcessoEm = u.Acesso != null ? u.Acesso.UltimoAcessoEm : null,
                 Perfis = u.Perfis.Select(p => p.EmpresaId == null
                     ? p.Perfil!.Nome
+                    // Sem escopo: cadastro de usuários (administração); ligar o usuário à pessoa precisa da base inteira.
                     : p.Perfil!.Nome + " (" + db.Pessoas.Where(x => x.Id == p.EmpresaId).Select(x => x.NomeExibicao ?? x.Nome).FirstOrDefault() + ")")
                     .ToList()
             })
@@ -163,6 +164,7 @@ public class UsuarioRepositorio : ServicoDadosBase, IUsuarioRepositorio
     public async Task<(string Nome, bool Ativa)?> PessoaAsync(Guid pessoaId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: cadastro de usuários (administração); ligar o usuário à pessoa precisa da base inteira.
         var pessoa = await db.Pessoas.AsNoTracking().Where(p => p.Id == pessoaId)
             .Select(p => new { Nome = p.NomeExibicao ?? p.Nome, p.Situacao })
             .FirstOrDefaultAsync(ct);
@@ -174,6 +176,7 @@ public class UsuarioRepositorio : ServicoDadosBase, IUsuarioRepositorio
     public async Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string texto, int limite, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: cadastro de usuários (administração); ligar o usuário à pessoa precisa da base inteira.
         var consulta = db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise);
         consulta = PessoaRepositorio.AplicarBusca(consulta, texto, db);

@@ -55,6 +55,7 @@ public class PessoaRelacionamentoRepositorio : ServicoDadosBase, IPessoaRelacion
         if (ids.Count == 0) return new();
         var lista = ids.Distinct().ToList();
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: nomes dos cadastros relacionados (E3: o nome aparece na ficha; abrir a ficha deles segue o alcance).
         var linhas = await db.Pessoas.AsNoTracking()
             .Where(p => lista.Contains(p.Id))
             .Select(p => new

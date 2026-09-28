@@ -52,9 +52,12 @@ public class CoberturaConsultas : ServicoDadosBase, ICoberturaConsultas
             {
                 v.Id,
                 v.PessoaId,
+                // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes das coberturas.
                 Cliente = db.Pessoas.Where(p => p.Id == v.PessoaId).Select(p => p.NomeExibicao ?? p.Nome).FirstOrDefault(),
                 Papel = db.TiposCarteira.Where(t => t.Id == v.TipoCarteiraId).Select(t => t.Nome).FirstOrDefault(),
+                // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes das coberturas.
                 Pessoa = db.Pessoas.Where(p => p.Id == v.VendedorId).Select(p => p.NomeExibicao ?? p.Nome).FirstOrDefault(),
+                // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes das coberturas.
                 Empresa = v.EmpresaId == null ? null : db.Pessoas.Where(p => p.Id == v.EmpresaId).Select(p => p.NomeExibicao ?? p.Nome).FirstOrDefault(),
                 v.InicioEm,
                 FimEm = v.FimEm!.Value

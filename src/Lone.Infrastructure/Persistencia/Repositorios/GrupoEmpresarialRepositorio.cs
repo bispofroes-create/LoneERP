@@ -32,6 +32,7 @@ public class GrupoEmpresarialRepositorio : ServicoDadosBase, IGrupoEmpresarialRe
     public async Task<Dictionary<Guid, int>> ContarEmpresasAsync(Guid? somenteId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: configuração de grupos empresariais (contagem e empresas do grupo), com permissão própria.
         var pessoas = db.Pessoas.AsNoTracking().Where(p => p.GrupoEmpresarialId != null);
         if (somenteId is { } id) pessoas = pessoas.Where(p => p.GrupoEmpresarialId == id);
         return await pessoas.GroupBy(p => p.GrupoEmpresarialId!.Value)
@@ -42,6 +43,7 @@ public class GrupoEmpresarialRepositorio : ServicoDadosBase, IGrupoEmpresarialRe
     public async Task<List<EmpresaDoGrupoEmpresarialDto>> ListarEmpresasAsync(Guid grupoId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: configuração de grupos empresariais (contagem e empresas do grupo), com permissão própria.
         var linhas = await db.Pessoas.AsNoTracking()
             .Where(p => p.GrupoEmpresarialId == grupoId)
             .Select(p => new

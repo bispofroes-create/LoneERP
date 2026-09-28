@@ -27,6 +27,7 @@ public static class ConfiguracaoApi
         services.AddScoped<IMotivoDaOperacao>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
         services.AddScoped<IEmpresaAtual>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
         services.AddScoped<IAutorizacao>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
+        services.AddScoped<IAlcanceDoUsuario>(sp => sp.GetRequiredService<UsuarioDaRequisicao>());
         services.AddMemoryCache();
         services.AddSingleton<CacheAcesso>();
 

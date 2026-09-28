@@ -1,6 +1,7 @@
 using Lone.Application.Consultas;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Pessoas;
+using Lone.Domain.Comercial;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Papeis;
@@ -20,12 +21,18 @@ namespace Lone.Infrastructure.Persistencia.Consultas;
 /// </summary>
 public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
 {
-    public ConsultaPessoas(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario) : base(fabrica, usuario) { }
+    private readonly IEscopoPessoas _escopo;
+
+    public ConsultaPessoas(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario, IEscopoPessoas escopo) : base(fabrica, usuario)
+    {
+        _escopo = escopo;
+    }
 
     public async Task<PaginaPessoas> ConsultarAsync(ConsultaPessoasRequisicao requisicao, DateOnly hoje, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
-        var filtrada = await FiltrarAsync(db, requisicao.Criterios, hoje, ct);
+        var filtrada = await FiltrarAsync(db, requisicao.Criterios, hoje, escopo, ct);
 
         int? total = requisicao.ContarTotal ? await filtrada.CountAsync(ct) : null;
 
@@ -42,6 +49,7 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
         if (temMais) chaves.RemoveAt(chaves.Count - 1);
 
         var ids = chaves.Select(c => c.Id).ToList();
+        // Sem escopo: os ids vêm da consulta acima, que já passou pelo escopo.
         var resumos = await PessoaRepositorio.Resumir(db.Pessoas.AsNoTracking().Where(p => ids.Contains(p.Id)), db).ToListAsync(ct);
         var porId = resumos.ToDictionary(r => r.Id);
 
@@ -56,17 +64,19 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
 
     public async Task<List<int>> ContarAsync(IReadOnlyList<CriteriosPessoas> criterios, DateOnly hoje, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
         var totais = new List<int>(criterios.Count);
         foreach (var c in criterios)
-            totais.Add(await (await FiltrarAsync(db, c, hoje, ct)).CountAsync(ct));
+            totais.Add(await (await FiltrarAsync(db, c, hoje, escopo, ct)).CountAsync(ct));
         return totais;
     }
 
     public async Task<List<string[]>> LinhasParaExportarAsync(CriteriosPessoas criterios, DateOnly hoje, int limite, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
-        var filtrada = await FiltrarAsync(db, criterios, hoje, ct);
+        var filtrada = await FiltrarAsync(db, criterios, hoje, escopo, ct);
         var linhas = await Repositorios.PessoaRepositorio.ComReferencia(filtrada.OrderBy(p => p.Nome).ThenBy(p => p.Id).Take(limite), db)
             .Select(r => new
             {
@@ -135,6 +145,7 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
                 .Select(p => new OpcaoConsultaDto(p.Id, p.Nome)).ToListAsync(ct),
             Etiquetas = await db.Etiquetas.AsNoTracking().Where(e => e.Ativo).OrderBy(e => e.Nome)
                 .Select(e => new OpcaoConsultaDto(e.Id, e.Nome)).ToListAsync(ct),
+            // Sem escopo: quem atende (colaboradores) é opção do filtro, não cliente; a lista filtrada continua no escopo.
             Vendedores = await db.Pessoas.AsNoTracking()
                 .Where(p => p.Papeis.Any(x => x.Ativo && aceitas.Contains(x.PapelId)) ||
                             db.CarteiraClientes.Any(c => c.VendedorId == p.Id && c.Ativo))
@@ -148,7 +159,10 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
 
     public async Task<Dictionary<string, List<OpcaoFiltroDto>>> OpcoesFiltroAsync(CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
+        // Porte e origem são texto do próprio cadastro: as opções saem só do que está no alcance (Fase 2a-2).
+        var noEscopo = EscopoPessoasSql.Pessoas(db, escopo);
         static List<OpcaoFiltroDto> Opcoes(IEnumerable<(Guid Id, string Nome)> itens) =>
             itens.OrderBy(i => i.Nome, StringComparer.CurrentCultureIgnoreCase).Select(i => new OpcaoFiltroDto(i.Id.ToString("D"), i.Nome)).ToList();
         static List<OpcaoFiltroDto> Textos(IEnumerable<string?> valores) =>
@@ -161,7 +175,7 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
 
         return new Dictionary<string, List<OpcaoFiltroDto>>
         {
-            [CatalogoFiltrosPessoas.FontePortes] = Textos(await db.Pessoas.AsNoTracking().Select(p => p.Porte).Distinct().ToListAsync(ct)),
+            [CatalogoFiltrosPessoas.FontePortes] = Textos(await noEscopo.Select(p => p.Porte).Distinct().ToListAsync(ct)),
             [CatalogoFiltrosPessoas.FonteNaturezasJuridicas] = naturezas.Order(StringComparer.Ordinal)
                 .Select(n => new OpcaoFiltroDto(n, Lone.Domain.Fiscal.NaturezasJuridicas.Descrever(n) is { Length: > 0 } d ? d : n)).ToList(),
             [CatalogoFiltrosPessoas.FonteGruposEmpresariais] = Opcoes((await db.GruposEmpresariais.AsNoTracking().Where(g => g.Ativo)
@@ -180,6 +194,7 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
                 .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
             [CatalogoFiltrosPessoas.FonteCondicoesPagamento] = Opcoes((await db.CondicoesPagamento.AsNoTracking().Where(x => x.Ativo)
                 .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            // Sem escopo: as empresas do próprio grupo (opções do filtro).
             [CatalogoFiltrosPessoas.FonteEmpresas] = Opcoes((await db.Pessoas.AsNoTracking()
                 .Where(p => p.Papeis.Any(x => x.Ativo && x.PapelId == empresaDoGrupo))
                 .Select(p => new { p.Id, Nome = p.NomeExibicao ?? p.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
@@ -191,7 +206,7 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
                 .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
             [CatalogoFiltrosPessoas.FonteTiposRelacionamento] = Opcoes((await db.TiposRelacionamento.AsNoTracking()
                 .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
-            [CatalogoFiltrosPessoas.FonteOrigens] = Textos(await db.Pessoas.AsNoTracking().Select(p => p.OrigemCadastro).Distinct().ToListAsync(ct)),
+            [CatalogoFiltrosPessoas.FonteOrigens] = Textos(await noEscopo.Select(p => p.OrigemCadastro).Distinct().ToListAsync(ct)),
             [CatalogoFiltrosPessoas.FonteFinalidadesTratamento] = Opcoes((await db.FinalidadesTratamento.AsNoTracking().Where(x => x.Ativo)
                 .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome)))
         };
@@ -203,9 +218,11 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
     /// Um motor só: critérios no formato antigo viram condições do catálogo (ConsultaPessoasAppService.CondicoesDe) e cada
     /// condição vira um Where (FiltrosPessoasSql). Sem condição de situação: ativos e em análise (como a lista).
     /// </summary>
-    private static async Task<IQueryable<Pessoa>> FiltrarAsync(LoneDbContext db, CriteriosPessoas c, DateOnly hoje, CancellationToken ct)
+    private static async Task<IQueryable<Pessoa>> FiltrarAsync(LoneDbContext db, CriteriosPessoas c, DateOnly hoje, EscopoResolvido escopo,
+                                                              CancellationToken ct)
     {
-        IQueryable<Pessoa> q = db.Pessoas.AsNoTracking();
+        // Escopo de acesso primeiro (Fase 2a-2): consulta, contagens dos filtros salvos, indicadores e exportação.
+        var q = EscopoPessoasSql.Pessoas(db, escopo);
         var condicoes = ConsultaPessoasAppService.CondicoesDe(c);
 
         if (!condicoes.Any(x => x.Campo == CamposFiltroPessoas.Situacao))

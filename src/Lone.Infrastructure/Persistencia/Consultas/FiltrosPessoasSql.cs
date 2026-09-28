@@ -650,6 +650,7 @@ public static class FiltrosPessoasSql
     private static IQueryable<Pessoa> PessoaRelacionada(IQueryable<Pessoa> q, CondicaoFiltro c, Contexto x)
     {
         var db = x.Db;
+        // Sem escopo: só os ids de quem tem o nome, dentro de um filtro; a consulta principal já está no escopo.
         var outras = db.Pessoas.Where(Texto<Pessoa>(o => o.Nome, c)).Select(o => o.Id);
         var ativas = db.PessoaRelacionamentos.Where(r => r.Ativo);
         var ids = ativas.Where(r => outras.Contains(r.PessoaDestinoId)).Select(r => r.PessoaId)

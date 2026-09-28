@@ -20,6 +20,7 @@ public class PrivacidadeRepositorio : ServicoDadosBase, IPrivacidadeRepositorio
     public async Task<Pessoa?> ObterPessoaAsync(Guid pessoaId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
+        // Sem escopo: por id, e a rota com o id da pessoa passa antes pelo filtro de escopo da API.
         return await db.Pessoas.AsNoTracking()
             .Include(p => p.MeiosContato)
             .Include(p => p.Consentimentos)

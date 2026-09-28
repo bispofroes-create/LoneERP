@@ -39,6 +39,7 @@ public static class ConfiguracaoAplicacao
 
         services.AddScoped<IAutenticacaoService, AutenticacaoService>();
         services.AddScoped<IAcessoService, AcessoService>();
+        services.AddScoped<IEscopoPessoas, EscopoPessoas>(); // Fase 2a-2: um por requisição (resolve uma vez)
         services.AddScoped<IUsuarioAppService, UsuarioAppService>();
         services.AddScoped<IPerfilAppService, PerfilAppService>();
         services.AddScoped<IPessoaAppService, PessoaAppService>();

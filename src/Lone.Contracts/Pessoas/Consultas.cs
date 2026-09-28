@@ -265,6 +265,13 @@ public sealed class DocumentoEmUsoRequisicao
 public sealed class DocumentoEmUsoResposta
 {
     public bool EmUso { get; set; }
+
+    /// <summary>
+    /// Em uso num cadastro fora do alcance do usuário (Fase 2a-2, decisão E5): sem Id, código nem nome, para não revelar
+    /// dados; só avisa que existe (sem isso nasceria um cadastro em dobro).
+    /// </summary>
+    public bool ForaDoAlcance { get; set; }
+
     public Guid? Id { get; set; }
     public int Codigo { get; set; }
     public string? Nome { get; set; }

@@ -38,7 +38,13 @@ public sealed class SessaoCliente
     public IReadOnlyList<EmpresaAtiva> EmpresasDisponiveis => Atual?.EmpresasDisponiveis ?? [];
     public bool DeveTrocarSenha => Atual?.DeveTrocarSenha == true;
 
-    public bool Possui(string permissao) => Atual?.Possui(permissao) == true;
+    /// <summary>
+    /// Permissão para mostrar ou esconder opções. Com o alcance "Nenhum" (Fase 2a-2) o cadastro de Pessoas some do menu e
+    /// das telas, mesmo com a permissão de ver: a API não devolveria nenhum cadastro.
+    /// </summary>
+    public bool Possui(string permissao) =>
+        Atual is { } sessao && sessao.Possui(permissao) &&
+        !(permissao == Permissoes.Pessoas.Visualizar && sessao.Alcance == Lone.Domain.Enums.AlcanceComercial.Nenhum);
 
     public async Task DefinirAsync(SessaoDto sessao)
     {

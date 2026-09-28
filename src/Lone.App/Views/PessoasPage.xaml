@@ -46,6 +46,9 @@
 
             <!-- Uma barra só: pesquisa, visões salvas, painel de filtros e ações da lista; embaixo, a faixa de indicadores -->
             <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="12">
+            <!-- Alcance restrito do perfil (Fase 2a-2): o que a lista mostra. Quem filtra é a API. -->
+            <Label Text="{Binding AvisoAlcance}" IsVisible="{Binding TemAvisoAlcance}" Style="{StaticResource Secundario}"
+                   LineBreakMode="WordWrap" />
             <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                 <Border StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="4,0" HorizontalOptions="Fill"
                         Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}"

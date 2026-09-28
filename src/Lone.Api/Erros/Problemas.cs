@@ -23,6 +23,8 @@ public static class Problemas
                                          (ErrosApi.CampoPermissao, a.Permissao)),
         ConflitoDeEdicaoException c => Criar(StatusCodes.Status409Conflict, "Conflito de edição", c.Message, ErrosApi.Conflito),
         SessaoInvalidaException s => NaoAutenticado(s.Message),
+        // Fase 2a-2: fora do alcance responde como cadastro inexistente (não revela que existe).
+        ForaDoEscopoException f => NaoEncontrado(f.Message),
         ServicoExternoException e => Criar(StatusCodes.Status502BadGateway, "Serviço externo indisponível", e.Message,
                                            ErrosApi.ServicoExterno),
         _ => null

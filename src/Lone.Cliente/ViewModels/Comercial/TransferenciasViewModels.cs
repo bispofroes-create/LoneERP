@@ -32,6 +32,7 @@ public static class TextosTransferencia
         OrigemVinculoCarteira.Transferencia => "transferência",
         OrigemVinculoCarteira.Distribuicao => "distribuição",
         OrigemVinculoCarteira.Importacao => "importação",
+        OrigemVinculoCarteira.Cadastro => "incluído no cadastro do cliente",
         _ => "incluído na ficha"
     };
 

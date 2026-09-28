@@ -25,12 +25,25 @@ public class FinalidadeEnderecoRepositorio : ServicoDadosBase, IFinalidadeEndere
 /// </summary>
 public class EnderecosDuplicadosConsulta : ServicoDadosBase, IEnderecosDuplicadosConsulta
 {
-    public EnderecosDuplicadosConsulta(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario) : base(fabrica, usuario) { }
+    private readonly IEscopoPessoas _escopo;
+
+    public EnderecosDuplicadosConsulta(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario, IEscopoPessoas escopo)
+        : base(fabrica, usuario)
+    {
+        _escopo = escopo;
+    }
 
     public async Task<PaginaEnderecosDuplicados> ListarAsync(Guid? apos, int limite, int examinar, CancellationToken ct)
     {
+        var escopo = await _escopo.ObterAsync(ct);
         await using var db = await AbrirAsync(ct);
         var candidatas = db.PessoaEnderecos.AsNoTracking().Where(e => e.Ativo);
+        // Só os cadastros no alcance do usuário (Fase 2a-2).
+        if (!escopo.Tudo)
+        {
+            var noEscopo = Consultas.EscopoPessoasSql.Pessoas(db, escopo);
+            candidatas = candidatas.Where(e => noEscopo.Any(p => p.Id == e.PessoaId));
+        }
         if (apos is { } a) candidatas = candidatas.Where(e => e.PessoaId.CompareTo(a) > 0);
         var ids = await candidatas.GroupBy(e => e.PessoaId).Where(g => g.Count() > 1)
             .OrderBy(g => g.Key).Select(g => g.Key).Take(examinar).ToListAsync(ct);
@@ -55,6 +68,7 @@ public class EnderecosDuplicadosConsulta : ServicoDadosBase, IEnderecosDuplicado
             if (pagina.Itens.Count >= limite) break;
         }
 
+        // Sem escopo: nomes da página, cujas pessoas já passaram pelo escopo acima.
         var nomes = await db.Pessoas.AsNoTracking().Where(p => pagina.Itens.Select(i => i.PessoaId).Contains(p.Id))
             .Select(p => new { p.Id, p.Codigo, Nome = p.NomeExibicao ?? p.Nome }).ToDictionaryAsync(p => p.Id, ct);
         foreach (var item in pagina.Itens)

@@ -110,6 +110,7 @@ public class MunicipioRepositorio : ServicoDadosBase, IMunicipioRepositorio
         }
 
         var pessoaIds = abertas.Select(p => p.PessoaId).Distinct().ToList();
+        // Sem escopo: rotina do sistema (carga de municípios), sem usuário.
         var pessoas = await db.Pessoas.Include(p => p.Enderecos)
             .Where(p => pessoaIds.Contains(p.Id)).AsSplitQuery().ToDictionaryAsync(p => p.Id, ct);
 

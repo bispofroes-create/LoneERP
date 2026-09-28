@@ -1,9 +1,11 @@
 using Lone.Api.Erros;
+using Lone.Api.Seguranca;
 using Lone.Application.Consultas;
 using Lone.Application.Documentos;
 using Lone.Application.Pessoas;
 using Lone.Application.Privacidade;
 using Lone.Application.Relacionamentos;
+using Lone.Application.Seguranca;
 using Lone.Application.Situacoes;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -18,7 +20,9 @@ public static class PessoasEndpoints
 {
     public static IEndpointRouteBuilder MapPessoas(this IEndpointRouteBuilder app)
     {
-        var grupo = app.MapGroup(Rotas.Pessoas.Grupo).WithTags("Pessoas").RequireAuthorization();
+        // Escopo de acesso (Fase 2a-2): toda rota com o id de uma pessoa confere o alcance do usuário antes do endpoint.
+        var grupo = app.MapGroup(Rotas.Pessoas.Grupo).WithTags("Pessoas").RequireAuthorization()
+            .AddEndpointFilter<FiltroEscopoPessoa>();
 
         // Tela de Pessoas: uma página com o total. Mesmos filtros da lista + natureza, só ativos, só inativos.
         grupo.MapGet("pagina",
@@ -104,7 +108,7 @@ public static class PessoasEndpoints
         grupo.MapGet("{id:guid}", async (Guid id, IPessoaAppService servico, CancellationToken ct) =>
             await servico.ObterAsync(id, ct) is { } pessoa
                 ? Results.Ok(pessoa)
-                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+                : Problemas.Resultado(Problemas.NaoEncontrado(ForaDoEscopoException.Mensagem))); // igual a fora do alcance
 
         // Inclui ou altera: o Id vem do aparelho (IdSequencial), então a mesma chamada serve para os dois casos.
         grupo.MapPut("{id:guid}", async (Guid id, PessoaDto pessoa, IPessoaAppService servico, CancellationToken ct) =>
@@ -178,7 +182,8 @@ public static class PessoasEndpoints
         grupo.MapPut("parametros-relacionamento", (ParametrosRelacionamentoDto dto, ISituacaoAppService servico, CancellationToken ct) =>
             servico.SalvarParametrosAsync(dto, ct));
 
-        var anexos = app.MapGroup(Rotas.Anexos.Grupo).WithTags("Anexos").RequireAuthorization();
+        var anexos = app.MapGroup(Rotas.Anexos.Grupo).WithTags("Anexos").RequireAuthorization()
+            .AddEndpointFilter<FiltroEscopoAnexo>();
         anexos.MapGet("{id:guid}/conteudo", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.BaixarAsync(id, ct));
         anexos.MapPost("{id:guid}/desativar", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.DesativarAsync(id, ct));
         anexos.MapPost("{id:guid}/reativar", (Guid id, IAnexoAppService servico, CancellationToken ct) => servico.ReativarAsync(id, ct));

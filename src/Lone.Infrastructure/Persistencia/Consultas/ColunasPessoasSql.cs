@@ -162,6 +162,7 @@ public static class ColunasPessoasSql
             return p => x.Db.CarteiraClientes
                 .Where(y => y.PessoaId == p.Id && y.Ativo && y.InicioEm <= hoje && (y.FimEm == null || y.FimEm >= hoje))
                 .OrderByDescending(y => y.Exclusivo).ThenBy(y => y.InicioEm).ThenBy(y => y.Id)
+                // Sem escopo: nomes e colunas das linhas da página, que já passou pelo escopo.
                 .Select(y => x.Db.Pessoas.Where(v => v.Id == y.VendedorId).Select(v => v.NomeExibicao ?? v.Nome).FirstOrDefault())
                 .FirstOrDefault();
         }),
@@ -202,6 +203,7 @@ public static class ColunasPessoasSql
         foreach (var id in colunas)
         {
             if (!PorId.TryGetValue(id, out var coluna)) continue;
+            // Sem escopo: nomes e colunas das linhas da página, que já passou pelo escopo.
             var valores = await coluna.LerAsync(x.Db.Pessoas.AsNoTracking().Where(p => ids.Contains(p.Id)), x, ct);
             foreach (var (pessoa, valor) in valores)
                 if (porId.TryGetValue(pessoa, out var linha)) linha.Valores[id] = valor;

@@ -1,5 +1,6 @@
 using Lone.Application.Seguranca;
 using Lone.Contracts.Seguranca;
+using Lone.Domain.Enums;
 
 namespace Lone.Api.Seguranca;
 
@@ -8,7 +9,7 @@ namespace Lone.Api.Seguranca;
 /// Um por requisição (scoped); preenchido por <see cref="CarregarUsuarioMiddleware"/> logo após a autenticação.
 /// Sem login (ex.: tela de login) fica vazio: Nome "sistema" e nenhuma permissão.
 /// </summary>
-public sealed class UsuarioDaRequisicao : IUsuarioAtual, IEmpresaAtual, IAutorizacao, IMotivoDaOperacao
+public sealed class UsuarioDaRequisicao : IUsuarioAtual, IEmpresaAtual, IAutorizacao, IMotivoDaOperacao, IAlcanceDoUsuario
 {
     /// <summary>Motivo da operação desta requisição (auditoria); definido pelo serviço que o recebe.</summary>
     public string? Motivo { get; set; }
@@ -21,6 +22,11 @@ public sealed class UsuarioDaRequisicao : IUsuarioAtual, IEmpresaAtual, IAutoriz
     public Guid? EstabelecimentoId { get; private set; }
     public bool DeveTrocarSenha { get; private set; }
 
+    /// <summary>Sem login: Nenhum (nada de Pessoas sai sem usuário).</summary>
+    public AlcanceComercial Alcance => _acesso?.Alcance ?? AlcanceComercial.Nenhum;
+
+    public Guid? PessoaId { get; private set; }
+
     public bool Autenticado => Id is not null;
 
     /// <summary>Id do usuário logado; só chame em endpoints que exigem login.</summary>
@@ -31,6 +37,7 @@ public sealed class UsuarioDaRequisicao : IUsuarioAtual, IEmpresaAtual, IAutoriz
         Id = acesso.UsuarioId;
         Nome = acesso.Nome;
         DeveTrocarSenha = acesso.DeveTrocarSenha;
+        PessoaId = acesso.PessoaId;
         EmpresaId = empresaId;
         EstabelecimentoId = estabelecimentoId;
         _acesso = acesso.Acesso;

@@ -236,7 +236,9 @@ public sealed class AutenticacaoService : IAutenticacaoService
             EmpresaAtiva = empresa,
             EmpresasDisponiveis = disponiveis.ToList(),
             Administrador = efetivo.Administrador,
-            Permissoes = efetivo.Permissoes.Order().ToList()
+            Permissoes = efetivo.Permissoes.Order().ToList(),
+            Alcance = efetivo.Alcance,
+            PessoaId = usuario.PessoaId
         };
     }
 

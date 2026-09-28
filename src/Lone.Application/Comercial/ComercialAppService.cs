@@ -110,6 +110,13 @@ public sealed class ReferenciasComercial
         return RegrasComercial.ValidarReferencias(dados, anterior, referencias);
     }
 
+    /// <summary>
+    /// As classificações ativas da pessoa, se ela está ativa (nulo = não existe ou inativa): quais papéis comerciais ela pode
+    /// ocupar ("Quem pode ser"). Usado no F4 da Fase 2a-2.
+    /// </summary>
+    public async Task<IReadOnlySet<Guid>?> ClassificacoesAsync(Guid pessoaId, CancellationToken ct) =>
+        (await _consultas.PessoasElegiveisAsync([pessoaId], ct)).GetValueOrDefault(pessoaId)?.Classificacoes;
+
     /// <summary>Nomes dos vendedores (para as frases do histórico da carteira).</summary>
     public Task<Dictionary<Guid, string>> NomesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => _consultas.NomesAsync(ids, ct);
 
