@@ -38,12 +38,23 @@ public static class RegrasCobertura
     /// Campos, datas, quem cobre, crédito, sobreposição com outra cobertura do mesmo titular e o que não muda depois que
     /// começou. <paramref name="outras"/>: as coberturas gravadas do titular (a própria pode vir junto: é ignorada).
     /// </summary>
-    public static List<string> Validar(CoberturaComercial c, CoberturaComercial? anterior, IEnumerable<CoberturaComercial> outras, DateOnly hoje)
+    /// <param name="diasRetroativos">
+    /// Até quantos dias antes de hoje uma cobertura nova (ou com o início mudado) pode começar (Parâmetros comerciais;
+    /// decisão T6). Nulo = sem limite.
+    /// </param>
+    public static List<string> Validar(CoberturaComercial c, CoberturaComercial? anterior, IEnumerable<CoberturaComercial> outras, DateOnly hoje,
+                                       int? diasRetroativos = null)
     {
         var erros = new List<string>();
         if (c.TitularId == Guid.Empty) erros.Add("Escolha quem vai se ausentar.");
         if (c.TipoAusenciaId == Guid.Empty) erros.Add("Escolha o tipo de ausência.");
         if (c.InicioEm == default) erros.Add("Informe o início.");
+        else if (diasRetroativos is { } dias && (anterior is null || anterior.InicioEm != c.InicioEm) &&
+                 c.InicioEm < hoje.AddDays(-Math.Max(0, dias)))
+            erros.Add(dias <= 0
+                ? "O início não pode ser anterior a hoje (Parâmetros comerciais › Datas no passado)."
+                : $"O início pode ser no máximo {dias} dia(s) antes de hoje ({Data(hoje.AddDays(-dias))}): o crédito desse período " +
+                  "pode já ter sido apurado (Parâmetros comerciais › Datas no passado).");
         if (c.FimEm == default) erros.Add("Informe o fim (ausência sem fim é transferência de carteira).");
         else if (c.InicioEm != default && c.FimEm < c.InicioEm) erros.Add("O fim é anterior ao início.");
 
@@ -154,6 +165,8 @@ public static class RegrasParametrosComerciais
         var erros = new List<string>();
         if (p.DiasAvisoFimVinculo is < 1 or > ParametrosComerciais.MaximoDiasAviso)
             erros.Add($"Aviso de fim do vínculo: de 1 a {ParametrosComerciais.MaximoDiasAviso} dias.");
+        if (p.DiasRetroativosMaximo is < 0 or > ParametrosComerciais.MaximoDiasRetroativos)
+            erros.Add($"Datas no passado: de 0 a {ParametrosComerciais.MaximoDiasRetroativos} dias (0 = só hoje ou datas futuras).");
         if (!Enum.IsDefined(p.CreditoNaAusencia)) erros.Add("Regra de crédito na ausência inválida.");
         if (p.CreditoNaAusencia == RegraCreditoAusencia.Dividido)
         {

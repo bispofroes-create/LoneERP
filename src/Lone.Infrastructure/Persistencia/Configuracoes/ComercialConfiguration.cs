@@ -97,6 +97,7 @@ public class CarteiraClienteConfiguration : IEntityTypeConfiguration<CarteiraCli
         b.HasOne<TipoCarteira>().WithMany().HasForeignKey(x => x.TipoCarteiraId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.VendedorId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<TransferenciaCarteira>().WithMany().HasForeignKey(x => x.TransferenciaId).OnDelete(DeleteBehavior.Restrict);
 
         // "Carteira do vendedor" (quem ele atende hoje, ou numa data) e o histórico do cliente.
         b.HasIndex(x => new { x.VendedorId, x.Ativo, x.FimEm });
@@ -134,7 +135,7 @@ public class ParametrosComerciaisConfiguration : IEntityTypeConfiguration<Parame
         b.Property(x => x.PercentualSubstitutoPadrao).HasPrecision(5, 2);
         b.HasData(new ParametrosComerciais
         {
-            Id = ParametrosComerciais.IdUnico, DiasAvisoFimVinculo = 30, CreditoNaAusencia = RegraCreditoAusencia.Titular,
+            Id = ParametrosComerciais.IdUnico, DiasAvisoFimVinculo = 30, DiasRetroativosMaximo = 30, CreditoNaAusencia = RegraCreditoAusencia.Titular,
             CriadoEm = new DateTime(2026, 9, 28, 0, 0, 0, DateTimeKind.Utc)
         });
     }
@@ -166,5 +167,50 @@ public class CoberturaComercialConfiguration : IEntityTypeConfiguration<Cobertur
         // Por titular (validação de sobreposição, aviso na ficha) e por período (lista e "vigentes hoje").
         b.HasIndex(x => new { x.TitularId, x.InicioEm });
         b.HasIndex(x => new { x.FimEm, x.Cancelada });
+    }
+}
+
+/// <summary>
+/// Transferências de carteira (Motor Comercial, Fase 1d). Nunca apagadas nem desfeitas; número legível único por ano.
+/// </summary>
+public class TransferenciaCarteiraConfiguration : IEntityTypeConfiguration<TransferenciaCarteira>
+{
+    public void Configure(EntityTypeBuilder<TransferenciaCarteira> b)
+    {
+        b.ToTable("TransferenciasCarteira");
+        b.HasKey(x => x.Id);
+        b.Ignore(x => x.Numero);
+        b.HasIndex(x => new { x.Ano, x.Sequencia }).IsUnique();
+        b.Property(x => x.Motivo).IsRequired().HasMaxLength(TransferenciaCarteira.TamanhoMaximoTexto);
+        b.Property(x => x.Observacao).HasMaxLength(TransferenciaCarteira.TamanhoMaximoTexto);
+        b.Property(x => x.Usuario).IsRequired().HasMaxLength(TransferenciaCarteira.TamanhoMaximoUsuario);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.OrigemId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<TipoCarteira>().WithMany().HasForeignKey(x => x.TipoCarteiraId).OnDelete(DeleteBehavior.Restrict);
+
+        // "Transferências de João" (origem) na ordem do efeito.
+        b.HasIndex(x => new { x.OrigemId, x.EfeitoEm });
+    }
+}
+
+/// <summary>Resultado por vínculo de cada transferência: gravado uma vez, nunca alterado.</summary>
+public class TransferenciaCarteiraItemConfiguration : IEntityTypeConfiguration<TransferenciaCarteiraItem>
+{
+    public void Configure(EntityTypeBuilder<TransferenciaCarteiraItem> b)
+    {
+        b.ToTable("TransferenciaCarteiraItens");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Resultado).HasConversion<byte>();
+        b.Property(x => x.Motivo).HasMaxLength(TransferenciaCarteiraItem.TamanhoMaximoMotivo);
+        b.HasOne<TransferenciaCarteira>().WithMany().HasForeignKey(x => x.TransferenciaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.DestinoId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<CarteiraCliente>().WithMany().HasForeignKey(x => x.VinculoOrigemId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<CarteiraCliente>().WithMany().HasForeignKey(x => x.VinculoNovoId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<TipoCarteira>().WithMany().HasForeignKey(x => x.TipoCarteiraId).OnDelete(DeleteBehavior.Restrict);
+
+        // Resultado de uma transferência, por cliente; e "transferências deste cliente".
+        b.HasIndex(x => new { x.TransferenciaId, x.ClienteId });
+        b.HasIndex(x => x.ClienteId);
     }
 }

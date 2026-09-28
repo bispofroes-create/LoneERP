@@ -140,11 +140,52 @@ A 4b fica quase pronta com a 1d.
 - **[T6] Pendência da 1c, cobertura começando no passado** (crédito retroativo): aceitar? *(recomendado: sim, até o mesmo limite de dias do T1, com aviso.)*
 - **[T7] "Abrir ficha" nos resultados** (transferência, "Carteira vencendo", carteira em uma data): criar agora a navegação direta para a ficha pelo Id, que também resolve a ideia anotada na 1c? *(recomendado: sim, é pequena.)*
 
+### Decisões do usuário (28/09/2026, 13h20)
+
+O usuário aceitou todas as recomendações:
+- **T1:** efeito até 30 dias para trás (parâmetro), com aviso e motivo.
+- **T2:** um destino, com a opção de dividir pela menor carteira e trocar o destino de cada cliente na prévia.
+- **T3:** até 500 clientes, síncrono.
+- **T4:** os vínculos futuros ficam como estão (aviso).
+- **T5:** motivo em texto obrigatório.
+- **T6:** cobertura começando no passado, até o mesmo limite de dias.
+- **T7:** "Abrir ficha" pelo Id.
+
 ## 5. Ordem de entrega sugerida (cada parte compilada e testada por você)
 
-1. **1d-1:** domínio do plano e serviço único, prévia e execução, tabelas e migration, API.
-2. **1d-2:** telas "Transferências" (assistente e resultado) e "Carteira em uma data", mais "Abrir ficha".
+1. **1d-1:** domínio do plano e serviço, prévia e execução, tabelas e migration, API, e o parâmetro "Datas no passado"
+   (T1 e T6).
+   - **Entregue em 28/09/2026, sem compilar.** Os detalhes estão na seção 6.
+2. **1d-2:** telas "Transferências" (assistente e resultado) e "Carteira em uma data" (a API desta entra aqui, junto com
+   a tela), mais "Abrir ficha".
 3. **Fechamento da Fase 1:**
    - `docs/FASE-1-RELATORIO.md`;
    - `CONTINUIDADE.md` com o Motor Comercial;
    - MC-4 (migrar `GrupoEconomico` para `GrupoEmpresarial`, com migration de conversão), que é a última pendência da Fase 1 na auditoria.
+
+## 6. Andamento da 1d-1 (28/09/2026)
+
+- **Domínio:**
+  - `Lone.Domain/Comercial/RegrasTransferencia.cs` reúne: pedido, candidatos, plano por cliente, aplicação, cópia "como estava", divisão pela menor carteira, frases do histórico e contagens.
+  - `Lone.Domain/Entidades/Transferencias.cs` tem `TransferenciaCarteira` e `TransferenciaCarteiraItem` (item fora da auditoria campo a campo).
+  - `CarteiraCliente` ganhou `TransferenciaId`. `RegrasComercial.DefinirOrigens` mantém o `TransferenciaId` do gravado, e o vínculo novo da ficha nasce sem ele.
+  - `ParametrosComerciais` ganhou `DiasRetroativosMaximo` (padrão 30, de 0 a 365). `RegrasCobertura.Validar` recusa uma cobertura nova, ou com o início mudado, que comece antes desse limite (T6).
+- **Serviço:** `TransferenciaCarteiraAppService`, com prévia, gravação, lista e consulta.
+  - Por cliente: lê uma vez, planeja, aplica e confere `Validar`, `ValidarHistorico`, `ValidarCarteira` e as referências ("Quem pode ser").
+  - Na gravação: atualiza o vendedor padrão, registra a frase e grava a pessoa. Conflito ou recusa daquele cliente viram item "Erro", sem parar os outros.
+  - O registro é gravado antes (os vínculos apontam para ele). O resultado é registrado mesmo se a gravação for interrompida (`Concluida` = falso).
+  - O número e o motivo vão para a coluna Motivo da auditoria.
+- **Infraestrutura:**
+  - `TransferenciaCarteiraRepositorio`: clientes alcançados e cargas contados no banco; número por ano com índice único.
+  - Configuração EF: tabelas `TransferenciasCarteira` e `TransferenciaCarteiraItens`, e a FK de `CarteiraClientes.TransferenciaId`.
+- **API:** `GET/POST api/v1/comercial/transferencias`, `POST .../previa` e `GET .../{id}`, com a permissão `COMERCIAL.TRANSFERIR`.
+- **Tela:** só o campo "Datas no passado" em Parâmetros comerciais. As telas da transferência ficam para a 1d-2.
+- **Testes:**
+  - `Dominio/TransferenciaTests` (17 casos);
+  - `Aplicacao/TransferenciaCarteiraAppServiceTests` (4);
+  - `ModeloCarteiraTests` (1 novo).
+- **Migration `MotorComercial1d`:** gerar no PMC. O que se espera dela:
+  - cria as 2 tabelas;
+  - adiciona `CarteiraClientes.TransferenciaId` (nula), com FK e índice;
+  - adiciona `ParametrosComerciais.DiasRetroativosMaximo` com default 0, seguido de um `UpdateData` do registro único para 30;
+  - nenhum DROP e nenhum SQL manual.

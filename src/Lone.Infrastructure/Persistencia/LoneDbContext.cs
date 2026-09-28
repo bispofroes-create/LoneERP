@@ -47,6 +47,8 @@ public class LoneDbContext : DbContext
     public DbSet<TipoAusencia> TiposAusencia => Set<TipoAusencia>();
     public DbSet<ParametrosComerciais> ParametrosComerciais => Set<ParametrosComerciais>();
     public DbSet<CoberturaComercial> CoberturasComerciais => Set<CoberturaComercial>();
+    public DbSet<TransferenciaCarteira> TransferenciasCarteira => Set<TransferenciaCarteira>();
+    public DbSet<TransferenciaCarteiraItem> TransferenciaCarteiraItens => Set<TransferenciaCarteiraItem>();
     public DbSet<ExcecaoComercial> ExcecoesComerciais => Set<ExcecaoComercial>();
     public DbSet<CarteiraCliente> CarteiraClientes => Set<CarteiraCliente>();
     public DbSet<Cnae> Cnaes => Set<Cnae>();

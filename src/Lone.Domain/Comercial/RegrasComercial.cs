@@ -280,7 +280,7 @@ public static class RegrasComercial
     }
 
     /// <summary>
-    /// A origem do vínculo é do servidor (a ficha não a envia): o gravado mantém a sua; o novo recebe
+    /// A origem do vínculo (e a transferência que o criou) é do servidor (a ficha não a envia): o gravado mantém a sua; o novo recebe
     /// <paramref name="origemDosNovos"/> ("Manual" na ficha), ou "Substituição" quando entra no lugar de um vigente
     /// encerrado na véspera pela confirmação da ficha.
     /// </summary>
@@ -289,7 +289,12 @@ public static class RegrasComercial
     {
         var antes = (anterior?.Carteira ?? []).ToDictionary(c => c.Id);
         foreach (var c in p.Carteira)
-            c.Origem = antes.TryGetValue(c.Id, out var gravado) ? gravado.Origem : origemDosNovos;
+        {
+            // A ficha não envia a transferência: o gravado mantém a sua e o novo nasce sem (só a transferência a define).
+            var gravado = antes.GetValueOrDefault(c.Id);
+            c.Origem = gravado?.Origem ?? origemDosNovos;
+            c.TransferenciaId = gravado?.TransferenciaId;
+        }
         if (origemDosNovos != OrigemVinculoCarteira.Manual) return;
         foreach (var (_, sucessor) in ParesSubstituidos(anterior?.Carteira ?? [], p.Carteira, tipos))
             sucessor.Origem = OrigemVinculoCarteira.Substituicao;

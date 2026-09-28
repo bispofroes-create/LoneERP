@@ -56,6 +56,7 @@ public static class Permissoes
     {
         public const string Visualizar = "COMERCIAL.VISUALIZAR";
         public const string Coberturas = "COMERCIAL.COBERTURAS";
+        public const string Transferir = "COMERCIAL.TRANSFERIR";
     }
 
     public static class Seguranca
@@ -95,6 +96,7 @@ public static class Permissoes
         new(Cadastros.Comercial, "Cadastros", "Criar, alterar e desativar perfis comerciais, condições de pagamento e tipos de carteira"),
         new(Comercial.Visualizar, "Comercial", "Ver ausências, coberturas e a carteira vencendo"),
         new(Comercial.Coberturas, "Comercial", "Cadastrar, encerrar e cancelar ausências e coberturas"),
+        new(Comercial.Transferir, "Comercial", "Transferir a carteira de clientes de uma pessoa para outra e ver as transferências"),
         new(Metas.Visualizar, "Metas", "Ver metas, participantes e resultados"),
         new(Metas.Gerenciar, "Metas", "Criar e alterar metas, indicadores e equipes; publicar e iniciar a apuração"),
         new(Metas.LancarRealizado, "Metas", "Lançar e importar o realizado informado das metas"),

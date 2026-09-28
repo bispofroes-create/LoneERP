@@ -45,6 +45,9 @@ public sealed partial class ParametrosComerciaisViewModel : ViewModelBase
     public ParametrosComerciaisViewModel(ComercialApi api) => _api = api;
 
     [ObservableProperty] private string _diasAviso = "30";
+
+    /// <summary>Até quantos dias no passado valem o efeito de uma transferência e o início de uma cobertura (0 = só hoje em diante).</summary>
+    [ObservableProperty] private string _diasRetroativos = "30";
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Dividido))] private Opcao<RegraCreditoAusencia> _credito = TextosCobertura.Creditos[0];
     [ObservableProperty] private string _percentualSubstituto = string.Empty;
 
@@ -59,6 +62,8 @@ public sealed partial class ParametrosComerciaisViewModel : ViewModelBase
     {
         var erros = new List<string>();
         if (!TextoTela.TentarInteiro(DiasAviso, out var dias) || dias is null) erros.Add("Aviso de fim do vínculo: informe os dias.");
+        if (!TextoTela.TentarInteiro(DiasRetroativos, out var retroativos) || retroativos is null)
+            erros.Add("Datas no passado: informe os dias (0 = só hoje ou datas futuras).");
         if (!TextoTela.TentarDecimal(PercentualSubstituto, out var pct)) erros.Add("Percentual de quem cobre: número inválido.");
         if (erros.Count > 0)
         {
@@ -71,6 +76,7 @@ public sealed partial class ParametrosComerciaisViewModel : ViewModelBase
             {
                 Versao = _versao,
                 DiasAvisoFimVinculo = dias ?? 30,
+                DiasRetroativosMaximo = retroativos ?? 30,
                 CreditoNaAusencia = Credito.Valor,
                 PercentualSubstitutoPadrao = Dividido ? pct : null
             })))
@@ -83,6 +89,7 @@ public sealed partial class ParametrosComerciaisViewModel : ViewModelBase
     {
         _versao = p.Versao;
         DiasAviso = TextoTela.Inteiro(p.DiasAvisoFimVinculo);
+        DiasRetroativos = TextoTela.Inteiro(p.DiasRetroativosMaximo);
         Credito = Opcao.De(TextosCobertura.Creditos, p.CreditoNaAusencia);
         PercentualSubstituto = TextoTela.Decimal(p.PercentualSubstitutoPadrao);
     }

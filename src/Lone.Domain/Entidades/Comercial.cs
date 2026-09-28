@@ -259,6 +259,10 @@ public class CarteiraCliente : EntidadePessoaFilha
     [DisplayName("Origem")]
     public OrigemVinculoCarteira Origem { get; set; }
 
+    /// <summary>A transferência de carteira que criou este vínculo (Origem = Transferência). Definido pelo servidor.</summary>
+    [DisplayName("Transferência")]
+    public Guid? TransferenciaId { get; set; }
+
     [DisplayName("Observação")]
     public string? Observacao { get; set; }
 

@@ -177,7 +177,8 @@ public sealed class CoberturaAppService : ICoberturaAppService
     {
         RegrasCobertura.Normalizar(dados);
         var erros = RegrasCobertura.Validar(dados, anterior,
-            dados.TitularId == Guid.Empty ? [] : await _repositorio.DoTitularAsync(dados.TitularId, ct), Hoje);
+            dados.TitularId == Guid.Empty ? [] : await _repositorio.DoTitularAsync(dados.TitularId, ct), Hoje,
+            (await _parametros.ObterAsync(ct)).DiasRetroativosMaximo);
 
         // Referências só quando mudam (a cobertura antiga continua valendo com o que tinha).
         if (dados.TipoAusenciaId != Guid.Empty && dados.TipoAusenciaId != anterior?.TipoAusenciaId &&

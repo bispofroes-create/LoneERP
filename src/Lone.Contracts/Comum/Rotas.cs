@@ -130,6 +130,11 @@ public static class Rotas
         public static string CancelarCobertura(Guid id) => $"{Coberturas}/{id}/cancelar";
         public static string ListarCoberturas(bool incluirEncerradas) => $"{Coberturas}?incluirEncerradas={(incluirEncerradas ? "true" : "false")}";
         public const string CarteiraVencendo = Base + "/comercial/carteira-vencendo";
+
+        // Motor Comercial, Fase 1d
+        public const string Transferencias = Base + "/comercial/transferencias";
+        public const string TransferenciasPrevia = Transferencias + "/previa";
+        public static string TransferenciaPorId(Guid id) => $"{Transferencias}/{id}";
     }
 
     /// <summary>Tabela CNAE (IBGE): busca para a ficha e atualização pelo administrador.</summary>

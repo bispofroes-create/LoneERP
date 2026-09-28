@@ -142,4 +142,28 @@ public class ModeloCarteiraTests
         Assert.Equal(ParametrosComerciais.IdUnico, semente[nameof(ParametrosComerciais.Id)]);
         Assert.Equal(30, semente[nameof(ParametrosComerciais.DiasAvisoFimVinculo)]);
     }
+
+    // ---- Motor Comercial, Fase 1d ----
+
+    [Fact]
+    public void Transferencias_tem_numero_unico_por_ano_itens_e_o_vinculo_aponta_para_a_transferencia()
+    {
+        var modelo = Modelo();
+        var transferencia = modelo.FindEntityType(typeof(TransferenciaCarteira))!;
+        Assert.Equal("TransferenciasCarteira", transferencia.GetTableName());
+        Assert.Null(transferencia.FindProperty(nameof(TransferenciaCarteira.Numero))); // calculado, não é coluna
+        Assert.Contains(transferencia.GetIndexes(), i => i.IsUnique &&
+            i.Properties.Select(p => p.Name).SequenceEqual([nameof(TransferenciaCarteira.Ano), nameof(TransferenciaCarteira.Sequencia)]));
+
+        var item = modelo.FindEntityType(typeof(TransferenciaCarteiraItem))!;
+        Assert.Equal("TransferenciaCarteiraItens", item.GetTableName());
+        Assert.Equal(typeof(byte), item.FindProperty(nameof(TransferenciaCarteiraItem.Resultado))!.GetProviderClrType());
+
+        var vinculo = modelo.FindEntityType(typeof(CarteiraCliente))!;
+        Assert.Contains(vinculo.GetForeignKeys(), f => f.PrincipalEntityType.ClrType == typeof(TransferenciaCarteira) &&
+            f.Properties.Single().Name == nameof(CarteiraCliente.TransferenciaId) && f.DeleteBehavior == DeleteBehavior.Restrict);
+
+        var semente = Assert.Single(modelo.FindEntityType(typeof(ParametrosComerciais))!.GetSeedData());
+        Assert.Equal(30, semente[nameof(ParametrosComerciais.DiasRetroativosMaximo)]);
+    }
 }

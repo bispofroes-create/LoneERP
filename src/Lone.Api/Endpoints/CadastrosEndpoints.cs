@@ -54,6 +54,7 @@ public static class CadastrosEndpoints
         MapTiposAusencia(app);
         MapParametrosComerciais(app);
         MapCoberturas(app);
+        MapTransferencias(app);
         MapCnaes(app);
         MapGruposEmpresariais(app);
         return app;
@@ -412,6 +413,25 @@ public static class CadastrosEndpoints
         app.MapGet(Rotas.Comercial.CarteiraVencendo, (int? dias, ICoberturaAppService servico, CancellationToken ct) =>
                 servico.CarteiraVencendoAsync(dias, ct))
             .WithTags("Coberturas de ausência").RequireAuthorization();
+    }
+
+    /// <summary>Transferência de carteira (Motor Comercial, Fase 1d): prévia sem gravar, gravação e consulta.</summary>
+    private static void MapTransferencias(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.Transferencias).WithTags("Transferências de carteira").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (ITransferenciaCarteiraAppService servico, CancellationToken ct) => servico.ListarAsync(ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ITransferenciaCarteiraAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Esta transferência não existe.")));
+
+        grupo.MapPost("previa", (TransferenciaRequisicao requisicao, ITransferenciaCarteiraAppService servico, CancellationToken ct) =>
+            servico.PreviaAsync(requisicao, ct));
+
+        grupo.MapPost(string.Empty, (TransferenciaRequisicao requisicao, ITransferenciaCarteiraAppService servico, CancellationToken ct) =>
+            servico.TransferirAsync(requisicao, ct));
     }
 
     private static void MapCnaes(IEndpointRouteBuilder app)

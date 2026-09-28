@@ -45,10 +45,19 @@ public class ParametrosComerciais : AgregadoRaiz
 {
     public static readonly Guid IdUnico = new("7a9e1c06-0000-0000-0000-000000000001");
     public const int MaximoDiasAviso = 365;
+    public const int MaximoDiasRetroativos = 365;
 
     /// <summary>Com quantos dias de antecedência o fim de um vínculo da carteira é destacado (e entra em "Carteira vencendo").</summary>
     [DisplayName("Aviso de fim do vínculo (dias)")]
     public int DiasAvisoFimVinculo { get; set; } = 30;
+
+    /// <summary>
+    /// Até quantos dias antes de hoje uma transferência de carteira pode ter efeito, ou uma cobertura pode começar
+    /// (decisões T1 e T6 da Fase 1d). Mais para trás reescreveria períodos que podem já ter sido apurados (metas e, no
+    /// futuro, comissões). 0 = só hoje ou datas futuras.
+    /// </summary>
+    [DisplayName("Datas no passado: até (dias)")]
+    public int DiasRetroativosMaximo { get; set; } = 30;
 
     /// <summary>Regra sugerida para o crédito das vendas durante uma ausência coberta (decisão MC-9: titular).</summary>
     [DisplayName("Crédito durante a ausência")]

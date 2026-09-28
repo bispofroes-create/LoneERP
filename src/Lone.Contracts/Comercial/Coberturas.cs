@@ -20,6 +20,9 @@ public sealed class ParametrosComerciaisDto
 {
     public byte[]? Versao { get; set; }
     public int DiasAvisoFimVinculo { get; set; } = 30;
+
+    /// <summary>Até quantos dias antes de hoje valem o efeito de uma transferência e o início de uma cobertura.</summary>
+    public int DiasRetroativosMaximo { get; set; } = 30;
     public RegraCreditoAusencia CreditoNaAusencia { get; set; }
     public decimal? PercentualSubstitutoPadrao { get; set; }
 }

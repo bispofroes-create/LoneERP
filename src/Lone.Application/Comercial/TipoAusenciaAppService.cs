@@ -139,6 +139,7 @@ public sealed class ParametrosComerciaisAppService : IParametrosComerciaisAppSer
             Id = ParametrosComerciais.IdUnico,
             Versao = dto.Versao,
             DiasAvisoFimVinculo = dto.DiasAvisoFimVinculo,
+            DiasRetroativosMaximo = dto.DiasRetroativosMaximo,
             CreditoNaAusencia = dto.CreditoNaAusencia,
             PercentualSubstitutoPadrao = dto.PercentualSubstitutoPadrao,
             CriadoEm = atual.CriadoEm
@@ -153,6 +154,7 @@ public sealed class ParametrosComerciaisAppService : IParametrosComerciaisAppSer
     {
         Versao = p.Versao,
         DiasAvisoFimVinculo = p.DiasAvisoFimVinculo,
+        DiasRetroativosMaximo = p.DiasRetroativosMaximo,
         CreditoNaAusencia = p.CreditoNaAusencia,
         PercentualSubstitutoPadrao = p.PercentualSubstitutoPadrao
     };

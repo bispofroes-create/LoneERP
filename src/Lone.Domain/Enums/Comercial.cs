@@ -59,3 +59,19 @@ public enum SituacaoCobertura : byte
     Encerrada = 2,
     Cancelada = 3
 }
+
+/// <summary>
+/// Resultado de cada vínculo numa transferência de carteira (Motor Comercial, Fase 1d). Gravado no banco: valores novos
+/// entram no fim.
+/// </summary>
+public enum ResultadoItemTransferencia : byte
+{
+    /// <summary>Vínculo da origem encerrado na véspera do efeito e vínculo do destino aberto no efeito (na prévia: "será transferido").</summary>
+    Transferido = 0,
+
+    /// <summary>Não entrou (regra da carteira, vínculo futuro, destino que já atende...): o motivo fica no item.</summary>
+    NaoProcessado = 1,
+
+    /// <summary>Falhou ao gravar (conflito de edição, cadastro que não existe mais): o motivo fica no item.</summary>
+    Erro = 2
+}

@@ -20,6 +20,13 @@
                 <Label Text="Com esta antecedência, o cartão do vínculo na ficha do cliente fica destacado e o vínculo aparece em &quot;Carteira vencendo&quot;."
                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
+                <Label Text="Datas no passado" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+                <FlexLayout Wrap="Wrap">
+                    <c:Campo Rotulo="Até quantos dias antes de hoje" Texto="{Binding DiasRetroativos}" Mascara="Numero" Dica="Ex.: 30 (0 = só hoje em diante)" />
+                </FlexLayout>
+                <Label Text="Vale para a data de efeito de uma transferência de carteira e para o início de uma ausência. Mais para trás, o sistema recusa: o crédito desse período pode já ter sido apurado (metas e, no futuro, comissões)."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
                 <Label Text="Ausências e coberturas" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
                 <FlexLayout Wrap="Wrap">
                     <c:CampoEscolha Rotulo="Crédito das vendas durante a ausência" Itens="{Binding Creditos}" Selecionado="{Binding Credito}" />
