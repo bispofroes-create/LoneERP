@@ -98,12 +98,20 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _colaboradoresApi = colaboradoresApi;
         _comercialApi = comercialApi;
         _arquivos = arquivos;
+        Previa = new PreviaPessoa(LerParaPreviaAsync, AbrirFichaDaPreviaAsync, () => Linhas);
+        // A prévia ao lado ocupa parte da largura: as colunas da lista se ajustam ao que sobra.
+        Previa.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PreviaPessoa.Visivel)) AjustarColunasAoEspaco();
+        };
 
         // Buscar outro texto volta para a página 1 (a busca no servidor sai logo depois, com uma pequena espera).
         // Mensagens: na lista, sucesso vira aviso flutuante que some sozinho; erro e aviso continuam na barra.
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Busca)) _pagina = 1;
+            // Voltando da ficha (que pode ter sido alterada): a prévia aberta relê a pessoa.
+            if (e.PropertyName == nameof(Editando) && !Editando) Previa.Reler();
             if (e.PropertyName is nameof(Mensagem) or nameof(TipoMensagem) or nameof(Editando))
             {
                 OnPropertyChanged(nameof(MostrarAvisoFlutuante));
@@ -205,6 +213,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             Filtros.Carregar(catalogo);
             Grade.Carregar(catalogo.Colunas.Count > 0 ? catalogo.Colunas : GradePessoas.ColunasBasicas(), catalogo.Layout, Filtros);
             _abasEscolhidas = catalogo.Layout?.Abas;
+            CliqueAbreFicha = catalogo.Layout?.CliqueAbreFicha == true;
             _preferenciaLida = true;
         }
         catch (Exception ex) when (ex is not SessaoExpiradaException)
@@ -412,6 +421,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         var layout = Grade.Layout();
         layout.Abas = _abasEscolhidas is null ? null : [.. _abasEscolhidas];
+        layout.CliqueAbreFicha = CliqueAbreFicha;
         return layout;
     }
 
@@ -805,12 +815,67 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         Linhas.Clear();
         foreach (var p in Itens) Linhas.Add(Grade.Linha(p));
+        Previa.Sincronizar(Linhas);
     }
 
+    /// <summary>
+    /// Clique na linha: mostra a prévia ao lado (padrão) ou abre a ficha, conforme a escolha do usuário. Sem espaço para a
+    /// prévia (celular, janela estreita), abre a ficha.
+    /// </summary>
     [RelayCommand]
     private void AbrirLinha(LinhaPessoa? linha)
     {
-        if (linha is not null) Selecionado = linha.Pessoa;
+        if (linha is null) return;
+        if (!CliqueAbreFicha && Previa.Cabe) Previa.Mostrar(linha);
+        else Selecionado = linha.Pessoa;
+    }
+
+    /// <summary>Duplo clique na linha: abre a ficha, qualquer que seja a escolha do clique simples.</summary>
+    [RelayCommand]
+    private void AbrirFichaDaLinha(LinhaPessoa? linha)
+    {
+        if (linha is null) return;
+        Previa.CancelarLeitura(); // o primeiro toque do duplo clique pediu a prévia; a ficha vem agora (e a prévia relê ao voltar)
+        Selecionado = linha.Pessoa;
+    }
+
+    // ---- Prévia ao lado da lista (Etapa 3) ----
+
+    /// <summary>Prévia da pessoa ao lado da lista (cabeçalho e o Resumo da pessoa), sem abrir a ficha.</summary>
+    public PreviaPessoa Previa { get; }
+
+    /// <summary>O clique na linha abre a ficha direto (em vez da prévia). Guardado na preferência do usuário.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoCliqueNaLinha))]
+    private bool _cliqueAbreFicha;
+
+    partial void OnCliqueAbreFichaChanged(bool value)
+    {
+        if (value) Previa.FecharCommand.Execute(null);
+        if (_listaAberta) AgendarSalvarColunas();
+    }
+
+    public string TextoCliqueNaLinha => CliqueAbreFicha ? "Clique: abre a ficha" : "Clique: mostra a prévia";
+
+    [RelayCommand]
+    private void AlternarCliqueNaLinha() => CliqueAbreFicha = !CliqueAbreFicha;
+
+    /// <summary>A prévia lê a pessoa como a ficha lê (mesma rota, mesma permissão), com os cadastros já carregados na tela.</summary>
+    private async Task<PessoaFormulario> LerParaPreviaAsync(Guid id, CancellationToken ct)
+    {
+        var dto = await _pessoas.ObterAsync(id, ct) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
+        return PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento,
+            _camposDocumento, _finalidadesEndereco);
+    }
+
+    /// <summary>"Abrir ficha" da prévia ou um item do resumo (já na aba do assunto).</summary>
+    private async Task AbrirFichaDaPreviaAsync(Guid id, SecaoPessoa? aba)
+    {
+        if ((Itens.FirstOrDefault(p => p.Id == id) ?? Previa.Linha?.Pessoa) is not { } pessoa || pessoa.Id != id) return;
+        Selecionado = pessoa; // abre a ficha (pergunta antes se houver alterações não salvas em outra)
+        if (aba is not { } destino) return;
+        await EsperarFichaAsync(id);
+        if (Formulario?.Id == id) IrParaAba(destino);
     }
 
     [RelayCommand]
@@ -901,7 +966,26 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public void DefinirLarguraDaLista(double largura)
     {
         if (largura <= 0) return;
-        var mostrar = largura >= LarguraMinimaColunas;
+        _larguraLista = largura;
+        // A prévia só vai para o lado se a lista continuar com espaço de sobra para as colunas.
+        Previa.Cabe = largura >= LarguraComPrevia + EspacoPrevia + LarguraMinimaListaComPrevia;
+        AjustarColunasAoEspaco();
+    }
+
+    /// <summary>Largura da prévia com o espaço entre ela e a lista (a tela usa para a coluna dela).</summary>
+    public const double EspacoPrevia = 16;
+    public const double LarguraComPrevia = PreviaPessoa.Largura;
+
+    /// <summary>Com a prévia aberta, a lista precisa de pelo menos isto (senão a prévia não abre ao lado).</summary>
+    public const double LarguraMinimaListaComPrevia = 700;
+
+    private double _larguraLista;
+
+    private void AjustarColunasAoEspaco()
+    {
+        if (_larguraLista <= 0) return;
+        var util = Previa.Visivel ? _larguraLista - LarguraComPrevia - EspacoPrevia : _larguraLista;
+        var mostrar = util >= LarguraMinimaColunas;
         if (Grade.MostrarColunas == mostrar) return;
         Grade.MostrarColunas = mostrar;
         ReconstruirLinhas();
@@ -910,6 +994,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     // ---- Ações da linha ("⋯"), respeitando as permissões ----
 
     private const string AcaoAbrir = "Abrir ficha";
+    private const string AcaoPrevia = "Mostrar prévia";
     private const string AcaoHistorico = "Ver histórico";
     private const string AcaoDesativar = "Desativar cadastro";
     private const string AcaoReativar = "Reativar cadastro";
@@ -919,12 +1004,20 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         if (linha is null) return;
         var podeInativar = _sessao.Possui(Permissoes.Pessoas.Inativar);
-        var opcoes = new List<string> { AcaoAbrir, AcaoHistorico };
+        var linhaDaGrade = Linhas.FirstOrDefault(l => l.Pessoa.Id == linha.Id);
+        var opcoes = new List<string> { AcaoAbrir };
+        if (Previa.Cabe && linhaDaGrade is not null) opcoes.Add(AcaoPrevia);
+        opcoes.Add(AcaoHistorico);
         if (podeInativar && linha.EmUso) opcoes.Add(AcaoDesativar);
         if (podeInativar && linha.Situacao == SituacaoPessoa.Inativo) opcoes.Add(AcaoReativar);
 
         var escolha = await EscolherAsync(linha.Nome, opcoes);
         if (escolha is null) return;
+        if (escolha == AcaoPrevia)
+        {
+            if (linhaDaGrade is not null) Previa.Mostrar(linhaDaGrade);
+            return;
+        }
 
         Selecionado = linha; // abre a ficha (pergunta antes se houver alterações não salvas em outra)
         await EsperarFichaAsync(linha.Id);

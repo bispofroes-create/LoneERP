@@ -87,6 +87,12 @@ public sealed class LayoutListaPessoas
     /// Só na preferência do usuário: as visões salvas não mexem nas abas.
     /// </summary>
     public List<string>? Abas { get; set; }
+
+    /// <summary>
+    /// Clique na linha abre a ficha direto (em vez de mostrar a prévia ao lado). Escolha de cada usuário; o padrão é a
+    /// prévia. Só na preferência do usuário: as visões salvas não mexem nisso.
+    /// </summary>
+    public bool CliqueAbreFicha { get; set; }
 }
 
 /// <summary>

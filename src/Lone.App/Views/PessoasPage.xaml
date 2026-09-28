@@ -17,18 +17,20 @@
         <!-- =====================================================================================================
              LISTA
              ===================================================================================================== -->
-        <!-- Coluna 1 = painel de filtros: largura fixa definida pela página (0 fechado; 356 aberto, fora do celular).
-             Largura fixa, não "Auto": com "Auto" a tabela ocupava tudo e empurrava o painel para fora da janela. -->
+        <!-- Coluna 1 = prévia da pessoa ao lado da tabela (0 fechada; 396 aberta, só quando cabe).
+             Coluna 2 = painel de filtros: largura fixa definida pela página (0 fechado; 356 aberto, fora do celular).
+             Larguras fixas, não "Auto": com "Auto" a tabela ocupava tudo e empurrava o painel para fora da janela. -->
         <Grid x:Name="Lista" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="16" ColumnSpacing="0"
               IsVisible="{Binding MostrarLista}"
               Padding="{OnIdiom Phone='16,16', Default='32,24'}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="ColunaPrevia" Width="0" />
                 <ColumnDefinition x:Name="ColunaFiltros" Width="0" />
             </Grid.ColumnDefinitions>
 
             <!-- Cabeçalho: onde estou + configurações do módulo (saíram do menu lateral) + ação principal -->
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Grid.ColumnSpan="2">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Grid.ColumnSpan="3">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Pessoas" Style="{StaticResource TituloPagina}" />
                     <Label Text="Clientes, fornecedores, colaboradores e empresas do grupo" Style="{StaticResource SubtituloPagina}"
@@ -43,7 +45,7 @@
             </Grid>
 
             <!-- Uma barra só: pesquisa, visões salvas, painel de filtros e ações da lista -->
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                 <Border StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="4,0" HorizontalOptions="Fill"
                         Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
@@ -69,7 +71,7 @@
 
             <!-- Abas com a contagem de cada uma (a marcada fica sublinhada): "Todos" + as escolhidas pelo usuário (tipo, papel,
                  visão salva com ★). "＋" no fim abre o editor. Rolam para o lado quando não cabem. -->
-            <Grid Grid.Row="2" RowDefinitions="Auto,1">
+            <Grid Grid.Row="2" Grid.ColumnSpan="2" RowDefinitions="Auto,1">
                 <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="{OnIdiom Phone=Never, Default=Default}">
                   <HorizontalStackLayout Spacing="4">
                     <HorizontalStackLayout BindableLayout.ItemsSource="{Binding FiltrosRapidos}" Spacing="4">
@@ -194,7 +196,7 @@
 
             <!-- Filtros valendo (chips, todos à vista, quebram linha) com "Limpar" na mesma linha + barra de erro/aviso.
                  Sucesso não usa a barra: aparece flutuando embaixo e some sozinho. -->
-            <VerticalStackLayout Grid.Row="3" Spacing="8">
+            <VerticalStackLayout Grid.Row="3" Grid.ColumnSpan="2" Spacing="8">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Filtros.TemChips}">
                     <FlexLayout Wrap="Wrap" AlignItems="Center" BindableLayout.ItemsSource="{Binding Filtros.Chips}">
                         <BindableLayout.ItemTemplate>
@@ -233,7 +235,7 @@
             <Border Grid.Row="4" Style="{StaticResource PainelConteudo}" Padding="0">
                 <Grid RowDefinitions="Auto,Auto,*">
                     <!-- Barra da tabela -->
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" Padding="16,6,8,6">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" Padding="16,6,8,6">
                         <Label Text="{Binding Grade.TextoOrdenacao}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
                         <ActivityIndicator Grid.Column="1" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" WidthRequest="18" HeightRequest="18"
                                            VerticalOptions="Center" SemanticProperties.Description="Carregando" />
@@ -257,6 +259,10 @@
                         <Button Grid.Column="5" Text="{Binding Grade.TextoBotaoColunas}" Style="{StaticResource BotaoTerciario}" FontSize="14"
                                 Command="{Binding Grade.AlternarSeletorCommand}" IsVisible="{Binding Grade.MostrarColunas}"
                                 ToolTipProperties.Text="Escolher e ordenar as colunas da lista" />
+                        <!-- O que o clique na linha faz (escolha de cada usuário): prévia ao lado ou abrir a ficha. -->
+                        <Button Grid.Column="6" Text="{Binding TextoCliqueNaLinha}" Style="{StaticResource BotaoTerciario}" FontSize="14"
+                                Command="{Binding AlternarCliqueNaLinhaCommand}" IsVisible="{Binding Previa.Cabe}"
+                                ToolTipProperties.Text="Clique na linha: mostrar a prévia ao lado ou abrir a ficha. O duplo clique sempre abre a ficha." />
                     </Grid>
 
                     <!-- Cabeçalho (+ linha de filtro): parte presa (nome) e parte que acompanha a rolagem lateral das linhas -->
@@ -356,11 +362,17 @@
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer Command="{Binding AbrirLinhaCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
                                                                       CommandParameter="{Binding .}" />
+                                                <TapGestureRecognizer NumberOfTapsRequired="2"
+                                                                      Command="{Binding AbrirFichaDaLinhaCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                                      CommandParameter="{Binding .}" />
                                                 <PointerGestureRecognizer PointerEnteredCommand="{Binding EntrarCommand}" PointerExitedCommand="{Binding SairCommand}" />
                                             </Grid.GestureRecognizers>
                                             <Grid.Triggers>
                                                 <DataTrigger TargetType="Grid" Binding="{Binding Destacada}" Value="True">
                                                     <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Grid" Binding="{Binding NaPrevia}" Value="True">
+                                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}" />
                                                 </DataTrigger>
                                             </Grid.Triggers>
                                             <!-- Avatar (PF redondo, PJ quadrado) + nome e código; no celular, cartão com documento, cidade e papéis.
@@ -435,11 +447,17 @@
                                                 <Grid.GestureRecognizers>
                                                     <TapGestureRecognizer Command="{Binding AbrirLinhaCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
                                                                           CommandParameter="{Binding .}" />
+                                                    <TapGestureRecognizer NumberOfTapsRequired="2"
+                                                                          Command="{Binding AbrirFichaDaLinhaCommand, Source={RelativeSource AncestorType={x:Type pes:PessoasViewModel}}, x:DataType=pes:PessoasViewModel}"
+                                                                          CommandParameter="{Binding .}" />
                                                     <PointerGestureRecognizer PointerEnteredCommand="{Binding EntrarCommand}" PointerExitedCommand="{Binding SairCommand}" />
                                                 </Grid.GestureRecognizers>
                                                 <Grid.Triggers>
                                                     <DataTrigger TargetType="Grid" Binding="{Binding Destacada}" Value="True">
                                                         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding NaPrevia}" Value="True">
+                                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}" />
                                                     </DataTrigger>
                                                 </Grid.Triggers>
                                                 <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Celulas}">
@@ -579,8 +597,84 @@
                 </Grid>
             </Border>
 
+            <!-- Prévia da pessoa ao lado da tabela (Etapa 3): cabeçalho da linha, "Abrir ficha", ações rápidas e o mesmo Resumo
+                 da pessoa da ficha. Só quando cabe (no celular, tocar abre a ficha). ‹ › andam pela página. -->
+            <Border Grid.Row="4" Grid.RowSpan="2" Grid.Column="1" Style="{StaticResource PainelConteudo}" Padding="0" Margin="16,0,0,0"
+                    IsVisible="{Binding Previa.Visivel}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="2" Padding="8,6">
+                        <Button Text="‹" Style="{StaticResource BotaoIcone}" Command="{Binding Previa.AnteriorCommand}"
+                                IsEnabled="{Binding Previa.TemAnterior}" ToolTipProperties.Text="Pessoa anterior da página"
+                                SemanticProperties.Description="Pessoa anterior" />
+                        <Button Grid.Column="1" Text="›" Style="{StaticResource BotaoIcone}" Command="{Binding Previa.ProximaCommand}"
+                                IsEnabled="{Binding Previa.TemProxima}" ToolTipProperties.Text="Próxima pessoa da página"
+                                SemanticProperties.Description="Próxima pessoa" />
+                        <Label Grid.Column="2" Text="{Binding Previa.Posicao}" Style="{StaticResource Secundario}" VerticalOptions="Center"
+                               Margin="6,0,0,0" />
+                        <Button Grid.Column="3" Text="✕" Style="{StaticResource BotaoIcone}" Command="{Binding Previa.FecharCommand}"
+                                ToolTipProperties.Text="Fechar a prévia" SemanticProperties.Description="Fechar a prévia" />
+                    </Grid>
+
+                    <VerticalStackLayout Grid.Row="1" Padding="16,4,16,12" Spacing="10">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border WidthRequest="44" HeightRequest="44" StrokeThickness="0" VerticalOptions="Center" StrokeShape="RoundRectangle 22"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding Previa.EhEmpresa}" Value="True">
+                                        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Label Text="{Binding Previa.Iniciais}" FontSize="15" FontAttributes="Bold" HorizontalOptions="Center" VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding Previa.Nome}" FontSize="17" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding Previa.Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                        </Grid>
+                        <!-- Selos numa lista simples (sem quebra de linha): lista de selos dentro de outra que quebra linha já
+                             derrubou o app no Windows (ver o cabeçalho da ficha). -->
+                        <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Previa.Papeis}" Spacing="4">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="pes:SeloPapel">
+                                    <c:SeloTom Texto="{Binding Texto}" Tom="{Binding Tom}" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <Button Text="Abrir ficha" Command="{Binding Previa.AbrirFichaCommand}" IsEnabled="{Binding Livre}"
+                                    SemanticProperties.Description="{Binding Previa.Nome, StringFormat='Abrir a ficha de {0}'}" />
+                            <Button Text="☎" Style="{StaticResource BotaoIcone}" VerticalOptions="Center" IsVisible="{Binding Previa.TemTelefone}"
+                                    Command="{Binding LigarCommand}" CommandParameter="{Binding Previa.Linha}"
+                                    ToolTipProperties.Text="Ligar para o telefone principal" SemanticProperties.Description="Ligar" />
+                            <Button Text="💬" Style="{StaticResource BotaoIcone}" VerticalOptions="Center" IsVisible="{Binding Previa.TemTelefone}"
+                                    Command="{Binding WhatsAppCommand}" CommandParameter="{Binding Previa.Linha}"
+                                    ToolTipProperties.Text="Conversar no WhatsApp (telefone principal)" SemanticProperties.Description="WhatsApp" />
+                            <Button Text="✉" Style="{StaticResource BotaoIcone}" VerticalOptions="Center" IsVisible="{Binding Previa.TemEmail}"
+                                    Command="{Binding EnviarEmailCommand}" CommandParameter="{Binding Previa.Linha}"
+                                    ToolTipProperties.Text="Escrever para o e-mail principal" SemanticProperties.Description="E-mail" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+
+                    <ScrollView Grid.Row="2">
+                        <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
+                            <ActivityIndicator IsRunning="{Binding Previa.Carregando}" IsVisible="{Binding Previa.Carregando}" HorizontalOptions="Start"
+                                               WidthRequest="20" HeightRequest="20" SemanticProperties.Description="Carregando o resumo" />
+                            <Label Text="{Binding Previa.Erro}" IsVisible="{Binding Previa.TemErro}" TextColor="{StaticResource Erro}" LineBreakMode="WordWrap" />
+                            <!-- O IsVisible fica no ContentView: no ResumoPessoaView o contexto das ligações já é o resumo. -->
+                            <ContentView IsVisible="{Binding Previa.MostrarResumo}">
+                                <pv:ResumoPessoaView BindingContext="{Binding Previa.Resumo}" />
+                            </ContentView>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+            </Border>
+
             <!-- Painel de filtros (à direita; no celular, sobre a lista): grupos da ficha, campos com caixa de marcar. -->
-            <Border Grid.Row="1" Grid.RowSpan="5" Grid.Column="{OnIdiom Phone=0, Default=1}" Grid.ColumnSpan="{OnIdiom Phone=2, Default=1}"
+            <Border Grid.Row="1" Grid.RowSpan="5" Grid.Column="{OnIdiom Phone=0, Default=2}" Grid.ColumnSpan="{OnIdiom Phone=3, Default=1}"
                     Style="{StaticResource PainelConteudo}" Padding="16" Margin="{OnIdiom Phone='0', Default='16,0,0,0'}"
                     ZIndex="10" IsVisible="{Binding MostrarFiltros}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
@@ -617,7 +711,7 @@
             </Grid>
 
             <!-- Aviso de sucesso: flutua embaixo, no meio, e some sozinho (não empurra a lista como a barra). -->
-            <Border Grid.Row="4" Grid.RowSpan="2" Grid.ColumnSpan="2" ZIndex="30" IsVisible="{Binding MostrarAvisoFlutuante}"
+            <Border Grid.Row="4" Grid.RowSpan="2" Grid.ColumnSpan="3" ZIndex="30" IsVisible="{Binding MostrarAvisoFlutuante}"
                     HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,12" Padding="16,10,8,10"
                     StrokeThickness="0" StrokeShape="RoundRectangle 10" MaximumWidthRequest="640"
                     BackgroundColor="{AppThemeBinding Light={StaticResource Texto}, Dark={StaticResource SuperficieRealceEscuro}}"

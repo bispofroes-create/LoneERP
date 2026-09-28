@@ -605,8 +605,28 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     como aba" com a visão já aplicada só marca a aba (antes reaplicava a gravada e perdia o "(alterada)"); (3)
     `ColunasListaPessoas.Limpar` guarda até 2×Maximo abas (as guardadas de papéis desativados vinham depois das 10 e eram
     cortadas). Ficou anotada, sem mexer: corrida antiga em que uma resposta atrasada deixa total/contadores velhos na tela.
-- **Etapa 3 (prévia lateral e indicadores):** plano em `docs/PLANO-ETAPA3-PESSOAS.md`, com decisões D1–D5 pendentes do
-  usuário (clique na linha, o que é "pendência cadastral", "vencendo" por antecedência do tipo ou 30 dias...).
+- **Etapa 3 (prévia lateral e indicadores):** plano e decisões do usuário (D1–D5, 27/09 à noite) em
+  `docs/PLANO-ETAPA3-PESSOAS.md`.
+  - **3a — Prévia (código entregue, sem compilar; sem mudança no banco nem na API):**
+    - `PreviaPessoa` (Lone.Cliente) lê a pessoa como a ficha (`ObterAsync` + `PessoaFormulario.De`, esperando 150 ms e
+      cancelando a anterior) e mostra o cabeçalho da linha, "Abrir ficha", ligar/WhatsApp/e-mail e o mesmo
+      `ResumoPessoa` da ficha. Tocar num item do resumo abre a ficha na aba do item. ‹ › andam pela página ("3 de 50").
+    - Tela: coluna `ColunaPrevia` (380 + 16) entre a tabela e o painel de filtros, ao lado só da tabela e da paginação
+      (barra, abas e chips passam por cima). Só quando cabe: a lista precisa ficar com ≥ 700 (`Previa.Cabe`). Sem
+      espaço (celular, janela estreita), o clique abre a ficha. A linha mostrada fica marcada (`LinhaPessoa.NaPrevia`).
+    - Clique: prévia (padrão) ou abre a ficha, escolha de cada usuário no botão "Clique: …" da barra da tabela
+      (`LayoutListaPessoas.CliqueAbreFicha`, na preferência da tela; as visões não mexem nisso). Duplo clique sempre abre
+      a ficha. O "⋯" da linha ganhou "Mostrar prévia" quando cabe.
+    - A prévia fica aberta de uma pessoa para outra, acompanha a lista relida sem ler de novo e relê ao voltar da ficha
+      (ou quando reaparece, se estava escondida).
+    - **Não feito:** teclado (↑↓, Enter, Esc) — o MAUI não tem atalho de teclado sem código por plataforma; ficou ‹ › na
+      prévia. Cache das últimas pessoas lidas (não pareceu necessário).
+    - Testes (`PessoasListaTests`): clique mostra a prévia com o resumo; mesma pessoa não relê; próxima; fechar; lista
+      relida mantém a pessoa; cadastro que não existe mais; escolha "abre a ficha" guardada; sem espaço abre a ficha;
+      janela média.
+    - Revisão por agente (sem compilar): nenhum erro de compilação ou de fila; corrigidos 4 detalhes (linha marcada com a
+      prévia fechada ou escondida, leitura à toa no duplo clique e com a prévia escondida).
+  - **3b — Indicadores:** ainda não feito.
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.

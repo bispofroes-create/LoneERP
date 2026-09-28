@@ -406,6 +406,150 @@ public class PessoasListaTests
         Assert.True(tela.FiltrosRapidos[0].Selecionado);
     }
 
+    // ---- Prévia ao lado da lista (Etapa 3) ----
+
+    private static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente)> AbrirComTresPessoasAsync()
+    {
+        var (tela, ambiente) = await AbrirAsync();
+        tela.Previa.EsperaParaLer = TimeSpan.Zero;
+        tela.DefinirLarguraDaLista(1600); // janela larga: a prévia cabe ao lado
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Pagina(total: 3, quantos: 3));
+        await tela.EscolherFiltroRapidoCommand.ExecuteAsync(tela.FiltrosRapidos.Single(f => f.Chave == FiltroRapido.Fisicas));
+        return (tela, ambiente);
+    }
+
+    private static PessoaDto Ficha(LinhaPessoa linha) =>
+        new() { Id = linha.Pessoa.Id, Codigo = linha.Pessoa.Codigo, Nome = linha.Nome, Natureza = NaturezaPessoa.Fisica };
+
+    [Fact]
+    public async Task Clique_na_linha_mostra_a_previa_com_o_resumo_sem_abrir_a_ficha()
+    {
+        var (tela, ambiente) = await AbrirComTresPessoasAsync();
+        Assert.True(tela.Previa.Cabe);
+        var primeira = tela.Linhas[0];
+
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Ficha(primeira));
+        tela.AbrirLinhaCommand.Execute(primeira);
+        await tela.Previa.Lendo;
+
+        Assert.False(tela.Editando); // a ficha não abriu
+        Assert.True(tela.Previa.Visivel);
+        Assert.True(primeira.NaPrevia);
+        Assert.Equal("Pessoa 1", tela.Previa.Nome);
+        Assert.Equal("1 de 3", tela.Previa.Posicao);
+        Assert.False(tela.Previa.TemAnterior);
+        Assert.True(tela.Previa.TemProxima);
+        Assert.False(tela.Previa.Carregando);
+        Assert.Contains(tela.Previa.Resumo.Blocos, b => b.Titulo == "Cadastro");
+        Assert.Contains(tela.Previa.Resumo.Blocos.SelectMany(b => b.Itens), i => i.Texto == "CPF não informado");
+        Assert.Equal("/" + Rotas.Pessoas.PorId(primeira.Pessoa.Id), ambiente.Servidor.Recebidas.Last().Caminho);
+
+        // A mesma pessoa de novo: não lê outra vez.
+        var lidas = ambiente.Servidor.Recebidas.Count;
+        tela.AbrirLinhaCommand.Execute(primeira);
+        await tela.Previa.Lendo;
+        Assert.Equal(lidas, ambiente.Servidor.Recebidas.Count);
+
+        // Próxima: troca a pessoa e a linha marcada.
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Ficha(tela.Linhas[1]));
+        tela.Previa.ProximaCommand.Execute(null);
+        await tela.Previa.Lendo;
+        Assert.Equal("Pessoa 2", tela.Previa.Nome);
+        Assert.Equal("2 de 3", tela.Previa.Posicao);
+        Assert.False(primeira.NaPrevia);
+        Assert.True(tela.Linhas[1].NaPrevia);
+
+        tela.Previa.FecharCommand.Execute(null);
+        Assert.False(tela.Previa.Visivel);
+        Assert.False(tela.Linhas[1].NaPrevia);
+    }
+
+    [Fact]
+    public async Task Previa_continua_na_pessoa_quando_a_lista_e_relida()
+    {
+        var (tela, ambiente) = await AbrirComTresPessoasAsync();
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Ficha(tela.Linhas[0]));
+        tela.AbrirLinhaCommand.Execute(tela.Linhas[0]);
+        await tela.Previa.Lendo;
+        var lidas = ambiente.Servidor.Recebidas.Count;
+        tela.EsperaParaSalvarColunas = TimeSpan.FromHours(1); // a gravação da densidade não sai neste teste
+
+        tela.Grade.AlternarDensidadeCommand.Execute(null); // as linhas são refeitas
+        Assert.Equal(lidas, ambiente.Servidor.Recebidas.Count); // sem ler a pessoa de novo
+        Assert.Same(tela.Linhas[0], tela.Previa.Linha);
+        Assert.True(tela.Linhas[0].NaPrevia);
+    }
+
+    [Fact]
+    public async Task Previa_de_cadastro_que_nao_existe_mais_avisa()
+    {
+        var (tela, ambiente) = await AbrirComTresPessoasAsync();
+        ambiente.Servidor.Responder(HttpStatusCode.NotFound);
+        tela.AbrirLinhaCommand.Execute(tela.Linhas[2]);
+        await tela.Previa.Lendo;
+
+        Assert.True(tela.Previa.TemErro);
+        Assert.Equal("Este cadastro não existe mais.", tela.Previa.Erro);
+        Assert.False(tela.Previa.MostrarResumo);
+        Assert.False(tela.Editando);
+    }
+
+    [Fact]
+    public async Task Escolha_do_clique_abrir_a_ficha_fica_guardada_e_sem_espaco_o_clique_abre_a_ficha()
+    {
+        var (tela, ambiente) = await AbrirComTresPessoasAsync();
+        tela.EsperaParaSalvarColunas = TimeSpan.Zero;
+        ambiente.Servidor.Responder(HttpStatusCode.NoContent); // preferência
+        tela.AlternarCliqueNaLinhaCommand.Execute(null);
+        await tela.SalvandoColunas;
+
+        Assert.True(tela.CliqueAbreFicha);
+        Assert.Equal("Clique: abre a ficha", tela.TextoCliqueNaLinha);
+        var corpo = ambiente.Servidor.Recebidas.Last(r => r.Caminho == "/" + Rotas.Menu.Tela(ColunasPessoas.TelaLista)).Corpo;
+        var preferencia = System.Text.Json.JsonSerializer.Deserialize<Lone.Contracts.Menu.PreferenciaTelaDto>(corpo,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<LayoutListaPessoas>(preferencia.Conteudo)!.CliqueAbreFicha);
+
+        // Com "abre a ficha", o clique abre a ficha e a prévia não aparece.
+        var linha = tela.Linhas[0];
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Ficha(linha));
+        tela.AbrirLinhaCommand.Execute(linha);
+        for (var i = 0; i < 100 && tela.Formulario?.Id != linha.Pessoa.Id; i++) await Task.Delay(10);
+        Assert.Equal(linha.Pessoa.Id, tela.Formulario?.Id);
+        Assert.False(tela.Previa.Visivel);
+    }
+
+    [Fact]
+    public async Task Sem_espaco_ao_lado_o_clique_abre_a_ficha_e_o_menu_da_linha_nao_oferece_previa()
+    {
+        var (tela, ambiente) = await AbrirAsync(); // sem largura definida (como no celular): a prévia não cabe
+        Assert.False(tela.Previa.Cabe);
+        var linha = tela.Linhas[0];
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Ficha(linha));
+        tela.AbrirLinhaCommand.Execute(linha);
+        for (var i = 0; i < 100 && tela.Formulario?.Id != linha.Pessoa.Id; i++) await Task.Delay(10);
+        Assert.Equal(linha.Pessoa.Id, tela.Formulario?.Id);
+        Assert.False(tela.Previa.Aberta);
+    }
+
+    [Fact]
+    public async Task Previa_aberta_tira_espaco_das_colunas_em_janela_media()
+    {
+        var (tela, ambiente) = await AbrirComTresPessoasAsync();
+        tela.DefinirLarguraDaLista(1100); // cabe a prévia (380 + 16 + 700 = 1096)
+        Assert.True(tela.Previa.Cabe);
+        Assert.True(tela.Grade.MostrarColunas);
+
+        ambiente.Servidor.Responder(HttpStatusCode.OK, Ficha(tela.Linhas[0]));
+        tela.AbrirLinhaCommand.Execute(tela.Linhas[0]);
+        await tela.Previa.Lendo;
+        Assert.True(tela.Grade.MostrarColunas); // sobram 704: as colunas continuam (rolam para o lado)
+
+        tela.DefinirLarguraDaLista(1000); // não cabe mais: a prévia some e a lista volta a ter a largura toda
+        Assert.False(tela.Previa.Visivel);
+        Assert.True(tela.Grade.MostrarColunas);
+    }
+
     [Fact]
     public void Nome_do_papel_vira_plural_na_aba()
     {

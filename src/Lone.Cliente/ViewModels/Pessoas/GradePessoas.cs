@@ -134,6 +134,9 @@ public sealed partial class LinhaPessoa : ObservableObject
     /// <summary>Mouse em cima (a parte presa e a que rola acendem juntas).</summary>
     [ObservableProperty] private bool _destacada;
 
+    /// <summary>A pessoa desta linha está na prévia ao lado (a linha fica marcada).</summary>
+    [ObservableProperty] private bool _naPrevia;
+
     [RelayCommand] private void Entrar() => Destacada = true;
     [RelayCommand] private void Sair() => Destacada = false;
 }

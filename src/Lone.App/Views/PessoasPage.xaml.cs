@@ -53,7 +53,15 @@ public partial class PessoasPage : ContentPage
         {
             if (e.PropertyName == nameof(GradePessoas.MostrarColunas)) AjustarColunaNome();
         };
+        // Prévia aberta ou fechada: a coluna dela aparece ou some (o ViewModel já ajustou as colunas da tabela).
+        _viewModel.Previa.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PreviaPessoa.Visivel)) AjustarColunaPrevia();
+        };
     }
+
+    private void AjustarColunaPrevia() =>
+        ColunaPrevia.Width = new GridLength(_viewModel.Previa.Visivel ? PessoasViewModel.LarguraComPrevia + PessoasViewModel.EspacoPrevia : 0);
 
     // Posição que o código pediu a cada rolagem: o "Scrolled" que volta dela é só o eco e não é repassado (sem ping-pong,
     // e sem perder a rolagem do usuário que chegar no meio).
@@ -89,6 +97,7 @@ public partial class PessoasPage : ContentPage
         var painel = _viewModel.Filtros.Aberto && DeviceInfo.Idiom != DeviceIdiom.Phone ? LarguraPainelFiltros : 0;
         ColunaFiltros.Width = new GridLength(painel);
         _viewModel.DefinirLarguraDaLista(Width - Lista.Padding.HorizontalThickness - painel);
+        AjustarColunaPrevia();
         // Largura útil da ficha (margens de 32 de cada lado, até o máximo de 1600): decide se o resumo vai para o lado.
         _viewModel.Resumo.DefinirLargura(Math.Min(Width - 64, 1600));
     }
