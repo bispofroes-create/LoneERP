@@ -658,7 +658,10 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Commits no branch `pessoas-fiscal-documentos-resumo`: `7155284` (filtros, Etapas 1–2, abas configuráveis),
     `8651c2f` (prévia) e `8db9988` (indicadores e testes). Não houve como separar filtros, Etapas 1–2 e abas, porque
     mexem nos mesmos arquivos.
-  - Falta confirmar a rodada de testes depois da correção.
+  - Rodada seguinte: 1.328 aprovados, 0 falhas e 22 ignorados (testes de banco, que precisam de SQL Server de teste).
+    O SQL das pendências (`cadastro.comPendencia`) pode ganhar teste nesse formato. Também foram corrigidos 3 avisos
+    de compilação: CS8620 em `FiltrosPessoasSql` e MVVMTK0034 em `GradePessoas.AplicarLayout`, onde o acesso direto
+    ao campo é intencional e ficou com `#pragma` e comentário.
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.

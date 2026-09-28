@@ -22,8 +22,9 @@
   - `8db9988`: Etapa 3b, a faixa de indicadores, com dois testes antigos atualizados.
   - Depois deles, o commit só de documentação desta atualização.
 - **Working tree limpo**; só `_entrega/` fica fora do git. Regra mantida: nunca commitar sem o usuário pedir e nunca fazer push.
-- **Compilação:** o usuário compilou tudo, e o build passou. O `dotnet test` teve 2 falhas em testes antigos
-  (CNAE e documento sem tipo), já corrigidas no `8db9988`. **A rodada de testes depois da correção ainda não foi confirmada.**
+- **Compilação e testes:** build ok; `dotnet test` com 1.328 aprovados, 0 falhas e 22 ignorados. Os ignorados são
+  testes de banco (`Infraestrutura.Migracao*`, `BancoEnderecoFinalidadeTests`), que só rodam com SQL Server de teste
+  configurado. Antes de rodar, feche a API e o app: senão as DLLs ficam travadas (MSB3027).
 - **Migration nova já gerada e aplicada pelo usuário:** `20260927231413_PreferenciasTela` (só cria a tabela
   `PreferenciasTela`). Nenhuma outra migration pendente.
 - Testes: não rodados desde as últimas mudanças (o assistente não tem SDK). Pedir ao usuário `dotnet test`.
@@ -93,8 +94,7 @@ na abertura da tela exige resposta a mais nos testes), `AmbienteCliente`, `Dialo
 ## 6. Pendências e próximos passos
 
 **Imediato (atualizado às 23h de 27/09):**
-1. Confirmar que o `dotnet test` passa todo. Se algo falhar, fazer um commit de correção por cima.
-2. Conferir na tela:
+1. Conferir na tela:
    - abas: ＋, Transportadora, visão como aba com contador, tirar a aba marcada;
    - prévia: clique, duplo clique, ‹ › e o botão "Clique: …";
    - indicadores: tocar põe e tira o filtro; com "Com pendência cadastral", o resumo das pessoas mostra a pendência;

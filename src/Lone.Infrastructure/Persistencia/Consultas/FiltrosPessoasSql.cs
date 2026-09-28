@@ -47,7 +47,9 @@ public static class FiltrosPessoasSql
 
         // ---- Lista com colunas (linha de filtro das colunas) ----
         [CamposFiltroPessoas.Nome] = (q, c, x) =>
-            q.Where(Ou(Texto<Pessoa>(p => p.Nome, c), Texto<Pessoa>(Repositorios.PessoaRepositorio.NomeParaExibirNoBanco, c))),
+            // O cast só ajusta a nulidade (string → string?): o filtro de texto aceita campos que podem ser nulos.
+            q.Where(Ou(Texto<Pessoa>(p => p.Nome, c),
+                       Texto((Expression<Func<Pessoa, string?>>)Repositorios.PessoaRepositorio.NomeParaExibirNoBanco, c))),
         [CamposFiltroPessoas.Codigo] = (q, c, x) => q.Where(Faixa<Pessoa>(p => (decimal?)p.Codigo, c)),
         [CamposFiltroPessoas.Documento] = (q, c, x) =>
         {

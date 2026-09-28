@@ -354,10 +354,14 @@ public sealed partial class GradePessoas : ObservableObject
         _ordenacao = layout.Ordenacao is { } o && (o.Coluna == ColunasPessoas.Nome || _catalogo.Any(c => c.Id == o.Coluna))
             ? new OrdenacaoLista { Coluna = o.Coluna, Direcao = o.Direcao }
             : null;
+        // Direto nos campos, de propósito: as propriedades geradas chamariam OnFiltroNasColunasChanged/OnCompactaChanged, que
+        // avisam a tela (Mudou) e fariam releitura e gravação da preferência só por aplicar um layout.
+#pragma warning disable MVVMTK0034
         if (SetProperty(ref _filtroNasColunas, layout.FiltroNasColunas, nameof(FiltroNasColunas)))
             OnPropertyChanged(nameof(MostrarLinhaFiltro));
         if (SetProperty(ref _compacta, layout.Compacta, nameof(Compacta)))
             OnPropertyChanged(nameof(TextoDensidade));
+#pragma warning restore MVVMTK0034
         Reconstruir();
     }
 
