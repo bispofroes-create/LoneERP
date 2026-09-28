@@ -47,9 +47,7 @@ public static class FiltrosPessoasSql
 
         // ---- Lista com colunas (linha de filtro das colunas) ----
         [CamposFiltroPessoas.Nome] = (q, c, x) =>
-            // O cast só ajusta a nulidade (string → string?): o filtro de texto aceita campos que podem ser nulos.
-            q.Where(Ou(Texto<Pessoa>(p => p.Nome, c),
-                       Texto((Expression<Func<Pessoa, string?>>)Repositorios.PessoaRepositorio.NomeParaExibirNoBanco, c))),
+            q.Where(Ou(Texto<Pessoa>(p => p.Nome, c), Texto(NomeParaExibir, c))),
         [CamposFiltroPessoas.Codigo] = (q, c, x) => q.Where(Faixa<Pessoa>(p => (decimal?)p.Codigo, c)),
         [CamposFiltroPessoas.Documento] = (q, c, x) =>
         {
@@ -232,6 +230,14 @@ public static class FiltrosPessoasSql
         },
         [CamposFiltroPessoas.AlteradoEm] = AlteradoEm
     };
+
+    /// <summary>
+    /// O nome para exibir do repositório (mesmo corpo e parâmetro), tipado como <c>string?</c> para o filtro de texto, que
+    /// aceita campos que podem ser nulos. Montar a expressão de novo evita o aviso de nulidade sem mudar o SQL.
+    /// </summary>
+    private static readonly Expression<Func<Pessoa, string?>> NomeParaExibir =
+        Expression.Lambda<Func<Pessoa, string?>>(Repositorios.PessoaRepositorio.NomeParaExibirNoBanco.Body,
+            Repositorios.PessoaRepositorio.NomeParaExibirNoBanco.Parameters);
 
     /// <summary>Campos com condição implementada (um teste confere contra o catálogo).</summary>
     public static IReadOnlyCollection<string> Implementados => PorCampo.Keys;

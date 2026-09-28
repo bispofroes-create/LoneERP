@@ -660,8 +660,9 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     mexem nos mesmos arquivos.
   - Rodada seguinte: 1.328 aprovados, 0 falhas e 22 ignorados (testes de banco, que precisam de SQL Server de teste).
     O SQL das pendências (`cadastro.comPendencia`) pode ganhar teste nesse formato. Também foram corrigidos 3 avisos
-    de compilação: CS8620 em `FiltrosPessoasSql` e MVVMTK0034 em `GradePessoas.AplicarLayout`, onde o acesso direto
-    ao campo é intencional e ficou com `#pragma` e comentário.
+    de compilação: CS8620 em `FiltrosPessoasSql` (a expressão do nome foi remontada como `string?`; um cast só trocava
+    o aviso pelo CS8619) e MVVMTK0034 em `GradePessoas.AplicarLayout`, onde o acesso direto ao campo é intencional e
+    ficou com `#pragma` e comentário. Build final: 0 avisos e 0 erros.
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.
