@@ -10,6 +10,9 @@ public interface IPessoaAppService
 {
     Task<List<PessoaResumo>> ListarAsync(FiltroPessoas filtro, CancellationToken ct = default);
     Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct = default);
+
+    /// <summary>Tela de Pessoas com o painel de filtros (condições do catálogo). Lança ValidacaoException se forem inválidas.</summary>
+    Task<PaginaListaPessoas> ListarPaginaAsync(ListaPessoasRequisicao requisicao, CancellationToken ct = default);
     Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>CPF ou raiz de CNPJ já usado por outro cadastro (aviso na ficha, antes de salvar).</summary>

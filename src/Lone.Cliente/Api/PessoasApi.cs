@@ -31,6 +31,60 @@ public sealed class PessoasApi
         return _api.GetAsync<PaginaListaPessoas>(Rotas.Pessoas.Pagina + (consulta.Length == 0 ? "?" + paginacao : consulta + "&" + paginacao), ct);
     }
 
+    /// <summary>Tela de Pessoas com o painel de filtros: as condições vão no corpo (POST), nunca na URL.</summary>
+    public Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, IReadOnlyList<CondicaoFiltro> condicoes, int pagina, int tamanho,
+                                                      CancellationToken ct = default) =>
+        ListarPaginaAsync(filtro, condicoes, [], null, pagina, tamanho, ct);
+
+    /// <summary>
+    /// Lista com colunas extras (valores em PessoaResumo.Valores) e ordenação pelo cabeçalho. Sem condições, colunas
+    /// extras nem ordenação, é o GET simples de sempre.
+    /// </summary>
+    public Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, IReadOnlyList<CondicaoFiltro> condicoes,
+                                                      IReadOnlyList<string> colunas, OrdenacaoLista? ordenacao, int pagina, int tamanho,
+                                                      CancellationToken ct = default) =>
+        condicoes.Count == 0 && colunas.Count == 0 && ordenacao is null
+            ? ListarPaginaAsync(filtro, pagina, tamanho, ct)
+            : _api.PostAsync<PaginaListaPessoas>(Rotas.Pessoas.Pagina,
+                new ListaPessoasRequisicao
+                {
+                    Filtro = filtro, Condicoes = [.. condicoes], Colunas = [.. colunas], Ordenacao = ordenacao,
+                    Pagina = pagina, Tamanho = tamanho
+                }, ct: ct);
+
+    /// <summary>Guarda as colunas e a ordenação da lista para o usuário (acompanha o usuário em qualquer aparelho).</summary>
+    public Task SalvarLayoutListaAsync(LayoutListaPessoas layout, CancellationToken ct = default) =>
+        _api.PutSemRespostaAsync(Rotas.Menu.Tela(ColunasPessoas.TelaLista),
+            new Lone.Contracts.Menu.PreferenciaTelaDto { Conteudo = System.Text.Json.JsonSerializer.Serialize(layout) }, ct);
+
+    // ---- Visões (filtros salvos), exportação e rotina de endereços duplicados (antes na Consulta avançada) ----
+
+    /// <summary>Opções da consulta; a tela de Pessoas usa as visões salvas (Filtros).</summary>
+    public Task<OpcoesConsultaPessoasDto> OpcoesConsultaAsync(CancellationToken ct = default) =>
+        _api.GetAsync<OpcoesConsultaPessoasDto>(Rotas.Pessoas.OpcoesConsulta, ct);
+
+    public Task<FiltroSalvoDto> SalvarFiltroAsync(FiltroSalvoDto filtro, CancellationToken ct = default) =>
+        _api.PutAsync<FiltroSalvoDto>(Rotas.Pessoas.FiltroSalvo(filtro.Id), filtro, ct);
+
+    public Task DesativarFiltroAsync(Guid id, CancellationToken ct = default) =>
+        _api.PostAsync(Rotas.Pessoas.DesativarFiltro(id), ct);
+
+    /// <summary>Quantas pessoas cada visão traz (contador das abas de visão). Visão que não pôde ser contada não vem.</summary>
+    public Task<Dictionary<Guid, int>> ContarVisoesAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default) =>
+        _api.PostAsync<Dictionary<Guid, int>>(Rotas.Pessoas.ContagemFiltros, ids.ToList(), ct: ct);
+
+    /// <summary>CSV do que está filtrado (permissão própria; a API registra na auditoria).</summary>
+    public Task<ArquivoExportado> ExportarAsync(CriteriosPessoas criterios, CancellationToken ct = default) =>
+        _api.PostAsync<ArquivoExportado>(Rotas.Pessoas.Exportar, criterios, ct: ct);
+
+    /// <summary>Pessoas com o mesmo endereço físico cadastrado mais de uma vez (só leitura; consolidação na ficha).</summary>
+    public Task<Lone.Contracts.Enderecos.PaginaEnderecosDuplicados> ListarEnderecosDuplicadosAsync(Guid? apos, int limite, CancellationToken ct = default) =>
+        _api.GetAsync<Lone.Contracts.Enderecos.PaginaEnderecosDuplicados>(Rotas.FinalidadesEndereco.ListarDuplicados(apos, limite), ct);
+
+    /// <summary>Campos do painel de filtros (só os que o usuário pode usar), com as escolhas de cada um.</summary>
+    public Task<CatalogoFiltrosPessoasDto> CatalogoFiltrosAsync(CancellationToken ct = default) =>
+        _api.GetAsync<CatalogoFiltrosPessoasDto>(Rotas.Pessoas.CatalogoFiltros, ct);
+
     public Task<List<QuantidadePorFaixaEtaria>> ListarFaixasEtariasAsync(TipoPapel? papel, CancellationToken ct = default) =>
         _api.GetAsync<List<QuantidadePorFaixaEtaria>>(Rotas.Pessoas.FaixasEtarias + (papel is { } p ? "?papel=" + p : string.Empty), ct);
 

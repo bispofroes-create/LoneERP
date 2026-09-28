@@ -106,12 +106,17 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
 
         var nomePessoas = ModulosConfiguracao.Nome(ModulosConfiguracao.Pessoas);
         var pessoas = new List<ItemMenu>();
+        // A antiga "Consulta avançada" virou o painel de filtros da própria tela de Pessoas (ver RotasAntigas).
+        // As configurações de Pessoas ficam no botão "Configurações" da própria tela (decisão do usuário); o menu segue
+        // destacando "Cadastro" nelas, e a busca e os favoritos continuam achando cada uma (CriarCatalogo). Quem só
+        // configura, sem ver pessoas, não tem a tela: para esse perfil o item continua no menu.
         if (possui(Permissoes.Pessoas.Visualizar))
-        {
-            pessoas.Add(new ItemMenu("Cadastro", "pessoas", descricao: "Cadastro de pessoas", caminho: nomePessoas));
-            pessoas.Add(new ItemMenu("Consulta avançada", "consulta-pessoas", descricao: "Consulta avançada de pessoas", caminho: nomePessoas));
-        }
-        AdicionarConfiguracoes(pessoas, ModulosConfiguracao.Pessoas, possui);
+            pessoas.Add(new ItemMenu("Cadastro", "pessoas", descricao: "Cadastro de pessoas", caminho: nomePessoas,
+                rotasRelacionadas: ConfiguracoesViewModel.AlgumaPermitida(possui, ModulosConfiguracao.Pessoas)
+                    ? [ModulosConfiguracao.Rota(ModulosConfiguracao.Pessoas), .. ConfiguracoesViewModel.RotasDoModulo(ModulosConfiguracao.Pessoas)]
+                    : null));
+        else
+            AdicionarConfiguracoes(pessoas, ModulosConfiguracao.Pessoas, possui);
         if (pessoas.Count > 0) secoes.Add(new SecaoMenu(nomePessoas, pessoas));
 
         var nomeOrganizacao = ModulosConfiguracao.Nome(ModulosConfiguracao.Organizacao);
@@ -154,8 +159,14 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         var itens = new List<ItemMenu> { inicio };
         itens.AddRange(secoes.SelectMany(s => s.Itens));
         foreach (var modulo in ModulosConfiguracao.Todos)
+        {
+            // A página de configurações do módulo (quando não está nas seções, como a de Pessoas: fica na tela do módulo).
+            if (ConfiguracoesViewModel.AlgumaPermitida(possui, modulo))
+                itens.Add(new ItemMenu("Configurações", ModulosConfiguracao.Rota(modulo), configuracao: true,
+                    descricao: ModulosConfiguracao.Titulo(modulo), caminho: ModulosConfiguracao.Nome(modulo)));
             foreach (var cadastro in ConfiguracoesViewModel.Montar(possui, modulo).SelectMany(g => g.Itens))
                 itens.Add(new ItemMenu(cadastro.Titulo, cadastro.Rota, caminho: ModulosConfiguracao.Caminho(modulo)));
+        }
         return itens.DistinctBy(i => i.Rota).ToList();
     }
 
@@ -193,6 +204,17 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     // ---- Favoritos e recentes (guardados na API, por usuário) ----
 
     /// <summary>
+    /// Telas que deixaram de existir e o que as substituiu: favoritos e recentes gravados com a rota antiga continuam
+    /// levando ao lugar certo (ex.: a "Consulta avançada" de pessoas agora é o painel de filtros da tela de Pessoas).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> RotasAntigas = new Dictionary<string, string>
+    {
+        ["consulta-pessoas"] = "pessoas"
+    };
+
+    internal static string RotaVigente(string rota) => RotasAntigas.TryGetValue(rota, out var atual) ? atual : rota;
+
+    /// <summary>
     /// Lê favoritos e recentes do usuário (chamado quando o menu aparece). Sem resposta da API, o menu funciona sem eles.
     /// Telas abertas antes da resposta ficam na frente dos recentes que vieram do servidor.
     /// </summary>
@@ -202,8 +224,8 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         try
         {
             var preferencias = await _preferencias.ObterAsync();
-            _favoritos = preferencias.Favoritos.Distinct().ToList();
-            _recentes = _recentes.Concat(preferencias.Recentes).Distinct().ToList();
+            _favoritos = preferencias.Favoritos.Select(RotaVigente).Distinct().ToList();
+            _recentes = _recentes.Concat(preferencias.Recentes.Select(RotaVigente)).Distinct().ToList();
             AplicarFavoritos();
             AplicarRecentes();
         }

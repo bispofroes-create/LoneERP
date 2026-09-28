@@ -448,6 +448,165 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
   - Natureza pela tela (`NaturezaNaTela`): sair de PJ com dados da empresa pergunta; confirmado, limpa CNPJ, dados da
     Receita, fiscais, sócios, grupo e a razão social vinda da consulta (endereços e telefones ficam); senão volta a PJ.
   - Testes: `Cliente/ResumoETrocaNaturezaTests`.
+- **Filtro de Pessoas — Fase 1: catálogo de campos e motor único (27/09/2026; código entregue, sem compilar; sem mudança
+  no banco):** plano aprovado em 4 fases (1 motor · 2 tela de Pessoas com painel e chips · 3 novos campos da 1ª versão ·
+  4 visões salvas, exportar, "endereços duplicados" no "⋯" e saída da Consulta avançada do menu). Mapa de campos na
+  planilha "Sugestão de filtro avançado.xlsx", aba "Mapa consolidado" (123 campos; 67 na 1ª versão).
+  - Contratos (`Contracts/Pessoas/FiltrosPessoas.cs`): `CondicaoFiltro` (campo + `OperadorFiltro` + valores em texto),
+    `CampoFiltroDto`, `CatalogoFiltrosPessoasDto`. `CriteriosPessoas.Condicoes` soma-se aos critérios antigos.
+  - `Application/Consultas/CatalogoFiltrosPessoas.cs`: Ids estáveis (`CamposFiltroPessoas`, gravados nos filtros salvos),
+    definições (grupo, tipo, operadores, vale para, permissão, opções) e validação das condições.
+    `ConsultaPessoasAppService.CondicoesDe` traduz os critérios antigos; `CatalogoAsync` monta o catálogo pelas
+    permissões (campos personalizados pesquisáveis entram como "campo:{Id}"). `GET pessoas/consulta/catalogo`.
+  - `Infrastructure/Persistencia/Consultas/FiltrosPessoasSql.cs`: um Where por campo (mesmos índices de antes);
+    `ConsultaPessoas.FiltrarAsync` passou a usar só ele. Campo novo = definição no catálogo + condição aqui (teste
+    `CatalogoFiltrosPessoasTests` confere os dois lados).
+  - A tela da Consulta avançada não mudou (continua mandando os critérios antigos). Testar nela: cada critério deve dar
+    o mesmo resultado de antes.
+- **Filtro de Pessoas — Fase 2: painel na tela de Pessoas (27/09/2026; código entregue, sem compilar; sem mudança no
+  banco):**
+  - `PainelFiltrosPessoas` (Cliente) monta os grupos a partir de `GET pessoas/consulta/catalogo`; cada campo tem caixa de
+    marcar e, marcado, o editor do tipo (lista com caixas, texto, dias, período dd/mm/aaaa, sim/não; município por UF +
+    nome). Campo incompleto não filtra. Chips acima da lista (tocar abre o grupo no painel; ✕ tira o filtro); botão
+    "Filtros (n)"; "Buscar campo…"; "Limpar tudo". A lista relê 400 ms depois da última mudança, só quando as condições
+    mudam de fato. Atalho PF/PJ desabilita os campos da outra natureza.
+  - `Views/Pessoas/PainelFiltrosView`: painel à direita (340) na tela de Pessoas; no celular, sobre a lista. As colunas
+    da tabela descontam o painel aberto.
+  - Os filtros fixos antigos (Papel, Etiqueta, Incluir inativos, Município a corrigir) saíram: são campos do catálogo.
+    Com "Situação do cadastro" no painel, a lista deixa de esconder os inativos (a condição decide).
+  - API: `POST pessoas/pagina` (`ListaPessoasRequisicao`: filtro da lista + condições, no corpo); sem condições o cliente
+    continua no `GET pessoas/pagina`. `PessoaRepositorio.ListarPaginaAsync(..., condicoes, hoje, ...)` usa o mesmo
+    `FiltrosPessoasSql`. `CamposFiltroPessoas` foi para Contracts (o cliente usa os Ids).
+  - Testes: `Cliente/PainelFiltrosTests`; `PessoasViewModelTests`/`AnexosTests` respondem o catálogo na abertura.
+- **Filtro de Pessoas — Fase 3: campos da 1ª versão (27/09/2026; código entregue, sem compilar; sem mudança no banco):**
+  46 campos novos no catálogo (65 no total), com a condição em `FiltrosPessoasSql`: nome fantasia, nascimento,
+  aniversário no mês, idade, abertura, porte, natureza jurídica, grupo empresarial; sexo, estado civil, profissão;
+  tipo de contato, WhatsApp, finalidade (NF-e, cobrança...), aceita comunicações, sem contato; cargo do contato;
+  finalidade do endereço, bairro, CEP, sem endereço; tipo de documento, validade; indicador de IE, IE, situação na
+  Receita; limite de crédito (VISUALIZAR_FINANCEIRO), perfil e condição do cliente; condição e avaliação do
+  fornecedor; colaborador (empresa, tipo, admissão, ativo, cargo/departamento/setor vigentes — COLABORADOR);
+  tipo de relacionamento e "relacionado a (nome)"; origem; consentimentos em vigor/revogados e canal (PRIVACIDADE);
+  tipo do bloqueio; alterado em. Opções do banco: `IConsultaPessoas.OpcoesFiltroAsync` (cadastros ativos e valores já
+  usados: porte, origem, situação na Receita, naturezas jurídicas). `DefinicaoCampoFiltro.SomenteDigitos` (CNAE, CEP,
+  IE). Painel: número com "Entre" tem início e fim.
+  - Índices: nenhum criado. Se algum filtro de texto (bairro, CEP, nome fantasia) ficar lento em base grande, medir e
+    propor migration só de índices (aprovação do usuário).
+- **Filtro de Pessoas — Fase 4: visões salvas, exportar e fim da Consulta avançada (27/09/2026; código entregue, sem
+  compilar; sem mudança no banco):**
+  - Botão "Visões" ao lado de "Filtros": lista as visões (lidas na hora, com as compartilhadas), aplica, salva os
+    filtros atuais (nome; só para mim ou compartilhada; mesmo nome atualiza a própria) e remove a própria. O botão mostra
+    "Visão: X" e "(alterada)" quando painel ou atalho mudam depois. Aplicar volta o atalho para "Todos" e relê na hora;
+    campo sem permissão ou opção que não existe mais é ignorado com aviso. Tabela `FiltroSalvo` reaproveitada.
+  - Critérios salvos/exportados = condições do painel + busca + atalho convertido em condição
+    (`PessoasViewModel.CriteriosDaTela`). Filtros salvos no formato antigo (Consulta avançada) chegam convertidos para
+    condições do catálogo (`ConsultaPessoasAppService.NoFormatoDoCatalogo`).
+  - Botão "⋯" no cabeçalho: "Exportar o resultado (CSV)" (PESSOAS.EXPORTAR; confirmação; auditoria como antes) e
+    "Procurar endereços duplicados" (lista com "Mostrar mais…"; tocar abre a ficha para consolidar).
+  - Consulta avançada removida: rota `consulta-pessoas` do Shell, item do menu, `ConsultaPessoasPage`,
+    `ConsultaPessoasViewModel` e `ConsultaPessoasApi` (as chamadas foram para `PessoasApi`). Favoritos e recentes
+    gravados com `consulta-pessoas` passam a abrir `pessoas` (`MenuViewModel.RotasAntigas`). Endpoints da API mantidos.
+  - Testes: `MenuLateralTests` (menu sem o item; alias da rota antiga), `PessoasListaTests` (atalho vira condição;
+    aplicar visão).
+- **Tela de Pessoas — Etapa 1: colunas escolhidas, ordenação e filtro nas colunas (27/09/2026; código entregue, sem
+  compilar; migration nova aprovada pelo usuário):** mockup aprovado no artifact "Lone — Tela de Pessoas (proposta)".
+  - **Migration (gerar no PMC):** `Add-Migration PreferenciasTela -Project Lone.Infrastructure -StartupProject Lone.Api
+    -OutputDir Persistencia/Migracoes`. Só cria a tabela `PreferenciasTela` (Id, UsuarioId, Tela varchar(60), Conteudo
+    nvarchar(4000), AlteradaEm + colunas da EntidadeBase; FK para `Usuarios`; índice único
+    `IX_PreferenciasTela_UsuarioId_Tela`). Nenhum SQL de dados; nada muda nas tabelas existentes.
+  - Preferência genérica por usuário + tela (`PreferenciaTela`, JSON que só a tela entende; fora da auditoria, como
+    `PreferenciaMenu`): `GET/PUT api/menu/telas/{tela}` (`MenuUsuarioAppService.ObterTelaAsync/DefinirTelaAsync`: só
+    objeto JSON até 4.000 caracteres). A lista de pessoas usa a tela `pessoas-lista` e recebe o layout já no catálogo
+    (`CatalogoFiltrosPessoasDto.Colunas` + `Layout`): nenhuma requisição nova ao abrir a tela.
+  - Colunas: `Application/Consultas/ColunasListaPessoas.cs` (Id = o do campo de filtro; só campos com um valor por
+    pessoa: telefone/e-mail principal, bairro/CEP do endereço de referência, fiscal do estabelecimento principal, vendedor
+    da carteira vigente, limite da conta geral) + `Infrastructure/.../ColunasPessoasSql.cs` (ordenação no ORDER BY com
+    desempate nome → Id; valores das colunas extras lidos só para as linhas da página, uma consulta por coluna). Teste
+    confere os dois lados. Limite de crédito exige VISUALIZAR_FINANCEIRO para mostrar e para ordenar.
+  - `ListaPessoasRequisicao.Colunas/Ordenacao`; `PessoaResumo.Valores` (texto invariável). Sem condições, colunas extras
+    nem ordenação, o cliente continua no GET simples.
+  - Campos novos no catálogo de filtros (também no painel): Nome, Código, CPF/CNPJ (número ou parte), Cidade (nome).
+  - Cliente: `GradePessoas` (colunas visíveis, seletor com "na lista" ↑↓✕ e todas por grupo com busca, marcar todas,
+    restaurar padrão, ordenação em 3 cliques, linha de filtro liga/desliga), `FiltroColuna` (escreve no campo do painel
+    com o mesmo Id: vira condição/chip/visão/exportação; número "10..50", "1000..", "..500", ">=", "<="; data
+    "15/09/2026", "09/2026", "2026", faixas), `LinhaPessoa`/`CelulaGrade` (células já formatadas). Visões salvas guardam
+    também o layout (`CriteriosPessoas.Layout`). Preferência gravada 0,8 s depois da última mudança, só se mudou.
+  - Tela: nome preso à esquerda (300), colunas rolando para o lado (cabeçalho acompanha pela rolagem), linhas de altura
+    fixa (56) para as duas partes ficarem alinhadas; `CollectionView` trocada por `BindableLayout` (página ≤ 50 linhas).
+    Abaixo de 600 de largura: só o nome com o documento embaixo. Arrastar para reordenar e largura por arrasto: Etapa 2.
+  - Testes: `ColunasListaPessoasTests`, `GradePessoasTests`, `MenuUsuarioAppServiceTests` (preferência da tela),
+    `PessoasListaTests` (tela estreita; ordenar relê com POST e grava a preferência).
+  - **A validar no Windows:** fluidez com muitas colunas (50 linhas × todas as colunas) e rolagem lateral do cabeçalho.
+  - **Revisão (27/09/2026, sem compilar):** celular com o nome na largura toda (a 2ª coluna vai a 0); rolagem lateral
+    sincronizada nos dois sentidos (cabeçalho ↔ linhas, com trava contra ping-pong); tirar a coluna que ordena volta à
+    ordem padrão e relê; linha de filtro some no celular (`GradePessoas.MostrarLinhaFiltro`); colunas guardadas sem
+    permissão continuam na preferência; natureza, situação, sexo, estado civil e regime ordenam pelo texto (CASE no
+    banco), não pelo código do enum; preferência vazia = volta ao padrão ("{}"); coluna nula na requisição vira erro de
+    validação; layout lido aceita a direção em número ou texto. Testes novos em `GradePessoasTests` e
+    `MenuUsuarioAppServiceTests`; `AlteracoesPendentesTests` passou a responder o catálogo.
+- **Tela de Pessoas — Etapa 2: visual aprovado no mockup (27/09/2026; código entregue, sem compilar; sem mudança no
+  banco — a migration `PreferenciasTela` da Etapa 1 já foi gerada pelo usuário):**
+  - Menu lateral: Pessoas mostra só "Cadastro" (com as rotas das configurações de Pessoas como relacionadas: continua
+    destacado nelas). A página "Configurações de Pessoas" e cada cadastro continuam na busca do menu e nos favoritos
+    (`MenuViewModel.CriarCatalogo`). Quem só configura, sem ver pessoas, continua com o item no menu. Organização e Metas
+    não mudaram (as telas delas ainda não têm o botão).
+  - Cabeçalho: "⚙ Configurações" (abre direto a página "Configurações de Pessoas", em cartões, como era pelo menu —
+    decisão do usuário, que não gostou da lista; `PessoasViewModel.ConfiguracoesCommand`, a tela navega por `AbrirTela`)
+    e "+ Nova pessoa".
+  - Barra única: pesquisa, Visões, Filtros (destacado com filtro valendo) e "⋯" (agora com "Visões salvas…", que no
+    celular é o único acesso).
+  - Abas no lugar dos atalhos, com contador: Todos, PF, PJ, Clientes, Fornecedores (Ativos/Inativos saíram: conflitavam
+    com o filtro "Situação do cadastro"). Contagens vêm na página 1 (`PaginaListaPessoas.Atalhos`, GET e POST): mesma
+    busca e condições, sem o atalho; 3 consultas (natureza agrupada, clientes, fornecedores).
+  - Chips com "Limpar" na mesma linha. Sucesso vira aviso flutuante embaixo (some em 4 s; `MostrarAvisoFlutuante`);
+    erro e aviso continuam na barra (`MostrarBarraDaLista`).
+  - Linha: avatar com iniciais (PF redondo, PJ quadrado), nome + "Cód."; papéis em selos coloridos (`SeloPapel` +
+    controle `SeloTom`; cores novas `Grupo*` em Cores.xaml); "Sem CPF"/"Sem CNPJ" e "(a corrigir)" como selo de aviso;
+    ligar, WhatsApp e e-mail ao passar o mouse (telefone/e-mail principais vêm sempre na página em `PessoaResumo.Valores`;
+    `EnderecoDoTelefone` põe o 55 em números de 10/11 dígitos; a tela abre com `Launcher`). Nome preso com 340.
+  - Densidade confortável (56) / compacta (44), guardada com as colunas (`LayoutListaPessoas.Compacta`).
+  - Celular: linha vira cartão (documento · cidade, selos de papéis, ligar e WhatsApp sempre à vista, altura 92) e botão
+    "↕ Ordenar" (coluna + direção; `GradePessoas.OrdenarPor`).
+  - Tirar uma coluna só solta a ordenação se for a coluna que ordenava (antes: qualquer ordenação por coluna fora da
+    lista, o que desfazia a escolhida pelo "Ordenar" do celular).
+  - Revisão independente (sem compilar): telefone com "+" não ganha 55 e "0" de longa distância sai; ações rápidas com
+    `Launcher.OpenAsync` (TryOpenAsync falha no Android 11+ sem `<queries>`); rolagem lateral sincronizada ignorando só o
+    eco da posição pedida; mensagens de desativar apontam para o filtro "Situação do cadastro"; preferência "{}" = padrão;
+    aviso repetido recomeça a contagem. **Atenção a desempenho:** as contagens das abas são 3 consultas a mais na
+    página 1 (cada busca digitada); se ficar lento em base grande, medir e considerar cache ou contagem sob demanda.
+  - **Ficou para a próxima rodada:** largura da coluna por arrasto e reordenar arrastando (hoje ↑↓ no seletor);
+    prévia lateral e indicadores (Etapa 3); seleção múltipla (Etapa 4).
+  - Testes: `MenuLateralTests` (menu sem configurações de Pessoas; catálogo com a página), `PessoasListaTests` (abas e
+    contagens; ações rápidas; aviso flutuante; configurações da tela), `GradePessoasTests` (selos, iniciais, "Sem CPF",
+    densidade, cartão do celular, ações rápidas).
+- **Tela de Pessoas — abas escolhidas pelo usuário (27/09/2026; código entregue, sem compilar; sem mudança no banco):**
+  pedido do usuário ("poder pôr Transportadora"); decisões: por usuário (padrão da empresa fica para depois), visões
+  entram como abas e **todas as abas têm contador**.
+  - Abas = "Todos" (fixa) + até 10 escolhidas: natureza (`natureza:Fisica`), papel do cadastro de Papéis (`papel:{Id}`,
+    inclusive os criados pelo usuário; nome no plural por `CatalogoAbas.Plural`) ou visão salva (`visao:{Id}`, com ★).
+    Ids em `AbasPessoas` (Contracts). Guardadas em `LayoutListaPessoas.Abas` (preferência da tela; nulo = padrão PF, PJ,
+    Clientes, Fornecedores). As visões salvas não levam nem mudam as abas. Papel inativo/sem permissão: a aba some e o
+    Id fica guardado; visão apagada: sai.
+  - Editor: "＋" no fim das abas (e "Escolher as abas…" no ⋯): "Nas abas (nesta ordem)" com ↑↓✕, todas por grupo
+    (Tipo de pessoa, Papéis, Visões salvas), limite com aviso, "Restaurar padrão" (`EditorAbas`, `ItemAba`, `GrupoAbas`).
+    Menu "Visões" ganhou "Mostrar \"X\" como aba".
+  - Contadores: natureza e papel vêm na página 1 (`ContagensAtalhosPessoas.Naturezas`/`Papeis`: 2 consultas, todos os
+    papéis de uma vez, pessoas distintas com o papel ativo; papel sem ninguém = 0). Visões: `POST
+    pessoas/consulta/filtros/contagens` (`ConsultaPessoasAppService.ContarFiltrosAsync`: só visões visíveis ao usuário;
+    campo sem permissão fica de fora, como na tela; visão com condição inválida fica sem número), refeito no máximo a cada
+    minuto (não depende da busca da tela) e ao salvar/fixar.
+  - Tocar numa aba de visão aplica a visão (a aba fica marcada); sair dela para outra aba limpa painel e busca (eram da
+    visão). Tirar a aba marcada volta para "Todos" e relê.
+  - Abas que não cabem: rolam para o lado (barra de rolagem no computador), não "Mais ▾".
+  - Testes (`PessoasListaTests`): aba Transportadoras com contador e preferência; máximo e restaurar padrão; aba de visão
+    com contador, aplicar e sair; plural dos papéis. Contagens das abas no formato novo.
+  - Revisão de compilação por agente (conta nova, 27/09 à noite, sem compilar): nenhum erro de compilação nem fila de
+    teste errada encontrados. Três correções aplicadas: (1) numa aba de visão, as abas de natureza/papel/Todos ficam sem
+    número (a contagem vinha com os filtros da visão, que tocar nelas limpa) — teste na "Aba_de_visao…"; (2) "Mostrar
+    como aba" com a visão já aplicada só marca a aba (antes reaplicava a gravada e perdia o "(alterada)"); (3)
+    `ColunasListaPessoas.Limpar` guarda até 2×Maximo abas (as guardadas de papéis desativados vinham depois das 10 e eram
+    cortadas). Ficou anotada, sem mexer: corrida antiga em que uma resposta atrasada deixa total/contadores velhos na tela.
+- **Etapa 3 (prévia lateral e indicadores):** plano em `docs/PLANO-ETAPA3-PESSOAS.md`, com decisões D1–D5 pendentes do
+  usuário (clique na linha, o que é "pendência cadastral", "vencendo" por antecedência do tipo ou 30 dias...).
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.

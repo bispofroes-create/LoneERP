@@ -12,6 +12,15 @@ public static class LimitesMenu
 
     /// <summary>A rota é o nome da tela no Shell (ex.: "consulta-pessoas"): minúsculas, números e hífen.</summary>
     public const int TamanhoMaximoRota = 60;
+
+    /// <summary>Preferência de uma tela (colunas da lista, ordenação...): JSON até este tamanho.</summary>
+    public const int TamanhoMaximoPreferenciaTela = 4000;
+}
+
+/// <summary>Preferência de uma tela do usuário logado (JSON que só a própria tela entende; vazio = nenhuma).</summary>
+public sealed class PreferenciaTelaDto
+{
+    public string Conteudo { get; set; } = string.Empty;
 }
 
 /// <summary>Favoritos (na ordem em que foram marcados) e recentes (o mais novo primeiro) do usuário logado, por rota.</summary>

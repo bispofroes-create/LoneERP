@@ -44,6 +44,25 @@ public sealed class PaginaListaPessoas
     /// <summary>Começa em 1.</summary>
     public int Pagina { get; set; } = 1;
     public int TamanhoPagina { get; set; } = TamanhoPadrao;
+
+    /// <summary>Quantos há em cada atalho (abas acima da lista) com a busca e os filtros atuais. Só na página 1.</summary>
+    public ContagensAtalhosPessoas? Atalhos { get; set; }
+}
+
+/// <summary>
+/// Contagens das abas da lista com a busca e as condições atuais, sem a própria aba: cada aba mostra quantos haveria se
+/// fosse escolhida. Por natureza e por papel (todos os papéis de uma vez; aba de papel sem ninguém = 0). As abas de visão
+/// salva são contadas à parte (ContagemFiltros), porque a visão troca os filtros.
+/// </summary>
+public sealed class ContagensAtalhosPessoas
+{
+    public int Todos { get; set; }
+
+    /// <summary>Nome da natureza (ex.: "Fisica") → quantidade.</summary>
+    public Dictionary<string, int> Naturezas { get; set; } = new();
+
+    /// <summary>Id do papel → quantidade de pessoas com o papel ativo.</summary>
+    public Dictionary<Guid, int> Papeis { get; set; } = new();
 }
 
 /// <summary>Resultado de uma gravação: a pessoa como ficou e avisos que não impediram a gravação.</summary>
@@ -71,6 +90,18 @@ public sealed class PessoaResumo
 
     /// <summary>Tem texto de município antigo esperando a escolha do município certo.</summary>
     public bool MunicipioACorrigir { get; set; }
+
+    /// <summary>
+    /// Valores das colunas pedidas (Id da coluna → texto invariável; ver TipoColunaLista). Na tela de Pessoas vêm sempre o
+    /// telefone e o e-mail principais (ações rápidas da linha), mesmo sem as colunas deles.
+    /// </summary>
+    public Dictionary<string, string?> Valores { get; set; } = new();
+
+    /// <summary>Telefone principal (como gravado), quando a lista o trouxe.</summary>
+    public string? TelefonePrincipal => Valores.GetValueOrDefault(CamposFiltroPessoas.Telefone);
+
+    /// <summary>E-mail principal, quando a lista o trouxe.</summary>
+    public string? EmailPrincipal => Valores.GetValueOrDefault(CamposFiltroPessoas.Email);
 
     public string CodigoFormatado => Codigo.ToString("000000");
 
@@ -237,4 +268,22 @@ public sealed class DocumentoEmUsoResposta
     public Guid? Id { get; set; }
     public int Codigo { get; set; }
     public string? Nome { get; set; }
+}
+
+/// <summary>
+/// Tela de Pessoas com o painel de filtros: os mesmos filtros da lista (busca e atalho) mais as condições do catálogo.
+/// POST: as condições vão no corpo (podem ter dados pessoais), não na URL.
+/// </summary>
+public sealed class ListaPessoasRequisicao
+{
+    public FiltroPessoas Filtro { get; set; } = new();
+    public List<CondicaoFiltro> Condicoes { get; set; } = new();
+
+    /// <summary>Colunas além das que a linha sempre traz (Ids de <see cref="ColunaListaDto"/>): vêm em PessoaResumo.Valores.</summary>
+    public List<string> Colunas { get; set; } = new();
+
+    /// <summary>Nulo = ordem padrão (nome).</summary>
+    public OrdenacaoLista? Ordenacao { get; set; }
+    public int Pagina { get; set; } = 1;
+    public int Tamanho { get; set; } = PaginaListaPessoas.TamanhoPadrao;
 }

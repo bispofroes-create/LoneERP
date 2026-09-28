@@ -62,4 +62,10 @@
     <!-- Selos de situação (texto + cor: nunca só a cor). -->
     <Color x:Key="SeloNeutroFundo">#EEF1F5</Color>
     <Color x:Key="SeloNeutroFundoEscuro">#2A3038</Color>
+
+    <!-- Selo "Empresa do grupo" (lista de pessoas): violeta, diferente em claridade dos outros selos. -->
+    <Color x:Key="Grupo">#553C8B</Color>
+    <Color x:Key="GrupoEscuro">#C9B8F0</Color>
+    <Color x:Key="GrupoFundo">#EFEAF7</Color>
+    <Color x:Key="GrupoFundoEscuro">#2A2238</Color>
 </ResourceDictionary>

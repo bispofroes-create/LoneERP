@@ -43,11 +43,14 @@ public class MenuLateralTests
         var secoes = MenuViewModel.CriarSecoes(Tudo);
 
         Assert.Equal(new string?[] { "Pessoas", "Organização", "Metas", null }, secoes.Select(s => s.Titulo).ToArray());
-        Assert.Equal(new[] { "pessoas", "consulta-pessoas", "configuracoes-pessoas" }, secoes[0].Itens.Select(i => i.Rota).ToArray());
-        // Dentro do módulo, sem repetir o nome dele; fora (atalhos, busca, leitor de tela), o nome completo.
-        Assert.Equal(new[] { "Cadastro", "Consulta avançada", "⚙  Configurações" }, secoes[0].Itens.Select(i => i.TextoExibido).ToArray());
-        Assert.Equal(new[] { "Cadastro de pessoas", "Consulta avançada de pessoas", "Configurações de Pessoas" },
-            secoes[0].Itens.Select(i => i.Descricao).ToArray());
+        // A consulta avançada virou o painel de filtros da tela de Pessoas, e as configurações de Pessoas ficam no botão
+        // "Configurações" da própria tela: no menu, só o cadastro (que continua destacado nas telas de configuração).
+        var cadastro = Assert.Single(secoes[0].Itens);
+        Assert.Equal("pessoas", cadastro.Rota);
+        Assert.Equal("Cadastro", cadastro.TextoExibido); // dentro do módulo, sem repetir o nome dele
+        Assert.Equal("Cadastro de pessoas", cadastro.Descricao); // fora (atalhos, busca, leitor de tela), o nome completo
+        Assert.True(cadastro.Corresponde("configuracoes-pessoas"));
+        Assert.True(cadastro.Corresponde("papeis"));
         Assert.Equal(new[] { "grupos-empresariais", "configuracoes-organizacao" }, secoes[1].Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "Painel", "⚙  Configurações" }, secoes[2].Itens.Select(i => i.TextoExibido).ToArray());
         Assert.Equal("Painel de metas", secoes[2].Itens[0].Descricao);
@@ -65,7 +68,7 @@ public class MenuLateralTests
 
         // Pessoas e Configurações do sistema (esta sempre aparece: "Minha conta › Trocar senha" é de todos).
         Assert.Equal(new string?[] { "Pessoas", null }, secoes.Select(s => s.Titulo).ToArray());
-        Assert.Equal(new[] { "pessoas", "consulta-pessoas" }, secoes[0].Itens.Select(i => i.Rota).ToArray()); // sem configurações
+        Assert.Equal(new[] { "pessoas" }, secoes[0].Itens.Select(i => i.Rota).ToArray()); // sem configurações
         Assert.Equal("configuracoes-sistema", Assert.Single(secoes[1].Itens).Rota);
 
         var soConfiguracao = MenuViewModel.CriarSecoes(p => p == Permissoes.Cadastros.Etiquetas);
@@ -86,6 +89,8 @@ public class MenuLateralTests
         Assert.Equal("Metas › Configurações", catalogo.Single(i => i.Rota == "equipes").Caminho);
         Assert.Equal("Configurações do sistema", catalogo.Single(i => i.Rota == "usuarios").Caminho);
         Assert.Equal("Pessoas", catalogo.Single(i => i.Rota == "pessoas").Caminho);
+        // Fora do menu lateral, a página de configurações de Pessoas continua na busca e nos favoritos.
+        Assert.Equal("Configurações de Pessoas", catalogo.Single(i => i.Rota == "configuracoes-pessoas").Descricao);
         Assert.False(inicio.PodeFavoritar);
 
         var semEtiquetas = MenuViewModel.CriarCatalogo(inicio, MenuViewModel.CriarSecoes(p => p != Permissoes.Cadastros.Etiquetas),
@@ -99,7 +104,8 @@ public class MenuLateralTests
         var catalogo = MenuViewModel.CriarCatalogo(new ItemMenu("Início", ItemMenu.RotaInicio), MenuViewModel.CriarSecoes(Tudo), Tudo);
 
         Assert.Equal("papeis", Assert.Single(MenuViewModel.Pesquisar(catalogo, "PAPEIS")).Rota);
-        Assert.Equal("consulta-pessoas", MenuViewModel.Pesquisar(catalogo, "consulta")[0].Rota);
+        Assert.Contains(MenuViewModel.Pesquisar(catalogo, "cadastro pessoas"), i => i.Rota == "pessoas");
+        Assert.Empty(MenuViewModel.Pesquisar(catalogo, "consulta avançada")); // virou o painel de filtros da tela de Pessoas
         Assert.Equal("configuracoes-pessoas", MenuViewModel.Pesquisar(catalogo, "config pessoas")[0].Rota);
         // "tipos" aparece em vários cadastros; pelo caminho, a busca também acha tudo que fica em Pessoas › Configurações.
         Assert.Contains(MenuViewModel.Pesquisar(catalogo, "tipos pessoas"), i => i.Rota == "tipos-documento");
@@ -120,10 +126,10 @@ public class MenuLateralTests
         Assert.True(metas.MostrarItens);
         Assert.Equal(90d, metas.RotacaoSeta);
 
-        await AbrirAsync(ambiente, menu, "papeis"); // cadastro aberto a partir de Configurações de Pessoas
+        await AbrirAsync(ambiente, menu, "papeis"); // cadastro aberto a partir de Configurações de Pessoas (botão da tela)
         Assert.True(pessoas.Expandida);
         Assert.True(pessoas.ContemAtivo);
-        Assert.True(Item(menu, "configuracoes-pessoas").Ativo);
+        Assert.True(Item(menu, "pessoas").Ativo); // no menu, as configurações de Pessoas destacam o cadastro
         Assert.True(metas.Expandida); // os outros ficam como o usuário deixou
 
         pessoas.AlternarCommand.Execute(null); // fechar com a tela aberta dentro: o cabeçalho continua destacado
@@ -185,8 +191,25 @@ public class MenuLateralTests
         Assert.True(Item(menu, "metas").Favorito);
         Assert.Equal("★", Item(menu, "metas").Estrela);
         Assert.False(Item(menu, "pessoas").Favorito);
-        Assert.Equal(new[] { "consulta-pessoas", "pessoas" }, menu.Recentes.Itens.Select(i => i.Rota).ToArray());
+        // "consulta-pessoas" (tela que virou o painel de filtros de Pessoas) leva a "pessoas", sem repetir.
+        Assert.Equal(new[] { "pessoas" }, menu.Recentes.Itens.Select(i => i.Rota).ToArray());
         Assert.True(menu.Favoritos.TemItens);
+    }
+
+    [Fact]
+    public async Task Favorito_gravado_com_a_rota_da_antiga_consulta_avancada_leva_a_tela_de_pessoas()
+    {
+        var (ambiente, menu) = await CriarMenuAsync();
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new PreferenciasMenuDto
+        {
+            Favoritos = ["consulta-pessoas", "pessoas"],
+            Recentes = []
+        });
+
+        await menu.CarregarPreferenciasCommand.ExecuteAsync(null);
+
+        Assert.Equal(new[] { "pessoas" }, menu.Favoritos.Itens.Select(i => i.Rota).ToArray());
+        Assert.True(Item(menu, "pessoas").Favorito);
     }
 
     [Fact]
@@ -206,23 +229,23 @@ public class MenuLateralTests
     public async Task Estrela_marca_e_desmarca_o_favorito_e_grava_na_api()
     {
         var (ambiente, menu) = await CriarMenuAsync();
-        var consulta = Item(menu, "consulta-pessoas");
+        var grupos = Item(menu, "grupos-empresariais");
 
         ambiente.Servidor.Responder(HttpStatusCode.NoContent);
-        await menu.AlternarFavoritoCommand.ExecuteAsync(consulta);
+        await menu.AlternarFavoritoCommand.ExecuteAsync(grupos);
 
-        Assert.True(consulta.Favorito);
-        Assert.Same(consulta, Assert.Single(menu.Favoritos.Itens));
+        Assert.True(grupos.Favorito);
+        Assert.Same(grupos, Assert.Single(menu.Favoritos.Itens));
         var marcar = Assert.Single(ambiente.Servidor.Recebidas);
         Assert.Equal(HttpMethod.Put, marcar.Metodo);
         Assert.EndsWith(Rotas.Menu.Favoritos, marcar.Caminho);
-        Assert.Contains("consulta-pessoas", marcar.Corpo);
+        Assert.Contains("grupos-empresariais", marcar.Corpo);
         Assert.Contains("true", marcar.Corpo);
 
         ambiente.Servidor.Responder(HttpStatusCode.NoContent);
-        await menu.AlternarFavoritoCommand.ExecuteAsync(consulta);
+        await menu.AlternarFavoritoCommand.ExecuteAsync(grupos);
 
-        Assert.False(consulta.Favorito);
+        Assert.False(grupos.Favorito);
         Assert.False(menu.Favoritos.TemItens);
         Assert.Contains("false", ambiente.Servidor.Recebidas[1].Corpo);
     }

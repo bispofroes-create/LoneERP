@@ -23,6 +23,7 @@ public class AnexosTelaTests
             .Responder(HttpStatusCode.OK, Finalidades.Cadastro)
             .Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>())
             .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>())
+            .Responder(HttpStatusCode.OK, new CatalogoFiltrosPessoasDto()) // catálogo do painel de filtros
             .Responder(HttpStatusCode.OK, new PaginaListaPessoas());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

@@ -213,6 +213,16 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
     </Style>
 
+    <!-- Campo da linha de filtro das colunas (embaixo dos títulos da tabela): compacto, com contorno sutil. -->
+    <Style x:Key="CampoFiltroColuna" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 6" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}" />
+    </Style>
+
     <!-- Superfície de conteúdo (uma por área; grupos dentro dela separados por título e espaço, não por mais cartões). -->
     <Style x:Key="PainelConteudo" TargetType="Border">
         <Setter Property="Padding" Value="24" />

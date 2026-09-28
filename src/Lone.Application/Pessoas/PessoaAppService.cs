@@ -140,6 +140,33 @@ public sealed class PessoaAppService : IPessoaAppService
             : new DocumentoEmUsoResposta { EmUso = true, Id = outra.Id, Codigo = outra.Codigo, Nome = outra.Nome };
     }
 
+    public Task<PaginaListaPessoas> ListarPaginaAsync(ListaPessoasRequisicao requisicao, CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
+        var condicoes = requisicao.Condicoes ?? [];
+        var erros = global::Lone.Application.Consultas.CatalogoFiltrosPessoas.Normalizar(condicoes);
+        if (erros.Count > 0) throw new ValidacaoException(erros);
+        // Campo com permissão própria (dados sensíveis, financeiro...): quem não a tem não filtra por ele.
+        foreach (var condicao in condicoes)
+            if (global::Lone.Application.Consultas.CatalogoFiltrosPessoas.Obter(condicao.Campo)?.Permissao is { } permissao)
+                _autorizacao.Exigir(permissao);
+
+        // Colunas e ordenação: Ids conhecidos; coluna com permissão própria (ex.: limite de crédito) exige a permissão,
+        // para mostrar e para ordenar (a ordem também revelaria o valor).
+        var colunas = requisicao.Colunas ?? [];
+        erros = global::Lone.Application.Consultas.ColunasListaPessoas.Normalizar(colunas, requisicao.Ordenacao, out var definicoes);
+        if (erros.Count > 0) throw new ValidacaoException(erros);
+        foreach (var coluna in definicoes)
+            if (coluna.Permissao is { } permissao) _autorizacao.Exigir(permissao);
+        if (requisicao.Ordenacao is { } ordem &&
+            global::Lone.Application.Consultas.ColunasListaPessoas.Obter(ordem.Coluna)?.Permissao is { } permissaoOrdem)
+            _autorizacao.Exigir(permissaoOrdem);
+
+        return _repositorio.ListarPaginaAsync(requisicao.Filtro ?? new FiltroPessoas(), condicoes, colunas, requisicao.Ordenacao,
+            DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime),
+            Math.Max(1, requisicao.Pagina), Math.Clamp(requisicao.Tamanho, 1, PaginaListaPessoas.TamanhoMaximo), ct);
+    }
+
     public async Task<PessoaDto?> ObterAsync(Guid id, CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);

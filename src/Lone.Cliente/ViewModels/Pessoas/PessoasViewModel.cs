@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
@@ -98,9 +100,39 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _arquivos = arquivos;
 
         // Buscar outro texto volta para a página 1 (a busca no servidor sai logo depois, com uma pequena espera).
+        // Mensagens: na lista, sucesso vira aviso flutuante que some sozinho; erro e aviso continuam na barra.
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Busca)) _pagina = 1;
+            if (e.PropertyName is nameof(Mensagem) or nameof(TipoMensagem) or nameof(Editando))
+            {
+                OnPropertyChanged(nameof(MostrarAvisoFlutuante));
+                OnPropertyChanged(nameof(MostrarBarraDaLista));
+                if (e.PropertyName == nameof(Mensagem) && MostrarAvisoFlutuante) _ = EsconderAvisoFlutuanteAsync(++_versaoAviso);
+            }
+        };
+
+        Filtros.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
+        Filtros.Mudou = () =>
+        {
+            if (!_aplicandoVisao && VisaoAtual is not null) VisaoAlterada = true;
+            _ = FiltrosMudaramAsync();
+        };
+        Filtros.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PainelFiltrosPessoas.Aberto)) OnPropertyChanged(nameof(MostrarFiltros));
+            if (e.PropertyName == nameof(PainelFiltrosPessoas.TextoBotao)) OnPropertyChanged(nameof(TextoBotaoFiltros));
+        };
+        Grade.Mudou = mudanca =>
+        {
+            if (!_aplicandoVisao && VisaoAtual is not null) VisaoAlterada = true;
+            switch (mudanca)
+            {
+                case MudancaGrade.Ordenacao: _ = RecarregarDaPrimeiraPaginaAsync(); break;
+                case MudancaGrade.Colunas: _ = RecarregarAsync(); break;
+                default: ReconstruirLinhas(); break;
+            }
+            AgendarSalvarColunas();
         };
     }
 
@@ -108,23 +140,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     // ---- Lista ----
 
-    /// <summary>"Todos" e cada papel do cadastro (antes de ler o cadastro, os de sistema).</summary>
-    public ObservableCollection<Opcao<Guid?>> FiltrosPapel { get; } =
-        new(global::Lone.Domain.Papeis.PapeisSistema.Todos.OrderBy(p => p.Ordem)
-            .Select(p => new Opcao<Guid?>(p.Id, p.Nome)).Prepend(TodosPapeis).ToList());
-
-    private static readonly Opcao<Guid?> TodosPapeis = new(null, "Todos os papéis");
-
-    [ObservableProperty] private Opcao<Guid?> _filtroPapel = TodosPapeis;
-    [ObservableProperty] private bool _mostrarInativos;
-
-    /// <summary>Só cadastros com município antigo (texto) a escolher na tabela do IBGE.</summary>
-    [ObservableProperty] private bool _somenteMunicipioACorrigir;
-
-    /// <summary>"Todas" e cada etiqueta do cadastro (as desativadas também: podem estar em cadastros antigos).</summary>
-    public ObservableCollection<Opcao<Guid?>> FiltrosEtiqueta { get; } = new() { TodasEtiquetas };
-    [ObservableProperty] private Opcao<Guid?> _filtroEtiqueta = TodasEtiquetas;
-    private static readonly Opcao<Guid?> TodasEtiquetas = new(null, "Todas as etiquetas");
+    /// <summary>
+    /// Painel de filtros (catálogo da API): grupos da ficha, campos com caixa de marcar, chips acima da lista. Substitui os
+    /// filtros fixos (papel, etiqueta, incluir inativos, município a corrigir), que agora são campos do catálogo.
+    /// </summary>
+    public PainelFiltrosPessoas Filtros { get; } = new();
 
     /// <summary>Atalho "Nova etiqueta" na ficha: só para quem gerencia etiquetas (a API confere de novo).</summary>
     public bool PodeCriarEtiqueta => _sessao.Possui(Permissoes.Cadastros.Etiquetas);
@@ -133,37 +153,6 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     public bool PodeCriarProfissao => _sessao.Possui(Permissoes.Cadastros.Profissoes);
 
     public bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
-
-    partial void OnFiltroPapelChanged(Opcao<Guid?> value)
-    {
-        // A lista de escolha manda nulo quando o item escolhido sai dela: volta para "todos".
-        if (value is null)
-        {
-            FiltroPapel = TodosPapeis;
-            return;
-        }
-        FiltroAvancadoMudou();
-    }
-    partial void OnMostrarInativosChanged(bool value) => FiltroAvancadoMudou();
-    partial void OnSomenteMunicipioACorrigirChanged(bool value) => FiltroAvancadoMudou();
-
-    /// <summary>Filtro do painel mudou: volta para a página 1 (e não relê várias vezes ao limpar todos de uma vez).</summary>
-    private void FiltroAvancadoMudou()
-    {
-        OnPropertyChanged(nameof(TextoBotaoFiltros));
-        if (_limpandoFiltros) return;
-        _ = RecarregarDaPrimeiraPaginaAsync();
-    }
-    partial void OnFiltroEtiquetaChanged(Opcao<Guid?> value)
-    {
-        // A lista de escolha manda nulo quando o item escolhido sai dela: volta para "todas".
-        if (value is null)
-        {
-            FiltroEtiqueta = TodasEtiquetas;
-            return;
-        }
-        FiltroAvancadoMudou();
-    }
 
     /// <summary>
     /// Falha ao ler as etiquetas não impede a lista de aparecer (o filtro e a ficha ficam sem opções, e as já
@@ -186,7 +175,6 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         try
         {
             _papeis = await _papeisApi.ListarAsync(incluirInativos: true);
-            AtualizarFiltrosPapel();
         }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _papeis = []; }
 
@@ -209,111 +197,533 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Sem os campos dos documentos, a ficha não os mostra e os valores gravados voltam intactos.
         try { _camposDocumento = await _camposApi.ListarAsync(EntidadePersonalizavel.Documento, incluirInativos: false); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _camposDocumento = []; }
+
+        // Catálogo do painel de filtros: sem ele, a lista funciona (busca e atalhos) e o painel avisa.
+        try
+        {
+            var catalogo = await _pessoas.CatalogoFiltrosAsync();
+            Filtros.Carregar(catalogo);
+            Grade.Carregar(catalogo.Colunas.Count > 0 ? catalogo.Colunas : GradePessoas.ColunasBasicas(), catalogo.Layout, Filtros);
+            _abasEscolhidas = catalogo.Layout?.Abas;
+            _preferenciaLida = true;
+        }
+        catch (Exception ex) when (ex is not SessaoExpiradaException)
+        {
+            Filtros.FalhouAoCarregar("Não foi possível carregar os filtros agora. A busca e os atalhos continuam funcionando.");
+            Grade.Carregar(GradePessoas.ColunasBasicas(), null, Filtros);
+            _preferenciaLida = false; // não sabemos o que o usuário tinha: não gravar por cima (colunas e abas)
+        }
+
+        // Abas: com visão entre as escolhidas, as visões são lidas agora (nome da aba); sem, só quando o editor abrir.
+        if (_abasEscolhidas?.Any(id => AbasPessoas.VisaoDe(id) is not null) == true) await CarregarVisoesAsync();
+        MontarCatalogoDeAbas();
+        _colunasSalvas = JsonSerializer.Serialize(LayoutParaGuardar());
+        _listaAberta = true;
     }
 
-    private void AtualizarFiltrosPapel()
-    {
-        var escolhido = FiltroPapel?.Valor;
-        while (FiltrosPapel.Count > 1) FiltrosPapel.RemoveAt(1);
-        foreach (var p in _papeis.OrderBy(p => !p.Ativo).ThenBy(p => p.Ordem))
-            FiltrosPapel.Add(new Opcao<Guid?>(p.Id, p.Ativo ? p.Nome : p.Nome + " (desativado)"));
-        var mesmo = FiltrosPapel.FirstOrDefault(o => o.Valor == escolhido) ?? TodosPapeis;
-        if (!ReferenceEquals(mesmo, FiltroPapel)) FiltroPapel = mesmo;
-    }
+    /// <summary>A tela já montou as abas uma vez (antes disso, remontar não relê: a primeira leitura vem logo depois).</summary>
+    private bool _listaAberta;
+    private bool _preferenciaLida;
 
     private async Task AtualizarEtiquetasAsync()
     {
         _etiquetas = await _etiquetasApi.ListarAsync(incluirInativas: true);
-        AtualizarFiltrosEtiqueta();
-    }
-
-    private void AtualizarFiltrosEtiqueta()
-    {
-        var escolhida = FiltroEtiqueta?.Valor;
-        var opcoes = _etiquetas
-            .OrderBy(e => !e.Ativo).ThenBy(e => e.Nome, StringComparer.CurrentCultureIgnoreCase)
-            .Select(e => new Opcao<Guid?>(e.Id, e.Ativo ? e.Nome : e.Nome + " (desativada)"))
-            .ToList();
-        while (FiltrosEtiqueta.Count > 1) FiltrosEtiqueta.RemoveAt(1);
-        foreach (var opcao in opcoes) FiltrosEtiqueta.Add(opcao);
-        // Mesma escolha se ela ainda existir (outra instância, mesmo valor); senão, "todas".
-        var mesma = FiltrosEtiqueta.FirstOrDefault(o => o.Valor == escolhida) ?? TodasEtiquetas;
-        if (!ReferenceEquals(mesma, FiltroEtiqueta)) FiltroEtiqueta = mesma;
     }
 
     protected override string TextoDeBusca(PessoaResumo item) => item.Nome;
 
     // ---- Lista: atalhos, filtros avançados, paginação e colunas (tela de Pessoas) ----
 
-    /// <summary>Atalhos acima da tabela (um marcado por vez). Os filtros avançados ficam no painel "Filtros".</summary>
-    public IReadOnlyList<FiltroRapido> FiltrosRapidos { get; } = FiltroRapido.Criar();
+    /// <summary>
+    /// Abas acima da tabela (uma marcada por vez): "Todos" + as escolhidas pelo usuário (naturezas, papéis, visões). Os
+    /// filtros avançados ficam no painel "Filtros".
+    /// </summary>
+    public ObservableCollection<FiltroRapido> FiltrosRapidos { get; } = [FiltroRapido.CriarTodos()];
+
+    /// <summary>Editor das abas ("＋" no fim das abas).</summary>
+    public EditorAbas Abas { get; } = new();
 
     private string _filtroRapido = FiltroRapido.Todos;
 
+    /// <summary>Abas da preferência do usuário (nulo = padrão). Guardadas mesmo as que não existem agora (papel inativo).</summary>
+    private List<string>? _abasEscolhidas;
+
+    /// <summary>Visões salvas que o usuário enxerga (lidas quando há aba de visão ou o editor de abas abre).</summary>
+    private List<FiltroSalvoDto> _visoes = [];
+    private bool _visoesCarregadas;
+    private DateTime _visoesContadasEm = DateTime.MinValue;
+
+    /// <summary>De quanto em quanto tempo o contador das abas de visão é refeito (elas não dependem da busca da tela).</summary>
+    public TimeSpan IntervaloContagemVisoes { get; set; } = TimeSpan.FromMinutes(1);
+
+    private FiltroRapido? AbaAtual => FiltrosRapidos.FirstOrDefault(f => f.Chave == _filtroRapido);
+
     [RelayCommand]
-    private Task EscolherFiltroRapidoAsync(FiltroRapido? filtro)
+    private async Task EscolherFiltroRapidoAsync(FiltroRapido? filtro)
     {
-        if (filtro is null || filtro.Chave == _filtroRapido) return Task.CompletedTask;
+        if (filtro is null || filtro.Chave == _filtroRapido) return;
+
+        // Aba de visão: aplica a visão (troca painel, busca e colunas).
+        if (filtro.VisaoId is { } visaoId)
+        {
+            var visao = _visoes.FirstOrDefault(v => v.Id == visaoId);
+            if (visao is null)
+            {
+                await CarregarVisoesAsync();
+                visao = _visoes.FirstOrDefault(v => v.Id == visaoId);
+            }
+            if (visao is null)
+            {
+                Mostrar($"A visão \"{filtro.Texto}\" não existe mais (foi removida ou deixou de ser compartilhada).", TipoMensagem.Aviso);
+                return;
+            }
+            await AplicarVisaoAsync(visao, filtro);
+            return;
+        }
+
+        // Saindo de uma aba de visão: os filtros eram dela; a aba nova começa limpa (como tocar em outra lista).
+        var saindoDeVisao = AbaAtual?.EhVisao == true;
         _filtroRapido = filtro.Chave;
         foreach (var f in FiltrosRapidos) f.Selecionado = ReferenceEquals(f, filtro);
-        return RecarregarDaPrimeiraPaginaAsync();
+        if (saindoDeVisao) SairDaVisao();
+        else if (VisaoAtual is not null) VisaoAlterada = true; // a aba também entra na visão
+
+        // Campos só de PJ com a aba "Pessoas físicas" (e vice-versa) ficam desabilitados no painel.
+        Filtros.DefinirNatureza(filtro.Natureza);
+        _filtrosAtrasados?.Cancel(); // a leitura abaixo já vale para tudo acima (sem uma segunda leitura com espera)
+        await RecarregarDaPrimeiraPaginaAsync();
     }
 
-    /// <summary>Painel de filtros avançados (papel, etiqueta, incluir inativos, município a corrigir).</summary>
-    [ObservableProperty] private bool _mostrarFiltros;
-
-    [RelayCommand]
-    private void AlternarFiltros() => MostrarFiltros = !MostrarFiltros;
-
-    /// <summary>"Filtros" ou "Filtros (2)": quantos filtros avançados estão ligados.</summary>
-    public string TextoBotaoFiltros
+    /// <summary>Saiu de uma aba de visão: painel, busca e aviso eram da visão; a tela volta limpa (quem chama relê).</summary>
+    private void SairDaVisao()
     {
-        get
-        {
-            var ligados = (FiltroPapel?.Valor is null ? 0 : 1) + (FiltroEtiqueta?.Valor is null ? 0 : 1)
-                          + (MostrarInativos ? 1 : 0) + (SomenteMunicipioACorrigir ? 1 : 0);
-            return ligados == 0 ? "Filtros" : $"Filtros ({ligados})";
-        }
-    }
-
-    [RelayCommand]
-    private Task LimparFiltrosAsync()
-    {
-        _limpandoFiltros = true;
+        _aplicandoVisao = true;
         try
         {
-            FiltroPapel = TodosPapeis;
-            FiltroEtiqueta = TodasEtiquetas;
-            MostrarInativos = false;
-            SomenteMunicipioACorrigir = false;
+            Filtros.Limpar();
+            Busca = string.Empty;
+            CancelarBuscaAtrasada();
+            VisaoAtual = null;
+            VisaoAlterada = false;
         }
-        finally { _limpandoFiltros = false; }
-        OnPropertyChanged(nameof(TextoBotaoFiltros));
-        return RecarregarDaPrimeiraPaginaAsync();
+        finally { _aplicandoVisao = false; }
+        LimparMensagem();
     }
 
-    private bool _limpandoFiltros;
+    /// <summary>Abas guardadas que não existem agora (papel inativo; visão ainda não lida): continuam na preferência.</summary>
+    private IEnumerable<string> AbasGuardadas() =>
+        (_abasEscolhidas ?? []).Where(id => Abas.Opcao(id) is null && !(AbasPessoas.VisaoDe(id) is not null && _visoesCarregadas)).ToList();
 
-    /// <summary>Filtro que vai para a API: atalho + filtros avançados (o papel escolhido no painel vale sobre o do atalho).</summary>
+    // ---- Abas escolhidas pelo usuário ----
+
+    /// <summary>Monta as abas possíveis (naturezas, papéis, visões) e as da tela, na ordem escolhida.</summary>
+    private void MontarCatalogoDeAbas()
+    {
+        Abas.Mudou = null;
+        Abas.Carregar(CatalogoAbas.Montar(_papeis, _visoes), _abasEscolhidas);
+        Abas.Mudou = AbasMudaram;
+        var eraVisao = AbaAtual?.EhVisao == true;
+        if (MontarAbas() && _listaAberta) VoltarParaTodos(eraVisao); // a aba marcada deixou de existir (papel inativo, visão apagada)
+    }
+
+    /// <summary>A aba marcada saiu: "Todos", sem o filtro dela (e sem os filtros da visão, se era uma), relendo a lista.</summary>
+    private void VoltarParaTodos(bool eraVisao)
+    {
+        if (eraVisao) SairDaVisao();
+        Filtros.DefinirNatureza(null);
+        _filtrosAtrasados?.Cancel();
+        _ = RecarregarDaPrimeiraPaginaAsync();
+    }
+
+    /// <summary>Refaz as abas da tela (mantém a contagem de cada uma e a marcada; a marcada que saiu volta para "Todos").</summary>
+    private bool MontarAbas()
+    {
+        var anteriores = FiltrosRapidos.ToDictionary(f => f.Chave);
+        FiltrosRapidos.Clear();
+        FiltrosRapidos.Add(anteriores.TryGetValue(FiltroRapido.Todos, out var todos) ? todos : FiltroRapido.CriarTodos());
+        foreach (var id in Abas.Ids)
+            if (Abas.Opcao(id) is { } o)
+                FiltrosRapidos.Add(anteriores.TryGetValue(id, out var existente) && existente.Texto == o.Nome
+                    ? existente
+                    : new FiltroRapido(id, o.Nome, o.Dica) { Quantidade = anteriores.GetValueOrDefault(id)?.Quantidade });
+
+        var perdeuMarcada = AbaAtual is null;
+        if (perdeuMarcada) _filtroRapido = FiltroRapido.Todos;
+        foreach (var f in FiltrosRapidos) f.Selecionado = f.Chave == _filtroRapido;
+        return perdeuMarcada;
+    }
+
+    /// <summary>O usuário mudou as abas no editor: remonta, guarda a preferência e conta as visões novas.</summary>
+    private void AbasMudaram()
+    {
+        _abasEscolhidas = [.. Abas.Ids, .. AbasGuardadas()];
+        var eraVisao = AbaAtual?.EhVisao == true;
+        if (MontarAbas()) VoltarParaTodos(eraVisao);
+        AgendarSalvarColunas();
+        if (FiltrosRapidos.Any(f => f.EhVisao && f.Quantidade is null)) _ = ContarVisoesAsync();
+    }
+
+    /// <summary>Abre o editor de abas (lê as visões na hora, para oferecer como abas).</summary>
+    [RelayCommand]
+    private async Task EditarAbasAsync()
+    {
+        await CarregarVisoesAsync();
+        MontarCatalogoDeAbas();
+        Abas.Abrir();
+    }
+
+    /// <summary>Lê as visões visíveis ao usuário. Falha: as abas de visão ficam como estavam (tenta de novo depois).</summary>
+    private async Task CarregarVisoesAsync()
+    {
+        try
+        {
+            _visoes = (await _pessoas.OpcoesConsultaAsync()).Filtros;
+            _visoesCarregadas = true;
+        }
+        catch (Exception ex) when (ex is not SessaoExpiradaException)
+        {
+            // Sem as visões agora: o editor mostra só naturezas e papéis.
+        }
+    }
+
+    /// <summary>
+    /// Contador das abas de visão: quantas pessoas cada visão traz (com os filtros dela, não os da tela). Falha: as abas
+    /// ficam sem número.
+    /// </summary>
+    private async Task ContarVisoesAsync()
+    {
+        var ids = FiltrosRapidos.Where(f => f.VisaoId is not null).Select(f => f.VisaoId!.Value).ToList();
+        if (ids.Count == 0) return;
+        _visoesContadasEm = DateTime.UtcNow;
+        try
+        {
+            var totais = await _pessoas.ContarVisoesAsync(ids);
+            foreach (var aba in FiltrosRapidos.Where(f => f.VisaoId is { } v && ids.Contains(v)))
+                aba.Quantidade = totais.TryGetValue(aba.VisaoId!.Value, out var total) ? total : null;
+        }
+        catch (Exception ex) when (ex is not SessaoExpiradaException)
+        {
+            // Contador é ajuda: sem ele, a aba continua funcionando.
+        }
+    }
+
+    /// <summary>Preferência guardada: colunas, ordenação, densidade e as abas (as visões salvas não levam as abas).</summary>
+    private LayoutListaPessoas LayoutParaGuardar()
+    {
+        var layout = Grade.Layout();
+        layout.Abas = _abasEscolhidas is null ? null : [.. _abasEscolhidas];
+        return layout;
+    }
+
+    /// <summary>Painel de filtros aberto (à direita; no celular, sobre a lista).</summary>
+    public bool MostrarFiltros => Filtros.Aberto;
+
+    [RelayCommand]
+    private void AlternarFiltros() => Filtros.Aberto = !Filtros.Aberto;
+
+    /// <summary>"Filtros" ou "Filtros (3)": quantos filtros do painel estão valendo.</summary>
+    public string TextoBotaoFiltros => Filtros.TextoBotao;
+
+    [RelayCommand]
+    private void LimparFiltros() => Filtros.Limpar();
+
+    /// <summary>Filtros do painel mudaram: volta para a página 1 e relê, com uma pequena espera (vale a mudança mais nova).</summary>
+    private async Task FiltrosMudaramAsync()
+    {
+        _filtrosAtrasados?.Cancel();
+        var cts = _filtrosAtrasados = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(400, cts.Token);
+            // Um aviso de filtro anterior (ex.: valor recusado pela API) não vale mais para os filtros novos.
+            LimparMensagem();
+            await RecarregarDaPrimeiraPaginaAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // Outra mudança chegou antes: vale a mais nova.
+        }
+        finally
+        {
+            if (ReferenceEquals(_filtrosAtrasados, cts)) _filtrosAtrasados = null;
+            cts.Dispose();
+        }
+    }
+
+    private CancellationTokenSource? _filtrosAtrasados;
+
+    // ---- Visões (filtros salvos com nome; do usuário ou compartilhados) ----
+
+    /// <summary>Visão aplicada por último (nula = nenhuma).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoBotaoVisoes))]
+    private FiltroSalvoDto? _visaoAtual;
+
+    /// <summary>Os filtros mudaram depois de aplicar a visão ("Visão: X (alterada)").</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoBotaoVisoes))]
+    private bool _visaoAlterada;
+
+    private bool _aplicandoVisao;
+
+    public string TextoBotaoVisoes => VisaoAtual is null ? "Visões" : VisaoAlterada ? $"Visão: {VisaoAtual.Nome} (alterada)" : $"Visão: {VisaoAtual.Nome}";
+
+    private const string OpcaoSalvarVisao = "＋ Salvar os filtros atuais como visão…";
+
+    /// <summary>Lista as visões (lidas na hora: podem ter sido criadas por outro usuário) e as ações de salvar e remover.</summary>
+    [RelayCommand]
+    private async Task VisoesAsync()
+    {
+        List<FiltroSalvoDto> visoes = [];
+        if (!await ExecutarAsync(async () => visoes = (await _pessoas.OpcoesConsultaAsync()).Filtros)) return;
+
+        _visoes = visoes;
+        _visoesCarregadas = true;
+        var remover = VisaoAtual is { Proprio: true } propria ? $"Remover a visão \"{propria.Nome}\"" : null;
+        var fixar = VisaoAtual is { } atual && visoes.Any(v => v.Id == atual.Id) && FiltrosRapidos.All(f => f.VisaoId != atual.Id)
+            ? $"Mostrar \"{atual.Nome}\" como aba" : null;
+        var opcoes = visoes.Select(v => v.ToString()).ToList();
+        opcoes.Add(OpcaoSalvarVisao);
+        if (fixar is not null) opcoes.Add(fixar);
+        if (remover is not null) opcoes.Add(remover);
+
+        var escolha = await EscolherAsync(visoes.Count == 0 ? "Visões (nenhuma salva ainda)" : "Visões", opcoes);
+        if (escolha is null) return;
+        if (escolha == OpcaoSalvarVisao) await SalvarVisaoAsync();
+        else if (escolha == fixar) await FixarVisaoComoAbaAsync(VisaoAtual!);
+        else if (escolha == remover) await RemoverVisaoAsync();
+        else if (visoes.FirstOrDefault(v => v.ToString() == escolha) is { } visao) await AplicarVisaoAsync(visao);
+    }
+
+    /// <summary>
+    /// Filtros da tela como critérios (painel + busca + atalho). O atalho vira condição (PF, clientes, inativos...) para a
+    /// visão e a exportação valerem igual à lista.
+    /// </summary>
+    public CriteriosPessoas CriteriosDaTela()
+    {
+        var condicoes = Filtros.Condicoes();
+        void Incluir(string campo, params string[] valores) =>
+            condicoes.Add(new CondicaoFiltro { Campo = campo, Operador = OperadorFiltro.UmDestes, Valores = [.. valores] });
+        // A aba vira condição (natureza ou papel); aba de visão não soma nada (os filtros da visão já estão no painel).
+        if (AbaAtual?.Natureza is { } natureza) Incluir(CamposFiltroPessoas.Natureza, natureza.ToString());
+        if (AbaAtual?.PapelId is { } papel) Incluir(CamposFiltroPessoas.Papeis, papel.ToString("D"));
+        return new CriteriosPessoas
+        {
+            Texto = string.IsNullOrWhiteSpace(Busca) ? null : Busca.Trim(),
+            Condicoes = condicoes,
+            Layout = Grade.Carregada ? Grade.Layout() : null
+        };
+    }
+
+    private async Task SalvarVisaoAsync()
+    {
+        var criterios = CriteriosDaTela();
+        if (criterios.Condicoes.Count == 0 && criterios.Texto is null)
+        {
+            Mostrar("Escolha algum filtro (ou uma busca) antes de salvar a visão.", TipoMensagem.Aviso);
+            return;
+        }
+        var propria = VisaoAtual is { Proprio: true } v ? v : null;
+        var nome = await PerguntarAsync("Salvar visão",
+            propria is null ? "Nome da visão (ex.: Clientes PJ de Curvelo):" : "Nome da visão (o mesmo nome atualiza esta):",
+            "Salvar", "Cancelar", propria?.Nome, 80);
+        if (string.IsNullOrWhiteSpace(nome)) return;
+        var compartilhar = await ConfirmarAsync("Compartilhar a visão",
+            "Deixar esta visão disponível para todos os usuários? Só você poderá alterá-la ou removê-la.", "Compartilhar", "Só para mim");
+        var atualizar = propria is not null && TextoBusca.Normalizar(nome) == TextoBusca.Normalizar(propria.Nome);
+
+        FiltroSalvoDto? salva = null;
+        if (!await ExecutarAsync(async () => salva = await _pessoas.SalvarFiltroAsync(new FiltroSalvoDto
+            {
+                Id = atualizar ? propria!.Id : IdSequencial.Novo(),
+                Versao = atualizar ? propria!.Versao : null,
+                Nome = nome.Trim(),
+                Compartilhado = compartilhar,
+                Criterios = criterios
+            })))
+            return;
+        VisaoAtual = salva;
+        VisaoAlterada = false;
+        // A aba da visão (se houver) passa a ter o nome e os filtros novos.
+        _visoes.RemoveAll(v => v.Id == salva!.Id);
+        _visoes.Add(salva!);
+        MontarCatalogoDeAbas();
+        if (FiltrosRapidos.FirstOrDefault(f => f.VisaoId == salva!.Id) is { } aba)
+        {
+            _ = ContarVisoesAsync();
+            if (!aba.Selecionado) await AplicarVisaoAsync(salva!, aba);
+        }
+        Mostrar($"Visão \"{salva!.Nome}\" salva.", TipoMensagem.Sucesso);
+    }
+
+    /// <summary>Põe a visão nas abas (no fim), se ainda cabe.</summary>
+    private async Task FixarVisaoComoAbaAsync(FiltroSalvoDto visao)
+    {
+        MontarCatalogoDeAbas(); // as visões acabaram de ser lidas: o catálogo das abas passa a ter esta
+        var id = AbasPessoas.Visao(visao.Id);
+        if (Abas.Opcao(id) is null) return;
+        if (Abas.Ids.Count >= AbasPessoas.Maximo)
+        {
+            Mostrar($"Já há {AbasPessoas.Maximo} abas: tire uma em \"＋\" (editar abas) antes de pôr outra.", TipoMensagem.Aviso);
+            return;
+        }
+        _abasEscolhidas = [.. Abas.Ids, id, .. AbasGuardadas()];
+        MontarCatalogoDeAbas();
+        AgendarSalvarColunas();
+        _ = ContarVisoesAsync();
+        if (FiltrosRapidos.FirstOrDefault(f => f.VisaoId == visao.Id) is not { } aba || aba.Selecionado) return;
+        // Visão já aplicada (a opção só aparece assim): só marca a aba, sem reaplicar a gravada — reaplicar descartaria
+        // o que o usuário mudou nela ("(alterada)"). A aba anterior, de natureza ou papel, deixa de filtrar: relê.
+        if (VisaoAtual?.Id == visao.Id)
+        {
+            _aplicandoVisao = true;
+            try
+            {
+                _filtroRapido = aba.Chave;
+                foreach (var f in FiltrosRapidos) f.Selecionado = ReferenceEquals(f, aba);
+                Filtros.DefinirNatureza(null);
+            }
+            finally { _aplicandoVisao = false; }
+            _filtrosAtrasados?.Cancel();
+            await RecarregarDaPrimeiraPaginaAsync();
+        }
+        else await AplicarVisaoAsync(visao, aba);
+    }
+
+    private async Task RemoverVisaoAsync()
+    {
+        if (VisaoAtual is not { Proprio: true } visao) return;
+        if (!await ConfirmarAsync("Remover visão", $"Remover a visão \"{visao.Nome}\"? Os filtros da tela continuam como estão.", "Remover", "Cancelar"))
+            return;
+        if (!await ExecutarAsync(() => _pessoas.DesativarFiltroAsync(visao.Id))) return;
+        VisaoAtual = null;
+        VisaoAlterada = false;
+        // A aba dela (se havia) sai; os filtros da tela continuam como estão, agora em "Todos".
+        _visoes.RemoveAll(v => v.Id == visao.Id);
+        if (_abasEscolhidas?.Remove(AbasPessoas.Visao(visao.Id)) == true) AgendarSalvarColunas();
+        if (AbaAtual?.VisaoId == visao.Id) _filtroRapido = FiltroRapido.Todos; // os filtros ficam; só a aba some
+        MontarCatalogoDeAbas();
+        Mostrar("Visão removida.", TipoMensagem.Sucesso);
+    }
+
+    /// <summary>
+    /// Troca os filtros da tela pelos da visão (painel, busca; atalho volta para "Todos") e relê a lista na hora. O aviso
+    /// de parte não aplicada vem depois da leitura (a leitura por filtros limpa as mensagens antigas).
+    /// </summary>
+    public async Task AplicarVisaoAsync(FiltroSalvoDto visao, FiltroRapido? aba = null)
+    {
+        _aplicandoVisao = true;
+        var tudo = true;
+        try
+        {
+            // A aba da visão fica marcada (se ela estiver nas abas); senão, "Todos".
+            aba ??= FiltrosRapidos.FirstOrDefault(f => f.VisaoId == visao.Id);
+            _filtroRapido = aba?.Chave ?? FiltroRapido.Todos;
+            foreach (var f in FiltrosRapidos) f.Selecionado = f.Chave == _filtroRapido;
+            Filtros.DefinirNatureza(null);
+            Filtros.Limpar();
+            foreach (var condicao in visao.Criterios.Condicoes)
+                tudo &= Filtros.Aplicar(condicao);
+            // Visão com colunas: a lista fica como foi salva (a releitura abaixo já traz os valores das colunas novas).
+            if (visao.Criterios.Layout is { } layout && Grade.Carregada)
+            {
+                Grade.AplicarLayout(layout);
+                AgendarSalvarColunas();
+            }
+            Busca = visao.Criterios.Texto ?? string.Empty;
+            CancelarBuscaAtrasada(); // a leitura abaixo já leva a busca da visão
+            VisaoAtual = visao;
+            VisaoAlterada = false;
+        }
+        finally { _aplicandoVisao = false; }
+        _filtrosAtrasados?.Cancel(); // as mudanças do painel acima já pediram releitura com espera: lê uma vez, agora
+        LimparMensagem();
+        await RecarregarDaPrimeiraPaginaAsync();
+        if (!tudo)
+            Mostrar("Parte da visão não pôde ser aplicada (campo sem permissão para você ou opção que não existe mais).", TipoMensagem.Aviso);
+    }
+
+    // ---- Ações da lista ("⋯"): exportar e rotina de endereços duplicados ----
+
+    public bool PodeExportar => _sessao.Possui(Permissoes.Pessoas.Exportar);
+
+    private const string AcaoExportar = "Exportar o resultado (CSV)";
+    private const string AcaoDuplicados = "Procurar endereços duplicados";
+    private const string AcaoVisoes = "Visões salvas…";
+    private const string AcaoEditarAbas = "Escolher as abas…";
+
+    [RelayCommand]
+    private async Task AcoesDaListaAsync()
+    {
+        // "Visões" também aqui: no celular o botão da barra não aparece (falta espaço).
+        var opcoes = new List<string> { AcaoVisoes, AcaoEditarAbas };
+        if (PodeExportar) opcoes.Add(AcaoExportar);
+        opcoes.Add(AcaoDuplicados);
+        switch (await EscolherAsync("Pessoas", opcoes))
+        {
+            case AcaoVisoes: await VisoesAsync(); break;
+            case AcaoEditarAbas: await EditarAbasAsync(); break;
+            case AcaoExportar: await ExportarAsync(); break;
+            case AcaoDuplicados: await ProcurarEnderecosDuplicadosAsync(null); break;
+        }
+    }
+
+    /// <summary>Exporta o que está filtrado na tela (a API confere a permissão e registra na auditoria).</summary>
+    private async Task ExportarAsync()
+    {
+        if (!await ConfirmarAsync("Exportar",
+                "Exportar em CSV as pessoas filtradas agora? A exportação fica registrada na auditoria (quem, quando e os filtros).",
+                "Exportar", "Cancelar"))
+            return;
+        ArquivoExportado? arquivo = null;
+        if (!await ExecutarAsync(async () =>
+            {
+                arquivo = await _pessoas.ExportarAsync(CriteriosDaTela());
+                var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(arquivo.Conteudo)).ToArray();
+                await _arquivos.AbrirAsync(arquivo.NomeArquivo, bytes);
+            }))
+            return;
+        Mostrar($"{arquivo!.Linhas.ToString("N0", TextoTela.Brasil)} pessoa(s) exportada(s) em {arquivo.NomeArquivo}.", TipoMensagem.Sucesso);
+    }
+
+    private const string MostrarMaisDuplicados = "Mostrar mais…";
+
+    /// <summary>Pessoas com o mesmo endereço cadastrado mais de uma vez: tocar abre a ficha (a consolidação é lá).</summary>
+    private async Task ProcurarEnderecosDuplicadosAsync(Guid? apos)
+    {
+        Lone.Contracts.Enderecos.PaginaEnderecosDuplicados? pagina = null;
+        if (!await ExecutarAsync(async () => pagina = await _pessoas.ListarEnderecosDuplicadosAsync(apos, 50))) return;
+        if (pagina!.Itens.Count == 0)
+        {
+            Mostrar(apos is null ? "Nenhum endereço duplicado encontrado." : "Não há mais endereços duplicados.", TipoMensagem.Sucesso);
+            return;
+        }
+        var linhas = pagina.Itens.Select(i => $"{i.Codigo:000000} · {i.Nome}").ToList();
+        if (pagina.ProximoId is not null) linhas.Add(MostrarMaisDuplicados);
+        var escolha = await EscolherAsync("Endereços duplicados — toque para abrir a ficha e consolidar", linhas);
+        if (escolha is null) return;
+        if (escolha == MostrarMaisDuplicados)
+        {
+            await ProcurarEnderecosDuplicadosAsync(pagina.ProximoId);
+            return;
+        }
+        var item = pagina.Itens[linhas.IndexOf(escolha)];
+        Selecionado = new PessoaResumo { Id = item.PessoaId, Codigo = item.Codigo, Nome = item.Nome };
+    }
+
+    /// <summary>
+    /// Filtro que vai para a API: busca + atalho. As condições do painel vão junto (Filtros.Condicoes). Com o campo
+    /// "Situação do cadastro" no painel, é ele que decide as situações (a lista deixa de esconder os inativos).
+    /// </summary>
     public FiltroPessoas FiltroAtual()
     {
         var filtro = new FiltroPessoas
         {
             Texto = Busca,
-            PapelId = FiltroPapel?.Valor,
-            IncluirInativos = MostrarInativos,
-            MunicipioACorrigir = SomenteMunicipioACorrigir,
-            EtiquetaId = FiltroEtiqueta?.Valor
+            IncluirInativos = Filtros.TemCondicao(global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Situacao)
         };
-        switch (_filtroRapido)
-        {
-            case FiltroRapido.Fisicas: filtro.Natureza = NaturezaPessoa.Fisica; break;
-            case FiltroRapido.Juridicas: filtro.Natureza = NaturezaPessoa.Juridica; break;
-            case FiltroRapido.Clientes: filtro.PapelId ??= global::Lone.Domain.Papeis.PapeisSistema.Id(TipoPapel.Cliente); break;
-            case FiltroRapido.Fornecedores: filtro.PapelId ??= global::Lone.Domain.Papeis.PapeisSistema.Id(TipoPapel.Fornecedor); break;
-            case FiltroRapido.Ativos: filtro.SomenteAtivos = true; break;
-            case FiltroRapido.Inativos: filtro.SomenteInativos = true; break;
-        }
+        filtro.Natureza = AbaAtual?.Natureza;
+        filtro.PapelId = AbaAtual?.PapelId;
         return filtro;
     }
 
@@ -344,15 +754,29 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     protected override async Task<IReadOnlyList<PessoaResumo>> ListarAsync()
     {
-        var pagina = await _pessoas.ListarPaginaAsync(FiltroAtual(), _pagina, TamanhoPagina);
+        var condicoes = Filtros.Condicoes();
+        var colunas = Grade.ColunasExtras();
+        var ordenacao = Grade.Ordenacao;
+        var pagina = await _pessoas.ListarPaginaAsync(FiltroAtual(), condicoes, colunas, ordenacao, _pagina, TamanhoPagina);
         // Página que deixou de existir (ex.: filtro reduziu o total): volta para a última que existe.
         if (pagina.Itens.Count == 0 && pagina.Total > 0 && _pagina > 1)
         {
             _pagina = Paginacao.Paginas(pagina.Total, TamanhoPagina);
-            pagina = await _pessoas.ListarPaginaAsync(FiltroAtual(), _pagina, TamanhoPagina);
+            pagina = await _pessoas.ListarPaginaAsync(FiltroAtual(), condicoes, colunas, ordenacao, _pagina, TamanhoPagina);
         }
         TotalRegistros = pagina.Total;
         PaginaAtual = pagina.Pagina;
+        // Contagem das abas (vem na página 1; nas outras páginas os filtros são os mesmos e a contagem continua valendo).
+        // Numa aba de visão, a contagem veio com os filtros da visão, mas tocar em outra aba limpa esses filtros: o número
+        // não corresponderia ao que a aba traz. Fica sem número até sair da visão.
+        if (pagina.Atalhos is { } atalhos)
+        {
+            var emVisao = AbaAtual?.EhVisao == true;
+            foreach (var aba in FiltrosRapidos.Where(f => !f.EhVisao)) aba.Quantidade = emVisao ? null : aba.QuantidadeEm(atalhos);
+        }
+        // Abas de visão: contadas à parte (os filtros são os delas), no máximo uma vez por intervalo.
+        if (_pagina == 1 && FiltrosRapidos.Any(f => f.EhVisao) && DateTime.UtcNow - _visoesContadasEm >= IntervaloContagemVisoes)
+            _ = ContarVisoesAsync();
         Paginas.Clear();
         foreach (var p in Paginacao.Janela(PaginaAtual, TotalPaginas)) Paginas.Add(p);
         OnPropertyChanged(nameof(TotalPaginas));
@@ -364,8 +788,74 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Chamado depois que a base troca as linhas (o resumo conta as linhas da página).</summary>
     protected override void DepoisDeListar()
     {
+        ReconstruirLinhas();
         OnPropertyChanged(nameof(ResumoPaginacao));
         OnPropertyChanged(nameof(MostrarEstadoVazio));
+    }
+
+    // ---- Colunas da lista (escolha, ordem, ordenação, filtro nas colunas) ----
+
+    /// <summary>Colunas da lista: o nome preso à esquerda e as escolhidas pelo usuário, que rolam para o lado.</summary>
+    public GradePessoas Grade { get; } = new();
+
+    /// <summary>As linhas da página com as células das colunas escolhidas (a tela mostra estas, não Itens).</summary>
+    public ObservableCollection<LinhaPessoa> Linhas { get; } = new();
+
+    private void ReconstruirLinhas()
+    {
+        Linhas.Clear();
+        foreach (var p in Itens) Linhas.Add(Grade.Linha(p));
+    }
+
+    [RelayCommand]
+    private void AbrirLinha(LinhaPessoa? linha)
+    {
+        if (linha is not null) Selecionado = linha.Pessoa;
+    }
+
+    [RelayCommand]
+    private Task AcoesDaLinhaGradeAsync(LinhaPessoa? linha) => linha is null ? Task.CompletedTask : AcoesDaLinhaAsync(linha.Pessoa);
+
+    private string _colunasSalvas = string.Empty;
+    private CancellationTokenSource? _salvarColunas;
+
+    /// <summary>Espera antes de guardar as colunas (várias mudanças seguidas viram uma gravação só).</summary>
+    public TimeSpan EsperaParaSalvarColunas { get; set; } = TimeSpan.FromMilliseconds(800);
+
+    /// <summary>A gravação das colunas em andamento (os testes esperam por ela).</summary>
+    public Task SalvandoColunas { get; private set; } = Task.CompletedTask;
+
+    private void AgendarSalvarColunas()
+    {
+        _salvarColunas?.Cancel();
+        var cts = _salvarColunas = new CancellationTokenSource();
+        SalvandoColunas = SalvarColunasAsync(cts.Token);
+    }
+
+    /// <summary>
+    /// Guarda colunas, ordenação e linha de filtro para o usuário. Só grava se mudou; falha não atrapalha a tela (na
+    /// próxima mudança tenta de novo).
+    /// </summary>
+    private async Task SalvarColunasAsync(CancellationToken ct)
+    {
+        try
+        {
+            if (EsperaParaSalvarColunas > TimeSpan.Zero) await Task.Delay(EsperaParaSalvarColunas, ct);
+            if (!_preferenciaLida) return; // o catálogo (com a preferência) não veio: gravar apagaria a escolha do usuário
+            var layout = LayoutParaGuardar();
+            var json = JsonSerializer.Serialize(layout);
+            if (json == _colunasSalvas) return;
+            await _pessoas.SalvarLayoutListaAsync(layout, ct);
+            _colunasSalvas = json;
+        }
+        catch (OperationCanceledException)
+        {
+            // Outra mudança chegou antes: vale a mais nova.
+        }
+        catch (Exception)
+        {
+            // Preferência de apresentação: sem conexão, fica para a próxima mudança.
+        }
     }
 
     private Task RecarregarDaPrimeiraPaginaAsync()
@@ -398,25 +888,23 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         return RecarregarAsync();
     }
 
-    // Colunas da tabela conforme a largura (só apresentação; a tela informa a largura disponível).
-    [ObservableProperty] private bool _mostrarColunaDocumento = true;
-    [ObservableProperty] private bool _mostrarColunaTipo = true;
-    [ObservableProperty] private bool _mostrarColunaPapeis = true;
-    [ObservableProperty] private bool _mostrarColunaCidade = true;
+    /// <summary>Altura de cada linha da lista (fixa: a parte presa do nome e a que rola ficam alinhadas).</summary>
+    public const double AlturaLinha = LinhaPessoa.AlturaConfortavel;
 
-    /// <summary>Documento embaixo do nome quando a coluna de documento não cabe (tela estreita).</summary>
-    public bool MostrarDocumentoNoNome => !MostrarColunaDocumento;
+    /// <summary>Largura mínima para as colunas ao lado do nome (abaixo disso, só o nome com o documento embaixo).</summary>
+    public const double LarguraMinimaColunas = 600;
 
-    partial void OnMostrarColunaDocumentoChanged(bool value) => OnPropertyChanged(nameof(MostrarDocumentoNoNome));
-
-    /// <summary>Esconde primeiro as colunas menos importantes: cidade, papéis, tipo e, por último, o documento.</summary>
+    /// <summary>
+    /// Tela estreita (celular): só o nome, com o documento embaixo. Tela larga: o nome preso à esquerda e as colunas
+    /// escolhidas rolando para o lado (nenhuma some por falta de espaço).
+    /// </summary>
     public void DefinirLarguraDaLista(double largura)
     {
         if (largura <= 0) return;
-        MostrarColunaCidade = largura >= 1100;
-        MostrarColunaPapeis = largura >= 940;
-        MostrarColunaTipo = largura >= 720;
-        MostrarColunaDocumento = largura >= 600;
+        var mostrar = largura >= LarguraMinimaColunas;
+        if (Grade.MostrarColunas == mostrar) return;
+        Grade.MostrarColunas = mostrar;
+        ReconstruirLinhas();
     }
 
     // ---- Ações da linha ("⋯"), respeitando as permissões ----
@@ -461,6 +949,105 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         for (var i = 0; i < 100 && (Formulario?.Id != id || Ocupado); i++)
             await Task.Delay(50);
+    }
+
+    // ---- Avisos da lista: sucesso flutua embaixo e some sozinho; erro e aviso ficam na barra até a próxima ação ----
+
+    /// <summary>Quanto tempo o aviso de sucesso fica na tela.</summary>
+    public TimeSpan TempoAvisoFlutuante { get; set; } = TimeSpan.FromSeconds(4);
+
+    public bool MostrarAvisoFlutuante => SemFicha && TemMensagem && TipoMensagem == TipoMensagem.Sucesso;
+    public bool MostrarBarraDaLista => SemFicha && TemMensagem && TipoMensagem != TipoMensagem.Sucesso;
+
+    private int _versaoAviso;
+
+    /// <summary>Esconde o aviso depois do tempo, se ainda for o mesmo (outro aviso, mesmo com o mesmo texto, recomeça a contagem).</summary>
+    private async Task EsconderAvisoFlutuanteAsync(int versao)
+    {
+        await Task.Delay(TempoAvisoFlutuante);
+        if (MostrarAvisoFlutuante && versao == _versaoAviso) LimparMensagem();
+    }
+
+    [RelayCommand]
+    private void FecharAvisoFlutuante() => LimparMensagem();
+
+    // ---- Configurações de Pessoas: ficam nesta tela (saíram do menu lateral) ----
+
+    /// <summary>A tela navega para a rota (ex.: "papeis", "configuracoes-pessoas").</summary>
+    public Func<string, Task>? AbrirTela { get; set; }
+
+    /// <summary>Cadastros de configuração de Pessoas que o usuário pode abrir (o botão "Configurações" some sem nenhum).</summary>
+    public IReadOnlyList<ItemConfiguracao> ConfiguracoesPermitidas =>
+        [.. ConfiguracoesViewModel.Montar(_sessao.Possui, ModulosConfiguracao.Pessoas).SelectMany(g => g.Itens)];
+
+    public bool PodeConfigurar => ConfiguracoesPermitidas.Count > 0;
+
+    /// <summary>Abre a página "Configurações de Pessoas" (os cadastros em cartões), como o item antigo do menu (decisão do usuário).</summary>
+    [RelayCommand]
+    private Task ConfiguracoesAsync() =>
+        PodeConfigurar && AbrirTela is not null ? AbrirTela(ModulosConfiguracao.Rota(ModulosConfiguracao.Pessoas)) : Task.CompletedTask;
+
+    // ---- Ações rápidas da linha: ligar, WhatsApp, e-mail (contato principal) ----
+
+    /// <summary>Abre um endereço no aparelho ("tel:", "mailto:", "https://wa.me/..."). A tela fornece.</summary>
+    public Func<string, Task>? AbrirEndereco { get; set; }
+
+    [RelayCommand]
+    private Task LigarAsync(LinhaPessoa? linha) =>
+        EnderecoDoTelefone(linha?.Pessoa.TelefonePrincipal, whatsApp: false) is { } uri ? AbrirAsync(uri) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task WhatsAppAsync(LinhaPessoa? linha) =>
+        EnderecoDoTelefone(linha?.Pessoa.TelefonePrincipal, whatsApp: true) is { } uri ? AbrirAsync(uri) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task EnviarEmailAsync(LinhaPessoa? linha) =>
+        string.IsNullOrWhiteSpace(linha?.Pessoa.EmailPrincipal)
+            ? Task.CompletedTask
+            : AbrirAsync("mailto:" + linha.Pessoa.EmailPrincipal.Trim());
+
+    /// <summary>
+    /// "tel:+5538999887766" ou "https://wa.me/5538999887766". Número com 10 ou 11 dígitos (DDD + número) ganha o 55 do
+    /// Brasil; outro tamanho vai como está (já com o código do país ou ramal). Sem dígitos: nada.
+    /// </summary>
+    public static string? EnderecoDoTelefone(string? telefone, bool whatsApp)
+    {
+        var internacional = telefone?.TrimStart().StartsWith('+') == true;
+        var digitos = Documento.SomenteDigitos(telefone);
+        if (!internacional && digitos.Length is 11 or 12 && digitos[0] == '0') digitos = digitos[1..]; // "0" de longa distância
+        if (digitos.Length < 8) return null;
+        var completo = !internacional && digitos.Length is 10 or 11 ? "55" + digitos : digitos;
+        return whatsApp ? "https://wa.me/" + completo : "tel:+" + completo;
+    }
+
+    private async Task AbrirAsync(string uri)
+    {
+        if (AbrirEndereco is null) return;
+        try { await AbrirEndereco(uri); }
+        catch (Exception) { Mostrar("Não foi possível abrir o aplicativo para este contato neste aparelho.", TipoMensagem.Aviso); }
+    }
+
+    // ---- "Ordenar por" (celular: sem cabeçalho de colunas) ----
+
+    private const string OrdemPadrao = "Ordem padrão (nome)";
+
+    [RelayCommand]
+    private async Task OrdenarPorAsync()
+    {
+        var colunas = Grade.ColunasOrdenaveis();
+        var escolha = await EscolherAsync("Ordenar por", [OrdemPadrao, .. colunas.Select(c => c.Nome)]);
+        if (escolha is null) return;
+        if (escolha == OrdemPadrao)
+        {
+            Grade.OrdenarPor(null, DirecaoOrdenacao.Crescente);
+            return;
+        }
+        var coluna = colunas.First(c => c.Nome == escolha);
+        const string crescente = "Crescente (A → Z, menor → maior, mais antiga → mais nova)";
+        const string decrescente = "Decrescente (Z → A, maior → menor, mais nova → mais antiga)";
+        var direcao = await EscolherAsync(coluna.Nome, [crescente, decrescente]);
+        if (direcao is null) return;
+        Grade.OrdenarPor(coluna.Id, direcao == crescente ? DirecaoOrdenacao.Crescente : DirecaoOrdenacao.Decrescente);
     }
 
     /// <summary>Atalho da ficha e da lista: abre "Configurações de Pessoas" (a tela navega).</summary>
@@ -868,7 +1455,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         var motivo = await PerguntarAsync(
             desativar ? "Desativar cadastro" : "Reativar cadastro",
             desativar
-                ? $"{formulario.Nome} deixará de aparecer nas buscas e operações (continua no filtro \"Inativos\", com todo o histórico, e pode ser reativado). Motivo (opcional):"
+                ? $"{formulario.Nome} deixará de aparecer nas buscas e operações (continua acessível pelo filtro \"Situação do cadastro\", com todo o histórico, e pode ser reativado). Motivo (opcional):"
                 : $"{formulario.Nome} volta a aparecer nas buscas e operações. Motivo (opcional):",
             desativar ? "Desativar" : "Reativar",
             "Cancelar",
@@ -884,7 +1471,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
         MostrarGravada(gravada!);
         MarcarFichaSemAlteracoes();
-        Mostrar(desativar ? "Cadastro desativado. Ele continua no filtro \"Inativos\"." : "Cadastro reativado.", TipoMensagem.Sucesso);
+        Mostrar(desativar ? "Cadastro desativado. Ele continua acessível pelo filtro \"Situação do cadastro\" (Inativo)." : "Cadastro reativado.", TipoMensagem.Sucesso);
         await AtualizarListaAposGravarAsync();
     }
 
@@ -999,7 +1586,6 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
         var etiqueta = criada!;
         _etiquetas.Add(etiqueta);
-        FiltrosEtiqueta.Add(new Opcao<Guid?>(etiqueta.Id, etiqueta.Nome));
         formulario.Etiquetas.Incluir(etiqueta, marcar: true);
         Mostrar($"Etiqueta \"{etiqueta.Nome}\" criada e marcada. Salve o cadastro para gravar a marcação.", TipoMensagem.Sucesso);
     }

@@ -66,9 +66,13 @@ public static class Rotas
         public const string Consulta = Grupo + "/consulta";
         public const string Exportar = Consulta + "/exportar";
         public const string OpcoesConsulta = Consulta + "/opcoes";
+        /// <summary>Catálogo de campos do filtro (grupos, tipos, operadores, opções), já filtrado pelas permissões.</summary>
+        public const string CatalogoFiltros = Consulta + "/catalogo";
         public const string FiltrosSalvos = Consulta + "/filtros";
         public static string FiltroSalvo(Guid id) => $"{FiltrosSalvos}/{id}";
         public static string DesativarFiltro(Guid id) => $"{FiltrosSalvos}/{id}/desativar";
+        /// <summary>Quantas pessoas cada visão salva traz (abas de visão da lista). POST com os Ids.</summary>
+        public const string ContagemFiltros = FiltrosSalvos + "/contagens";
     }
 
     /// <summary>Grupos empresariais (conjuntos de pessoas jurídicas independentes). Nada é excluído: desativa.</summary>
@@ -297,6 +301,9 @@ public static class Rotas
         public const string Preferencias = Grupo + "/preferencias";
         public const string Favoritos = Grupo + "/favoritos";
         public const string Acessos = Grupo + "/acessos";
+
+        /// <summary>Preferência de uma tela (ex.: colunas da lista de pessoas).</summary>
+        public static string Tela(string tela) => $"{Grupo}/telas/{Uri.EscapeDataString(tela)}";
     }
 
     public static class Consultas

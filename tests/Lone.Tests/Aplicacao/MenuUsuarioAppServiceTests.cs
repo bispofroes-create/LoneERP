@@ -121,6 +121,34 @@ public class MenuUsuarioAppServiceTests
         Assert.Empty(_repositorio.Linhas);
     }
 
+    [Fact]
+    public async Task Preferencia_da_tela_e_do_usuario_e_so_aceita_objeto_json_de_tamanho_limitado()
+    {
+        Assert.Equal(string.Empty, (await _servico.ObterTelaAsync("pessoas-lista")).Conteudo);
+
+        await _servico.DefinirTelaAsync("pessoas-lista", new PreferenciaTelaDto { Conteudo = "{\"Colunas\":[\"enderecos.bairro\"]}" });
+        Assert.Contains("enderecos.bairro", (await _servico.ObterTelaAsync("pessoas-lista")).Conteudo);
+
+        await Assert.ThrowsAsync<ValidacaoException>(() =>
+            _servico.DefinirTelaAsync("pessoas-lista", new PreferenciaTelaDto { Conteudo = "[1,2]" }));
+        await Assert.ThrowsAsync<ValidacaoException>(() =>
+            _servico.DefinirTelaAsync("pessoas-lista", new PreferenciaTelaDto { Conteudo = "não é json" }));
+        await Assert.ThrowsAsync<ValidacaoException>(() =>
+            _servico.DefinirTelaAsync("pessoas-lista", new PreferenciaTelaDto { Conteudo = "{\"x\":\"" + new string('a', LimitesMenu.TamanhoMaximoPreferenciaTela) + "\"}" }));
+        await Assert.ThrowsAsync<ValidacaoException>(() =>
+            _servico.DefinirTelaAsync("Pessoas Lista", new PreferenciaTelaDto { Conteudo = "{}" }));
+
+        // Vazio = volta ao padrão da tela (grava um objeto vazio).
+        await _servico.DefinirTelaAsync("pessoas-lista", new PreferenciaTelaDto { Conteudo = "  " });
+        Assert.Equal("{}", (await _servico.ObterTelaAsync("pessoas-lista")).Conteudo);
+
+        var outro = Guid.NewGuid();
+        var meu = _usuario.Id;
+        _usuario.Id = outro;
+        Assert.Equal(string.Empty, (await _servico.ObterTelaAsync("pessoas-lista")).Conteudo); // cada um vê só a sua
+        _usuario.Id = meu;
+    }
+
     private sealed class UsuarioFixo : IUsuarioAtual
     {
         public Guid? Id { get; set; } = Guid.NewGuid();
@@ -143,6 +171,17 @@ public class MenuUsuarioAppServiceTests
                 Linhas.Add(linha);
             }
             alterar(linha);
+            return Task.CompletedTask;
+        }
+
+        public Dictionary<(Guid, string), string> Telas { get; } = new();
+
+        public Task<string?> ObterTelaAsync(Guid usuarioId, string tela, CancellationToken ct) =>
+            Task.FromResult(Telas.TryGetValue((usuarioId, tela), out var c) ? c : null);
+
+        public Task DefinirTelaAsync(Guid usuarioId, string tela, string conteudo, DateTime agoraUtc, CancellationToken ct)
+        {
+            Telas[(usuarioId, tela)] = conteudo;
             return Task.CompletedTask;
         }
     }

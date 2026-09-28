@@ -12,6 +12,12 @@ public interface IPreferenciaMenuRepositorio
 
     /// <summary>Acha a linha do usuário + rota (ou cria uma nova), aplica a alteração e grava.</summary>
     Task AtualizarAsync(Guid usuarioId, string rota, Action<PreferenciaMenu> alterar, CancellationToken ct);
+
+    /// <summary>Preferência da tela do usuário (JSON); nulo = nunca gravou.</summary>
+    Task<string?> ObterTelaAsync(Guid usuarioId, string tela, CancellationToken ct);
+
+    /// <summary>Grava (ou cria) a preferência da tela do usuário.</summary>
+    Task DefinirTelaAsync(Guid usuarioId, string tela, string conteudo, DateTime agoraUtc, CancellationToken ct);
 }
 
 public interface IMenuUsuarioAppService
@@ -19,6 +25,8 @@ public interface IMenuUsuarioAppService
     Task<PreferenciasMenuDto> ObterAsync(CancellationToken ct = default);
     Task DefinirFavoritoAsync(FavoritoMenuRequisicao requisicao, CancellationToken ct = default);
     Task RegistrarAcessoAsync(AcessoMenuRequisicao requisicao, CancellationToken ct = default);
+    Task<PreferenciaTelaDto> ObterTelaAsync(string tela, CancellationToken ct = default);
+    Task DefinirTelaAsync(string tela, PreferenciaTelaDto preferencia, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -82,6 +90,39 @@ public sealed partial class MenuUsuarioAppService : IMenuUsuarioAppService
         var rota = ValidarRota(requisicao.Rota);
         var agora = _relogio.GetUtcNow().UtcDateTime;
         await _repositorio.AtualizarAsync(usuario, rota, linha => linha.UltimoAcessoEm = agora, ct);
+    }
+
+    public async Task<PreferenciaTelaDto> ObterTelaAsync(string tela, CancellationToken ct = default) =>
+        new() { Conteudo = await _repositorio.ObterTelaAsync(UsuarioLogado(), ValidarRota(tela), ct) ?? string.Empty };
+
+    /// <summary>
+    /// Grava a preferência da tela (colunas da lista, ordenação...). A API só confere tamanho e que é um objeto JSON: quem
+    /// entende o conteúdo é a tela, que ignora o que não conhece (ex.: coluna que perdeu a permissão).
+    /// </summary>
+    public async Task DefinirTelaAsync(string tela, PreferenciaTelaDto preferencia, CancellationToken ct = default)
+    {
+        var usuario = UsuarioLogado();
+        var nome = ValidarRota(tela);
+        var conteudo = (preferencia?.Conteudo ?? string.Empty).Trim();
+        if (conteudo.Length == 0) conteudo = "{}"; // vazio = volta ao padrão da tela
+        if (conteudo.Length > LimitesMenu.TamanhoMaximoPreferenciaTela)
+            throw new ValidacaoException(["Preferência da tela grande demais."]);
+        if (!ObjetoJson(conteudo))
+            throw new ValidacaoException(["Preferência da tela inválida."]);
+        await _repositorio.DefinirTelaAsync(usuario, nome, conteudo, _relogio.GetUtcNow().UtcDateTime, ct);
+    }
+
+    private static bool ObjetoJson(string texto)
+    {
+        try
+        {
+            using var documento = System.Text.Json.JsonDocument.Parse(texto);
+            return documento.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
     }
 
     private Guid UsuarioLogado() =>

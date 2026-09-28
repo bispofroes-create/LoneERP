@@ -20,6 +20,9 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
 {
     private IReadOnlyList<TItem> _todos = [];
     private CancellationTokenSource? _buscaAtrasada;
+
+    /// <summary>A tela trocou a busca por código (ex.: aplicou uma visão) e já vai reler: a leitura com espera não precisa sair.</summary>
+    protected void CancelarBuscaAtrasada() => _buscaAtrasada?.Cancel();
     private int _versaoLista;
     private readonly IDialogos _dialogos;
 

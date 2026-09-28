@@ -36,6 +36,10 @@ public static class PessoasEndpoints
                     SomenteInativos = somenteInativos ?? false
                 }, pagina ?? 1, tamanho ?? PaginaListaPessoas.TamanhoPadrao, ct));
 
+        // Tela de Pessoas com o painel de filtros: filtros da lista + condições do catálogo no corpo.
+        grupo.MapPost("pagina", (ListaPessoasRequisicao requisicao, IPessoaAppService servico, CancellationToken ct) =>
+            servico.ListarPaginaAsync(requisicao, ct));
+
         // ?texto=...&papelId=...&etiquetaId=...&incluirInativos=true&municipioACorrigir=true&limite=100 (todos opcionais)
         grupo.MapGet(string.Empty,
             (string? texto, Guid? papelId, Guid? etiquetaId, bool? incluirInativos, bool? municipioACorrigir, int? limite,
@@ -62,6 +66,7 @@ public static class PessoasEndpoints
             servico.ExportarAsync(criterios, ct));
 
         grupo.MapGet("consulta/opcoes", (IConsultaPessoasAppService servico, CancellationToken ct) => servico.OpcoesAsync(ct));
+        grupo.MapGet("consulta/catalogo", (IConsultaPessoasAppService servico, CancellationToken ct) => servico.CatalogoAsync(ct));
 
         grupo.MapPut("consulta/filtros/{filtroId:guid}", async (Guid filtroId, FiltroSalvoDto filtro, IConsultaPessoasAppService servico, CancellationToken ct) =>
         {
@@ -71,6 +76,9 @@ public static class PessoasEndpoints
             return Results.Ok(await servico.SalvarFiltroAsync(filtro, ct));
         });
 
+        // Contador das abas de visão da lista (só as visões que o usuário enxerga).
+        grupo.MapPost("consulta/filtros/contagens", (List<Guid> ids, IConsultaPessoasAppService servico, CancellationToken ct) =>
+            servico.ContarFiltrosAsync(ids, ct));
         grupo.MapPost("consulta/filtros/{filtroId:guid}/desativar", async (Guid filtroId, IConsultaPessoasAppService servico, CancellationToken ct) =>
         {
             await servico.DesativarFiltroAsync(filtroId, ct);

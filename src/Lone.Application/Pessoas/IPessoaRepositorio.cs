@@ -15,6 +15,17 @@ public interface IPessoaRepositorio
     /// <summary>Uma página (começa em 1) com o total que atende aos filtros; mesma ordem da lista.</summary>
     Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, int pagina, int tamanho, CancellationToken ct);
 
+    /// <summary>Página da lista com as condições do catálogo de filtros (já conferidas pelo serviço).</summary>
+    Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, IReadOnlyList<CondicaoFiltro> condicoes, DateOnly hoje,
+                                               int pagina, int tamanho, CancellationToken ct);
+
+    /// <summary>
+    /// Página com colunas extras (Ids já conferidos; vêm em PessoaResumo.Valores) e ordenação por coluna (nula = nome).
+    /// </summary>
+    Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, IReadOnlyList<CondicaoFiltro> condicoes,
+                                               IReadOnlyList<string> colunas, OrdenacaoLista? ordenacao, DateOnly hoje,
+                                               int pagina, int tamanho, CancellationToken ct);
+
     /// <summary>Pessoa completa (estabelecimentos, endereços, contatos, papéis, contas, bloqueios), sem rastreamento.</summary>
     Task<Pessoa?> ObterAsync(Guid id, CancellationToken ct);
 

@@ -25,6 +25,16 @@ public static class MenuEndpoints
             return Results.NoContent();
         });
 
+        // Preferência de uma tela (ex.: colunas da lista de pessoas): JSON que só a tela entende.
+        grupo.MapGet("telas/{tela}", (string tela, IMenuUsuarioAppService servico, CancellationToken ct) =>
+            servico.ObterTelaAsync(tela, ct));
+
+        grupo.MapPut("telas/{tela}", async (string tela, PreferenciaTelaDto preferencia, IMenuUsuarioAppService servico, CancellationToken ct) =>
+        {
+            await servico.DefinirTelaAsync(tela, preferencia, ct);
+            return Results.NoContent();
+        });
+
         return app;
     }
 }

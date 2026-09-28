@@ -38,7 +38,84 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho), db, nomeComFantasia: true)
             .ToListAsync(ct);
-        return new PaginaListaPessoas { Itens = itens, Total = total, Pagina = pagina, TamanhoPagina = tamanho };
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        await Consultas.ColunasPessoasSql.PreencherAsync(itens, ContatosDaLinha, new Consultas.ColunasPessoasSql.Contexto(db, hoje), ct);
+        return new PaginaListaPessoas
+        {
+            Itens = itens, Total = total, Pagina = pagina, TamanhoPagina = tamanho,
+            Atalhos = pagina == 1 ? await ContarAtalhosAsync(SemAtalho(db, filtro), ct) : null
+        };
+    }
+
+    /// <summary>Telefone e e-mail principais: sempre na página da tela de Pessoas (ligar, WhatsApp e e-mail na linha).</summary>
+    private static readonly string[] ContatosDaLinha =
+        [global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Telefone, global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Email];
+
+    /// <summary>A mesma consulta da lista sem o atalho (natureza, papel, só ativos/inativos): base das contagens das abas.</summary>
+    private static IQueryable<Pessoa> SemAtalho(LoneDbContext db, FiltroPessoas filtro) => Filtrar(db, new FiltroPessoas
+    {
+        Texto = filtro.Texto,
+        EtiquetaId = filtro.EtiquetaId,
+        IncluirInativos = filtro.IncluirInativos,
+        MunicipioACorrigir = filtro.MunicipioACorrigir,
+        Limite = filtro.Limite
+    });
+
+    /// <summary>
+    /// Quantos há em cada aba possível: duas consultas, qualquer que seja o número de abas escolhidas — uma por natureza e
+    /// uma com todos os papéis (pessoas distintas com o papel ativo, a mesma regra do filtro por papel da lista).
+    /// </summary>
+    private static async Task<ContagensAtalhosPessoas> ContarAtalhosAsync(IQueryable<Pessoa> consulta, CancellationToken ct)
+    {
+        var porNatureza = await consulta.GroupBy(p => p.Natureza)
+            .Select(g => new { Natureza = g.Key, Quantidade = g.Count() })
+            .ToListAsync(ct);
+        // Índice único (PessoaId, PapelId) com Ativo: cada pessoa tem no máximo um vínculo ativo por papel.
+        var porPapel = await consulta.SelectMany(p => p.Papeis).Where(x => x.Ativo)
+            .GroupBy(x => x.PapelId)
+            .Select(g => new { PapelId = g.Key, Quantidade = g.Count() })
+            .ToListAsync(ct);
+        return new ContagensAtalhosPessoas
+        {
+            Todos = porNatureza.Sum(n => n.Quantidade),
+            Naturezas = porNatureza.ToDictionary(n => n.Natureza.ToString(), n => n.Quantidade),
+            Papeis = porPapel.ToDictionary(p => p.PapelId, p => p.Quantidade)
+        };
+    }
+
+    public async Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, IReadOnlyList<CondicaoFiltro> condicoes, DateOnly hoje,
+                                                            int pagina, int tamanho, CancellationToken ct) =>
+        await ListarPaginaAsync(filtro, condicoes, [], null, hoje, pagina, tamanho, ct);
+
+    public async Task<PaginaListaPessoas> ListarPaginaAsync(FiltroPessoas filtro, IReadOnlyList<CondicaoFiltro> condicoes,
+                                                            IReadOnlyList<string> colunas, OrdenacaoLista? ordenacao, DateOnly hoje,
+                                                            int pagina, int tamanho, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var parametros = condicoes.Any(c => c.Campo == global::Lone.Contracts.Pessoas.CamposFiltroPessoas.Relacionamento)
+            ? await db.ParametrosRelacionamento.AsNoTracking().FirstOrDefaultAsync(ct) ?? new ParametrosRelacionamento()
+            : new ParametrosRelacionamento();
+        var consulta = Consultas.FiltrosPessoasSql.Aplicar(Filtrar(db, filtro), condicoes,
+            new Consultas.FiltrosPessoasSql.Contexto(db, hoje, parametros));
+        var total = await consulta.CountAsync(ct);
+
+        // Coluna clicada no cabeçalho; empate (e sem ordenação) pelo nome; por último o Id: desempate estável entre páginas.
+        var colunasSql = new Consultas.ColunasPessoasSql.Contexto(db, hoje);
+        var ordenada = Consultas.ColunasPessoasSql.Ordenar(consulta, ordenacao, colunasSql) is { } porColuna
+            ? porColuna.ThenBy(NomeParaExibirNoBanco)
+            : consulta.OrderBy(NomeParaExibirNoBanco);
+        var itens = await Resumir(ordenada.ThenBy(p => p.Id)
+            .Skip((pagina - 1) * tamanho)
+            .Take(tamanho), db, nomeComFantasia: true)
+            .ToListAsync(ct);
+        await Consultas.ColunasPessoasSql.PreencherAsync(itens, [.. colunas.Union(ContatosDaLinha)], colunasSql, ct);
+
+        // Abas: mesma busca e mesmas condições, sem o atalho escolhido.
+        ContagensAtalhosPessoas? atalhos = null;
+        if (pagina == 1)
+            atalhos = await ContarAtalhosAsync(Consultas.FiltrosPessoasSql.Aplicar(SemAtalho(db, filtro), condicoes,
+                new Consultas.FiltrosPessoasSql.Contexto(db, hoje, parametros)), ct);
+        return new PaginaListaPessoas { Itens = itens, Total = total, Pagina = pagina, TamanhoPagina = tamanho, Atalhos = atalhos };
     }
 
     /// <summary>Filtros da lista de Pessoas (a mesma regra para a lista simples e a paginada).</summary>

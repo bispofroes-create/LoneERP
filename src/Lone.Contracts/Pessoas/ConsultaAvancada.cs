@@ -11,6 +11,9 @@ public sealed class CriteriosPessoas
     /// <summary>Mesmo texto da busca rápida (nome, código, CPF/CNPJ, telefone, e-mail, campos pesquisáveis).</summary>
     public string? Texto { get; set; }
 
+    /// <summary>Colunas e ordenação da lista (visões salvas). Nulo = a visão não mexe nas colunas.</summary>
+    public LayoutListaPessoas? Layout { get; set; }
+
     public List<NaturezaPessoa> Naturezas { get; set; } = new();
 
     /// <summary>Vazio = ativos e em análise (como a lista).</summary>
@@ -64,6 +67,12 @@ public sealed class CriteriosPessoas
     // ---- Cadastro ----
     public DateOnly? CadastradoDe { get; set; }
     public DateOnly? CadastradoAte { get; set; }
+
+    /// <summary>
+    /// Condições do catálogo de campos (painel de filtros da tela de Pessoas). Somam-se aos critérios acima, que são o
+    /// formato da consulta avançada antiga e dos filtros salvos por ela: o servidor os traduz para condições.
+    /// </summary>
+    public List<CondicaoFiltro> Condicoes { get; set; } = new();
 }
 
 /// <summary>Uma página da consulta: ordem por nome e Id; a próxima começa depois da última linha (paginação por chave).</summary>

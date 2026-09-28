@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Painel de filtros da tela de Pessoas: grupos da ficha que abrem e fecham; cada campo com caixa de marcar e, marcado,
+     o editor do tipo dele (lista de opções, texto, dias, período ou sim/não). Montado a partir do catálogo da API. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.Pessoas.PainelFiltrosView"
+             x:DataType="pes:PainelFiltrosPessoas">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
+            <Label Text="Filtros" Style="{StaticResource SecaoTitulo}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="{Binding TextoExpandirTodos}" Style="{StaticResource BotaoLink}"
+                    Command="{Binding ExpandirTodosCommand}" ToolTipProperties.Text="Abre ou fecha todos os grupos" />
+            <Button Grid.Column="2" Text="Limpar tudo" Style="{StaticResource BotaoLink}" Command="{Binding LimparCommand}"
+                    IsVisible="{Binding TemChips}" />
+            <Button Grid.Column="3" Text="✕" Style="{StaticResource BotaoIcone}" Command="{Binding FecharCommand}"
+                    ToolTipProperties.Text="Fechar o painel" SemanticProperties.Description="Fechar o painel de filtros" />
+        </Grid>
+
+        <Border Grid.Row="1" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="4,0"
+                Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}">
+            <Entry Text="{Binding BuscaCampo}" Placeholder="Buscar campo…" ClearButtonVisibility="WhileEditing"
+                   SemanticProperties.Description="Buscar campo de filtro" />
+        </Border>
+
+        <Label Grid.Row="2" Text="{Binding Aviso}" Style="{StaticResource Secundario}" TextColor="{StaticResource Aviso}"
+               IsVisible="{Binding TemAviso}" />
+
+        <ScrollView Grid.Row="3">
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Grupos}" Spacing="2">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="pes:GrupoFiltroItem">
+                        <VerticalStackLayout IsVisible="{Binding Visivel}" Spacing="4">
+                            <!-- Cabeçalho do grupo: toca para abrir/fechar -->
+                            <Grid ColumnDefinitions="18,*" Padding="0,8">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding AlternarCommand}" />
+                                </Grid.GestureRecognizers>
+                                <Label Text="{Binding Seta}" FontSize="14" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding Titulo}" FontAttributes="Bold" VerticalOptions="Center" />
+                            </Grid>
+
+                            <VerticalStackLayout IsVisible="{Binding Expandido}" Padding="18,0,0,8" Spacing="6"
+                                                 BindableLayout.ItemsSource="{Binding Campos}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="pes:CampoFiltroItem">
+                                        <VerticalStackLayout IsVisible="{Binding Visivel}" IsEnabled="{Binding Habilitado}" Spacing="4">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <c:CaixaMarcar Texto="{Binding Nome}" Marcado="{Binding Marcado}" />
+                                                <Label Grid.Column="1" Text="{Binding TextoValePara}" Style="{StaticResource Secundario}"
+                                                       VerticalOptions="Center" IsVisible="{Binding TemValePara}" />
+                                            </Grid>
+
+                                            <!-- Editor (só com o campo marcado) -->
+                                            <VerticalStackLayout IsVisible="{Binding MostrarEditor}" Padding="28,0,0,4" Spacing="4">
+                                                <Label Text="{Binding Dica}" Style="{StaticResource Secundario}" IsVisible="{Binding TemDica}" />
+                                                <c:CampoEscolha Itens="{Binding Operadores}" Selecionado="{Binding Operador}" Padding="0"
+                                                                IsVisible="{Binding TemVariosOperadores}" />
+
+                                                <!-- Sim/não -->
+                                                <Button Text="{Binding TextoSimNao}" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
+                                                        Command="{Binding AlternarSimNaoCommand}" IsVisible="{Binding EhSimNao}"
+                                                        ToolTipProperties.Text="Tocar alterna entre Sim e Não" />
+
+                                                <!-- Município: UF + nome; cada escolhido entra na lista abaixo -->
+                                                <ContentView IsVisible="{Binding EhMunicipio}">
+                                                    <c:CampoMunicipio Rotulo="Adicionar município" Empilhado="True" BindingContext="{Binding Municipio}" />
+                                                </ContentView>
+
+                                                <!-- Lista: caixas de marcar -->
+                                                <VerticalStackLayout IsVisible="{Binding EhLista}" BindableLayout.ItemsSource="{Binding Opcoes}">
+                                                    <BindableLayout.ItemTemplate>
+                                                        <DataTemplate x:DataType="pes:OpcaoMarcavel">
+                                                            <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Marcado}" />
+                                                        </DataTemplate>
+                                                    </BindableLayout.ItemTemplate>
+                                                </VerticalStackLayout>
+
+                                                <!-- Texto -->
+                                                <c:Campo Texto="{Binding ValorTexto}" Padding="0" IsVisible="{Binding EhTexto}" />
+
+                                                <!-- Número (dias, valor, idade): um valor, ou início e fim -->
+                                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding EhNumero}">
+                                                    <c:Campo Rotulo="{Binding RotuloPrimeiroValor}" Texto="{Binding NumeroInicial}" Teclado="Numeric" Padding="0" />
+                                                    <c:Campo Grid.Column="1" Rotulo="Até" Texto="{Binding NumeroFinal}" Teclado="Numeric" Padding="0"
+                                                             IsVisible="{Binding MostrarSegundoValor}" />
+                                                </Grid>
+
+                                                <!-- Data: um valor, ou início e fim -->
+                                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding EhData}">
+                                                    <c:Campo Rotulo="{Binding RotuloPrimeiroValor}" Texto="{Binding DataInicial}" Dica="dd/mm/aaaa"
+                                                             Mascara="Data" Padding="0" />
+                                                    <c:Campo Grid.Column="1" Rotulo="Até" Texto="{Binding DataFinal}" Dica="dd/mm/aaaa"
+                                                             Mascara="Data" Padding="0" IsVisible="{Binding MostrarSegundoValor}" />
+                                                </Grid>
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentView>

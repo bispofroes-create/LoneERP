@@ -85,6 +85,7 @@ public class AlteracoesPendentesTests
             .Responder(HttpStatusCode.OK, Finalidades.Cadastro)
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Documentos.TipoDocumentoDto>())
             .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>())
+            .Responder(HttpStatusCode.OK, new CatalogoFiltrosPessoasDto()) // catálogo do painel de filtros e das colunas
             .Responder(HttpStatusCode.OK, new PaginaListaPessoas());
         var tela = PessoasViewModelTests.NovaTela(ambiente);
         await tela.CarregarCommand.ExecuteAsync(null);

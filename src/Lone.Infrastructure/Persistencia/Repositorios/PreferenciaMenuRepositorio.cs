@@ -32,6 +32,42 @@ public class PreferenciaMenuRepositorio : ServicoDadosBase, IPreferenciaMenuRepo
         }
     }
 
+    public async Task<string?> ObterTelaAsync(Guid usuarioId, string tela, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        return await db.PreferenciasTela.AsNoTracking()
+            .Where(p => p.UsuarioId == usuarioId && p.Tela == tela)
+            .Select(p => p.Conteudo)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task DefinirTelaAsync(Guid usuarioId, string tela, string conteudo, DateTime agoraUtc, CancellationToken ct)
+    {
+        try
+        {
+            await GravarTelaAsync(usuarioId, tela, conteudo, agoraUtc, ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            // Outro aparelho do mesmo usuário criou a linha ao mesmo tempo: agora ela existe, então é só alterar.
+            await GravarTelaAsync(usuarioId, tela, conteudo, agoraUtc, ct);
+        }
+    }
+
+    private async Task GravarTelaAsync(Guid usuarioId, string tela, string conteudo, DateTime agoraUtc, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var linha = await db.PreferenciasTela.FirstOrDefaultAsync(p => p.UsuarioId == usuarioId && p.Tela == tela, ct);
+        if (linha is null)
+        {
+            linha = new PreferenciaTela { Id = IdSequencial.Novo(), UsuarioId = usuarioId, Tela = tela };
+            db.PreferenciasTela.Add(linha);
+        }
+        linha.Conteudo = conteudo;
+        linha.AlteradaEm = agoraUtc;
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task GravarAsync(Guid usuarioId, string rota, Action<PreferenciaMenu> alterar, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);

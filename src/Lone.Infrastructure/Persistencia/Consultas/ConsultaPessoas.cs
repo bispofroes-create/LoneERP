@@ -54,6 +54,15 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
         };
     }
 
+    public async Task<List<int>> ContarAsync(IReadOnlyList<CriteriosPessoas> criterios, DateOnly hoje, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var totais = new List<int>(criterios.Count);
+        foreach (var c in criterios)
+            totais.Add(await (await FiltrarAsync(db, c, hoje, ct)).CountAsync(ct));
+        return totais;
+    }
+
     public async Task<List<string[]>> LinhasParaExportarAsync(CriteriosPessoas criterios, DateOnly hoje, int limite, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
@@ -133,134 +142,79 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
         };
     }
 
+    public async Task<Dictionary<string, List<OpcaoFiltroDto>>> OpcoesFiltroAsync(CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        static List<OpcaoFiltroDto> Opcoes(IEnumerable<(Guid Id, string Nome)> itens) =>
+            itens.OrderBy(i => i.Nome, StringComparer.CurrentCultureIgnoreCase).Select(i => new OpcaoFiltroDto(i.Id.ToString("D"), i.Nome)).ToList();
+        static List<OpcaoFiltroDto> Textos(IEnumerable<string?> valores) =>
+            valores.OfType<string>().Where(v => v.Trim().Length > 0).Distinct(StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(v => v, StringComparer.CurrentCultureIgnoreCase).Select(v => new OpcaoFiltroDto(v, v)).ToList();
+
+        var empresaDoGrupo = PapeisSistema.Id(TipoPapel.EmpresaDoGrupo);
+        var naturezas = await db.Estabelecimentos.AsNoTracking().Where(e => e.NaturezaJuridica != null)
+            .Select(e => e.NaturezaJuridica!).Distinct().ToListAsync(ct);
+
+        return new Dictionary<string, List<OpcaoFiltroDto>>
+        {
+            [CatalogoFiltrosPessoas.FontePortes] = Textos(await db.Pessoas.AsNoTracking().Select(p => p.Porte).Distinct().ToListAsync(ct)),
+            [CatalogoFiltrosPessoas.FonteNaturezasJuridicas] = naturezas.Order(StringComparer.Ordinal)
+                .Select(n => new OpcaoFiltroDto(n, Lone.Domain.Fiscal.NaturezasJuridicas.Descrever(n) is { Length: > 0 } d ? d : n)).ToList(),
+            [CatalogoFiltrosPessoas.FonteGruposEmpresariais] = Opcoes((await db.GruposEmpresariais.AsNoTracking().Where(g => g.Ativo)
+                .Select(g => new { g.Id, g.Nome }).ToListAsync(ct)).Select(g => (g.Id, g.Nome))),
+            [CatalogoFiltrosPessoas.FonteProfissoes] = Opcoes((await db.Profissoes.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteFinalidadesEndereco] = (await db.FinalidadesEndereco.AsNoTracking().Where(x => x.Ativo)
+                .OrderBy(x => x.Ordem).Select(x => new { x.Id, x.Nome }).ToListAsync(ct))
+                .Select(x => new OpcaoFiltroDto(x.Id.ToString("D"), x.Nome)).ToList(),
+            [CatalogoFiltrosPessoas.FonteTiposDocumento] = (await db.TiposDocumento.AsNoTracking().Where(x => x.Ativo)
+                .OrderBy(x => x.Ordem).ThenBy(x => x.Nome).Select(x => new { x.Id, x.Nome }).ToListAsync(ct))
+                .Select(x => new OpcaoFiltroDto(x.Id.ToString("D"), x.Nome)).ToList(),
+            [CatalogoFiltrosPessoas.FonteSituacoesReceita] = Textos(await db.Estabelecimentos.AsNoTracking()
+                .Select(e => e.SituacaoReceita).Distinct().ToListAsync(ct)),
+            [CatalogoFiltrosPessoas.FontePerfisComerciais] = Opcoes((await db.PerfisComerciais.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteCondicoesPagamento] = Opcoes((await db.CondicoesPagamento.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteEmpresas] = Opcoes((await db.Pessoas.AsNoTracking()
+                .Where(p => p.Papeis.Any(x => x.Ativo && x.PapelId == empresaDoGrupo))
+                .Select(p => new { p.Id, Nome = p.NomeExibicao ?? p.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteCargos] = Opcoes((await db.Cargos.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteDepartamentos] = Opcoes((await db.Departamentos.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteSetores] = Opcoes((await db.Setores.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteTiposRelacionamento] = Opcoes((await db.TiposRelacionamento.AsNoTracking()
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome))),
+            [CatalogoFiltrosPessoas.FonteOrigens] = Textos(await db.Pessoas.AsNoTracking().Select(p => p.OrigemCadastro).Distinct().ToListAsync(ct)),
+            [CatalogoFiltrosPessoas.FonteFinalidadesTratamento] = Opcoes((await db.FinalidadesTratamento.AsNoTracking().Where(x => x.Ativo)
+                .Select(x => new { x.Id, x.Nome }).ToListAsync(ct)).Select(x => (x.Id, x.Nome)))
+        };
+    }
+
     // ---------------------------------------------------------------- Critérios
 
+    /// <summary>
+    /// Um motor só: critérios no formato antigo viram condições do catálogo (ConsultaPessoasAppService.CondicoesDe) e cada
+    /// condição vira um Where (FiltrosPessoasSql). Sem condição de situação: ativos e em análise (como a lista).
+    /// </summary>
     private static async Task<IQueryable<Pessoa>> FiltrarAsync(LoneDbContext db, CriteriosPessoas c, DateOnly hoje, CancellationToken ct)
     {
         IQueryable<Pessoa> q = db.Pessoas.AsNoTracking();
+        var condicoes = ConsultaPessoasAppService.CondicoesDe(c);
 
-        if (c.Situacoes.Count > 0)
-        {
-            var situacoes = c.Situacoes;
-            q = q.Where(p => situacoes.Contains(p.Situacao));
-        }
-        else
+        if (!condicoes.Any(x => x.Campo == CamposFiltroPessoas.Situacao))
             q = q.Where(p => p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise);
-
-        if (c.Naturezas.Count > 0)
-        {
-            var naturezas = c.Naturezas;
-            q = q.Where(p => naturezas.Contains(p.Natureza));
-        }
 
         if (c.Texto is { } texto)
             q = PessoaRepositorio.AplicarBusca(q, texto, db);
 
-        if (c.PapeisIds.Count > 0)
-        {
-            var papeis = c.PapeisIds;
-            q = c.TodosOsPapeis
-                ? papeis.Aggregate(q, (atual, papel) => atual.Where(p => p.Papeis.Any(x => x.Ativo && x.PapelId == papel)))
-                : q.Where(p => p.Papeis.Any(x => x.Ativo && papeis.Contains(x.PapelId)));
-        }
+        var parametros = condicoes.Any(x => x.Campo == CamposFiltroPessoas.Relacionamento)
+            ? await db.ParametrosRelacionamento.AsNoTracking().FirstOrDefaultAsync(ct) ?? new ParametrosRelacionamento()
+            : new ParametrosRelacionamento();
 
-        if (c.EtiquetasIds.Count > 0)
-        {
-            var etiquetas = c.EtiquetasIds;
-            q = q.Where(p => p.Etiquetas.Any(e => etiquetas.Contains(e.EtiquetaId)));
-        }
-
-        if (c.Uf is { } uf)
-            q = q.Where(p => p.Enderecos.Any(e => e.Ativo && e.Uf == uf));
-        if (c.MunicipioId is { } municipio)
-            q = q.Where(p => p.Enderecos.Any(e => e.Ativo && e.MunicipioId == municipio));
-
-        if (c.Cnae is { } cnae)
-        {
-            // Prefixo de código numérico = faixa: "47" → 4700000..4799999 (usa o índice (Codigo, Principal)).
-            var faltam = 7 - cnae.Length;
-            var de = int.Parse(cnae) * (int)Math.Pow(10, faltam);
-            var ate = de + (int)Math.Pow(10, faltam) - 1;
-            var somentePrincipal = c.SomenteCnaePrincipal;
-            q = q.Where(p => db.EstabelecimentoCnaes.Any(x => x.PessoaId == p.Id && x.Codigo >= de && x.Codigo <= ate &&
-                                                              (!somentePrincipal || x.Principal)));
-        }
-        if (c.ProdutorRural is { } rural)
-            q = q.Where(p => p.Estabelecimentos.Any(e => e.Ativo && e.ProdutorRural == rural));
-        if (c.Regime is { } regime)
-            q = q.Where(p => p.Estabelecimentos.Any(e => e.Ativo && e.RegimeTributario == regime));
-
-        if (c.VendedorId is { } vendedor)
-            q = q.Where(p => db.CarteiraClientes.Any(x => x.PessoaId == p.Id && x.VendedorId == vendedor && x.Ativo &&
-                                                          x.InicioEm <= hoje && (x.FimEm == null || x.FimEm >= hoje)));
-        if (c.SemCarteira)
-            q = q.Where(p => !db.CarteiraClientes.Any(x => x.PessoaId == p.Id && x.Ativo && x.InicioEm <= hoje && (x.FimEm == null || x.FimEm >= hoje)));
-
-        if (c.SemInteracaoDias is { } dias)
-        {
-            var desde = hoje.AddDays(-dias + 1).ToDateTime(TimeOnly.MinValue);
-            q = q.Where(p => !db.Interacoes.Any(i => i.PessoaId == p.Id && i.DataHora >= desde));
-        }
-
-        if (c.Relacionamento is { } situacao)
-        {
-            var parametros = await db.ParametrosRelacionamento.AsNoTracking().FirstOrDefaultAsync(ct) ?? new ParametrosRelacionamento();
-            // Mesma regra de ParametrosRelacionamento.Situacao: dias completos desde a última interação.
-            var limiteRisco = hoje.AddDays(-parametros.DiasEmRisco + 1).ToDateTime(TimeOnly.MinValue);
-            var limiteInativo = hoje.AddDays(-parametros.DiasInativo + 1).ToDateTime(TimeOnly.MinValue);
-            q = situacao switch
-            {
-                SituacaoRelacionamento.SemInteracao => q.Where(p => !db.Interacoes.Any(i => i.PessoaId == p.Id)),
-                SituacaoRelacionamento.Ativo => q.Where(p => db.Interacoes.Any(i => i.PessoaId == p.Id && i.DataHora >= limiteRisco)),
-                SituacaoRelacionamento.EmRisco => q.Where(p =>
-                    db.Interacoes.Any(i => i.PessoaId == p.Id && i.DataHora >= limiteInativo) &&
-                    !db.Interacoes.Any(i => i.PessoaId == p.Id && i.DataHora >= limiteRisco)),
-                SituacaoRelacionamento.Inativo => q.Where(p =>
-                    db.Interacoes.Any(i => i.PessoaId == p.Id) &&
-                    !db.Interacoes.Any(i => i.PessoaId == p.Id && i.DataHora >= limiteInativo)),
-                _ => q
-            };
-        }
-
-        if (c.Bloqueado is { } bloqueado)
-            q = bloqueado
-                ? q.Where(p => db.Bloqueios.Any(b => b.PessoaId == p.Id && b.FimEm == null))
-                : q.Where(p => !db.Bloqueios.Any(b => b.PessoaId == p.Id && b.FimEm == null));
-
-        if (c.DocumentosVencidos)
-            q = q.Where(p => p.Documentos.Any(d => d.Ativo && d.ValidoAte != null && d.ValidoAte < hoje));
-        if (c.DocumentosVencendoDias is { } vencendo)
-        {
-            var ate = hoje.AddDays(vencendo);
-            q = q.Where(p => p.Documentos.Any(d => d.Ativo && d.ValidoAte != null && d.ValidoAte >= hoje && d.ValidoAte <= ate));
-        }
-
-        if (c.CampoId is { } campo)
-        {
-            if (c.CampoValor is { } valor)
-            {
-                var inicio = TextoDoCampo(valor);
-                q = q.Where(p => p.ValoresPersonalizados.Any(v => v.CampoId == campo &&
-                    EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicio)));
-            }
-            else
-                q = q.Where(p => p.ValoresPersonalizados.Any(v => v.CampoId == campo));
-        }
-
-        if (c.CadastradoDe is { } cadDe)
-        {
-            var de = cadDe.ToDateTime(TimeOnly.MinValue).ToUniversalTime();
-            q = q.Where(p => p.CriadoEm >= de);
-        }
-        if (c.CadastradoAte is { } cadAte)
-        {
-            var ate = cadAte.AddDays(1).ToDateTime(TimeOnly.MinValue).ToUniversalTime();
-            q = q.Where(p => p.CriadoEm < ate);
-        }
-
-        return q;
+        return FiltrosPessoasSql.Aplicar(q, condicoes, new FiltrosPessoasSql.Contexto(db, hoje, parametros));
     }
 
-    private static string TextoDoCampo(string valor) =>
-        valor.Length > ConfiguracaoValorPersonalizado.TamanhoBusca ? valor[..ConfiguracaoValorPersonalizado.TamanhoBusca] : valor;
 }
