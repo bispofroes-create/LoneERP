@@ -90,6 +90,18 @@
                         <c:Campo Rotulo="Percentual padrão (%)" Texto="{Binding Formulario.PercentualPadrao}" Teclado="Numeric"
                                  Dica="vazio = sem padrão" IsVisible="{Binding Formulario.RecebeCredito}" />
                     </FlexLayout>
+                    <!-- Quem pode ser: classificações de pessoa aceitas (Motor Comercial, Fase 1b). -->
+                    <Label Text="Quem pode ser" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
+                    <Label Text="Só pessoas com uma destas classificações (ativa) aparecem para este papel na carteira do cliente. Ex.: Supervisor = Funcionário."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Classificacoes}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="cad:ClassificacaoMarcavel">
+                                <c:CaixaMarcar Texto="{Binding Nome}" Marcado="{Binding Marcado}" Margin="0,0,16,0" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+
                     <c:CaixaMarcar Texto="Responsável da conta (o vendedor vigente deste papel vira o vendedor padrão do cliente; sempre um por vez)"
                                    Marcado="{Binding Formulario.ResponsavelDaConta}" />
                     <c:CaixaMarcar Texto="Conta para metas (os clientes deste papel entram no realizado das metas do vendedor)"

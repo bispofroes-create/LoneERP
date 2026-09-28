@@ -126,17 +126,24 @@ public sealed partial class ExcecaoComercialFormulario : ItemDeLista
 }
 
 /// <summary>
-/// Vínculo da carteira de clientes: vendedor/representante que atende o cliente, com vigência. Gravado não é apagado:
-/// encerra pelo fim, ou é desativado se foi lançado por engano.
+/// Vínculo da carteira de clientes: quem atende o cliente num papel comercial (Vendedor, Supervisor...), com vigência.
+/// Gravado não é apagado: encerra pelo fim, ou é desativado se foi lançado por engano. Depois que começou, papel, pessoa,
+/// empresa, início, exclusivo e crédito ficam travados (o histórico não é reescrito): mudar é "Trocar" (encerra este na
+/// véspera e abre outro). A API confere as mesmas regras (RegrasComercial.ValidarHistorico).
 /// </summary>
 public sealed partial class CarteiraFormulario : ItemDeLista
 {
     private readonly CarteiraDto _gravada;
+    private readonly DateOnly _hoje;
     private bool _carregadas;
+    private IReadOnlyDictionary<Guid, TipoCarteiraDto> _papeis = new Dictionary<Guid, TipoCarteiraDto>();
+    private IReadOnlyList<AtendenteOpcaoDto> _atendentes = [];
+    private IReadOnlyDictionary<Guid, string> _classificacoes = new Dictionary<Guid, string>();
 
-    private CarteiraFormulario(CarteiraDto d, bool gravada)
+    private CarteiraFormulario(CarteiraDto d, bool gravada, DateOnly? hoje = null)
     {
         _gravada = d;
+        _hoje = hoje ?? DateOnly.FromDateTime(DateTime.Today);
         Gravada = gravada;
         Id = d.Id;
         _inicioEm = TextoTela.Data(d.InicioEm == default ? null : d.InicioEm);
@@ -151,33 +158,62 @@ public sealed partial class CarteiraFormulario : ItemDeLista
         _vendedor = _vendedores[0];
     }
 
-    public static CarteiraFormulario De(CarteiraDto d) => new(d, gravada: true);
+    public static CarteiraFormulario De(CarteiraDto d, DateOnly? hoje = null) => new(d, gravada: true, hoje);
 
-    public static CarteiraFormulario Nova(OpcoesComercial? opcoes)
+    /// <summary>Vínculo novo do papel informado (ou, sem ele, do responsável da conta), começando hoje.</summary>
+    public static CarteiraFormulario Nova(OpcoesComercial? opcoes, Guid? papelId = null, DateOnly? hoje = null)
     {
-        var principal = opcoes?.Dados.TiposCarteira.FirstOrDefault(t => t.ResponsavelDaConta && t.Ativo);
+        var dia = hoje ?? DateOnly.FromDateTime(DateTime.Today);
+        var papel = papelId ?? opcoes?.Dados.TiposCarteira.FirstOrDefault(t => t.ResponsavelDaConta && t.Ativo)?.Id;
         var nova = new CarteiraFormulario(new CarteiraDto
         {
             Id = IdSequencial.Novo(),
-            InicioEm = DateOnly.FromDateTime(DateTime.Today),
-            TipoCarteiraId = principal?.Id ?? Guid.Empty
-        }, gravada: false);
+            InicioEm = dia,
+            TipoCarteiraId = papel ?? Guid.Empty
+        }, gravada: false, dia);
         if (opcoes is not null) nova.DefinirOpcoes(opcoes);
         return nova;
     }
 
     public Guid Id { get; }
     public bool Gravada { get; }
-    public bool PodeRemover => !Gravada;
+    public bool PodeRemover => true;
 
-    [ObservableProperty] private string _inicioEm;
-    [ObservableProperty] private string _fimEm;
+    /// <summary>Gravado e já começou: papel, pessoa, empresa, início, exclusivo e crédito não mudam mais.</summary>
+    public bool Travado => Gravada && _gravada.InicioEm != default && _gravada.InicioEm <= _hoje;
+    public bool Editavel => !Travado;
+
+    /// <summary>Estava encerrado (ou desativado) quando a ficha abriu: fica na parte "Histórico" da carteira.</summary>
+    public bool NoHistorico => Gravada && (!_gravada.Ativo || _gravada.FimEm < _hoje);
+
+    /// <summary>Gravado, ativo e ainda valendo (ou a começar): pode ser trocado a partir de uma data.</summary>
+    public bool PodeTrocar => Travado && Ativo && _gravada.Ativo && !(_gravada.FimEm < _hoje) && Substituto is null;
+
+    /// <summary>Só o nome de quem atende (a lista mostra também a classificação), para mensagens e confirmações.</summary>
+    public string NomePessoa => Vendedor.Valor is { } id
+        ? _atendentes.FirstOrDefault(a => a.Id == id)?.Nome ?? (id == _gravada.VendedorId ? _gravada.Vendedor : null) ?? Vendedor.Texto
+        : Vendedor.Texto;
+
+    public string TextoRemover => Gravada ? "Desativar (lançado por engano)" : "Remover";
+
+    /// <summary>Definido pela ficha: "Trocar" abre o vínculo que substitui este.</summary>
+    public Action? AoTrocar { get; set; }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void Trocar() => AoTrocar?.Invoke();
+
+    /// <summary>Desfaz o "lançado por engano" antes de gravar (ou reativa um desativado).</summary>
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void Reativar() => Ativo = true;
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Situacao))] private string _inicioEm;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Situacao), nameof(PodeTrocar))] private string _fimEm;
     [ObservableProperty] private bool _exclusivo;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito))] private string _percentualCredito;
     [ObservableProperty] private string _observacao;
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Inativo))] private bool _ativo;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Inativo), nameof(Situacao), nameof(PodeTrocar))] private bool _ativo;
     [ObservableProperty] private Opcao<Guid?>[] _tipos;
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito), nameof(DicaCredito))] private Opcao<Guid?> _tipo;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito), nameof(DicaCredito), nameof(RotuloPessoa))] private Opcao<Guid?> _tipo;
     [ObservableProperty] private Opcao<Guid?>[] _vendedores;
     [ObservableProperty] private Opcao<Guid?> _vendedor;
     [ObservableProperty] private Opcao<Guid?>[] _empresas = [OpcoesComercial.Todas];
@@ -185,10 +221,25 @@ public sealed partial class CarteiraFormulario : ItemDeLista
 
     public bool Inativo => !Ativo;
 
-    /// <summary>Política dos papéis (lida com as opções): o crédito só aparece para papel que recebe crédito da venda.</summary>
-    private IReadOnlyDictionary<Guid, TipoCarteiraDto> _papeis = new Dictionary<Guid, TipoCarteiraDto>();
-
     private TipoCarteiraDto? Papel => Tipo.Valor is { } id ? _papeis.GetValueOrDefault(id) : null;
+
+    /// <summary>O campo da pessoa leva o nome do papel ("Vendedor", "Supervisor"...).</summary>
+    public string RotuloPessoa => Papel?.Nome ?? "Quem atende";
+
+    /// <summary>"Vigente desde 01/03/2026", "Encerrado em 14/03/2026", "Começa em 01/10/2026", "Lançado por engano".</summary>
+    public string Situacao
+    {
+        get
+        {
+            if (!Ativo) return "Lançado por engano (fica só no histórico)";
+            TextoTela.TentarData(InicioEm, out var inicio);
+            TextoTela.TentarData(FimEm, out var fim);
+            if (fim is { } f && f < _hoje) return $"Encerrado em {TextoTela.Data(f)}";
+            if (inicio is { } i && i > _hoje) return $"Começa em {TextoTela.Data(i)}" + (fim is { } f2 ? $" · até {TextoTela.Data(f2)}" : string.Empty);
+            var desde = inicio is { } i2 ? $"Vigente desde {TextoTela.Data(i2)}" : "Vigente";
+            return fim is { } f3 ? $"{desde} · até {TextoTela.Data(f3)}" : desde;
+        }
+    }
 
     public bool RecebeCredito => Papel is { TipoCredito: not TipoCreditoComercial.Nenhum } || !string.IsNullOrWhiteSpace(PercentualCredito);
 
@@ -201,24 +252,107 @@ public sealed partial class CarteiraFormulario : ItemDeLista
         _ => "este papel não recebe crédito"
     };
 
+    // ---- Trocar: este vínculo novo entra no lugar de um gravado, que fica até a véspera do início deste ----
+
+    /// <summary>O vínculo gravado que este (novo) substitui, e o fim que ele tinha antes da troca.</summary>
+    public CarteiraFormulario? Substitui { get; private set; }
+    private string _fimAntesDaTroca = string.Empty;
+
+    /// <summary>O vínculo novo que entra no lugar deste (enquanto a troca não é gravada).</summary>
+    public CarteiraFormulario? Substituto { get; private set; }
+
+    public bool EhTroca => Substitui is not null;
+
+    public string TextoTroca => Substitui is { } anterior
+        ? $"Entra no lugar de {anterior.NomePessoa}, que fica até a véspera do início deste."
+        : string.Empty;
+
+    /// <summary>Começa o vínculo que substitui este: mesmo papel, empresa, exclusivo e crédito; a pessoa é escolhida.</summary>
+    public CarteiraFormulario IniciarTroca(OpcoesComercial? opcoes)
+    {
+        TextoTela.TentarData(InicioEm, out var inicioAtual);
+        var inicio = inicioAtual is { } i && i >= _hoje ? i.AddDays(1) : _hoje;
+        var novo = new CarteiraFormulario(new CarteiraDto
+        {
+            Id = IdSequencial.Novo(),
+            TipoCarteiraId = Tipo.Valor ?? Guid.Empty,
+            EmpresaId = ParaDto().EmpresaId,
+            Exclusivo = Exclusivo,
+            InicioEm = inicio
+        }, gravada: false, _hoje)
+        {
+            Substitui = this,
+            PercentualCredito = PercentualCredito
+        };
+        _fimAntesDaTroca = FimEm;
+        Substituto = novo;
+        if (opcoes is not null) novo.DefinirOpcoes(opcoes);
+        novo.AjustarFimDoSubstituido();
+        OnPropertyChanged(nameof(PodeTrocar));
+        return novo;
+    }
+
+    /// <summary>A troca foi desfeita (o vínculo novo saiu da ficha): este volta como estava.</summary>
+    public void DesfazerTroca()
+    {
+        if (Substituto is null) return;
+        FimEm = _fimAntesDaTroca;
+        Substituto = null;
+        OnPropertyChanged(nameof(PodeTrocar));
+    }
+
+    partial void OnInicioEmChanged(string value) => AjustarFimDoSubstituido();
+
+    /// <summary>O substituído fica até a véspera do início deste (acompanha a data digitada).</summary>
+    private void AjustarFimDoSubstituido()
+    {
+        if (Substitui is not { } anterior || !TextoTela.TentarData(InicioEm, out var inicio) || inicio is not { } dia) return;
+        anterior.FimEm = TextoTela.Data(dia.AddDays(-1));
+    }
+
+    // ---- Opções ----
+
     public void DefinirOpcoes(OpcoesComercial opcoes)
     {
         var atual = ParaDto();
         var d = opcoes.Dados;
         _papeis = d.TiposCarteira.ToDictionary(t => t.Id);
+        _atendentes = d.Atendentes;
+        _classificacoes = d.Classificacoes.ToDictionary(c => c.Id, c => c.Nome);
         Tipos = OpcoesColaborador.Lista(d.TiposCarteira.OrderBy(t => t.Ordem), t => t.Id,
             t => t.ResponsavelDaConta ? t.Nome + " (responsável da conta)" : t.Nome, t => t.Ativo, _gravada.TipoCarteiraId);
         Tipo = OpcoesComercial.Escolher(Tipos, atual.TipoCarteiraId == Guid.Empty ? null : atual.TipoCarteiraId);
-        var vendedores = d.Vendedores.Select(v => new Opcao<Guid?>(v.Id, v.Nome)).ToList();
-        if (_gravada.VendedorId != Guid.Empty && vendedores.All(v => v.Valor != _gravada.VendedorId))
-            vendedores.Add(new Opcao<Guid?>(_gravada.VendedorId, (_gravada.Vendedor ?? "(vendedor gravado)") + " (sem o papel de vendedor)"));
-        Vendedores = [OpcoesComercial.Nenhum, .. vendedores];
-        Vendedor = OpcoesComercial.Escolher(Vendedores, atual.VendedorId == Guid.Empty ? null : atual.VendedorId);
+        MontarPessoas(atual.VendedorId);
         Empresas = opcoes.Empresas(_gravada.EmpresaId);
         Empresa = OpcoesComercial.Escolher(Empresas, atual.EmpresaId);
         _carregadas = true;
         OnPropertyChanged(nameof(RecebeCredito));
         OnPropertyChanged(nameof(DicaCredito));
+        OnPropertyChanged(nameof(RotuloPessoa));
+    }
+
+    /// <summary>Trocar o papel muda quem pode ser escolhido (a pessoa fica se ainda puder ocupar o papel novo).</summary>
+    partial void OnTipoChanged(Opcao<Guid?> value)
+    {
+        if (_carregadas) MontarPessoas(Vendedor.Valor ?? Guid.Empty);
+    }
+
+    /// <summary>
+    /// Quem pode ocupar o papel escolhido (as classificações aceitas por ele), com a classificação ao lado do nome. A pessoa
+    /// gravada que não pode mais ocupá-lo continua na lista, marcada (o período gravado fica como está).
+    /// </summary>
+    private void MontarPessoas(Guid escolhida)
+    {
+        var aceitas = Papel?.Classificacoes.ToHashSet() ?? [];
+        var lista = _atendentes
+            .Where(a => a.Classificacoes.Any(aceitas.Contains))
+            .Select(a => new Opcao<Guid?>(a.Id, a.Nome + " · " + string.Join(", ",
+                a.Classificacoes.Where(aceitas.Contains).Select(c => _classificacoes.GetValueOrDefault(c, "?")))))
+            .ToList();
+        if (_gravada.VendedorId != Guid.Empty && lista.All(v => v.Valor != _gravada.VendedorId) && Tipo.Valor == _gravada.TipoCarteiraId)
+            lista.Add(new Opcao<Guid?>(_gravada.VendedorId, (_gravada.Vendedor ?? "(pessoa gravada)") + $" (não pode mais ser {RotuloPessoa})"));
+        Vendedores = [OpcoesComercial.Nenhum, .. lista];
+        Vendedor = OpcoesComercial.Escolher(Vendedores, escolhida == Guid.Empty ? null : escolhida);
     }
 
     public IEnumerable<string> Validar(string rotulo)
@@ -228,8 +362,11 @@ public sealed partial class CarteiraFormulario : ItemDeLista
             yield return $"{rotulo}: crédito inválido (de 0 a 100%).";
         if (!TextoTela.TentarData(InicioEm, out var inicio) || inicio is null) yield return $"{rotulo}: informe o início (dd/mm/aaaa).";
         if (!TextoTela.TentarData(FimEm, out _)) yield return $"{rotulo}: fim inválido (use dd/mm/aaaa).";
-        if (Vendedor.Valor is null) yield return $"{rotulo}: escolha o vendedor.";
+        if (Vendedor.Valor is null) yield return $"{rotulo}: escolha quem será {RotuloPessoa}.";
         if (Tipo.Valor is null) yield return $"{rotulo}: escolha o papel.";
+        if (Substitui is { } anterior && inicio is { } dia && TextoTela.TentarData(anterior.InicioEm, out var inicioAnterior) &&
+            inicioAnterior is { } desde && dia <= desde)
+            yield return $"{rotulo}: a troca precisa começar depois de {TextoTela.Data(desde)} (início de {anterior.NomePessoa}).";
     }
 
     public CarteiraDto ParaDto()

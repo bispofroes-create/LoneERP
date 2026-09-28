@@ -175,6 +175,21 @@ public static class SqlMigracaoCarteira
         UPDATE TiposCarteira SET LimitePorVez = 1, TipoCredito = 1 WHERE ResponsavelDaConta = 1;
         """;
 
+    /// <summary>
+    /// Motor Comercial, Fase 1b (migração QuemPodeSerPapel): todos os papéis comerciais que já existem aceitam as
+    /// classificações Vendedor e Representante, como antes (a lista da ficha era exatamente essa). A empresa acrescenta
+    /// outras (ex.: Funcionário no Supervisor) em Configurações › Papéis comerciais. Ids dos papéis de sistema fixos
+    /// (PapeisSistema); só entra o que ainda não existe (pode rodar de novo sem duplicar).
+    /// </summary>
+    public const string ClassificacoesIniciais = """
+        INSERT INTO TiposCarteiraClassificacoes (Id, TipoCarteiraId, PapelId, Ativo, CriadoEm)
+        SELECT NEWID(), t.Id, c.PapelId, 1, SYSUTCDATETIME()
+        FROM TiposCarteira t
+        CROSS JOIN (VALUES ('7a9e1c00-0000-0000-0000-000000000004'), ('7a9e1c00-0000-0000-0000-000000000007')) AS c(PapelId)
+        WHERE EXISTS (SELECT 1 FROM Papeis p WHERE p.Id = c.PapelId)
+          AND NOT EXISTS (SELECT 1 FROM TiposCarteiraClassificacoes x WHERE x.TipoCarteiraId = t.Id AND x.PapelId = c.PapelId);
+        """;
+
     /// <summary>Down: só retira o gatilho (não mexe em dados).</summary>
     public const string RemoverProtecao = """
         DROP TRIGGER IF EXISTS TR_CarteiraClientes_SemSobreposicao;

@@ -95,21 +95,21 @@ public sealed class SubstituicaoVendedor
         get
         {
             var inicio = InicioNovo;
-            var novo = Novo.Vendedor.Texto;
+            var novo = Novo.NomePessoa;
             var regra = UmPorVez ? $"um \"{Tipo}\" ativo (um por vez)"
                 : Encerrar.Concat(Impedem).Any(e => e.Exclusivo) ? $"um vínculo exclusivo de \"{Tipo}\" ativo"
                 : $"um vínculo de \"{Tipo}\" ativo, e o novo é exclusivo";
             if (Impedida)
             {
                 var outro = Impedem[0];
-                return $"Esta pessoa já tem {regra}: {outro.Vendedor.Texto}, desde {outro.InicioEm}.\n\n" +
+                return $"Esta pessoa já tem {regra}: {outro.NomePessoa}, desde {outro.InicioEm}.\n\n" +
                        $"{novo} começaria em {TextoTela.Data(inicio)}, no mesmo dia ou antes dele. Encerrar o vínculo atual " +
                        "antes do início dele apagaria o período em que ele foi o responsável, e o histórico não é alterado.\n\n" +
                        "Ajuste o início do novo vínculo para depois do início do atual, ou corrija o vínculo atual na lista." +
                        DicaVarios;
             }
-            var atuais = string.Join(", ", Encerrar.Select(a => $"{a.Vendedor.Texto} (desde {a.InicioEm})"));
-            var nomes = string.Join(", ", Encerrar.Select(a => a.Vendedor.Texto));
+            var atuais = string.Join(", ", Encerrar.Select(a => $"{a.NomePessoa} (desde {a.InicioEm})"));
+            var nomes = string.Join(", ", Encerrar.Select(a => a.NomePessoa));
             return $"Esta pessoa já tem {regra}.\n\n" +
                    $"Vendedor atual: {atuais}\n" +
                    $"Novo vendedor: {novo} (a partir de {TextoTela.Data(inicio)})\n\n" +

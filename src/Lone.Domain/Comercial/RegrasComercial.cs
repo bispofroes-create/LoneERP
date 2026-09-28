@@ -9,12 +9,18 @@ namespace Lone.Domain.Comercial;
 public sealed record ValoresComerciais(
     decimal? LimiteCredito, decimal? DescontoMaximo, int? DiasMaximoAtraso, Guid? CondicaoPagamentoId, bool ExigeAprovacaoAcimaLimite);
 
+/// <summary>Pessoa ativa que pode ser escolhida na carteira, com as classificações (papéis do cadastro) ativas dela.</summary>
+public sealed record PessoaElegivel(string Nome, IReadOnlySet<Guid> Classificacoes);
+
 /// <summary>Cadastros usados na conferência dos dados comerciais do cliente (com os desativados).</summary>
+/// <param name="Pessoas">As pessoas escolhidas na carteira que estão ativas (as que faltam não existem ou estão inativas).</param>
+/// <param name="Classificacoes">Nomes das classificações (papéis do cadastro), para as mensagens.</param>
 public sealed record ComercialParaConferir(
     IReadOnlyDictionary<Guid, PerfilComercial> Perfis,
     IReadOnlyDictionary<Guid, CondicaoPagamento> Condicoes,
     IReadOnlyDictionary<Guid, TipoCarteira> TiposCarteira,
-    IReadOnlySet<Guid> Vendedores);
+    IReadOnlyDictionary<Guid, PessoaElegivel> Pessoas,
+    IReadOnlyDictionary<Guid, string> Classificacoes);
 
 /// <summary>
 /// Resultado de <see cref="RegrasComercial.PlanejarSubstituicao"/>: os vínculos vigentes que um vínculo novo substitui e
@@ -286,6 +292,36 @@ public static class RegrasComercial
             sucessor.Origem = OrigemVinculoCarteira.Substituicao;
     }
 
+    /// <summary>
+    /// O histórico da carteira não é reescrito: num vínculo gravado que já começou (início até hoje), papel, pessoa,
+    /// empresa, início, exclusivo e crédito não mudam. Muda só o fim (encerrar, inclusive com data passada, ou reabrir), a
+    /// observação e o "ativo" (lançado por engano). Mudar a partir de uma data é encerrar e incluir outro ("Trocar" na
+    /// ficha). Vínculo que ainda não começou (planejado) pode ser corrigido à vontade.
+    /// </summary>
+    public static List<string> ValidarHistorico(Pessoa p, Pessoa? anterior, IReadOnlyDictionary<Guid, TipoCarteira> tipos, DateOnly hoje)
+    {
+        var erros = new List<string>();
+        var antes = (anterior?.Carteira ?? []).ToDictionary(c => c.Id);
+        for (var i = 0; i < p.Carteira.Count; i++)
+        {
+            var c = p.Carteira[i];
+            if (!antes.TryGetValue(c.Id, out var g) || g.InicioEm > hoje) continue;
+            var mudou = new List<string>();
+            if (g.TipoCarteiraId != c.TipoCarteiraId) mudou.Add("papel");
+            if (g.VendedorId != c.VendedorId) mudou.Add("pessoa");
+            if (g.EmpresaId != c.EmpresaId) mudou.Add("empresa");
+            if (g.InicioEm != c.InicioEm) mudou.Add("início");
+            if (g.Exclusivo != c.Exclusivo) mudou.Add("exclusivo");
+            if (g.PercentualCredito != c.PercentualCredito) mudou.Add("crédito");
+            if (mudou.Count == 0) continue;
+            var papel = tipos.TryGetValue(g.TipoCarteiraId, out var t) ? t.Nome : "carteira";
+            erros.Add($"Carteira {i + 1} ({papel}, desde {Data(g.InicioEm)}): {string.Join(", ", mudou)} não muda(m) depois que o vínculo " +
+                      "começou, para não reescrever o histórico. Use \"Trocar\" para mudar a partir de uma data (encerra este e abre outro), " +
+                      "ou desative se foi lançado por engano.");
+        }
+        return erros;
+    }
+
     // ---------------------------------------------------------------- Carteira: política dos papéis e crédito
 
     private static readonly CultureInfo Brasil = CultureInfo.GetCultureInfo("pt-BR");
@@ -441,6 +477,24 @@ public static class RegrasComercial
         return resultado;
     }
 
+    /// <summary>
+    /// As classificações aceitas pelo papel depois da edição: as já gravadas continuam (ativas se ainda marcadas, senão
+    /// desativadas: nada é apagado) e as marcadas agora que não existiam entram novas.
+    /// </summary>
+    public static List<TipoCarteiraClassificacao> SincronizarClassificacoes(Guid tipoId, IEnumerable<TipoCarteiraClassificacao> gravadas,
+                                                                             IEnumerable<Guid> marcadas)
+    {
+        var marcadasSet = marcadas.Where(id => id != Guid.Empty).ToHashSet();
+        var resultado = gravadas.Select(g => new TipoCarteiraClassificacao
+        {
+            Id = g.Id, TipoCarteiraId = tipoId, PapelId = g.PapelId, Ativo = marcadasSet.Contains(g.PapelId),
+            CriadoEm = g.CriadoEm, AtualizadoEm = g.AtualizadoEm
+        }).ToList();
+        foreach (var id in marcadasSet.Where(id => resultado.All(r => r.PapelId != id)))
+            resultado.Add(new TipoCarteiraClassificacao { Id = IdSequencial.Novo(), TipoCarteiraId = tipoId, PapelId = id });
+        return resultado;
+    }
+
     /// <summary>Regras do cadastro de um papel comercial (a lista <paramref name="todos"/> inclui os desativados).</summary>
     public static List<string> ValidarPapel(TipoCarteira dados, IReadOnlyCollection<TipoCarteira> todos)
     {
@@ -459,6 +513,9 @@ public static class RegrasComercial
             if (dados.LimitePorVez != 1)
                 erros.Add("O responsável da conta precisa ser um por vez (\"Quantos ao mesmo tempo\" = 1): ele é o vendedor padrão do cliente.");
         }
+
+        if (!dados.ClassificacoesAceitas.Any())
+            erros.Add("Quem pode ser: marque ao menos uma classificação de pessoa (ex.: Vendedor).");
 
         if (dados.PercentualPadrao is { } pct)
         {
@@ -488,8 +545,9 @@ public static class RegrasComercial
     private static DateOnly Maior(DateOnly a, DateOnly b) => a > b ? a : b;
 
     /// <summary>
-    /// Referências: perfil, condições e tipos existentes (desativado só se já era o gravado ali) e vendedores com o papel
-    /// Vendedor/Representante (um vendedor antigo que perdeu o papel continua nos períodos gravados).
+    /// Referências: perfil, condições e papéis comerciais existentes (desativado só se já era o gravado ali) e, na carteira,
+    /// quem pode ocupar cada papel: pessoa ativa com uma das classificações aceitas pelo papel ("Quem pode ser"). Só no
+    /// vínculo novo ou quando a pessoa ou o papel mudam: quem perdeu a classificação continua nos períodos gravados.
     /// </summary>
     public static List<string> ValidarReferencias(Pessoa p, Pessoa? anterior, ComercialParaConferir c)
     {
@@ -515,9 +573,22 @@ public static class RegrasComercial
         foreach (var v in p.Carteira)
         {
             var antes = carteiraAntes.GetValueOrDefault(v.Id);
-            Conferir((Guid?)v.TipoCarteiraId, antes?.TipoCarteiraId, c.TiposCarteira, x => x.Ativo, x => x.Nome, "tipo de carteira", erros);
-            if (v.VendedorId != Guid.Empty && v.VendedorId != antes?.VendedorId && !c.Vendedores.Contains(v.VendedorId))
-                erros.Add("Carteira: o vendedor escolhido precisa estar ativo e ter o papel Vendedor ou Representante.");
+            Conferir((Guid?)v.TipoCarteiraId, antes?.TipoCarteiraId, c.TiposCarteira, x => x.Ativo, x => x.Nome, "papel comercial", erros);
+            if (v.VendedorId == Guid.Empty || !v.Ativo) continue;
+            if (antes is not null && antes.VendedorId == v.VendedorId && antes.TipoCarteiraId == v.TipoCarteiraId) continue;
+            if (!c.Pessoas.TryGetValue(v.VendedorId, out var pessoa))
+            {
+                erros.Add("Carteira: a pessoa escolhida não existe mais ou não está ativa.");
+                continue;
+            }
+            if (!c.TiposCarteira.TryGetValue(v.TipoCarteiraId, out var papel)) continue;
+            var aceitas = papel.ClassificacoesAceitas.ToList();
+            if (aceitas.Any(pessoa.Classificacoes.Contains)) continue;
+            var nomes = aceitas.Select(id => c.Classificacoes.GetValueOrDefault(id, "?")).Order(StringComparer.CurrentCultureIgnoreCase).ToList();
+            erros.Add(nomes.Count == 0
+                ? $"Carteira: o papel \"{papel.Nome}\" não tem quem possa ocupá-lo; marque as classificações aceitas em Configurações › Papéis comerciais."
+                : $"Carteira: {pessoa.Nome} não pode ser \"{papel.Nome}\": precisa ter a classificação {string.Join(" ou ", nomes)} ativa " +
+                  "(Configurações › Papéis comerciais › Quem pode ser).");
         }
         return erros.Distinct().ToList();
     }

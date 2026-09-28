@@ -52,6 +52,9 @@ public sealed class TipoCarteiraDto
     public decimal? PercentualPadrao { get; set; }
     public bool ContaParaMetas { get; set; }
 
+    /// <summary>Quem pode ocupar o papel: Ids das classificações de pessoa (papéis do cadastro) aceitas.</summary>
+    public List<Guid> Classificacoes { get; set; } = new();
+
     /// <summary>Somente leitura: onde está em uso (só para quem gerencia).</summary>
     public int QuantidadeUsos { get; set; }
 }
@@ -101,7 +104,19 @@ public sealed class ComercialOpcoesDto
     public List<CondicaoPagamentoDto> Condicoes { get; set; } = new();
     public List<TipoCarteiraDto> TiposCarteira { get; set; } = new();
 
-    /// <summary>Pessoas ativas com o papel Vendedor ou Representante.</summary>
-    public List<Lone.Contracts.Colaboradores.PessoaOpcaoDto> Vendedores { get; set; } = new();
+    /// <summary>
+    /// Pessoas ativas que podem ocupar algum papel comercial (com as classificações aceitas por algum deles), cada uma com
+    /// as suas classificações ativas: a ficha mostra, para cada papel, só quem pode ocupá-lo.
+    /// </summary>
+    public List<AtendenteOpcaoDto> Atendentes { get; set; } = new();
+
+    /// <summary>Classificações de pessoa (papéis do cadastro), com as desativadas: nomes e "Quem pode ser".</summary>
+    public List<ClassificacaoOpcaoDto> Classificacoes { get; set; } = new();
     public List<Lone.Contracts.Empresas.EmpresaResumo> Empresas { get; set; } = new();
 }
+
+/// <summary>Pessoa que pode ser escolhida na carteira, com as classificações ativas dela (entre as aceitas por algum papel).</summary>
+public sealed record AtendenteOpcaoDto(Guid Id, string Nome, List<Guid> Classificacoes);
+
+/// <summary>Classificação de pessoa (papel do cadastro: Vendedor, Funcionário...).</summary>
+public sealed record ClassificacaoOpcaoDto(Guid Id, string Nome, bool Ativo);

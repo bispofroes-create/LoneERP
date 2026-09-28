@@ -343,8 +343,10 @@ public class ComercialTests
         var repetido = new TipoCarteira { Id = Guid.NewGuid(), Nome = "televendas" };
         Assert.Contains(RegrasComercial.ValidarPapel(repetido, todos), e => e.Contains("Já existe"));
 
-        Assert.Empty(RegrasComercial.ValidarPapel(
-            new TipoCarteira { Id = Guid.NewGuid(), Nome = "Key account", LimitePorVez = 3, TipoCredito = TipoCreditoComercial.Receita, PercentualPadrao = 30 }, todos));
+        var keyAccount = new TipoCarteira { Id = Guid.NewGuid(), Nome = "Key account", LimitePorVez = 3, TipoCredito = TipoCreditoComercial.Receita, PercentualPadrao = 30 };
+        Assert.Contains(RegrasComercial.ValidarPapel(keyAccount, todos), e => e.Contains("Quem pode ser"));
+        keyAccount.Classificacoes.Add(new TipoCarteiraClassificacao { PapelId = Guid.NewGuid() });
+        Assert.Empty(RegrasComercial.ValidarPapel(keyAccount, todos));
     }
 
     [Fact]
@@ -426,5 +428,86 @@ public class ComercialTests
         outroPapel.TipoCarteiraId = Televendas.Id;
         Assert.Equal([(gravado.InicioEm, gravado.FimEm)], RegrasComercial.Crescimentos(outroPapel, gravado));
         Assert.Equal([(gravado.InicioEm, gravado.FimEm)], RegrasComercial.Crescimentos(atual: Copia(gravado), gravado: null));
+    }
+
+    // ---- Motor Comercial, Fase 1b ----
+
+    [Fact]
+    public void Vinculo_que_ja_comecou_so_muda_fim_observacao_e_ativo()
+    {
+        var gravado = ComCredito(Vinculo(Vendedor, Hoje.AddDays(-10)), 70);
+        var anterior = Cliente(Copia(gravado));
+
+        var encerrado = Copia(gravado);
+        encerrado.FimEm = Hoje.AddDays(-2); // encerrar com data passada pode
+        encerrado.Observacao = "saiu da empresa";
+        encerrado.Ativo = false;
+        Assert.Empty(RegrasComercial.ValidarHistorico(Cliente(encerrado), anterior, Papeis, Hoje));
+
+        var reescrito = Copia(gravado);
+        reescrito.VendedorId = Guid.NewGuid();
+        reescrito.PercentualCredito = 50;
+        reescrito.InicioEm = Hoje.AddDays(-5);
+        var erro = Assert.Single(RegrasComercial.ValidarHistorico(Cliente(reescrito), anterior, Papeis, Hoje));
+        Assert.Contains("pessoa, início, crédito não muda(m)", erro);
+        Assert.Contains("Trocar", erro);
+
+        // Planejado (ainda não começou) pode ser corrigido; vínculo novo também.
+        var planejado = Vinculo(Vendedor, Hoje.AddDays(5));
+        var corrigido = Copia(planejado);
+        corrigido.InicioEm = Hoje.AddDays(7);
+        corrigido.VendedorId = Guid.NewGuid();
+        Assert.Empty(RegrasComercial.ValidarHistorico(Cliente(corrigido, Vinculo(Televendas, Hoje)), Cliente(planejado), Papeis, Hoje));
+    }
+
+    [Fact]
+    public void So_quem_tem_a_classificacao_aceita_ocupa_o_papel()
+    {
+        var classVendedor = Guid.NewGuid();
+        var classFuncionario = Guid.NewGuid();
+        var supervisor = new TipoCarteira { Id = Guid.NewGuid(), Nome = "Supervisor", Ativo = true };
+        supervisor.Classificacoes.Add(new TipoCarteiraClassificacao { PapelId = classFuncionario });
+        supervisor.Classificacoes.Add(new TipoCarteiraClassificacao { PapelId = classVendedor, Ativo = false }); // desmarcada
+        var joao = Guid.NewGuid();
+        var ana = Guid.NewGuid();
+        var conferir = new ComercialParaConferir(
+            new Dictionary<Guid, PerfilComercial>(), new Dictionary<Guid, CondicaoPagamento>(),
+            new Dictionary<Guid, TipoCarteira> { [supervisor.Id] = supervisor },
+            new Dictionary<Guid, PessoaElegivel>
+            {
+                [joao] = new("João", new HashSet<Guid> { classVendedor }),
+                [ana] = new("Ana", new HashSet<Guid> { classFuncionario })
+            },
+            new Dictionary<Guid, string> { [classVendedor] = "Vendedor", [classFuncionario] = "Funcionário" });
+
+        CarteiraCliente De(Guid pessoa) => new() { Id = Guid.NewGuid(), TipoCarteiraId = supervisor.Id, VendedorId = pessoa, InicioEm = Hoje };
+
+        Assert.Contains(RegrasComercial.ValidarReferencias(Cliente(De(joao)), null, conferir),
+            e => e.Contains("João não pode ser \"Supervisor\": precisa ter a classificação Funcionário"));
+        Assert.Empty(RegrasComercial.ValidarReferencias(Cliente(De(ana)), null, conferir));
+        Assert.Contains(RegrasComercial.ValidarReferencias(Cliente(De(Guid.NewGuid())), null, conferir), e => e.Contains("não está ativa"));
+
+        // Gravado com quem perdeu a classificação: continua (não é revalidado se a pessoa e o papel não mudam).
+        var antigo = De(joao);
+        Assert.Empty(RegrasComercial.ValidarReferencias(Cliente(antigo), Cliente(Copia(antigo)), conferir));
+    }
+
+    [Fact]
+    public void Desmarcar_classificacao_desativa_e_marcar_de_novo_reativa_sem_duplicar()
+    {
+        var tipo = Guid.NewGuid();
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var gravadas = new List<TipoCarteiraClassificacao> { new() { Id = Guid.NewGuid(), TipoCarteiraId = tipo, PapelId = a } };
+
+        var depois = RegrasComercial.SincronizarClassificacoes(tipo, gravadas, [b]);
+        Assert.Equal(2, depois.Count);
+        Assert.False(depois.Single(c => c.PapelId == a).Ativo);           // nada é apagado
+        Assert.Equal(gravadas[0].Id, depois.Single(c => c.PapelId == a).Id);
+        Assert.True(depois.Single(c => c.PapelId == b).Ativo);
+
+        var deNovo = RegrasComercial.SincronizarClassificacoes(tipo, depois, [a, b]);
+        Assert.Equal(2, deNovo.Count);
+        Assert.All(deNovo, c => Assert.True(c.Ativo));
     }
 }

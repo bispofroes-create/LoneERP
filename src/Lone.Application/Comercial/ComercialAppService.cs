@@ -1,4 +1,5 @@
 using Lone.Application.Empresas;
+using Lone.Application.Papeis;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Comercial;
@@ -11,11 +12,14 @@ namespace Lone.Application.Comercial;
 /// <summary>Consultas de apoio aos dados comerciais.</summary>
 public interface IComercialConsultas
 {
-    /// <summary>Pessoas ativas com o papel Vendedor ou Representante ativo, em ordem de nome.</summary>
-    Task<List<PessoaOpcaoDto>> ListarVendedoresAsync(CancellationToken ct);
+    /// <summary>
+    /// Pessoas ativas com alguma das classificações informadas ativa, em ordem de nome, cada uma com as dessas
+    /// classificações que tem.
+    /// </summary>
+    Task<List<AtendenteOpcaoDto>> ListarAtendentesAsync(IReadOnlyCollection<Guid> classificacoes, CancellationToken ct);
 
-    /// <summary>Dos Ids informados, os que podem ser vendedores (ativos, com o papel Vendedor ou Representante).</summary>
-    Task<HashSet<Guid>> VendedoresValidosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
+    /// <summary>Dos Ids informados, as pessoas ativas, com nome e classificações ativas (para conferir a carteira).</summary>
+    Task<Dictionary<Guid, PessoaElegivel>> PessoasElegiveisAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 
     Task<Dictionary<Guid, string>> NomesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 }
@@ -33,9 +37,11 @@ public sealed class ComercialAppService : IComercialAppService
     private readonly ITipoCarteiraAppService _tipos;
     private readonly IComercialConsultas _consultas;
     private readonly IEmpresaConsultas _empresas;
+    private readonly IPapelRepositorio _classificacoes;
 
     public ComercialAppService(IAutorizacao autorizacao, IPerfilComercialAppService perfis, ICondicaoPagamentoAppService condicoes,
-                               ITipoCarteiraAppService tipos, IComercialConsultas consultas, IEmpresaConsultas empresas)
+                               ITipoCarteiraAppService tipos, IComercialConsultas consultas, IEmpresaConsultas empresas,
+                               IPapelRepositorio classificacoes)
     {
         _autorizacao = autorizacao;
         _perfis = perfis;
@@ -43,17 +49,20 @@ public sealed class ComercialAppService : IComercialAppService
         _tipos = tipos;
         _consultas = consultas;
         _empresas = empresas;
+        _classificacoes = classificacoes;
     }
 
     public async Task<ComercialOpcoesDto> ListarOpcoesAsync(CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
+        var tipos = await _tipos.ListarAsync(incluirInativos: true, ct);
         return new ComercialOpcoesDto
         {
             Perfis = await _perfis.ListarAsync(incluirInativos: true, ct),
             Condicoes = await _condicoes.ListarAsync(incluirInativos: true, ct),
-            TiposCarteira = await _tipos.ListarAsync(incluirInativos: true, ct),
-            Vendedores = await _consultas.ListarVendedoresAsync(ct),
+            TiposCarteira = tipos,
+            Atendentes = await _consultas.ListarAtendentesAsync([.. tipos.Where(t => t.Ativo).SelectMany(t => t.Classificacoes).Distinct()], ct),
+            Classificacoes = [.. (await _classificacoes.ListarAsync(incluirInativos: true, ct)).Select(p => new ClassificacaoOpcaoDto(p.Id, p.Nome, p.Ativo))],
             Empresas = await _empresas.ListarEmpresasAsync(ct)
         };
     }
@@ -66,14 +75,16 @@ public sealed class ReferenciasComercial
     private readonly ICondicaoPagamentoRepositorio _condicoes;
     private readonly ITipoCarteiraRepositorio _tipos;
     private readonly IComercialConsultas _consultas;
+    private readonly IPapelRepositorio _classificacoes;
 
     public ReferenciasComercial(IPerfilComercialRepositorio perfis, ICondicaoPagamentoRepositorio condicoes,
-                                ITipoCarteiraRepositorio tipos, IComercialConsultas consultas)
+                                ITipoCarteiraRepositorio tipos, IComercialConsultas consultas, IPapelRepositorio classificacoes)
     {
         _perfis = perfis;
         _condicoes = condicoes;
         _tipos = tipos;
         _consultas = consultas;
+        _classificacoes = classificacoes;
     }
 
     public async Task<Dictionary<Guid, TipoCarteira>> TiposAsync(CancellationToken ct) =>
@@ -88,7 +99,8 @@ public sealed class ReferenciasComercial
             await _perfis.ObterVariosAsync(dados.ContasCliente.Select(c => c.PerfilComercialId).OfType<Guid>().Distinct().ToList(), ct),
             await _condicoes.ObterVariosAsync(condicoes, ct),
             tipos,
-            await _consultas.VendedoresValidosAsync(dados.Carteira.Select(c => c.VendedorId).Distinct().ToList(), ct));
+            await _consultas.PessoasElegiveisAsync(dados.Carteira.Select(c => c.VendedorId).Where(id => id != Guid.Empty).Distinct().ToList(), ct),
+            (await _classificacoes.ListarAsync(incluirInativos: true, ct)).ToDictionary(p => p.Id, p => p.Nome));
         return RegrasComercial.ValidarReferencias(dados, anterior, referencias);
     }
 

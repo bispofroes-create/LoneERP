@@ -98,4 +98,27 @@ public class ModeloCarteiraTests
         Assert.Equal(SqlMigracaoCarteira.RemoverProtecao, Assert.IsType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>(down[0]).Sql);
         Assert.Equal(SqlMigracaoCarteira.CriarProtecao, Assert.IsType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>(down[^1]).Sql);
     }
+
+    [Fact]
+    public void Quem_pode_ser_tem_tabela_propria_unica_por_papel_e_classificacao_e_comeca_com_vendedor_e_representante()
+    {
+        var entidade = Modelo().FindEntityType(typeof(TipoCarteiraClassificacao))!;
+        Assert.Equal("TiposCarteiraClassificacoes", entidade.GetTableName());
+        Assert.Contains(entidade.GetIndexes(), i => i.IsUnique &&
+            i.Properties.Select(p => p.Name).SequenceEqual([nameof(TipoCarteiraClassificacao.TipoCarteiraId), nameof(TipoCarteiraClassificacao.PapelId)]));
+
+        var sql = SqlMigracaoCarteira.ClassificacoesIniciais;
+        Assert.Contains(Lone.Domain.Papeis.PapeisSistema.Id(Lone.Domain.Enums.TipoPapel.Vendedor).ToString(), sql);
+        Assert.Contains(Lone.Domain.Papeis.PapeisSistema.Id(Lone.Domain.Enums.TipoPapel.Representante).ToString(), sql);
+        Assert.Contains("NOT EXISTS", sql); // não duplica
+    }
+
+    [Fact]
+    public void Migracao_quem_pode_ser_cria_a_tabela_e_depois_marca_vendedor_e_representante()
+    {
+        var up = new Lone.Infrastructure.Persistencia.Migracoes.QuemPodeSerPapel().UpOperations.ToList();
+        var cria = up.FindIndex(o => o is Microsoft.EntityFrameworkCore.Migrations.Operations.CreateTableOperation t && t.Name == "TiposCarteiraClassificacoes");
+        var marca = up.FindIndex(o => o is Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation s && s.Sql == SqlMigracaoCarteira.ClassificacoesIniciais);
+        Assert.True(cria >= 0 && marca > cria);
+    }
 }

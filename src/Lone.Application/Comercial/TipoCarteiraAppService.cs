@@ -1,3 +1,4 @@
+using Lone.Application.Papeis;
 using Lone.Application.Seguranca;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comercial;
@@ -25,12 +26,15 @@ public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
     private readonly ITipoCarteiraRepositorio _repositorio;
     private readonly IAutorizacao _autorizacao;
     private readonly TimeProvider _relogio;
+    private readonly IPapelRepositorio _classificacoes;
 
-    public TipoCarteiraAppService(ITipoCarteiraRepositorio repositorio, IAutorizacao autorizacao, TimeProvider relogio)
+    public TipoCarteiraAppService(ITipoCarteiraRepositorio repositorio, IAutorizacao autorizacao, TimeProvider relogio,
+                                  IPapelRepositorio classificacoes)
     {
         _repositorio = repositorio;
         _autorizacao = autorizacao;
         _relogio = relogio;
+        _classificacoes = classificacoes;
     }
 
     public async Task<List<TipoCarteiraDto>> ListarAsync(bool incluirInativos, CancellationToken ct = default)
@@ -66,8 +70,18 @@ public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
             ContaParaMetas = dto.ContaParaMetas,
             Ativo = anterior?.Ativo ?? true
         };
+        dados.Classificacoes = RegrasComercial.SincronizarClassificacoes(dados.Id, anterior?.Classificacoes ?? [], dto.Classificacoes ?? []);
 
         var erros = RegrasComercial.ValidarPapel(dados, todos);
+        // Classificação que passa a ser aceita agora precisa existir e estar ativa (a que já era aceita pode continuar).
+        var jaAceitas = anterior?.ClassificacoesAceitas.ToHashSet() ?? [];
+        var novas = dados.ClassificacoesAceitas.Where(id => !jaAceitas.Contains(id)).ToList();
+        if (novas.Count > 0)
+        {
+            var cadastro = await _classificacoes.ObterVariosAsync(novas, ct);
+            if (novas.Any(id => !cadastro.TryGetValue(id, out var papel) || !papel.Ativo))
+                erros.Add("Quem pode ser: uma classificação escolhida não existe mais ou está desativada. Reabra o cadastro e escolha de novo.");
+        }
         // Baixar o limite só quando nenhum cliente fica acima dele (de hoje em diante; o histórico não é revalidado).
         if (erros.Count == 0 && anterior is not null && dados.LimitePorVez is { } limite && (anterior.LimitePorVez is null || anterior.LimitePorVez > limite))
         {
@@ -120,6 +134,7 @@ public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
         TipoCredito = x.TipoCredito,
         PercentualPadrao = x.PercentualPadrao,
         ContaParaMetas = x.ContaParaMetas,
+        Classificacoes = [.. x.ClassificacoesAceitas],
         Ativo = x.Ativo,
         QuantidadeUsos = usos
     };

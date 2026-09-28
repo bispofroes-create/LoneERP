@@ -1,3 +1,4 @@
+using Lone.Cliente.ViewModels.Comum;
 using Lone.Cliente.ViewModels.Pessoas;
 using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Comercial;
@@ -7,10 +8,13 @@ namespace Lone.Tests.Cliente;
 
 public class ComercialFormularioTests
 {
+    private static readonly Guid ClassVendedor = Guid.NewGuid();
+    private static readonly Guid ClassFuncionario = Guid.NewGuid();
+
     private static readonly TipoCarteiraDto Vendedor = new()
     {
         Id = Guid.NewGuid(), Nome = "Vendedor", ResponsavelDaConta = true, LimitePorVez = 1,
-        TipoCredito = Lone.Domain.Enums.TipoCreditoComercial.Receita, Ordem = 1
+        TipoCredito = Lone.Domain.Enums.TipoCreditoComercial.Receita, Ordem = 1, Classificacoes = [ClassVendedor]
     };
     private static readonly PerfilComercialDto Atacado = new() { Id = Guid.NewGuid(), Nome = "Atacado", DescontoMaximo = 12 };
     private static readonly CondicaoPagamentoDto Trinta = new() { Id = Guid.NewGuid(), Nome = "30 dias", Parcelas = "30" };
@@ -20,8 +24,12 @@ public class ComercialFormularioTests
         Perfis = [Atacado],
         Condicoes = [Trinta],
         TiposCarteira = [Vendedor],
-        Vendedores = [new PessoaOpcaoDto(Guid.NewGuid(), "João Vendedor")]
+        Atendentes = [new AtendenteOpcaoDto(Guid.NewGuid(), "João Vendedor", [ClassVendedor])],
+        Classificacoes = [new ClassificacaoOpcaoDto(ClassVendedor, "Vendedor", true), new ClassificacaoOpcaoDto(ClassFuncionario, "Funcionário", true)]
     };
+
+    private static List<AtendenteOpcaoDto> JoaoEMaria() =>
+        [new AtendenteOpcaoDto(Joao, "João da Silva", [ClassVendedor]), new AtendenteOpcaoDto(Maria, "Maria Oliveira", [ClassVendedor])];
 
     [Fact]
     public void Carteira_nova_ja_vem_com_o_papel_responsavel_e_gravada_so_desativa()
@@ -37,7 +45,7 @@ public class ComercialFormularioTests
         antiga.RemoverCommand.Execute(null);
         Assert.Equal(2, f.Carteira.Count);
         Assert.False(antiga.ParaDto().Ativo);
-        Assert.Contains(antiga.Vendedores, v => v.Texto.Contains("sem o papel"));
+        Assert.Contains(antiga.Vendedores, v => v.Texto.Contains("não pode mais ser Vendedor"));
     }
 
     [Fact]
@@ -86,7 +94,7 @@ public class ComercialFormularioTests
         var atual = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, Vendedor = "João da Silva", InicioEm = new DateOnly(2026, 1, 1) };
         var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente", Carteira = [atual] });
         var opcoes = Opcoes();
-        opcoes.Vendedores = [new PessoaOpcaoDto(Joao, "João da Silva"), new PessoaOpcaoDto(Maria, "Maria Oliveira")];
+        opcoes.Atendentes = JoaoEMaria();
         f.DefinirOpcoesComercial(opcoes);
         f.NovaCarteira();
         var nova = f.Carteira[0];
@@ -147,7 +155,7 @@ public class ComercialFormularioTests
         var televendas = new TipoCarteiraDto { Id = Guid.NewGuid(), Nome = "Televendas", Ordem = 2 };
         var opcoes = Opcoes();
         opcoes.TiposCarteira = [Vendedor, televendas];
-        opcoes.Vendedores = [new PessoaOpcaoDto(Joao, "João da Silva"), new PessoaOpcaoDto(Maria, "Maria Oliveira")];
+        opcoes.Atendentes = JoaoEMaria();
         f.DefinirOpcoesComercial(opcoes);
         nova.Tipo = nova.Tipos.First(t => t.Valor == televendas.Id);
         Assert.Empty(f.SubstituicoesDeVendedor());
@@ -190,5 +198,112 @@ public class ComercialFormularioTests
         v.Tipo = v.Tipos.First(t => t.Valor == apoio.Id);
         Assert.False(v.RecebeCredito);
         Assert.Null(v.ParaDto().PercentualCredito);
+    }
+
+    // ---- Motor Comercial, Fase 1b: quem pode ser, histórico travado, Trocar e organização da carteira ----
+
+    [Fact]
+    public void Campo_da_pessoa_leva_o_nome_do_papel_e_lista_so_quem_pode_ocupa_lo()
+    {
+        var supervisor = new TipoCarteiraDto { Id = Guid.NewGuid(), Nome = "Supervisor", Ordem = 2, Classificacoes = [ClassFuncionario] };
+        var opcoes = Opcoes();
+        opcoes.TiposCarteira = [Vendedor, supervisor];
+        var ana = Guid.NewGuid();
+        opcoes.Atendentes = [.. JoaoEMaria(), new AtendenteOpcaoDto(ana, "Ana Souza", [ClassFuncionario])];
+        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente" });
+        f.DefinirOpcoesComercial(opcoes);
+        f.NovaCarteira();
+        var v = f.Carteira[0];
+
+        Assert.Equal("Vendedor", v.RotuloPessoa);
+        Assert.Equal(["—", "João da Silva · Vendedor", "Maria Oliveira · Vendedor"], v.Vendedores.Select(o => o.Texto));
+
+        v.Vendedor = v.Vendedores.First(o => o.Valor == Joao);
+        v.Tipo = v.Tipos.First(t => t.Valor == supervisor.Id);
+        Assert.Equal("Supervisor", v.RotuloPessoa);
+        Assert.Equal(["—", "Ana Souza · Funcionário"], v.Vendedores.Select(o => o.Texto));
+        Assert.Null(v.Vendedor.Valor); // João não pode ser Supervisor
+        Assert.Contains(v.Validar("Carteira 1"), e => e.Contains("escolha quem será Supervisor"));
+    }
+
+    [Fact]
+    public void Adicionar_papel_escolhe_o_primeiro_papel_sem_ninguem()
+    {
+        var supervisor = new TipoCarteiraDto { Id = Guid.NewGuid(), Nome = "Supervisor", Ordem = 2, Classificacoes = [ClassFuncionario] };
+        var opcoes = Opcoes();
+        opcoes.TiposCarteira = [Vendedor, supervisor];
+        var atual = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, InicioEm = new DateOnly(2026, 1, 1) };
+        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente", Carteira = [atual] });
+        f.DefinirOpcoesComercial(opcoes);
+
+        f.NovaCarteira();
+
+        Assert.Equal(supervisor.Id, f.Carteira[0].Tipo.Valor);
+    }
+
+    [Fact]
+    public void Vinculo_que_ja_comecou_fica_travado_e_o_planejado_nao()
+    {
+        var hoje = new DateOnly(2026, 9, 28);
+        var comecou = CarteiraFormulario.De(new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, InicioEm = hoje }, hoje);
+        var planejado = CarteiraFormulario.De(new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, InicioEm = hoje.AddDays(1) }, hoje);
+        var novo = CarteiraFormulario.Nova(null, Vendedor.Id, hoje);
+
+        Assert.True(comecou.Travado);
+        Assert.False(planejado.Travado);
+        Assert.False(novo.Travado);
+        Assert.Equal("Vigente desde 28/09/2026", comecou.Situacao);
+        Assert.Equal("Começa em 29/09/2026", planejado.Situacao);
+        Assert.Equal("Desativar (lançado por engano)", comecou.TextoRemover);
+        Assert.Equal("Remover", novo.TextoRemover);
+    }
+
+    [Fact]
+    public void Trocar_abre_o_novo_no_mesmo_papel_e_credito_e_encerra_o_atual_na_vespera()
+    {
+        var (f, atual, novaSolta) = FichaComVendedor("15/03/2026");
+        novaSolta.RemoverCommand.Execute(null); // sem o cartão solto: a troca é pelo botão
+        atual.PercentualCredito = "70";
+        var fimAntes = atual.FimEm;
+
+        atual.TrocarCommand.Execute(null);
+        var nova = f.Carteira[0];
+
+        Assert.Same(atual, nova.Substitui);
+        Assert.Equal(Vendedor.Id, nova.Tipo.Valor);
+        Assert.Equal("70", nova.PercentualCredito);
+        Assert.Null(nova.Vendedor.Valor);
+        Assert.False(atual.PodeTrocar); // uma troca por vez
+        Assert.Equal(TextoTela.Data(DateOnly.FromDateTime(DateTime.Today).AddDays(-1)), atual.FimEm);
+
+        nova.InicioEm = "01/10/2026";
+        Assert.Equal("30/09/2026", atual.FimEm); // acompanha o início do novo
+        Assert.Empty(f.SubstituicoesDeVendedor()); // já é troca: não pergunta de novo
+
+        nova.InicioEm = "01/01/2026";
+        Assert.Contains(nova.Validar("Carteira 1"), e => e.Contains("precisa começar depois de 01/01/2026"));
+
+        nova.RemoverCommand.Execute(null); // desistiu
+        Assert.Equal(fimAntes, atual.FimEm);
+        Assert.True(atual.PodeTrocar);
+        Assert.DoesNotContain(nova, f.Carteira);
+    }
+
+    [Fact]
+    public void Encerrados_e_desativados_vao_para_o_historico_e_os_novos_ficam_no_topo()
+    {
+        var encerrado = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Maria, InicioEm = new DateOnly(2025, 1, 1), FimEm = new DateOnly(2025, 12, 31) };
+        var engano = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Maria, InicioEm = new DateOnly(2025, 6, 1), Ativo = false };
+        var vigente = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, InicioEm = new DateOnly(2026, 1, 1) };
+        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente", Carteira = [encerrado, engano, vigente] });
+
+        Assert.Equal([vigente.Id], f.CarteiraAtual.Select(c => c.Id));
+        Assert.Equal([engano.Id, encerrado.Id], f.CarteiraHistorico.Select(c => c.Id));
+        Assert.True(f.TemHistoricoCarteira);
+        Assert.Equal("Mostrar histórico (2)", f.TextoHistoricoCarteira);
+
+        f.NovaCarteira();
+        Assert.Equal(f.Carteira[0], f.CarteiraAtual[0]);
+        Assert.Equal(4, f.ParaDto().Carteira.Count); // o histórico continua indo para a API (nada é apagado)
     }
 }

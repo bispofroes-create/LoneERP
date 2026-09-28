@@ -1355,7 +1355,36 @@ public sealed partial class PessoaFormulario : ObservableObject
     // ---- Comercial (perfil, condição, exceções com vigência e carteira de clientes) ----
 
     public ObservableCollection<ExcecaoComercialFormulario> Excecoes { get; } = new();
+    /// <summary>Todos os vínculos da carteira (o que vai para a API).</summary>
     public ObservableCollection<CarteiraFormulario> Carteira { get; } = new();
+
+    /// <summary>Na tela: os vigentes, os a começar e os novos (os novos primeiro).</summary>
+    public ObservableCollection<CarteiraFormulario> CarteiraAtual { get; } = new();
+
+    /// <summary>Na tela, recolhido: os que já estavam encerrados ou desativados quando a ficha abriu (mais recentes primeiro).</summary>
+    public ObservableCollection<CarteiraFormulario> CarteiraHistorico { get; } = new();
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TextoHistoricoCarteira))] private bool _mostrarHistoricoCarteira;
+
+    public string TextoHistoricoCarteira => (MostrarHistoricoCarteira ? "Ocultar histórico" : "Mostrar histórico") + $" ({CarteiraHistorico.Count})";
+    public bool TemHistoricoCarteira => CarteiraHistorico.Count > 0;
+    public bool SemCarteiraAtual => CarteiraAtual.Count == 0;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void AlternarHistoricoCarteira() => MostrarHistoricoCarteira = !MostrarHistoricoCarteira;
+
+    /// <summary>Separa a carteira em atual e histórico (ao abrir, incluir, trocar ou remover; não enquanto se digita).</summary>
+    private void OrganizarCarteira()
+    {
+        CarteiraAtual.Clear();
+        foreach (var c in Carteira.Where(c => !c.Gravada)) CarteiraAtual.Add(c);
+        foreach (var c in Carteira.Where(c => c.Gravada && !c.NoHistorico).OrderByDescending(c => c.ParaDto().InicioEm)) CarteiraAtual.Add(c);
+        CarteiraHistorico.Clear();
+        foreach (var c in Carteira.Where(c => c.NoHistorico).OrderByDescending(c => c.ParaDto().InicioEm)) CarteiraHistorico.Add(c);
+        OnPropertyChanged(nameof(TextoHistoricoCarteira));
+        OnPropertyChanged(nameof(TemHistoricoCarteira));
+        OnPropertyChanged(nameof(SemCarteiraAtual));
+    }
 
     private OpcoesComercial? _opcoesComercial;
 
@@ -1387,16 +1416,46 @@ public sealed partial class PessoaFormulario : ObservableObject
     {
         carteira.AoRemover = () =>
         {
-            if (carteira.Gravada) carteira.Ativo = false; // gravado por engano: fica inativo (histórico)
-            else Carteira.Remove(carteira);
+            if (carteira.Gravada)
+            {
+                carteira.Ativo = false; // gravado por engano: fica inativo (histórico)
+                return;
+            }
+            carteira.Substitui?.DesfazerTroca(); // a troca não vai mais acontecer: o anterior volta como estava
+            Carteira.Remove(carteira);
+            OrganizarCarteira();
         };
+        carteira.AoTrocar = () => TrocarCarteira(carteira);
         if (Carteira.Contains(carteira)) return;
         Carteira.Insert(0, carteira);
+        OrganizarCarteira();
+    }
+
+    /// <summary>
+    /// "Trocar": um vínculo novo no lugar do gravado (mesmo papel, empresa e crédito; a pessoa é escolhida), e o gravado
+    /// fica até a véspera do início do novo. Nada é apagado; desfazer = remover o novo.
+    /// </summary>
+    public CarteiraFormulario? TrocarCarteira(CarteiraFormulario atual)
+    {
+        if (!atual.PodeTrocar) return null;
+        var novo = atual.IniciarTroca(_opcoesComercial);
+        AdicionarCarteira(novo);
+        return novo;
     }
 
     public void NovaExcecao() => AdicionarExcecao(ExcecaoComercialFormulario.Nova());
 
-    public void NovaCarteira() => AdicionarCarteira(CarteiraFormulario.Nova(_opcoesComercial));
+    /// <summary>
+    /// "Adicionar papel": vínculo novo no primeiro papel ativo (na ordem do cadastro) que ainda não tem ninguém vigente
+    /// nesta ficha; se todos têm, o responsável da conta. Para substituir quem está, o caminho é "Trocar".
+    /// </summary>
+    public void NovaCarteira()
+    {
+        var ocupados = Carteira.Where(c => c.Ativo && !c.NoHistorico).Select(c => c.Tipo.Valor).ToHashSet();
+        var livre = _opcoesComercial?.Dados.TiposCarteira.Where(t => t.Ativo).OrderBy(t => t.Ordem)
+            .FirstOrDefault(t => !ocupados.Contains(t.Id))?.Id;
+        AdicionarCarteira(CarteiraFormulario.Nova(_opcoesComercial, livre));
+    }
 
     /// <summary>Vínculos novos da carteira que entram no lugar de um vigente (a ficha confirma antes de gravar).</summary>
     public List<SubstituicaoVendedor> SubstituicoesDeVendedor() => SubstituicaoVendedor.Planejar([.. Carteira], _opcoesComercial);

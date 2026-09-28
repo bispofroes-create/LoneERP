@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
@@ -5,6 +6,7 @@ using Lone.Cliente.Plataforma;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Comercial;
 using Lone.Contracts.Comum;
+using Lone.Contracts.Papeis;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
@@ -49,6 +51,21 @@ public static class PoliticaPapel
     }
 }
 
+/// <summary>Uma classificação de pessoa na lista "Quem pode ser" do papel comercial.</summary>
+public sealed partial class ClassificacaoMarcavel : ObservableObject
+{
+    public ClassificacaoMarcavel(Guid id, string nome, bool marcado)
+    {
+        Id = id;
+        Nome = nome;
+        _marcado = marcado;
+    }
+
+    public Guid Id { get; }
+    public string Nome { get; }
+    [ObservableProperty] private bool _marcado;
+}
+
 /// <summary>Ficha de um papel comercial. As regras finais (nome único, um responsável, limite) são da API.</summary>
 public sealed partial class TipoCarteiraEdicao : ObservableObject
 {
@@ -73,6 +90,19 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
     [ObservableProperty] private string _percentualPadrao = string.Empty;
     [ObservableProperty] private bool _contaParaMetas;
 
+    /// <summary>Quem pode ocupar o papel (classificações de pessoa). Montada com as opções (<see cref="DefinirClassificacoes"/>).</summary>
+    public ObservableCollection<ClassificacaoMarcavel> Classificacoes { get; } = new();
+    private List<Guid> _classificacoesGravadas = [];
+
+    /// <summary>As classificações ativas do cadastro, mais as gravadas que foram desativadas (marcadas, com aviso).</summary>
+    public void DefinirClassificacoes(IReadOnlyList<ClassificacaoOpcaoDto> opcoes)
+    {
+        var marcadas = Classificacoes.Count > 0 ? Classificacoes.Where(c => c.Marcado).Select(c => c.Id).ToHashSet() : _classificacoesGravadas.ToHashSet();
+        Classificacoes.Clear();
+        foreach (var c in opcoes.Where(c => c.Ativo || marcadas.Contains(c.Id)))
+            Classificacoes.Add(new ClassificacaoMarcavel(c.Id, c.Ativo ? c.Nome : c.Nome + " (desativada)", marcadas.Contains(c.Id)));
+    }
+
     public IReadOnlyList<Opcao<TipoCreditoComercial>> Creditos => PoliticaPapel.Creditos;
     public bool RecebeCredito => Credito.Valor != TipoCreditoComercial.Nenhum;
 
@@ -86,7 +116,11 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
     public string SituacaoTexto => Novo ? "Novo papel comercial" : Ativo ? "Ativo" : "Desativado (não aparece para novas escolhas; continua onde já está)";
     public string UsoTexto => Novo ? string.Empty : $"{QuantidadeUsos.ToString("N0", TextoTela.Brasil)} vínculo(s) em aberto na carteira com este papel.";
 
-    public static TipoCarteiraEdicao Criar() => new(IdSequencial.Novo(), novo: true);
+    /// <summary>Papel novo: começa aceitando quem tem a classificação Vendedor (a empresa acrescenta as outras).</summary>
+    public static TipoCarteiraEdicao Criar() => new(IdSequencial.Novo(), novo: true)
+    {
+        _classificacoesGravadas = [Lone.Domain.Papeis.PapeisSistema.Id(TipoPapel.Vendedor)]
+    };
 
     public static TipoCarteiraEdicao De(TipoCarteiraDto t) => new(t.Id, novo: false)
     {
@@ -99,6 +133,7 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
         Credito = Opcao.De(PoliticaPapel.Creditos, t.TipoCredito),
         PercentualPadrao = TextoTela.Decimal(t.PercentualPadrao),
         ContaParaMetas = t.ContaParaMetas,
+        _classificacoesGravadas = [.. t.Classificacoes],
         Nome = t.Nome
     };
 
@@ -109,6 +144,8 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
         if (!TextoTela.TentarInteiro(Ordem, out _)) erros.Add("Ordem: use um número inteiro.");
         if (!TextoTela.TentarInteiro(LimitePorVez, out _)) erros.Add("Quantos ao mesmo tempo: use um número inteiro (vazio = sem limite).");
         if (!TextoTela.TentarDecimal(PercentualPadrao, out _)) erros.Add("Percentual padrão: número inválido.");
+        if (Classificacoes.Count > 0 && !Classificacoes.Any(c => c.Marcado))
+            erros.Add("Quem pode ser: marque ao menos uma classificação de pessoa.");
         return erros;
     }
 
@@ -128,6 +165,8 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
             // Papel sem crédito não guarda percentual (a API recusaria).
             PercentualPadrao = RecebeCredito ? percentual : null,
             ContaParaMetas = ContaParaMetas,
+            // Antes de as opções chegarem, vai o que estava gravado.
+            Classificacoes = Classificacoes.Count > 0 ? [.. Classificacoes.Where(c => c.Marcado).Select(c => c.Id)] : [.. _classificacoesGravadas],
             Ativo = Ativo
         };
     }
@@ -137,10 +176,12 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
 public sealed partial class TiposCarteiraViewModel : CadastroViewModelBase<LinhaTipoCarteira>
 {
     private readonly ComercialApi _api;
+    private readonly PapeisApi _papeis;
 
-    public TiposCarteiraViewModel(ComercialApi api, IDialogos dialogos) : base(dialogos)
+    public TiposCarteiraViewModel(ComercialApi api, PapeisApi papeis, IDialogos dialogos) : base(dialogos)
     {
         _api = api;
+        _papeis = papeis;
     }
 
     [ObservableProperty]
@@ -152,16 +193,36 @@ public sealed partial class TiposCarteiraViewModel : CadastroViewModelBase<Linha
 
     protected override string TextoDeBusca(LinhaTipoCarteira item) => item.Nome + " " + item.Detalhe;
 
+    /// <summary>Classificações de pessoa (para "Quem pode ser"), lidas com a lista.</summary>
+    private IReadOnlyList<ClassificacaoOpcaoDto> _classificacoes = [];
+
     protected override async Task<IReadOnlyList<LinhaTipoCarteira>> ListarAsync()
     {
+        _classificacoes = await ListarClassificacoesAsync();
         return (await _api.ListarAsync<TipoCarteiraDto>(Rotas.Comercial.TiposCarteira, incluirInativos: true))
             .OrderBy(t => t.Ordem).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
             .Select(t => new LinhaTipoCarteira(t)).ToList();
     }
 
+    /// <summary>
+    /// Classificações de pessoa (o cadastro de papéis). Sem permissão para vê-las, a lista "Quem pode ser" não aparece e o
+    /// papel é gravado com as classificações que já tinha.
+    /// </summary>
+    private async Task<IReadOnlyList<ClassificacaoOpcaoDto>> ListarClassificacoesAsync()
+    {
+        try
+        {
+            return [.. (await _papeis.ListarAsync(incluirInativos: true)).OrderBy(p => p.Ordem).Select(p => new ClassificacaoOpcaoDto(p.Id, p.Nome, p.Ativo))];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return [];
+        }
+    }
+
     private TipoCarteiraEdicao Preparar(TipoCarteiraEdicao f)
     {
-        
+        f.DefinirClassificacoes(_classificacoes);
         return f;
     }
 

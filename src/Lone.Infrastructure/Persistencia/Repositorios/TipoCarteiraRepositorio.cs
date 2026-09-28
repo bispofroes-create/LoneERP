@@ -17,13 +17,13 @@ public class TipoCarteiraRepositorio : ServicoDadosBase, ITipoCarteiraRepositori
     public async Task<List<TipoCarteira>> ListarAsync(CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
-        return await db.TiposCarteira.AsNoTracking().ToListAsync(ct);
+        return await db.TiposCarteira.AsNoTracking().Include(x => x.Classificacoes).AsSplitQuery().ToListAsync(ct);
     }
 
     public async Task<TipoCarteira?> ObterAsync(Guid id, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
-        return await db.TiposCarteira.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        return await db.TiposCarteira.AsNoTracking().Include(x => x.Classificacoes).FirstOrDefaultAsync(x => x.Id == id, ct);
     }
 
     public async Task<Dictionary<Guid, TipoCarteira>> ObterVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
@@ -31,7 +31,7 @@ public class TipoCarteiraRepositorio : ServicoDadosBase, ITipoCarteiraRepositori
         if (ids.Count == 0) return new();
         await using var db = await AbrirAsync(ct);
         var lista = ids.Distinct().ToList();
-        return await db.TiposCarteira.AsNoTracking().Where(x => lista.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+        return await db.TiposCarteira.AsNoTracking().Include(x => x.Classificacoes).Where(x => lista.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
     }
 
     public async Task<Dictionary<Guid, int>> ContarUsosAsync(Guid? somenteId, CancellationToken ct)
@@ -60,14 +60,19 @@ public class TipoCarteiraRepositorio : ServicoDadosBase, ITipoCarteiraRepositori
     public async Task SalvarAsync(TipoCarteira item, bool novo, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
-        if (novo)
+        if (novo && item.Id == Guid.Empty) item.Id = IdSequencial.Novo();
+        foreach (var c in item.Classificacoes)
         {
-            if (item.Id == Guid.Empty) item.Id = IdSequencial.Novo();
-            db.TiposCarteira.Add(item);
+            c.TipoCarteiraId = item.Id;
+            if (c.Id == Guid.Empty) c.Id = IdSequencial.Novo();
         }
+
+        if (novo)
+            db.TiposCarteira.Add(item);
         else
         {
-            var atual = await db.TiposCarteira.FirstOrDefaultAsync(x => x.Id == item.Id, ct) ?? throw new ConflitoDeEdicaoException();
+            var atual = await db.TiposCarteira.Include(x => x.Classificacoes).FirstOrDefaultAsync(x => x.Id == item.Id, ct)
+                        ?? throw new ConflitoDeEdicaoException();
             var versaoAberta = item.Versao;
             item.Versao = atual.Versao;
             item.CriadoEm = atual.CriadoEm;
@@ -76,6 +81,7 @@ public class TipoCarteiraRepositorio : ServicoDadosBase, ITipoCarteiraRepositori
             var entrada = db.Entry(atual);
             entrada.CurrentValues.SetValues(item);
             entrada.Property(x => x.Versao).OriginalValue = versaoAberta;
+            Filhos.Sincronizar(db, atual.Classificacoes, item.Classificacoes, apagarAusentes: false); // desmarcar desativa
             atual.ReceberEventosDe(item);
             entrada.Property(x => x.AtualizadoEm).IsModified = true;
         }

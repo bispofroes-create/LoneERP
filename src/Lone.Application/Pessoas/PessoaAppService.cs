@@ -317,6 +317,7 @@ public sealed class PessoaAppService : IPessoaAppService
         // Comercial: perfis, condições, exceções com vigência e carteira (política dos papéis; o responsável da conta vigente vira o vendedor padrão).
         var tiposCarteira = await _comercial.TiposAsync(ct);
         erros.AddRange(RegrasComercial.Validar(dados, tiposCarteira, anterior));
+        erros.AddRange(RegrasComercial.ValidarHistorico(dados, anterior, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime)));
         erros.AddRange(RegrasComercial.ValidarCarteira(dados, anterior, tiposCarteira));
         erros.AddRange(await _comercial.ValidarAsync(dados, anterior, tiposCarteira, ct));
         RegrasComercial.DefinirOrigens(dados, anterior, tiposCarteira);

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Lone.Domain.Auditoria;
 using Lone.Domain.Enums;
 
 namespace Lone.Domain.Entidades;
@@ -132,6 +133,15 @@ public class TipoCarteira : AgregadoRaiz
     /// <summary>Um vínculo por vez (a regra de substituição vale para ele).</summary>
     public bool UmPorVez => LimitePorVez == 1;
 
+    /// <summary>
+    /// Quem pode ocupar este papel: as classificações de pessoa (papéis do cadastro: Vendedor, Representante,
+    /// Funcionário...) aceitas. Nunca são apagadas: desmarcar desativa. Ao menos uma ativa.
+    /// </summary>
+    public List<TipoCarteiraClassificacao> Classificacoes { get; set; } = new();
+
+    /// <summary>As classificações aceitas hoje (as ativas).</summary>
+    public IEnumerable<Guid> ClassificacoesAceitas => Classificacoes.Where(c => c.Ativo).Select(c => c.PapelId);
+
     [DisplayName("Ordem")]
     public int Ordem { get; set; }
 
@@ -151,6 +161,26 @@ public class TipoCarteira : AgregadoRaiz
         Ativo = true;
         RegistrarEvento($"Papel comercial '{Nome}' reativado.");
     }
+}
+
+/// <summary>
+/// Classificação de pessoa (papel do cadastro, ex.: Funcionário) aceita num papel comercial (ex.: Supervisor): só quem tem
+/// uma das classificações aceitas, ativa, pode ser escolhido para o papel na carteira do cliente. Nunca é apagada:
+/// desmarcar desativa (o histórico fica).
+/// </summary>
+[DisplayName("Quem pode ser")]
+public class TipoCarteiraClassificacao : EntidadeBase, IParteDeAgregado
+{
+    public Guid TipoCarteiraId { get; set; }
+
+    [DisplayName("Classificação")]
+    public Guid PapelId { get; set; }
+
+    [DisplayName("Ativa")]
+    public bool Ativo { get; set; } = true;
+
+    string IParteDeAgregado.RaizEntidade => nameof(TipoCarteira);
+    Guid IParteDeAgregado.RaizId => TipoCarteiraId;
 }
 
 /// <summary>

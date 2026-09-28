@@ -43,6 +43,7 @@ public class TipoCarteiraConfiguration : IEntityTypeConfiguration<TipoCarteira>
         b.HasIndex(x => x.ResponsavelDaConta).IsUnique().HasFilter("[ResponsavelDaConta] = 1"); // um só responsável da conta
         b.Property(x => x.TipoCredito).HasConversion<byte>();
         b.Property(x => x.PercentualPadrao).HasPrecision(5, 2);
+        b.HasMany(x => x.Classificacoes).WithOne().HasForeignKey(x => x.TipoCarteiraId).OnDelete(DeleteBehavior.Restrict);
 
         // Papéis iniciais (Ids fixos) com a política inicial (TiposCarteiraIniciais).
         var criacao = new DateTime(2026, 9, 25, 0, 0, 0, DateTimeKind.Utc);
@@ -51,6 +52,18 @@ public class TipoCarteiraConfiguration : IEntityTypeConfiguration<TipoCarteira>
             Id = t.Id, Nome = t.Nome, Ordem = t.Ordem, ResponsavelDaConta = t.ResponsavelDaConta, LimitePorVez = t.LimitePorVez,
             TipoCredito = t.TipoCredito, ContaParaMetas = t.ContaParaMetas, Ativo = true, CriadoEm = criacao
         }).ToArray());
+    }
+}
+
+/// <summary>Quem pode ocupar cada papel comercial (Motor Comercial, Fase 1b). Nunca apagada: desmarcar desativa.</summary>
+public class TipoCarteiraClassificacaoConfiguration : IEntityTypeConfiguration<TipoCarteiraClassificacao>
+{
+    public void Configure(EntityTypeBuilder<TipoCarteiraClassificacao> b)
+    {
+        b.ToTable("TiposCarteiraClassificacoes");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => new { x.TipoCarteiraId, x.PapelId }).IsUnique();
+        b.HasOne<Papel>().WithMany().HasForeignKey(x => x.PapelId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
