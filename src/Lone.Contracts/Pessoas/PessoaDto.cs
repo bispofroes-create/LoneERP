@@ -32,7 +32,6 @@ public sealed class PessoaDto
     public string? DocumentoPrincipal { get; set; }
 
     public DateOnly? DataNascimento { get; set; }
-    public Guid? GrupoEconomicoId { get; set; }
 
     /// <summary>Grupo empresarial (só pessoa jurídica; opcional). Mudar exige a permissão de estrutura empresarial.</summary>
     public Guid? GrupoEmpresarialId { get; set; }

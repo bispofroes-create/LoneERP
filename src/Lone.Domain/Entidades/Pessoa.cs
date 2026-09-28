@@ -113,9 +113,6 @@ public class Pessoa : AgregadoRaiz
     [DisplayName("Primeiro contato")]
     public DateOnly? PrimeiroContatoEm { get; set; }
 
-    [DisplayName("Grupo econômico")]
-    public Guid? GrupoEconomicoId { get; set; }
-
     /// <summary>
     /// Grupo empresarial (opcional) de uma pessoa JURÍDICA: agrupa empresas independentes. Pessoa física nunca entra
     /// direto (participa pelos relacionamentos com as empresas); o banco garante com CHECK. Não é o grupo econômico acima.

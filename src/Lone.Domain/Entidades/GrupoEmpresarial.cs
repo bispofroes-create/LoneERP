@@ -6,7 +6,7 @@ namespace Lone.Domain.Entidades;
 /// Grupo empresarial: conjunto de pessoas jurídicas independentes (CNPJs com raízes diferentes) que o usuário quer ver e
 /// administrar juntas (ex.: "Grupo João" com ABC Comércio e XYZ Transportes). Não substitui a pessoa jurídica nem vira
 /// matriz/filial: cada empresa continua com seus estabelecimentos. É opcional e sempre explícito (nada é deduzido de
-/// sócios em comum). Não é o <see cref="GrupoEconomico"/>, que fica reservado para regras próprias no futuro.
+/// sócios em comum). É o único grupo de empresas do Lone (decisão MC-4): o antigo <see cref="GrupoEconomico"/> saiu do código.
 /// Nunca é excluído: desativado, some das escolhas novas e continua nas empresas que já o têm.
 /// </summary>
 [DisplayName("Grupo empresarial")]

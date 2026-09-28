@@ -2,7 +2,11 @@ using System.ComponentModel;
 
 namespace Lone.Domain.Entidades;
 
-/// <summary>Conjunto de empresas relacionadas (ex.: "Grupo ABC"). Cada CNPJ continua sendo uma pessoa.</summary>
+/// <summary>
+/// LEGADO (decisão MC-4 do Motor Comercial, 28/09/2026): o grupo de empresas do Lone é o <see cref="GrupoEmpresarial"/>.
+/// Esta classe só mantém mapeada a tabela antiga "GruposEconomicos" (vazia), para não gerar migration nem apagar nada;
+/// nenhuma tela, API ou regra usa. Não criar usos novos.
+/// </summary>
 [DisplayName("Grupo econômico")]
 public class GrupoEconomico : AgregadoRaiz
 {

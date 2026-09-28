@@ -27,7 +27,7 @@ public class ModeloEstruturaEmpresarialTests
     private static IEntityType Entidade<T>() => Modelo.FindEntityType(typeof(T))!;
 
     [Fact]
-    public void Grupo_empresarial_e_tabela_propria_e_o_grupo_economico_continua_como_estava()
+    public void Grupo_empresarial_e_tabela_propria_e_o_grupo_economico_fica_so_no_banco()
     {
         var pessoa = Entidade<Pessoa>();
         var grupo = pessoa.GetForeignKeys().Single(f => f.PrincipalEntityType.ClrType == typeof(GrupoEmpresarial));
@@ -36,7 +36,11 @@ public class ModeloEstruturaEmpresarialTests
         Assert.Equal(nameof(Pessoa.GrupoEmpresarialId), grupo.Properties.Single().Name);
         Assert.False(grupo.IsRequired); // opcional: empresa sem grupo é válida
         Assert.Equal(DeleteBehavior.NoAction, grupo.DeleteBehavior);
-        Assert.Equal(nameof(Pessoa.GrupoEconomicoId), economico.Properties.Single().Name);
+        // MC-4: a coluna antiga continua no banco (mesma FK), mas fora da classe Pessoa (propriedade de sombra).
+        Assert.Equal("GrupoEconomicoId", economico.Properties.Single().Name);
+        Assert.True(economico.Properties.Single().IsShadowProperty());
+        Assert.Null(typeof(Pessoa).GetProperty("GrupoEconomicoId"));
+        Assert.Null(typeof(Lone.Contracts.Pessoas.PessoaDto).GetProperty("GrupoEconomicoId"));
         Assert.Equal("GruposEmpresariais", Entidade<GrupoEmpresarial>().GetTableName());
         Assert.Equal("GruposEconomicos", Entidade<GrupoEconomico>().GetTableName());
     }

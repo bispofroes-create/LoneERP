@@ -29,7 +29,6 @@ namespace Lone.Cliente.ViewModels.Pessoas;
 public sealed partial class PessoaFormulario : ObservableObject
 {
     // Dados que a ficha ainda não edita, mas precisam voltar intactos ao salvar.
-    private Guid? _grupoEconomicoId;
     private Guid? _mescladaEmId;
     private List<ContaClienteDto> _outrasContasCliente = [];
     private List<ContaFornecedorDto> _outrasContasFornecedor = [];
@@ -511,7 +510,6 @@ public sealed partial class PessoaFormulario : ObservableObject
             SituacaoMotivo = p.SituacaoMotivo,
             SituacaoAlteradaEm = p.SituacaoAlteradaEm,
             NaturalidadeACorrigir = p.PendenciasMunicipio.FirstOrDefault(x => x.DaNaturalidade)?.Texto ?? string.Empty,
-            _grupoEconomicoId = p.GrupoEconomicoId,
             _grupoEmpresarialGravado = p.GrupoEmpresarialId,
             _naturezaGravada = p.Natureza,
             _mescladaEmId = p.MescladaEmId,
@@ -672,7 +670,6 @@ public sealed partial class PessoaFormulario : ObservableObject
             Apelido = TextoTela.Nulo(Apelido),
             DocumentoPrincipal = EhJuridica ? null : TextoTela.Nulo(Documento),
             DataNascimento = EhFisica ? nascimento : null,
-            GrupoEconomicoId = _grupoEconomicoId,
             // Vai sempre como está: nunca é limpo em silêncio (a API recusa grupo em quem não é pessoa jurídica).
             GrupoEmpresarialId = GrupoEmpresarial.Valor,
             MescladaEmId = _mescladaEmId,

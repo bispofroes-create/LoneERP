@@ -1,6 +1,6 @@
 # Lone ERP — documento de continuidade
 
-Situação em 26/09/2026 (noite; passagem de conta em `docs/PASSAGEM-DE-CONTA.md`). Serve para quem continuar o trabalho, seja outra conta ou outro assistente.
+Situação em 28/09/2026 (tarde; Motor Comercial Fase 1 concluída — ver `docs/FASE-1-RELATORIO.md`; passagem de conta em `_entrega/LEIA-PRIMEIRO-PASSAGEM-DE-CONTA.md`). Serve para quem continuar o trabalho, seja outra conta ou outro assistente.
 Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este documento explica o que existe, as decisões tomadas e o que falta.
 
 ---
@@ -699,6 +699,24 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     gravações fora do agregado.
   - Testes: `ComercialTests` (5 novos), `ComercialFormularioTests` (3 novos), `ModeloCarteiraTests`. O passo
     intermediário do repositório não tem teste (precisaria de banco).
+- **Motor Comercial, Fase 1 (28/09/2026; commits `2aa9977`, `b33ccb9`, `61ca7b1`, `21d3cbd` e `519ce89`; compilada, testada e aplicada):**
+  - Relatório: `docs/FASE-1-RELATORIO.md`.
+  - Auditoria e decisões MC-1 a MC-10: `_entrega/AUDITORIA-MOTOR-COMERCIAL.md`.
+  - Transferência: `docs/PLANO-FASE1D-TRANSFERENCIA.md`.
+  - O que existe:
+    - papéis comerciais com política e "Quem pode ser";
+    - crédito por vínculo (a receita soma 100%);
+    - ausências e coberturas;
+    - carteira vencendo;
+    - transferência de carteira com prévia e registro;
+    - carteira em uma data;
+    - "Abrir ficha" pelo Id (`AberturaDePessoa`).
+  - Módulo Comercial no menu.
+  - **Lição (Windows):** não trocar a lista de um Picker (`CampoEscolha.Itens`) dentro da escolha feita nele mesmo, porque o app congela. Nesse caso, escolher e confirmar com um botão (ex.: "+ Incluir" no assistente de transferência).
+  - **MC-4 feita:** o grupo de empresas é só o `GrupoEmpresarial`.
+    - `GrupoEconomicoId` virou propriedade de sombra: saiu da classe, do DTO e da ficha, e a coluna continua no banco.
+    - A classe `GrupoEconomico` é legado, só para manter a tabela vazia mapeada.
+    - Não há migration.
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.

@@ -65,7 +65,11 @@ public class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         b.HasIndex(p => p.Nome);
         b.HasIndex(p => p.CriadoEm); // filtro avançado: cadastrados no período
 
-        b.HasOne<GrupoEconomico>().WithMany().HasForeignKey(p => p.GrupoEconomicoId).OnDelete(DeleteBehavior.NoAction);
+        // MC-4 (Motor Comercial): o grupo das empresas é só o GrupoEmpresarial. A coluna antiga GrupoEconomicoId (vazia no
+        // banco em 28/09/2026) e a tabela GruposEconomicos ficam como estavam, fora do código: propriedade de sombra, sem
+        // migration e sem apagar nada.
+        b.Property<Guid?>("GrupoEconomicoId");
+        b.HasOne<GrupoEconomico>().WithMany().HasForeignKey("GrupoEconomicoId").OnDelete(DeleteBehavior.NoAction);
         b.HasOne<GrupoEmpresarial>().WithMany().HasForeignKey(p => p.GrupoEmpresarialId).OnDelete(DeleteBehavior.NoAction);
         b.HasIndex(p => p.GrupoEmpresarialId); // empresas de um grupo
         b.HasOne<Pessoa>().WithMany().HasForeignKey(p => p.MescladaEmId).OnDelete(DeleteBehavior.NoAction);
