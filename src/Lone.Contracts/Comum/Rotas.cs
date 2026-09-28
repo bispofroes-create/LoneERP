@@ -73,6 +73,8 @@ public static class Rotas
         public static string DesativarFiltro(Guid id) => $"{FiltrosSalvos}/{id}/desativar";
         /// <summary>Quantas pessoas cada visão salva traz (abas de visão da lista). POST com os Ids.</summary>
         public const string ContagemFiltros = FiltrosSalvos + "/contagens";
+        /// <summary>Faixa de indicadores da lista (base toda): com bloqueio, documentos vencidos/vencendo, com pendência.</summary>
+        public const string Indicadores = Consulta + "/indicadores";
     }
 
     /// <summary>Grupos empresariais (conjuntos de pessoas jurídicas independentes). Nada é excluído: desativa.</summary>

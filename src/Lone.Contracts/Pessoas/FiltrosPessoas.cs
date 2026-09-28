@@ -103,6 +103,60 @@ public sealed class CatalogoFiltrosPessoasDto
 
     /// <summary>Colunas e ordenação que o usuário deixou na lista da última vez (nulo = padrão).</summary>
     public LayoutListaPessoas? Layout { get; set; }
+
+    /// <summary>
+    /// Faixa de indicadores acima da lista (base toda). Vem junto com o catálogo para não custar uma ida a mais ao abrir a
+    /// tela; depois, <c>Rotas.Pessoas.Indicadores</c> atualiza. Nulo = não deu para contar agora (a lista funciona sem).
+    /// </summary>
+    public List<IndicadorPessoasDto>? Indicadores { get; set; }
+}
+
+/// <summary>
+/// Um número da faixa de indicadores: quantas pessoas (ativas e em análise, na base toda) atendem à condição. Tocar põe a
+/// condição no painel de filtros.
+/// </summary>
+public sealed class IndicadorPessoasDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Nome { get; set; } = string.Empty;
+    public string? Dica { get; set; }
+
+    /// <summary>Alerta (vermelho) ou atenção (amarelo). O texto sempre diz o que é: a cor não é a única indicação.</summary>
+    public bool Alerta { get; set; }
+
+    public int Total { get; set; }
+    public CondicaoFiltro Condicao { get; set; } = new();
+}
+
+/// <summary>
+/// O que conta como "pendência cadastral" (decisão do usuário, 27/09/2026). Lista única: o servidor conta por ela
+/// (campo <see cref="CamposFiltroPessoas.ComPendenciaCadastral"/>) e o resumo da pessoa mostra cada uma (um teste confere).
+/// CPF/CNPJ usado em outro cadastro, sem contato e regime não informado aparecem no resumo, mas não contam aqui.
+/// </summary>
+public enum PendenciaCadastral
+{
+    /// <summary>Pessoa física sem CPF ou jurídica sem CNPJ no estabelecimento principal (estrangeiro não conta).</summary>
+    SemCpfCnpj = 1,
+
+    /// <summary>Nenhum endereço ativo preenchido.</summary>
+    SemEndereco = 2,
+
+    /// <summary>Endereço antigo com o município ainda por escolher na tabela do IBGE.</summary>
+    MunicipioACorrigir = 3,
+
+    /// <summary>Estabelecimento principal marcado como contribuinte do ICMS sem inscrição estadual.</summary>
+    ContribuinteSemIE = 4
+}
+
+/// <summary>Ids dos indicadores da lista de pessoas (estáveis: a tela guarda quais o usuário escondeu).</summary>
+public static class IndicadoresPessoas
+{
+    public const string ComBloqueio = "comBloqueio";
+    public const string DocumentosVencidos = "documentosVencidos";
+    public const string DocumentosVencendo = "documentosVencendo";
+    public const string ComPendencia = "comPendencia";
+
+    public static readonly IReadOnlyList<string> Todos = [ComBloqueio, DocumentosVencidos, DocumentosVencendo, ComPendencia];
 }
 
 /// <summary>Identificadores estáveis dos campos do filtro de pessoas (gravados nos filtros salvos: não renomear).</summary>
@@ -116,6 +170,9 @@ public static class CamposFiltroPessoas
     public const string MunicipioACorrigir = "enderecos.municipioACorrigir";
     public const string DocumentosVencidos = "documentos.vencidos";
     public const string DocumentosVencendo = "documentos.vencendo";
+
+    /// <summary>Documento ativo dentro da antecedência de aviso do próprio tipo (a mesma regra do resumo da pessoa).</summary>
+    public const string DocumentosVencendoPeloAviso = "documentos.vencendoPeloAviso";
     public const string ProdutorRural = "fiscal.produtorRural";
     public const string Regime = "fiscal.regime";
     public const string Cnae = "fiscal.cnae";
@@ -127,6 +184,9 @@ public static class CamposFiltroPessoas
     public const string Situacao = "situacao.situacao";
     public const string Bloqueado = "situacao.bloqueado";
     public const string CadastradoEm = "cadastro.cadastradoEm";
+
+    /// <summary>Alguma das pendências de <see cref="PendenciaCadastral"/> (faixa de indicadores da lista).</summary>
+    public const string ComPendenciaCadastral = "cadastro.comPendencia";
 
     // ---- Lista com colunas: campos que também filtram pela linha de filtro das colunas ----
     public const string Nome = "identificacao.nome";

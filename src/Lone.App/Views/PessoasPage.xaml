@@ -44,8 +44,9 @@
                         IsVisible="{Binding PodeCriar}" VerticalOptions="Center" SemanticProperties.Description="Nova pessoa" />
             </Grid>
 
-            <!-- Uma barra só: pesquisa, visões salvas, painel de filtros e ações da lista -->
-            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+            <!-- Uma barra só: pesquisa, visões salvas, painel de filtros e ações da lista; embaixo, a faixa de indicadores -->
+            <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="12">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                 <Border StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="4,0" HorizontalOptions="Fill"
                         Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
@@ -68,6 +69,50 @@
                         VerticalOptions="Center" ToolTipProperties.Text="Mais ações da lista (exportar, endereços duplicados, visões)"
                         SemanticProperties.Description="Mais ações da lista" />
             </Grid>
+
+            <!-- Faixa de indicadores (Etapa 3): números da base toda (ativos e em análise). Tocar põe a condição no painel de
+                 filtros (fica destacado); tocar de novo tira. Zero fica apagado, mas à vista. O número diz a cor em texto. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Indicadores.Visivel}">
+                <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                    <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Indicadores.Itens}" Spacing="8">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="pes:IndicadorLista">
+                                <Border Style="{StaticResource Chip}" Padding="12,6" Margin="0" ToolTipProperties.Text="{Binding Dica}"
+                                        SemanticProperties.Description="{Binding Descricao}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding AlternarCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding Marcado}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Selecao}, Dark={StaticResource SelecaoEscuro}}" />
+                                            <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding TextoTotal}" FontSize="16" FontAttributes="Bold" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding EhAlerta}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Erro}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding EhAtencao}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Aviso}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Label Text="{Binding Nome}" FontSize="13" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </ScrollView>
+                <Button Grid.Column="1" Text="⋯" Style="{StaticResource BotaoIcone}" Command="{Binding MenuIndicadoresCommand}"
+                        VerticalOptions="Center" ToolTipProperties.Text="Escolher os indicadores ou esconder a faixa"
+                        SemanticProperties.Description="Opções dos indicadores" />
+            </Grid>
+            </VerticalStackLayout>
 
             <!-- Abas com a contagem de cada uma (a marcada fica sublinhada): "Todos" + as escolhidas pelo usuário (tipo, papel,
                  visão salva com ★). "＋" no fim abre o editor. Rolam para o lado quando não cabem. -->

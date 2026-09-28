@@ -85,6 +85,10 @@ public sealed class PessoasApi
     public Task<CatalogoFiltrosPessoasDto> CatalogoFiltrosAsync(CancellationToken ct = default) =>
         _api.GetAsync<CatalogoFiltrosPessoasDto>(Rotas.Pessoas.CatalogoFiltros, ct);
 
+    /// <summary>Faixa de indicadores da lista (base toda), para atualizar os números depois da abertura da tela.</summary>
+    public Task<List<IndicadorPessoasDto>> IndicadoresAsync(CancellationToken ct = default) =>
+        _api.GetAsync<List<IndicadorPessoasDto>>(Rotas.Pessoas.Indicadores, ct);
+
     public Task<List<QuantidadePorFaixaEtaria>> ListarFaixasEtariasAsync(TipoPapel? papel, CancellationToken ct = default) =>
         _api.GetAsync<List<QuantidadePorFaixaEtaria>>(Rotas.Pessoas.FaixasEtarias + (papel is { } p ? "?papel=" + p : string.Empty), ct);
 

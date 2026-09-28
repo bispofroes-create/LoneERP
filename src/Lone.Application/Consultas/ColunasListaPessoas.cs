@@ -125,6 +125,10 @@ public static class ColunasListaPessoas
         // que voltam se o papel for reativado; cortar em Maximo as perderia.
         if (layout.Abas is not null)
             layout.Abas = layout.Abas.Where(AbasPessoas.Valido).Distinct(StringComparer.Ordinal).Take(AbasPessoas.Maximo * 2).ToList();
+        // Indicadores escondidos: só Ids conhecidos, sem repetir.
+        if (layout.IndicadoresOcultos is not null)
+            layout.IndicadoresOcultos = layout.IndicadoresOcultos.Where(id => id is not null && IndicadoresPessoas.Todos.Contains(id))
+                .Distinct(StringComparer.Ordinal).ToList();
         return layout;
     }
 }

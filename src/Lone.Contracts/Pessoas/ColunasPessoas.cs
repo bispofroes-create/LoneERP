@@ -93,6 +93,12 @@ public sealed class LayoutListaPessoas
     /// prévia. Só na preferência do usuário: as visões salvas não mexem nisso.
     /// </summary>
     public bool CliqueAbreFicha { get; set; }
+
+    /// <summary>Faixa de indicadores escondida pelo usuário ("Esconder a faixa").</summary>
+    public bool SemIndicadores { get; set; }
+
+    /// <summary>Indicadores que o usuário tirou da faixa (Ids de <see cref="IndicadoresPessoas"/>). Nulo = todos.</summary>
+    public List<string>? IndicadoresOcultos { get; set; }
 }
 
 /// <summary>

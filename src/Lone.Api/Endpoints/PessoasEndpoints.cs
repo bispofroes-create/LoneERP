@@ -76,6 +76,9 @@ public static class PessoasEndpoints
             return Results.Ok(await servico.SalvarFiltroAsync(filtro, ct));
         });
 
+        // Faixa de indicadores da lista (base toda). Também vem no catálogo; esta rota atualiza os números depois.
+        grupo.MapGet("consulta/indicadores", (IConsultaPessoasAppService servico, CancellationToken ct) =>
+            servico.IndicadoresAsync(ct));
         // Contador das abas de visão da lista (só as visões que o usuário enxerga).
         grupo.MapPost("consulta/filtros/contagens", (List<Guid> ids, IConsultaPessoasAppService servico, CancellationToken ct) =>
             servico.ContarFiltrosAsync(ids, ct));

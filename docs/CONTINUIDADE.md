@@ -626,7 +626,29 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
       janela média.
     - Revisão por agente (sem compilar): nenhum erro de compilação ou de fila; corrigidos 4 detalhes (linha marcada com a
       prévia fechada ou escondida, leitura à toa no duplo clique e com a prévia escondida).
-  - **3b — Indicadores:** ainda não feito.
+  - **3b — Indicadores (código entregue, sem compilar; sem migration, sem índice novo):**
+    - Faixa abaixo da barra de busca: "Com bloqueio", "Documentos vencidos", "Documentos vencendo" e "Com pendência
+      cadastral", contados na base toda (ativos e em análise; decisão D5). Tocar põe a condição no painel de filtros
+      (vira chip e o indicador fica destacado); tocar de novo tira. Zero fica apagado, mas à vista. "⋯" da faixa: tirar
+      ou pôr cada indicador, ou esconder a faixa (volta pelo "⋯" da lista). Guardado em
+      `LayoutListaPessoas.SemIndicadores`/`IndicadoresOcultos`.
+    - Servidor: campos novos no catálogo `documentos.vencendoPeloAviso` (antecedência do próprio tipo, como o resumo;
+      tipo fora do cadastro usa 30 dias; D4) e `cadastro.comPendencia` (enum `PendenciaCadastral` em Contracts: sem
+      CPF/CNPJ, sem endereço ativo preenchido, município a corrigir de endereço ativo, contribuinte sem IE; D3).
+      `IndicadoresListaPessoas` (Application) define os 4. `ConsultaPessoasAppService.IndicadoresAsync` + GET
+      `pessoas/consulta/indicadores`.
+    - Os números vêm dentro do catálogo (sem ida a mais ao abrir a tela; se a contagem falhar, o catálogo vem sem eles e
+      a tela abre normal). Depois, a lista reconta no máximo 1×/minuto na página 1 (`IntervaloIndicadores`) e depois de
+      voltar da ficha. Faixa escondida: o servidor nem conta.
+    - Testes: `IndicadoresListaTests` (faixa do catálogo, tocar põe/tira, campo sem permissão avisa, intervalo,
+      preferência, e a coerência: cada `PendenciaCadastral` aparece no resumo da pessoa) e
+      `CatalogoFiltrosPessoasTests` (cada indicador é uma condição válida do catálogo).
+    - Revisão por agente (sem compilar): nada de compilação, tradução do EF segura. Corrigidos: faixa sem caminho de
+      volta ao tirar todos os indicadores; nova tentativa quando o catálogo vem sem números; município a corrigir de
+      endereço sem logradouro (o resumo não mostra); espaço duplo entre os chips.
+    - **Atenção:** o SQL das pendências não tem teste (não há teste de banco no projeto). Conferir na tela: tocar em "Com
+      pendência cadastral" e abrir algumas pessoas da lista (o resumo de cada uma deve mostrar a pendência).
+      `IndicadoresOuNadaAsync` engole erro de contagem sem log: se a faixa não aparecer, testar a rota direto.
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.

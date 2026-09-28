@@ -128,6 +128,8 @@ public class PessoaFormularioTests
         f.ContaCliente.LimiteCredito = "mil";
         var documento = new DocumentoFormulario { Numero = "123", ValidoAte = "amanhã" };
         f.AdicionarDocumento(documento);
+        // Documento sem tipo para em "escolha o tipo" (documentos por natureza): com o tipo, a validade é conferida.
+        documento.Tipo = documento.Tipos.First(t => t.Valor != Guid.Empty);
 
         var erros = f.ValidarLocalmente();
 

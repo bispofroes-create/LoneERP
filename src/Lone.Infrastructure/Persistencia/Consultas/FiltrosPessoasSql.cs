@@ -31,6 +31,8 @@ public static class FiltrosPessoasSql
         [CamposFiltroPessoas.MunicipioACorrigir] = MunicipioACorrigir,
         [CamposFiltroPessoas.DocumentosVencidos] = DocumentosVencidos,
         [CamposFiltroPessoas.DocumentosVencendo] = DocumentosVencendo,
+        [CamposFiltroPessoas.DocumentosVencendoPeloAviso] = DocumentosVencendoPeloAviso,
+        [CamposFiltroPessoas.ComPendenciaCadastral] = ComPendenciaCadastral,
         [CamposFiltroPessoas.ProdutorRural] = ProdutorRural,
         [CamposFiltroPessoas.Regime] = Regime,
         [CamposFiltroPessoas.Cnae] = (q, c, x) => Cnae(q, c, x, somentePrincipal: false),
@@ -328,6 +330,47 @@ public static class FiltrosPessoasSql
         var hoje = x.Hoje;
         var ate = hoje.AddDays(Inteiro(c));
         return q.Where(p => p.Documentos.Any(d => d.Ativo && d.ValidoAte != null && d.ValidoAte >= hoje && d.ValidoAte <= ate));
+    }
+
+    /// <summary>
+    /// Vence em breve pela antecedência do próprio tipo (a regra de RegrasDocumento.Situacao, usada no resumo da pessoa):
+    /// hoje ≤ válido até ≤ hoje + dias de aviso do tipo. Tipo que não está no cadastro usa o aviso padrão (como a tela).
+    /// </summary>
+    private static IQueryable<Pessoa> DocumentosVencendoPeloAviso(IQueryable<Pessoa> q, CondicaoFiltro c, Contexto x)
+    {
+        var db = x.Db;
+        var hoje = x.Hoje;
+        var padrao = hoje.AddDays(TipoDocumentoCadastro.DiasAvisoPadrao);
+        var vencendo = db.PessoaDocumentos.Where(d => d.Ativo && d.ValidoAte != null && d.ValidoAte >= hoje &&
+            (db.TiposDocumento.Any(t => t.Id == d.TipoDocumentoId && d.ValidoAte <= hoje.AddDays(t.DiasAvisoVencimento)) ||
+             (!db.TiposDocumento.Any(t => t.Id == d.TipoDocumentoId) && d.ValidoAte <= padrao)));
+        return SimOuNao(q, c, vencendo, d => d.PessoaId);
+    }
+
+    // ---------------------------------------------------------------- Cadastro: pendências
+
+    /// <summary>
+    /// Alguma das pendências de <see cref="PendenciaCadastral"/> (as mesmas que o resumo da pessoa mostra):
+    /// PF sem CPF / PJ sem CNPJ no principal, sem endereço ativo preenchido, município a corrigir ou contribuinte sem IE.
+    /// </summary>
+    private static IQueryable<Pessoa> ComPendenciaCadastral(IQueryable<Pessoa> q, CondicaoFiltro c, Contexto x)
+    {
+        var db = x.Db;
+        var contribuinte = IndicadorIE.Contribuinte;
+        Expression<Func<Pessoa, bool>> pendente = p =>
+            // SemCpfCnpj
+            (p.Natureza == NaturezaPessoa.Fisica && (p.DocumentoPrincipal == null || p.DocumentoPrincipal == "")) ||
+            (p.Natureza == NaturezaPessoa.Juridica &&
+             !p.Estabelecimentos.Any(e => e.Principal && e.Cnpj != null && e.Cnpj != "")) ||
+            // SemEndereco
+            !p.Enderecos.Any(e => e.Ativo && e.Logradouro != "") ||
+            // MunicipioACorrigir: só de endereço ativo preenchido, como no resumo (a naturalidade a corrigir não conta aqui)
+            db.PendenciasMunicipio.Any(y => y.PessoaId == p.Id && y.ResolvidaEm == null && y.Origem == OrigemPendenciaMunicipio.Endereco &&
+                                            p.Enderecos.Any(e => e.Id == y.RegistroId && e.Ativo && e.Logradouro != "")) ||
+            // ContribuinteSemIE
+            p.Estabelecimentos.Any(e => e.Principal && e.IndicadorIE == contribuinte &&
+                                        (e.InscricaoEstadual == null || e.InscricaoEstadual == ""));
+        return c.Operador == OperadorFiltro.Sim ? q.Where(pendente) : q.Where(Negar(pendente));
     }
 
     // ---------------------------------------------------------------- Fiscal

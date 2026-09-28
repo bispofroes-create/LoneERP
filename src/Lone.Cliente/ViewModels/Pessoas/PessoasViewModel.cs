@@ -99,6 +99,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _comercialApi = comercialApi;
         _arquivos = arquivos;
         Previa = new PreviaPessoa(LerParaPreviaAsync, AbrirFichaDaPreviaAsync, () => Linhas);
+        Indicadores = new FaixaIndicadores(AlternarIndicador);
+        Indicadores.DefinirConsulta(c => Filtros.Condicoes().Any(v => v.Campo == c.Campo && v.Operador == c.Operador));
         // A prévia ao lado ocupa parte da largura: as colunas da lista se ajustam ao que sobra.
         Previa.PropertyChanged += (_, e) =>
         {
@@ -110,8 +112,13 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Busca)) _pagina = 1;
-            // Voltando da ficha (que pode ter sido alterada): a prévia aberta relê a pessoa.
-            if (e.PropertyName == nameof(Editando) && !Editando) Previa.Reler();
+            // Voltando da ficha (que pode ter sido alterada): a prévia aberta relê a pessoa e os indicadores ficam para
+            // recontar na próxima leitura da lista.
+            if (e.PropertyName == nameof(Editando) && !Editando)
+            {
+                Previa.Reler();
+                if (Indicadores.Carregados) _indicadoresContadosEm = DateTime.MinValue;
+            }
             if (e.PropertyName is nameof(Mensagem) or nameof(TipoMensagem) or nameof(Editando))
             {
                 OnPropertyChanged(nameof(MostrarAvisoFlutuante));
@@ -124,6 +131,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         Filtros.Mudou = () =>
         {
             if (!_aplicandoVisao && VisaoAtual is not null) VisaoAlterada = true;
+            Indicadores.AtualizarMarcados();
             _ = FiltrosMudaramAsync();
         };
         Filtros.PropertyChanged += (_, e) =>
@@ -214,6 +222,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             Grade.Carregar(catalogo.Colunas.Count > 0 ? catalogo.Colunas : GradePessoas.ColunasBasicas(), catalogo.Layout, Filtros);
             _abasEscolhidas = catalogo.Layout?.Abas;
             CliqueAbreFicha = catalogo.Layout?.CliqueAbreFicha == true;
+            Indicadores.DefinirPreferencia(catalogo.Layout?.SemIndicadores == true, catalogo.Layout?.IndicadoresOcultos);
+            Indicadores.Carregar(catalogo.Indicadores);
+            // Sem números (contagem falhou no servidor ou faixa escondida): tenta pela rota própria depois do intervalo
+            // (não logo em seguida: se o servidor acabou de falhar, esperar é melhor), ou ao mostrar a faixa de novo.
+            _indicadoresPendentes = catalogo.Indicadores is null;
+            _indicadoresContadosEm = DateTime.UtcNow;
             _preferenciaLida = true;
         }
         catch (Exception ex) when (ex is not SessaoExpiradaException)
@@ -422,6 +436,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         var layout = Grade.Layout();
         layout.Abas = _abasEscolhidas is null ? null : [.. _abasEscolhidas];
         layout.CliqueAbreFicha = CliqueAbreFicha;
+        layout.SemIndicadores = Indicadores.Escondida;
+        layout.IndicadoresOcultos = Indicadores.Ocultos;
         return layout;
     }
 
@@ -660,6 +676,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private const string AcaoExportar = "Exportar o resultado (CSV)";
     private const string AcaoDuplicados = "Procurar endereços duplicados";
     private const string AcaoVisoes = "Visões salvas…";
+    private const string AcaoMostrarIndicadores = "Mostrar a faixa de indicadores";
     private const string AcaoEditarAbas = "Escolher as abas…";
 
     [RelayCommand]
@@ -667,10 +684,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         // "Visões" também aqui: no celular o botão da barra não aparece (falta espaço).
         var opcoes = new List<string> { AcaoVisoes, AcaoEditarAbas };
+        if ((Indicadores.Carregados || _indicadoresPendentes) && Indicadores.Escondida) opcoes.Add(AcaoMostrarIndicadores);
         if (PodeExportar) opcoes.Add(AcaoExportar);
         opcoes.Add(AcaoDuplicados);
         switch (await EscolherAsync("Pessoas", opcoes))
         {
+            case AcaoMostrarIndicadores: MostrarFaixaDeIndicadores(); break;
             case AcaoVisoes: await VisoesAsync(); break;
             case AcaoEditarAbas: await EditarAbasAsync(); break;
             case AcaoExportar: await ExportarAsync(); break;
@@ -787,6 +806,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Abas de visão: contadas à parte (os filtros são os delas), no máximo uma vez por intervalo.
         if (_pagina == 1 && FiltrosRapidos.Any(f => f.EhVisao) && DateTime.UtcNow - _visoesContadasEm >= IntervaloContagemVisoes)
             _ = ContarVisoesAsync();
+        // Indicadores (base toda, não dependem da busca): recontados no máximo uma vez por intervalo.
+        if (_pagina == 1 && (Indicadores.Carregados || _indicadoresPendentes) && !Indicadores.Escondida &&
+            DateTime.UtcNow - _indicadoresContadosEm >= IntervaloIndicadores)
+            _ = AtualizarIndicadoresAsync();
         Paginas.Clear();
         foreach (var p in Paginacao.Janela(PaginaAtual, TotalPaginas)) Paginas.Add(p);
         OnPropertyChanged(nameof(TotalPaginas));
@@ -837,6 +860,81 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (linha is null) return;
         Previa.CancelarLeitura(); // o primeiro toque do duplo clique pediu a prévia; a ficha vem agora (e a prévia relê ao voltar)
         Selecionado = linha.Pessoa;
+    }
+
+    // ---- Faixa de indicadores (Etapa 3) ----
+
+    /// <summary>Números da base toda acima da lista (com bloqueio, documentos vencidos/vencendo, com pendência).</summary>
+    public FaixaIndicadores Indicadores { get; }
+
+    /// <summary>Intervalo mínimo entre duas contagens dos indicadores (os números não dependem da busca digitada).</summary>
+    public TimeSpan IntervaloIndicadores { get; set; } = TimeSpan.FromMinutes(1);
+
+    private DateTime _indicadoresContadosEm = DateTime.MinValue;
+
+    /// <summary>O catálogo veio sem os números: a próxima leitura da lista conta pela rota própria.</summary>
+    private bool _indicadoresPendentes;
+
+    /// <summary>A contagem em andamento (os testes esperam por ela).</summary>
+    public Task AtualizandoIndicadores { get; private set; } = Task.CompletedTask;
+
+    private Task AtualizarIndicadoresAsync()
+    {
+        _indicadoresContadosEm = DateTime.UtcNow;
+        return AtualizandoIndicadores = ContarIndicadoresAsync();
+    }
+
+    private async Task ContarIndicadoresAsync()
+    {
+        try
+        {
+            Indicadores.Carregar(await _pessoas.IndicadoresAsync());
+            _indicadoresPendentes = false;
+        }
+        catch (Exception ex) when (ex is not SessaoExpiradaException)
+        {
+            // Os números são ajuda: sem eles, ficam os últimos e a lista continua funcionando.
+        }
+    }
+
+    /// <summary>Tocar num indicador põe a condição dele no painel de filtros; tocar de novo tira.</summary>
+    private void AlternarIndicador(IndicadorLista indicador)
+    {
+        var condicao = indicador.Dto.Condicao;
+        if (indicador.Marcado)
+        {
+            if (Filtros.CampoPorId(condicao.Campo) is { } campo) campo.Marcado = false;
+        }
+        else if (!Filtros.Aplicar(new CondicaoFiltro { Campo = condicao.Campo, Operador = condicao.Operador, Valores = [.. condicao.Valores] }))
+        {
+            Mostrar($"O filtro \"{indicador.Nome}\" não está disponível para você.", TipoMensagem.Aviso);
+        }
+        Indicadores.AtualizarMarcados();
+    }
+
+    private const string EsconderFaixa = "Esconder a faixa de indicadores";
+
+    /// <summary>"⋯" da faixa: tirar ou pôr cada indicador, ou esconder a faixa (volta pelo "⋯" da lista).</summary>
+    [RelayCommand]
+    private async Task MenuIndicadoresAsync()
+    {
+        var opcoes = Indicadores.Todos
+            .Select(i => (Indicadores.EstaOculto(i.Id) ? "Mostrar: " : "Tirar da faixa: ") + i.Nome)
+            .Append(EsconderFaixa)
+            .ToList();
+        var escolha = await EscolherAsync("Indicadores", opcoes);
+        if (escolha is null) return;
+        if (escolha == EsconderFaixa) Indicadores.Escondida = true;
+        else if (Indicadores.Todos.ElementAtOrDefault(opcoes.IndexOf(escolha)) is { } escolhido) Indicadores.AlternarOculto(escolhido.Id);
+        AgendarSalvarColunas();
+    }
+
+    /// <summary>Faixa escondida: volta pelo "⋯" da lista (e reconta se os números ficaram velhos).</summary>
+    private void MostrarFaixaDeIndicadores()
+    {
+        Indicadores.Escondida = false;
+        AgendarSalvarColunas();
+        if (_indicadoresPendentes || DateTime.UtcNow - _indicadoresContadosEm >= IntervaloIndicadores) _ = AtualizarIndicadoresAsync();
     }
 
     // ---- Prévia ao lado da lista (Etapa 3) ----

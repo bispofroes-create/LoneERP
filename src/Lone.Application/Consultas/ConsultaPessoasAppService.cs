@@ -50,6 +50,9 @@ public interface IConsultaPessoasAppService
 
     /// <summary>Quantas pessoas cada visão (visível ao usuário) traz: contador das abas de visão da lista.</summary>
     Task<Dictionary<Guid, int>> ContarFiltrosAsync(List<Guid> ids, CancellationToken ct = default);
+
+    /// <summary>Faixa de indicadores da lista (base toda), só os que o usuário pode usar como filtro.</summary>
+    Task<List<IndicadorPessoasDto>> IndicadoresAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -218,7 +221,45 @@ public sealed class ConsultaPessoasAppService : IConsultaPessoasAppService
             })
             .ToList();
 
-        return new CatalogoFiltrosPessoasDto { Campos = campos, Colunas = colunas, Layout = await LayoutDoUsuarioAsync(ct) };
+        // Faixa escondida pelo usuário: não conta (4 contagens a menos ao abrir); o app conta quando ele mostrar de novo.
+        var layout = await LayoutDoUsuarioAsync(ct);
+        return new CatalogoFiltrosPessoasDto
+        {
+            Campos = campos, Colunas = colunas, Layout = layout,
+            Indicadores = layout?.SemIndicadores == true ? null : await IndicadoresOuNadaAsync(ct)
+        };
+    }
+
+    public async Task<List<IndicadorPessoasDto>> IndicadoresAsync(CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
+        return await ContarIndicadoresAsync(ct);
+    }
+
+    /// <summary>
+    /// No catálogo, os indicadores são ajuda: se a contagem falhar, a tela abre com os filtros e sem a faixa (e tenta de
+    /// novo depois pela rota própria). Cancelamento continua cancelando.
+    /// </summary>
+    private async Task<List<IndicadorPessoasDto>?> IndicadoresOuNadaAsync(CancellationToken ct)
+    {
+        try { return await ContarIndicadoresAsync(ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { return null; }
+    }
+
+    /// <summary>Conta cada indicador com os critérios padrão da lista (ativos e em análise), na base toda.</summary>
+    private async Task<List<IndicadorPessoasDto>> ContarIndicadoresAsync(CancellationToken ct)
+    {
+        var visiveis = IndicadoresListaPessoas.Todos
+            .Where(i => CatalogoFiltrosPessoas.Obter(i.Condicao.Campo)?.Permissao is not { } permissao || _autorizacao.Possui(permissao))
+            .ToList();
+        if (visiveis.Count == 0) return [];
+        var totais = await _consulta.ContarAsync(
+            [.. visiveis.Select(i => new CriteriosPessoas { Condicoes = [IndicadoresListaPessoas.Copia(i.Condicao)] })], Hoje, ct);
+        return visiveis.Select((i, n) => new IndicadorPessoasDto
+        {
+            Id = i.Id, Nome = i.Nome, Dica = i.Dica, Alerta = i.Alerta, Total = totais[n],
+            Condicao = IndicadoresListaPessoas.Copia(i.Condicao)
+        }).ToList();
     }
 
     /// <summary>Colunas e ordenação que o usuário deixou na lista (preferência da tela); ilegível ou sem usuário = padrão.</summary>

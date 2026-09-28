@@ -81,7 +81,7 @@ public class CatalogoFiltrosPessoasTests
     [InlineData(CamposFiltroPessoas.SemInteracao, OperadorFiltro.HaMaisDeDias, new[] { "0" }, "dias")]
     [InlineData(CamposFiltroPessoas.CadastradoEm, OperadorFiltro.Entre, new[] { "2026-06-30", "2026-01-01" }, "anterior")]
     [InlineData(CamposFiltroPessoas.CadastradoEm, OperadorFiltro.APartirDe, new[] { "30/06/2026" }, "data inválida")]
-    [InlineData(CamposFiltroPessoas.Cnae, OperadorFiltro.ComecaCom, new[] { "12345678" }, "valor inválido")]
+    [InlineData(CamposFiltroPessoas.Cnae, OperadorFiltro.ComecaCom, new[] { "12345678" }, "no máximo 7 dígitos")]
     public void Condicoes_invalidas_sao_recusadas(string campo, OperadorFiltro operador, string[] valores, string trecho)
     {
         var erros = CatalogoFiltrosPessoas.Normalizar([Condicao(campo, operador, valores)]);
@@ -147,5 +147,18 @@ public class CatalogoFiltrosPessoasTests
         Assert.Equal("@gmail.com", email.Valores[0]);
 
         Assert.NotEmpty(CatalogoFiltrosPessoas.Normalizar([Condicao(CamposFiltroPessoas.Ddd, OperadorFiltro.Igual, "381")]));
+    }
+
+    [Fact]
+    public void Cada_indicador_da_lista_e_uma_condicao_valida_do_catalogo()
+    {
+        Assert.Equal(IndicadoresPessoas.Todos, IndicadoresListaPessoas.Todos.Select(i => i.Id).ToList());
+        foreach (var indicador in IndicadoresListaPessoas.Todos)
+        {
+            var campo = CatalogoFiltrosPessoas.Obter(indicador.Condicao.Campo);
+            Assert.NotNull(campo);
+            Assert.Equal(TipoCampoFiltro.SimNao, campo.Tipo);
+            Assert.Empty(CatalogoFiltrosPessoas.Normalizar([IndicadoresListaPessoas.Copia(indicador.Condicao)]));
+        }
     }
 }

@@ -36,7 +36,8 @@ public class PessoasViewModelTests
     }
 
     /// <summary>Tela de pessoas com as leituras iniciais respondidas (sessão já definida pelo chamador).</summary>
-    internal static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente)> AbrirTelaComAsync(AmbienteCliente ambiente)
+    internal static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente)> AbrirTelaComAsync(AmbienteCliente ambiente,
+                                                                                                 CatalogoFiltrosPessoasDto? catalogo = null)
     {
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto> { Vip }); // cadastro de etiquetas (ficha e filtro)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos personalizados
@@ -47,7 +48,7 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, Finalidades.Cadastro); // finalidades de endereço
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoDocumentoDto>()); // tipos de documento
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos dos documentos
-        ambiente.Servidor.Responder(HttpStatusCode.OK, new CatalogoFiltrosPessoasDto()); // catálogo do painel de filtros
+        ambiente.Servidor.Responder(HttpStatusCode.OK, catalogo ?? new CatalogoFiltrosPessoasDto()); // catálogo do painel de filtros
         ambiente.Servidor.Responder(HttpStatusCode.OK, new PaginaListaPessoas
         {
             Itens = [new() { Id = Guid.NewGuid(), Codigo = 1, Nome = "Ana", Natureza = NaturezaPessoa.Fisica }],

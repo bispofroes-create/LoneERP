@@ -174,6 +174,8 @@ public static class CatalogoFiltrosPessoas
         new(CamposFiltroPessoas.DocumentosVencidos, "Documentos", "Documentos vencidos", TipoCampoFiltro.SimNao, SimNao),
         new(CamposFiltroPessoas.DocumentosVencendo, "Documentos", "Documentos vencendo", TipoCampoFiltro.Numero,
             [OperadorFiltro.EmAteDias], Dica: "Nos próximos N dias (sem contar os já vencidos)."),
+        new(CamposFiltroPessoas.DocumentosVencendoPeloAviso, "Documentos", "Documentos vencendo (aviso do tipo)", TipoCampoFiltro.SimNao,
+            SimNao, Dica: "Dentro da antecedência de aviso de cada tipo de documento, como no resumo da pessoa (sem os já vencidos)."),
         new(CamposFiltroPessoas.TipoDocumento, "Documentos", "Tem documento do tipo", TipoCampoFiltro.Lista, TemTipo,
             Dica: "Ex.: \"não é nenhum destes: Alvará\" = sem alvará.", FonteOpcoes: FonteTiposDocumento, ValorValido: GuidValido),
         new(CamposFiltroPessoas.DocumentoValidoAte, "Documentos", "Documento válido até", TipoCampoFiltro.Data, Periodo,
@@ -291,6 +293,8 @@ public static class CatalogoFiltrosPessoas
 
         // ---- Cadastro ----
         new(CamposFiltroPessoas.CadastradoEm, "Cadastro", "Cadastrado em", TipoCampoFiltro.Data, Periodo),
+        new(CamposFiltroPessoas.ComPendenciaCadastral, "Cadastro", "Com pendência cadastral", TipoCampoFiltro.SimNao, SimNao,
+            Dica: "Sem CPF/CNPJ, sem endereço, com município a corrigir ou contribuinte do ICMS sem inscrição estadual."),
         new(CamposFiltroPessoas.AlteradoEm, "Cadastro", "Alterado em", TipoCampoFiltro.Data, Periodo)
     ];
 

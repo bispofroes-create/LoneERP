@@ -10,8 +10,8 @@
 - **D4:** "vencendo" segue a antecedência de cada tipo de documento.
 - **D5:** os números valem para a base toda.
 
-**Andamento:** 3a (prévia) entregue em 27/09 à noite, sem compilar. Detalhes e o que ficou de fora (teclado) estão em
-`CONTINUIDADE.md`. Falta a 3b (indicadores).
+**Andamento:** 3a (prévia) e 3b (indicadores) entregues em 27/09 à noite, sem compilar. Detalhes, o que ficou de fora
+(teclado na prévia) e o que conferir na tela estão em `CONTINUIDADE.md`.
 
 ## 1. O que já existe e pode ser reaproveitado
 
