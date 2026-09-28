@@ -51,6 +51,13 @@ public static class Permissoes
         public const string Fechar = "METAS.FECHAR";
     }
 
+    /// <summary>Módulo Comercial (Motor Comercial, Fase 1c).</summary>
+    public static class Comercial
+    {
+        public const string Visualizar = "COMERCIAL.VISUALIZAR";
+        public const string Coberturas = "COMERCIAL.COBERTURAS";
+    }
+
     public static class Seguranca
     {
         public const string GerenciarUsuarios = "SEGURANCA.USUARIOS";
@@ -86,6 +93,8 @@ public static class Permissoes
         new(Cadastros.Parametros, "Cadastros", "Alterar parâmetros do cadastro (regras de inatividade do relacionamento)"),
         new(Cadastros.GruposEmpresariais, "Cadastros", "Criar, alterar e desativar grupos empresariais"),
         new(Cadastros.Comercial, "Cadastros", "Criar, alterar e desativar perfis comerciais, condições de pagamento e tipos de carteira"),
+        new(Comercial.Visualizar, "Comercial", "Ver ausências, coberturas e a carteira vencendo"),
+        new(Comercial.Coberturas, "Comercial", "Cadastrar, encerrar e cancelar ausências e coberturas"),
         new(Metas.Visualizar, "Metas", "Ver metas, participantes e resultados"),
         new(Metas.Gerenciar, "Metas", "Criar e alterar metas, indicadores e equipes; publicar e iniciar a apuração"),
         new(Metas.LancarRealizado, "Metas", "Lançar e importar o realizado informado das metas"),

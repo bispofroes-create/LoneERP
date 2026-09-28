@@ -306,4 +306,56 @@ public class ComercialFormularioTests
         Assert.Equal(f.Carteira[0], f.CarteiraAtual[0]);
         Assert.Equal(4, f.ParaDto().Carteira.Count); // o histórico continua indo para a API (nada é apagado)
     }
+
+    // ---- Motor Comercial, Fase 1c: prazo do vínculo ----
+
+    [Fact]
+    public void Prazo_mostra_duracao_e_quanto_falta_e_destaca_perto_do_fim()
+    {
+        var hoje = new DateOnly(2026, 9, 28);
+        CarteiraFormulario Vinculo(DateOnly inicio, DateOnly? fim) =>
+            CarteiraFormulario.De(new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, InicioEm = inicio, FimEm = fim }, hoje);
+
+        var longe = Vinculo(new DateOnly(2026, 9, 28), new DateOnly(2026, 12, 30));
+        Assert.Equal("94 dias · faltam 93 dias", longe.Prazo);
+        Assert.False(longe.PertoDoFim);
+
+        var perto = Vinculo(new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 10));
+        Assert.Equal("40 dias · faltam 12 dias", perto.Prazo);
+        Assert.True(perto.PertoDoFim);
+        Assert.StartsWith("Termina em 12 dias: renove", perto.AvisoFim);
+
+        perto.FimEm = string.Empty; // renovou sem fim
+        Assert.Equal("sem data de fim", perto.Prazo);
+        Assert.False(perto.PertoDoFim);
+
+        var hojeTermina = Vinculo(new DateOnly(2026, 9, 1), hoje);
+        Assert.Equal("Termina hoje: renove (mude ou limpe o fim), troque ou deixe encerrar.", hojeTermina.AvisoFim);
+
+        var encerrado = Vinculo(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31));
+        Assert.Equal("31 dias", encerrado.Prazo);
+        Assert.False(encerrado.PertoDoFim);
+
+        var futuro = Vinculo(new DateOnly(2026, 10, 3), new DateOnly(2026, 10, 3));
+        Assert.Equal("1 dia · começa em 5 dias", futuro.Prazo);
+        Assert.True(futuro.PertoDoFim); // termina em 5 dias
+
+        perto.Ativo = false; // lançado por engano: sem aviso
+        perto.FimEm = "10/10/2026";
+        Assert.False(perto.PertoDoFim);
+    }
+
+    [Fact]
+    public void Antecedencia_do_aviso_vem_das_opcoes()
+    {
+        var hoje = new DateOnly(2026, 9, 28);
+        var v = CarteiraFormulario.De(new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao,
+            InicioEm = new DateOnly(2026, 9, 1), FimEm = new DateOnly(2026, 10, 10) }, hoje);
+        var opcoes = Opcoes();
+        opcoes.DiasAvisoFimVinculo = 7;
+
+        v.DefinirOpcoes(new OpcoesComercial(opcoes));
+
+        Assert.False(v.PertoDoFim); // faltam 12 dias, aviso com 7
+    }
 }

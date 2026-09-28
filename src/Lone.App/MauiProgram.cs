@@ -63,6 +63,10 @@ public static class MauiProgram
         builder.Services.AddTransient<PerfisComerciaisPage>();
         builder.Services.AddTransient<CondicoesPagamentoPage>();
         builder.Services.AddTransient<TiposCarteiraPage>();
+        builder.Services.AddTransient<TiposAusenciaPage>();
+        builder.Services.AddTransient<ParametrosComerciaisPage>();
+        builder.Services.AddTransient<CoberturasPage>();
+        builder.Services.AddTransient<CarteiraVencendoPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

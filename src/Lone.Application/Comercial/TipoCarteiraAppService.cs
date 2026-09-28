@@ -123,7 +123,7 @@ public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
     private static string Texto(string? s) =>
         string.IsNullOrWhiteSpace(s) ? string.Empty : string.Join(' ', s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-    private static TipoCarteiraDto ParaDto(TipoCarteira x, int usos) => new()
+    public static TipoCarteiraDto ParaDto(TipoCarteira x, int usos) => new()
     {
         Id = x.Id,
         Versao = x.Versao,

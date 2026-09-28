@@ -120,6 +120,16 @@ public static class Rotas
 
         /// <summary>Perfis, condições, tipos de carteira, vendedores e empresas para a aba "Cliente".</summary>
         public const string Opcoes = Base + "/comercial/opcoes";
+
+        // Motor Comercial, Fase 1c
+        public const string TiposAusencia = Base + "/tipos-ausencia";
+        public const string Parametros = Base + "/comercial/parametros";
+        public const string Coberturas = Base + "/comercial/coberturas";
+        public const string CoberturasOpcoes = Coberturas + "/opcoes";
+        public static string CoberturaPorId(Guid id) => $"{Coberturas}/{id}";
+        public static string CancelarCobertura(Guid id) => $"{Coberturas}/{id}/cancelar";
+        public static string ListarCoberturas(bool incluirEncerradas) => $"{Coberturas}?incluirEncerradas={(incluirEncerradas ? "true" : "false")}";
+        public const string CarteiraVencendo = Base + "/comercial/carteira-vencendo";
     }
 
     /// <summary>Tabela CNAE (IBGE): busca para a ficha e atualização pelo administrador.</summary>

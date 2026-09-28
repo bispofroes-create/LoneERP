@@ -31,4 +31,30 @@ public sealed class ComercialApi
 
     public Task<T> ReativarAsync<T>(string grupo, Guid id, byte[]? versao, CancellationToken ct = default) =>
         _api.PostAsync<T>(Rotas.Estrutura.Reativar(grupo, id), new AlterarSituacaoRequisicao { Versao = versao }, ct: ct);
+
+    // ---- Motor Comercial, Fase 1c ----
+
+    public Task<ParametrosComerciaisDto> ObterParametrosAsync(CancellationToken ct = default) =>
+        _api.GetAsync<ParametrosComerciaisDto>(Rotas.Comercial.Parametros, ct);
+
+    public Task<ParametrosComerciaisDto> SalvarParametrosAsync(ParametrosComerciaisDto dto, CancellationToken ct = default) =>
+        _api.PutAsync<ParametrosComerciaisDto>(Rotas.Comercial.Parametros, dto, ct);
+
+    public Task<List<CoberturaDto>> ListarCoberturasAsync(bool incluirEncerradas, CancellationToken ct = default) =>
+        _api.GetAsync<List<CoberturaDto>>(Rotas.Comercial.ListarCoberturas(incluirEncerradas), ct);
+
+    public Task<CoberturaDto?> ObterCoberturaAsync(Guid id, CancellationToken ct = default) =>
+        _api.GetOuNuloAsync<CoberturaDto>(Rotas.Comercial.CoberturaPorId(id), ct);
+
+    public Task<CoberturaOpcoesDto> ListarOpcoesCoberturaAsync(CancellationToken ct = default) =>
+        _api.GetAsync<CoberturaOpcoesDto>(Rotas.Comercial.CoberturasOpcoes, ct);
+
+    public Task<CoberturaDto> SalvarCoberturaAsync(CoberturaDto dto, CancellationToken ct = default) =>
+        _api.PutAsync<CoberturaDto>(Rotas.Comercial.CoberturaPorId(dto.Id), dto, ct);
+
+    public Task<CoberturaDto> CancelarCoberturaAsync(Guid id, byte[]? versao, string motivo, CancellationToken ct = default) =>
+        _api.PostAsync<CoberturaDto>(Rotas.Comercial.CancelarCobertura(id), new CancelarCoberturaRequisicao { Versao = versao, Motivo = motivo }, ct: ct);
+
+    public Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(int? dias, CancellationToken ct = default) =>
+        _api.GetAsync<List<VinculoVencendoDto>>(dias is { } d ? $"{Rotas.Comercial.CarteiraVencendo}?dias={d}" : Rotas.Comercial.CarteiraVencendo, ct);
 }

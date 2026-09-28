@@ -59,6 +59,9 @@ public sealed record CreditoDoVinculo(CarteiraCliente Vinculo, TipoCreditoComerc
 /// <summary>Regras comerciais: condições de pagamento, perfis, exceções com vigência e carteira de clientes. Não acessa banco.</summary>
 public static class RegrasComercial
 {
+    /// <summary>Antecedência padrão (dias) com que o fim de um vínculo da carteira é destacado.</summary>
+    public const int DiasAvisoFimPadrao = 30;
+
     // ---------------------------------------------------------------- Condição de pagamento
 
     /// <summary>"30, 60 ,90" / "30 60 90" / "30/60/90" → "30/60/90". Nulo se algum pedaço não for número.</summary>

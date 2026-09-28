@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Comercial;
+using Lone.Domain.Comercial;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 
@@ -206,18 +207,18 @@ public sealed partial class CarteiraFormulario : ItemDeLista
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void Reativar() => Ativo = true;
 
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Situacao))] private string _inicioEm;
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Situacao), nameof(PodeTrocar))] private string _fimEm;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Situacao), nameof(Prazo), nameof(PertoDoFim), nameof(AvisoFim), nameof(AvisoCobertura), nameof(TemCobertura))] private string _inicioEm;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Situacao), nameof(PodeTrocar), nameof(Prazo), nameof(PertoDoFim), nameof(AvisoFim), nameof(AvisoCobertura), nameof(TemCobertura))] private string _fimEm;
     [ObservableProperty] private bool _exclusivo;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito))] private string _percentualCredito;
     [ObservableProperty] private string _observacao;
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Inativo), nameof(Situacao), nameof(PodeTrocar))] private bool _ativo;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Inativo), nameof(Situacao), nameof(PodeTrocar), nameof(PertoDoFim), nameof(AvisoFim), nameof(AvisoCobertura), nameof(TemCobertura))] private bool _ativo;
     [ObservableProperty] private Opcao<Guid?>[] _tipos;
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito), nameof(DicaCredito), nameof(RotuloPessoa))] private Opcao<Guid?> _tipo;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito), nameof(DicaCredito), nameof(RotuloPessoa), nameof(AvisoCobertura), nameof(TemCobertura))] private Opcao<Guid?> _tipo;
     [ObservableProperty] private Opcao<Guid?>[] _vendedores;
-    [ObservableProperty] private Opcao<Guid?> _vendedor;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(AvisoCobertura), nameof(TemCobertura))] private Opcao<Guid?> _vendedor;
     [ObservableProperty] private Opcao<Guid?>[] _empresas = [OpcoesComercial.Todas];
-    [ObservableProperty] private Opcao<Guid?> _empresa = OpcoesComercial.Todas;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(AvisoCobertura), nameof(TemCobertura))] private Opcao<Guid?> _empresa = OpcoesComercial.Todas;
 
     public bool Inativo => !Ativo;
 
@@ -240,6 +241,71 @@ public sealed partial class CarteiraFormulario : ItemDeLista
             return fim is { } f3 ? $"{desde} · até {TextoTela.Data(f3)}" : desde;
         }
     }
+
+    // ---- Prazo: duração, quanto falta e destaque perto do fim (pedido do usuário, 28/09/2026) ----
+
+    /// <summary>Com quantos dias de antecedência o fim é destacado (vem das opções; padrão 30).</summary>
+    private int _diasAviso = RegrasComercial.DiasAvisoFimPadrao;
+
+    private static string Dias(int n) => n == 1 ? "1 dia" : $"{n.ToString("N0", TextoTela.Brasil)} dias";
+
+    private (DateOnly? Inicio, DateOnly? Fim) Periodo()
+    {
+        TextoTela.TentarData(InicioEm, out var inicio);
+        TextoTela.TentarData(FimEm, out var fim);
+        return (inicio, fim);
+    }
+
+    /// <summary>Dias até o fim (0 = termina hoje), para vínculo ativo que ainda não terminou; nulo sem fim ou já encerrado.</summary>
+    private int? Faltam => Ativo && Periodo() is { Fim: { } fim } && fim >= _hoje ? fim.DayNumber - _hoje.DayNumber : null;
+
+    /// <summary>"93 dias · faltam 12 dias", "sem fim", "30 dias · começa em 5 dias". Atualiza a cada dia (é calculado).</summary>
+    public string Prazo
+    {
+        get
+        {
+            var (inicio, fim) = Periodo();
+            if (fim is not { } f) return "sem data de fim";
+            var duracao = inicio is { } i && f >= i ? Dias(f.DayNumber - i.DayNumber + 1) : string.Empty;
+            string? resto = !Ativo || f < _hoje ? null
+                : inicio is { } ini && ini > _hoje ? $"começa em {Dias(ini.DayNumber - _hoje.DayNumber)}"
+                : f == _hoje ? "termina hoje" : $"faltam {Dias(f.DayNumber - _hoje.DayNumber)}";
+            return string.Join(" · ", new[] { duracao, resto }.Where(x => !string.IsNullOrEmpty(x)));
+        }
+    }
+
+    // ---- Ausência de quem atende (coberturas vigentes ou agendadas, Fase 1c) ----
+
+    private IReadOnlyList<CoberturaAvisoDto> _coberturas = [];
+
+    /// <summary>
+    /// "rafael: Férias de 01/10/2026 a 15/10/2026 · atendimento por Maria (crédito do titular)": as coberturas do titular
+    /// deste vínculo no escopo dele (papel e empresa), que ainda não terminaram. A carteira não muda por causa delas.
+    /// </summary>
+    public string AvisoCobertura
+    {
+        get
+        {
+            if (!Ativo || Vendedor.Valor is not { } pessoa || _coberturas.Count == 0) return string.Empty;
+            var (inicio, fim) = Periodo();
+            var empresa = _carregadas ? Empresa.Valor : _gravada.EmpresaId;
+            var textos = _coberturas
+                .Where(c => c.TitularId == pessoa && (c.TipoCarteiraId is null || c.TipoCarteiraId == Tipo.Valor) &&
+                            (c.EmpresaId is null || empresa is null || c.EmpresaId == empresa) &&
+                            (inicio is null || c.FimEm >= inicio) && (fim is null || c.InicioEm <= fim))
+                .OrderBy(c => c.InicioEm).Select(c => c.Texto).ToList();
+            return string.Join(Environment.NewLine, textos);
+        }
+    }
+
+    public bool TemCobertura => AvisoCobertura.Length > 0;
+
+    /// <summary>Vínculo que termina dentro da antecedência de aviso: o cartão fica destacado para o usuário decidir.</summary>
+    public bool PertoDoFim => Faltam is { } n && n <= _diasAviso;
+
+    public string AvisoFim => Faltam is { } n && n <= _diasAviso
+        ? (n == 0 ? "Termina hoje" : $"Termina em {Dias(n)}") + ": renove (mude ou limpe o fim), troque ou deixe encerrar."
+        : string.Empty;
 
     public bool RecebeCredito => Papel is { TipoCredito: not TipoCreditoComercial.Nenhum } || !string.IsNullOrWhiteSpace(PercentualCredito);
 
@@ -325,7 +391,13 @@ public sealed partial class CarteiraFormulario : ItemDeLista
         MontarPessoas(atual.VendedorId);
         Empresas = opcoes.Empresas(_gravada.EmpresaId);
         Empresa = OpcoesComercial.Escolher(Empresas, atual.EmpresaId);
+        _diasAviso = d.DiasAvisoFimVinculo > 0 ? d.DiasAvisoFimVinculo : RegrasComercial.DiasAvisoFimPadrao;
+        _coberturas = d.Coberturas;
         _carregadas = true;
+        OnPropertyChanged(nameof(PertoDoFim));
+        OnPropertyChanged(nameof(AvisoFim));
+        OnPropertyChanged(nameof(AvisoCobertura));
+        OnPropertyChanged(nameof(TemCobertura));
         OnPropertyChanged(nameof(RecebeCredito));
         OnPropertyChanged(nameof(DicaCredito));
         OnPropertyChanged(nameof(RotuloPessoa));

@@ -51,6 +51,9 @@ public static class CadastrosEndpoints
         MapCondicoesPagamento(app);
         MapTiposCarteira(app);
         MapComercial(app);
+        MapTiposAusencia(app);
+        MapParametrosComerciais(app);
+        MapCoberturas(app);
         MapCnaes(app);
         MapGruposEmpresariais(app);
         return app;
@@ -341,6 +344,75 @@ public static class CadastrosEndpoints
     private static void MapComercial(IEndpointRouteBuilder app) =>
         app.MapGet(Rotas.Comercial.Opcoes, (IComercialAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct))
             .WithTags("Comercial").RequireAuthorization();
+
+    // ---- Motor Comercial, Fase 1c: ausências, coberturas, parâmetros e carteira vencendo ----
+
+    private static void MapTiposAusencia(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.TiposAusencia).WithTags("Tipos de ausência").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, ITipoAusenciaAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ITipoAusenciaAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, TipoAusenciaDto item, ITipoAusenciaAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoAusenciaAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, ITipoAusenciaAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    private static void MapParametrosComerciais(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.Parametros).WithTags("Parâmetros comerciais").RequireAuthorization();
+        grupo.MapGet(string.Empty, (IParametrosComerciaisAppService servico, CancellationToken ct) => servico.ObterAsync(ct));
+        grupo.MapPut(string.Empty, (ParametrosComerciaisDto dto, IParametrosComerciaisAppService servico, CancellationToken ct) =>
+            servico.SalvarAsync(dto, ct));
+    }
+
+    private static void MapCoberturas(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.Comercial.Coberturas).WithTags("Coberturas de ausência").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirEncerradas, ICoberturaAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirEncerradas ?? false, ct));
+
+        grupo.MapGet("opcoes", (ICoberturaAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, ICoberturaAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Esta cobertura não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, CoberturaDto item, ICoberturaAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/cancelar", (Guid id, CancelarCoberturaRequisicao requisicao, ICoberturaAppService servico, CancellationToken ct) =>
+            servico.CancelarAsync(id, requisicao, ct));
+
+        app.MapGet(Rotas.Comercial.CarteiraVencendo, (int? dias, ICoberturaAppService servico, CancellationToken ct) =>
+                servico.CarteiraVencendoAsync(dias, ct))
+            .WithTags("Coberturas de ausência").RequireAuthorization();
+    }
 
     private static void MapCnaes(IEndpointRouteBuilder app)
     {

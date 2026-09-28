@@ -112,6 +112,12 @@ public sealed class ComercialOpcoesDto
 
     /// <summary>Classificações de pessoa (papéis do cadastro), com as desativadas: nomes e "Quem pode ser".</summary>
     public List<ClassificacaoOpcaoDto> Classificacoes { get; set; } = new();
+
+    /// <summary>Com quantos dias de antecedência o fim de um vínculo da carteira é destacado na ficha.</summary>
+    public int DiasAvisoFimVinculo { get; set; } = 30;
+
+    /// <summary>Coberturas de ausência vigentes ou agendadas (aviso nos vínculos da carteira do titular).</summary>
+    public List<CoberturaAvisoDto> Coberturas { get; set; } = new();
     public List<Lone.Contracts.Empresas.EmpresaResumo> Empresas { get; set; } = new();
 }
 

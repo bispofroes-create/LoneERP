@@ -119,6 +119,17 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
             AdicionarConfiguracoes(pessoas, ModulosConfiguracao.Pessoas, possui);
         if (pessoas.Count > 0) secoes.Add(new SecaoMenu(nomePessoas, pessoas));
 
+        // Comercial (Motor Comercial, Fase 1c): configurações da carteira e das vendas (as telas do módulo entram aqui).
+        var nomeComercial = ModulosConfiguracao.Nome(ModulosConfiguracao.Comercial);
+        var comercial = new List<ItemMenu>();
+        if (possui(Permissoes.Comercial.Visualizar) || possui(Permissoes.Comercial.Coberturas))
+        {
+            comercial.Add(new ItemMenu("Ausências e coberturas", "coberturas", descricao: "Ausências e coberturas da carteira", caminho: nomeComercial));
+            comercial.Add(new ItemMenu("Carteira vencendo", "carteira-vencendo", descricao: "Carteira de clientes vencendo", caminho: nomeComercial));
+        }
+        AdicionarConfiguracoes(comercial, ModulosConfiguracao.Comercial, possui);
+        if (comercial.Count > 0) secoes.Add(new SecaoMenu(nomeComercial, comercial));
+
         var nomeOrganizacao = ModulosConfiguracao.Nome(ModulosConfiguracao.Organizacao);
         var organizacao = new List<ItemMenu>();
         if (possui(Permissoes.Cadastros.GruposEmpresariais))
@@ -385,12 +396,14 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeGerenciarTipos => _sessao.Possui(Permissoes.Cadastros.Tipos);
     public bool PodeGerenciarEstrutura => _sessao.Possui(Permissoes.Cadastros.EstruturaOrganizacional);
     public bool PodeGerenciarComercial => _sessao.Possui(Permissoes.Cadastros.Comercial);
+    public bool PodeVerComercial => _sessao.Possui(Permissoes.Comercial.Visualizar) || _sessao.Possui(Permissoes.Comercial.Coberturas);
     public bool PodeVerMetas => _sessao.Possui(Permissoes.Metas.Visualizar);
     public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);
     public bool PodeVerSeguranca => PodeGerenciarUsuarios || PodeGerenciarPerfis;
 
     /// <summary>Páginas de configurações de cada módulo (rotas do Shell só existem com alguma permissão).</summary>
     public bool PodeVerConfiguracoesPessoas => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Pessoas);
+    public bool PodeVerConfiguracoesComercial => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Comercial);
     public bool PodeVerConfiguracoesOrganizacao => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Organizacao);
     public bool PodeVerConfiguracoesMetas => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Metas);
     public bool PodeVerConfiguracoesSistema => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Sistema);

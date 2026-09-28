@@ -42,7 +42,7 @@ public class MenuLateralTests
     {
         var secoes = MenuViewModel.CriarSecoes(Tudo);
 
-        Assert.Equal(new string?[] { "Pessoas", "Organização", "Metas", null }, secoes.Select(s => s.Titulo).ToArray());
+        Assert.Equal(new string?[] { "Pessoas", "Comercial", "Organização", "Metas", null }, secoes.Select(s => s.Titulo).ToArray());
         // A consulta avançada virou o painel de filtros da tela de Pessoas, e as configurações de Pessoas ficam no botão
         // "Configurações" da própria tela: no menu, só o cadastro (que continua destacado nas telas de configuração).
         var cadastro = Assert.Single(secoes[0].Itens);
@@ -51,14 +51,19 @@ public class MenuLateralTests
         Assert.Equal("Cadastro de pessoas", cadastro.Descricao); // fora (atalhos, busca, leitor de tela), o nome completo
         Assert.True(cadastro.Corresponde("configuracoes-pessoas"));
         Assert.True(cadastro.Corresponde("papeis"));
-        Assert.Equal(new[] { "grupos-empresariais", "configuracoes-organizacao" }, secoes[1].Itens.Select(i => i.Rota).ToArray());
-        Assert.Equal(new[] { "Painel", "⚙  Configurações" }, secoes[2].Itens.Select(i => i.TextoExibido).ToArray());
-        Assert.Equal("Painel de metas", secoes[2].Itens[0].Descricao);
-        Assert.Equal("Configurações de Metas", secoes[2].Itens[1].Descricao);
-        var sistema = Assert.Single(secoes[3].Itens);
+        Assert.Equal(new[] { "coberturas", "carteira-vencendo", "configuracoes-comercial" }, secoes[1].Itens.Select(i => i.Rota).ToArray());
+        var comercial = secoes[1].Itens[2];
+        Assert.Equal("Configurações do Comercial", comercial.Descricao);
+        Assert.True(comercial.Corresponde("tipos-carteira"));
+        Assert.True(comercial.Corresponde("tipos-ausencia"));
+        Assert.Equal(new[] { "grupos-empresariais", "configuracoes-organizacao" }, secoes[2].Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "Painel", "⚙  Configurações" }, secoes[3].Itens.Select(i => i.TextoExibido).ToArray());
+        Assert.Equal("Painel de metas", secoes[3].Itens[0].Descricao);
+        Assert.Equal("Configurações de Metas", secoes[3].Itens[1].Descricao);
+        var sistema = Assert.Single(secoes[4].Itens);
         Assert.Equal("configuracoes-sistema", sistema.Rota);
         Assert.Equal("⚙  Configurações do sistema", sistema.TextoExibido);
-        Assert.True(secoes[3].MostrarItens); // entrada solta: sem cabeçalho, sempre visível
+        Assert.True(secoes[4].MostrarItens); // entrada solta: sem cabeçalho, sempre visível
     }
 
     [Fact]

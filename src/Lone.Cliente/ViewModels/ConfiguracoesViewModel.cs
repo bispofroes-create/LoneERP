@@ -22,11 +22,12 @@ public sealed record GrupoConfiguracao(string Titulo, IReadOnlyList<ItemConfigur
 public static class ModulosConfiguracao
 {
     public const string Pessoas = "pessoas";
+    public const string Comercial = "comercial";
     public const string Organizacao = "organizacao";
     public const string Metas = "metas";
     public const string Sistema = "sistema";
 
-    public static IReadOnlyList<string> Todos { get; } = [Pessoas, Organizacao, Metas, Sistema];
+    public static IReadOnlyList<string> Todos { get; } = [Pessoas, Comercial, Organizacao, Metas, Sistema];
 
     /// <summary>
     /// "Trocar senha" (Configurações do sistema › Minha conta): não é uma tela do Shell — abre a troca de senha por cima da
@@ -50,6 +51,7 @@ public static class ModulosConfiguracao
     public static string Nome(string modulo) => modulo switch
     {
         Pessoas => "Pessoas",
+        Comercial => "Comercial",
         Organizacao => "Organização",
         Metas => "Metas",
         _ => "Sistema"
@@ -61,6 +63,7 @@ public static class ModulosConfiguracao
     public static string Titulo(string modulo) => modulo switch
     {
         Pessoas => "Configurações de Pessoas",
+        Comercial => "Configurações do Comercial",
         Organizacao => "Configurações de Organização",
         Metas => "Configurações de Metas",
         _ => "Configurações do sistema"
@@ -69,6 +72,7 @@ public static class ModulosConfiguracao
     public static string Descricao(string modulo) => modulo switch
     {
         Pessoas => "Cadastros de apoio e personalização usados na ficha de pessoas.",
+        Comercial => "Papéis comerciais, ausências, parâmetros, condições de pagamento e perfis usados na carteira e nas vendas.",
         Organizacao => "Estrutura da empresa usada nos vínculos e lotações dos colaboradores.",
         Metas => "Equipes e indicadores usados nas metas.",
         _ => "Configurações que valem para o sistema inteiro."
@@ -136,13 +140,17 @@ public partial class ConfiguracoesViewModel : ViewModelBase
         (ModulosConfiguracao.Pessoas, "Personalização", Permissoes.Cadastros.Etiquetas, new ItemConfiguracao("Etiquetas", "Marcadores livres para agrupar e filtrar pessoas", "etiquetas")),
         (ModulosConfiguracao.Pessoas, "Privacidade", Permissoes.Cadastros.Tipos,
             new ItemConfiguracao("Finalidades de tratamento", "Para quê a pessoa pode ser contatada (LGPD)", "finalidades-tratamento")),
-        // Usados na aba Comercial da ficha (cliente e fornecedor). Vão para "Configurações Comerciais" quando o módulo existir.
-        (ModulosConfiguracao.Pessoas, "Comercial (cliente e fornecedor)", Permissoes.Cadastros.Comercial,
+        // ---- Comercial (Motor Comercial, Fase 1c): usados na aba Comercial da ficha (cliente e fornecedor) ----
+        (ModulosConfiguracao.Comercial, "Carteira de clientes", Permissoes.Cadastros.Comercial,
+            new ItemConfiguracao("Papéis comerciais", "Vendedor, representante... quem pode ser, quantos por vez, crédito e metas", "tipos-carteira")),
+        (ModulosConfiguracao.Comercial, "Condições de venda", Permissoes.Cadastros.Comercial,
             new ItemConfiguracao("Condições de pagamento", "Parcelas, acréscimo e desconto", "condicoes-pagamento")),
-        (ModulosConfiguracao.Pessoas, "Comercial (cliente e fornecedor)", Permissoes.Cadastros.Comercial,
+        (ModulosConfiguracao.Comercial, "Condições de venda", Permissoes.Cadastros.Comercial,
             new ItemConfiguracao("Perfis comerciais", "Limite, desconto e aprovação padrão", "perfis-comerciais")),
-        (ModulosConfiguracao.Pessoas, "Comercial (cliente e fornecedor)", Permissoes.Cadastros.Comercial,
-            new ItemConfiguracao("Papéis comerciais", "Vendedor, representante... quantos por vez, crédito e metas", "tipos-carteira")),
+        (ModulosConfiguracao.Comercial, "Carteira de clientes", Permissoes.Cadastros.Comercial,
+            new ItemConfiguracao("Tipos de ausência", "Férias, folga, licença... usados nas coberturas", "tipos-ausencia")),
+        (ModulosConfiguracao.Comercial, "Carteira de clientes", Permissoes.Cadastros.Comercial,
+            new ItemConfiguracao("Parâmetros comerciais", "Aviso de fim do vínculo e crédito nas ausências", "parametros-comerciais")),
         // ---- Organização ----
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Cargos", "Cargos dos colaboradores", "cargos")),
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Centros de custo", "Árvore de centros de custo", "centros-custo")),

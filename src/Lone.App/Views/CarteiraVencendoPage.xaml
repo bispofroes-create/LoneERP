@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Carteira vencendo (Motor Comercial, Fase 1c): vínculos que terminam dentro do aviso configurado (ou do prazo informado). -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:com="clr-namespace:Lone.Cliente.ViewModels.Comercial;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.CarteiraVencendoPage"
+             x:DataType="com:CarteiraVencendoViewModel"
+             Title="Carteira vencendo">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="{OnIdiom Phone='16,16', Default='32,24'}" RowSpacing="10">
+        <VerticalStackLayout>
+            <Label Text="Carteira vencendo" Style="{StaticResource Titulo}" />
+            <Label Text="Vínculos da carteira de clientes que terminam em breve: renove (mude ou limpe o fim na ficha do cliente), troque ou deixe encerrar."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+        <HorizontalStackLayout Grid.Row="1" Spacing="12">
+            <c:Campo Rotulo="Nos próximos (dias)" Texto="{Binding Dias}" Mascara="Numero" Dica="vazio = aviso configurado" WidthRequest="220" />
+            <Button Text="Atualizar" Command="{Binding CarregarCommand}" IsEnabled="{Binding Livre}" VerticalOptions="End" />
+            <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <VerticalStackLayout Grid.Row="2" Spacing="4">
+            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            <Label Text="{Binding Resumo}" Style="{StaticResource Secundario}" />
+        </VerticalStackLayout>
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="com:LinhaVencendo">
+                    <Grid ColumnDefinitions="*,Auto" Padding="12,8">
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="{Binding Cliente}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding Quem}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" HorizontalOptions="End">
+                            <Label Text="{Binding Fim}" HorizontalOptions="End" />
+                            <Label Text="{Binding Faltam}" TextColor="{StaticResource Aviso}" FontAttributes="Bold" HorizontalOptions="End" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

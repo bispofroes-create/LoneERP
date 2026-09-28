@@ -212,8 +212,8 @@ public static class CatalogoFiltrosPessoas
             Dica: "Da última consulta de CNPJ.", FonteOpcoes: FonteSituacoesReceita),
 
         // ---- Comercial – Cliente ----
-        new(CamposFiltroPessoas.Vendedor, "Comercial – Cliente", "Vendedor (carteira)", TipoCampoFiltro.Lista,
-            [OperadorFiltro.UmDestes], Dica: "Carteira vigente hoje.", FonteOpcoes: FonteVendedores, ValorValido: GuidValido),
+        new(CamposFiltroPessoas.Vendedor, "Comercial – Cliente", "Quem atende (carteira)", TipoCampoFiltro.Lista,
+            [OperadorFiltro.UmDestes], Dica: "Em qualquer papel comercial (vendedor, representante, supervisor...), vigente hoje.", FonteOpcoes: FonteVendedores, ValorValido: GuidValido),
         new(CamposFiltroPessoas.SemCarteira, "Comercial – Cliente", "Sem vendedor na carteira", TipoCampoFiltro.SimNao, SimNao),
         new(CamposFiltroPessoas.LimiteCredito, "Comercial – Cliente", "Limite de crédito (R$)", TipoCampoFiltro.Numero, Faixa,
             Permissao: PermissaoFinanceiro),

@@ -34,3 +34,28 @@ public enum OrigemVinculoCarteira : byte
     /// <summary>Importação de arquivo.</summary>
     Importacao = 4
 }
+
+/// <summary>
+/// Quem fica com o crédito das vendas feitas durante uma ausência coberta (Motor Comercial, Fase 1c). Gravado no banco:
+/// valores novos entram no fim.
+/// </summary>
+public enum RegraCreditoAusencia : byte
+{
+    /// <summary>O crédito continua do titular (comum em férias e folgas): a carteira é dele.</summary>
+    Titular = 0,
+
+    /// <summary>O crédito vai para quem cobre (comum em licença longa).</summary>
+    Substituto = 1,
+
+    /// <summary>Dividido: o percentual informado para quem cobre, o resto para o titular.</summary>
+    Dividido = 2
+}
+
+/// <summary>Situação de uma cobertura numa data (calculada; não é gravada).</summary>
+public enum SituacaoCobertura : byte
+{
+    Agendada = 0,
+    Vigente = 1,
+    Encerrada = 2,
+    Cancelada = 3
+}

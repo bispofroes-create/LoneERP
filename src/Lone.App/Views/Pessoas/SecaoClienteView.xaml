@@ -78,7 +78,23 @@
                 <DataTemplate x:DataType="pes:CarteiraFormulario">
                     <Border Style="{StaticResource CartaoItem}">
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="{Binding Situacao}" Style="{StaticResource Rotulo}" />
+                            <Label Style="{StaticResource Rotulo}">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Situacao}" />
+                                        <Span Text="  ·  " />
+                                        <Span Text="{Binding Prazo}" FontAttributes="None" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                            <!-- Perto do fim (antecedência nas configurações do Comercial): destaque para o usuário agir. -->
+                            <Border IsVisible="{Binding PertoDoFim}" StrokeThickness="0" Padding="10,6"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}">
+                                <Label Text="{Binding AvisoFim}" TextColor="{StaticResource Aviso}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                            </Border>
+                            <!-- Ausência de quem atende (cobertura vigente ou agendada): a carteira não muda. -->
+                            <Label Text="{Binding AvisoCobertura}" IsVisible="{Binding TemCobertura}" Style="{StaticResource Secundario}"
+                                   FontAttributes="Italic" LineBreakMode="WordWrap" />
                             <Label Text="{Binding TextoTroca}" Style="{StaticResource Secundario}" IsVisible="{Binding EhTroca}" LineBreakMode="WordWrap" />
                             <FlexLayout Wrap="Wrap">
                                 <c:CampoEscolha Rotulo="Papel" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" IsEnabled="{Binding Editavel}" />

@@ -65,6 +65,9 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<ICondicaoPagamentoAppService, CondicaoPagamentoAppService>();
         services.AddScoped<IPerfilComercialAppService, PerfilComercialAppService>();
         services.AddScoped<ITipoCarteiraAppService, TipoCarteiraAppService>();
+        services.AddScoped<ITipoAusenciaAppService, TipoAusenciaAppService>();
+        services.AddScoped<IParametrosComerciaisAppService, ParametrosComerciaisAppService>();
+        services.AddScoped<ICoberturaAppService, CoberturaAppService>();
         services.AddScoped<IComercialAppService, ComercialAppService>();
         services.AddScoped<ReferenciasComercial>();
         services.AddScoped<ServicoCnaes>();

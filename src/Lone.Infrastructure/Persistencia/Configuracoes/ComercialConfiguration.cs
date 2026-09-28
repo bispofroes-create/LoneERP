@@ -1,5 +1,6 @@
 using Lone.Domain.Comercial;
 using Lone.Domain.Entidades;
+using Lone.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -100,5 +101,70 @@ public class CarteiraClienteConfiguration : IEntityTypeConfiguration<CarteiraCli
         // "Carteira do vendedor" (quem ele atende hoje, ou numa data) e o histórico do cliente.
         b.HasIndex(x => new { x.VendedorId, x.Ativo, x.FimEm });
         b.HasIndex(x => new { x.PessoaId, x.InicioEm });
+    }
+}
+
+/// <summary>Tipos de ausência (Motor Comercial, Fase 1c), com os iniciais de Ids fixos.</summary>
+public class TipoAusenciaConfiguration : IEntityTypeConfiguration<TipoAusencia>
+{
+    public void Configure(EntityTypeBuilder<TipoAusencia> b)
+    {
+        b.ToTable("TiposAusencia");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Nome).IsRequired().HasMaxLength(TipoAusencia.TamanhoMaximoNome).UseCollation(EtiquetaConfiguration.CollationNome);
+        b.HasIndex(x => x.Nome).IsUnique();
+
+        var criacao = new DateTime(2026, 9, 28, 0, 0, 0, DateTimeKind.Utc);
+        b.HasData(TiposAusenciaIniciais.Todos.Select(t => new TipoAusencia
+        {
+            Id = t.Id, Nome = t.Nome, Ordem = t.Ordem, Ativo = true, CriadoEm = criacao
+        }).ToArray());
+    }
+}
+
+/// <summary>Parâmetros do módulo Comercial: um registro só, criado com os padrões (aviso de 30 dias; crédito do titular).</summary>
+public class ParametrosComerciaisConfiguration : IEntityTypeConfiguration<ParametrosComerciais>
+{
+    public void Configure(EntityTypeBuilder<ParametrosComerciais> b)
+    {
+        b.ToTable("ParametrosComerciais", t => t.HasCheckConstraint("CK_ParametrosComerciais_Unico",
+            $"[Id] = '{ParametrosComerciais.IdUnico:D}'"));
+        b.HasKey(x => x.Id);
+        b.Property(x => x.CreditoNaAusencia).HasConversion<byte>();
+        b.Property(x => x.PercentualSubstitutoPadrao).HasPrecision(5, 2);
+        b.HasData(new ParametrosComerciais
+        {
+            Id = ParametrosComerciais.IdUnico, DiasAvisoFimVinculo = 30, CreditoNaAusencia = RegraCreditoAusencia.Titular,
+            CriadoEm = new DateTime(2026, 9, 28, 0, 0, 0, DateTimeKind.Utc)
+        });
+    }
+}
+
+/// <summary>Coberturas de ausência. Nunca apagadas (canceladas ou encerradas pelo fim).</summary>
+public class CoberturaComercialConfiguration : IEntityTypeConfiguration<CoberturaComercial>
+{
+    public void Configure(EntityTypeBuilder<CoberturaComercial> b)
+    {
+        b.ToTable("CoberturasComerciais", t =>
+        {
+            t.HasCheckConstraint("CK_CoberturasComerciais_Periodo", "[FimEm] >= [InicioEm]");
+            t.HasCheckConstraint("CK_CoberturasComerciais_QuemCobre",
+                "([SubstitutoId] IS NULL AND [EquipeSubstitutaId] IS NOT NULL) OR ([SubstitutoId] IS NOT NULL AND [EquipeSubstitutaId] IS NULL)");
+        });
+        b.HasKey(x => x.Id);
+        b.Property(x => x.RegraCredito).HasConversion<byte>();
+        b.Property(x => x.PercentualSubstituto).HasPrecision(5, 2);
+        b.Property(x => x.Observacao).HasMaxLength(CoberturaComercial.TamanhoMaximoTexto);
+        b.Property(x => x.MotivoCancelamento).HasMaxLength(CoberturaComercial.TamanhoMaximoTexto);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.TitularId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.SubstitutoId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<Equipe>().WithMany().HasForeignKey(x => x.EquipeSubstitutaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne<TipoAusencia>().WithMany().HasForeignKey(x => x.TipoAusenciaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<TipoCarteira>().WithMany().HasForeignKey(x => x.TipoCarteiraId).OnDelete(DeleteBehavior.Restrict);
+
+        // Por titular (validação de sobreposição, aviso na ficha) e por período (lista e "vigentes hoje").
+        b.HasIndex(x => new { x.TitularId, x.InicioEm });
+        b.HasIndex(x => new { x.FimEm, x.Cancelada });
     }
 }

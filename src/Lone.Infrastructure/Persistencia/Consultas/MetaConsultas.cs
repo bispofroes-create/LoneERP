@@ -87,13 +87,15 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
         lista.AddRange(await db.Equipes.AsNoTracking().Where(e => e.Ativo)
             .Select(e => new ParticipanteOpcaoDto(NivelParticipante.Equipe, e.Id, e.Nome)).ToListAsync(ct));
 
-        // Colaborador: vínculo vigente, ou papel de vendedor/representante ativo (representante não tem vínculo).
-        var vendedor = PapeisSistema.Id(TipoPapel.Vendedor);
-        var representante = PapeisSistema.Id(TipoPapel.Representante);
+        // Colaborador: vínculo vigente, ou quem pode ocupar um papel comercial que conta para metas ("Quem pode ser" do
+        // papel; ex.: representante, que não tem vínculo de colaborador).
+        var aceitas = db.TiposCarteiraClassificacoes.AsNoTracking()
+            .Where(c => c.Ativo && db.TiposCarteira.Any(t => t.Id == c.TipoCarteiraId && t.Ativo && t.ContaParaMetas))
+            .Select(c => c.PapelId);
         lista.AddRange(await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo &&
                         (db.VinculosColaborador.Any(v => v.PessoaId == p.Id && v.AdmissaoEm <= hoje && (v.DesligamentoEm == null || v.DesligamentoEm >= hoje)) ||
-                         p.Papeis.Any(x => x.Ativo && (x.PapelId == vendedor || x.PapelId == representante) && (x.FimEm == null || x.FimEm >= hoje))))
+                         p.Papeis.Any(x => x.Ativo && aceitas.Contains(x.PapelId) && (x.FimEm == null || x.FimEm >= hoje))))
             .Select(p => new ParticipanteOpcaoDto(NivelParticipante.Colaborador, p.Id, p.NomeExibicao ?? p.Nome))
             .ToListAsync(ct));
 

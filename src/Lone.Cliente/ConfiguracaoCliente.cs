@@ -73,6 +73,10 @@ public static class ConfiguracaoCliente
         services.AddTransient<PerfisComerciaisViewModel>();
         services.AddTransient<CondicoesPagamentoViewModel>();
         services.AddTransient<TiposCarteiraViewModel>();
+        services.AddTransient<TiposAusenciaViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Comercial.ParametrosComerciaisViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Comercial.CoberturasViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Comercial.CarteiraVencendoViewModel>();
 
         return services;
     }

@@ -14,8 +14,7 @@ public class ConfiguracoesViewModelTests
     {
         var grupos = ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Pessoas);
 
-        Assert.Equal(new[] { "Cadastros auxiliares", "Personalização", "Privacidade", "Comercial (cliente e fornecedor)" },
-            grupos.Select(g => g.Titulo).ToArray());
+        Assert.Equal(new[] { "Cadastros auxiliares", "Personalização", "Privacidade" }, grupos.Select(g => g.Titulo).ToArray());
         Assert.Equal(new[] { "Papéis", "Profissões", "Tipos de documento", "Tipos de endereço", "Tipos de telefone e e-mail" },
             grupos[0].Itens.Select(i => i.Titulo).ToArray());
         Assert.Equal(new[] { "Campos personalizados", "Etiquetas" }, grupos[1].Itens.Select(i => i.Titulo).ToArray());
@@ -26,7 +25,7 @@ public class ConfiguracoesViewModelTests
     {
         var rotas = ModulosConfiguracao.Todos.SelectMany(m => ConfiguracoesViewModel.Montar(_ => true, m))
             .SelectMany(g => g.Itens).Select(i => i.Rota).ToList();
-        Assert.Equal(20, rotas.Count); // 19 cadastros + "Trocar senha" (Minha conta)
+        Assert.Equal(22, rotas.Count); // 21 cadastros + "Trocar senha" (Minha conta)
         Assert.Equal(rotas.Count, rotas.Distinct().Count());
     }
 
@@ -41,6 +40,12 @@ public class ConfiguracoesViewModelTests
             Assert.Single(ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Organizacao)).Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "equipes", "indicadores" },
             Assert.Single(ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Metas)).Itens.Select(i => i.Rota).ToArray());
+        // Comercial (Fase 1c): papéis comerciais, condições e perfis saíram de Pessoas.
+        var comercial = ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Comercial);
+        Assert.Equal(new[] { "Carteira de clientes", "Condições de venda" }, comercial.Select(g => g.Titulo).ToArray());
+        Assert.Equal(new[] { "tipos-carteira", "parametros-comerciais", "tipos-ausencia" }, comercial[0].Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "condicoes-pagamento", "perfis-comerciais" }, comercial[1].Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(ModulosConfiguracao.Comercial, ModulosConfiguracao.DaRota("//configuracoes-comercial"));
     }
 
     [Fact]

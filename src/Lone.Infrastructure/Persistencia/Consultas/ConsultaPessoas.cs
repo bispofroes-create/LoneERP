@@ -124,8 +124,11 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
     public async Task<OpcoesConsultaPessoasDto> OpcoesAsync(DateOnly hoje, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
-        var vendedor = PapeisSistema.Id(TipoPapel.Vendedor);
-        var representante = PapeisSistema.Id(TipoPapel.Representante);
+        // Quem atende (Motor Comercial, Fase 1c): quem pode ocupar algum papel comercial ativo ("Quem pode ser") e quem
+        // está em algum vínculo ativo da carteira (mesmo sem a classificação hoje), para filtrar a carteira de cada um.
+        var aceitas = db.TiposCarteiraClassificacoes.AsNoTracking()
+            .Where(c => c.Ativo && db.TiposCarteira.Any(t => t.Id == c.TipoCarteiraId && t.Ativo))
+            .Select(c => c.PapelId);
         return new OpcoesConsultaPessoasDto
         {
             Papeis = await db.Papeis.AsNoTracking().Where(p => p.Ativo).OrderBy(p => p.Ordem)
@@ -133,7 +136,8 @@ public class ConsultaPessoas : ServicoDadosBase, IConsultaPessoas
             Etiquetas = await db.Etiquetas.AsNoTracking().Where(e => e.Ativo).OrderBy(e => e.Nome)
                 .Select(e => new OpcaoConsultaDto(e.Id, e.Nome)).ToListAsync(ct),
             Vendedores = await db.Pessoas.AsNoTracking()
-                .Where(p => p.Papeis.Any(x => x.Ativo && (x.PapelId == vendedor || x.PapelId == representante)))
+                .Where(p => p.Papeis.Any(x => x.Ativo && aceitas.Contains(x.PapelId)) ||
+                            db.CarteiraClientes.Any(c => c.VendedorId == p.Id && c.Ativo))
                 .OrderBy(p => p.NomeExibicao ?? p.Nome)
                 .Select(p => new OpcaoConsultaDto(p.Id, p.NomeExibicao ?? p.Nome)).ToListAsync(ct),
             CamposPesquisaveis = await db.CamposPersonalizados.AsNoTracking()

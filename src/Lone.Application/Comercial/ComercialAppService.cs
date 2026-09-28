@@ -38,11 +38,15 @@ public sealed class ComercialAppService : IComercialAppService
     private readonly IComercialConsultas _consultas;
     private readonly IEmpresaConsultas _empresas;
     private readonly IPapelRepositorio _classificacoes;
+    private readonly IParametrosComerciaisRepositorio _parametros;
+    private readonly ICoberturaAppService _coberturas;
 
     public ComercialAppService(IAutorizacao autorizacao, IPerfilComercialAppService perfis, ICondicaoPagamentoAppService condicoes,
                                ITipoCarteiraAppService tipos, IComercialConsultas consultas, IEmpresaConsultas empresas,
-                               IPapelRepositorio classificacoes)
+                               IPapelRepositorio classificacoes, IParametrosComerciaisRepositorio parametros, ICoberturaAppService coberturas)
     {
+        _parametros = parametros;
+        _coberturas = coberturas;
         _autorizacao = autorizacao;
         _perfis = perfis;
         _condicoes = condicoes;
@@ -63,7 +67,9 @@ public sealed class ComercialAppService : IComercialAppService
             TiposCarteira = tipos,
             Atendentes = await _consultas.ListarAtendentesAsync([.. tipos.Where(t => t.Ativo).SelectMany(t => t.Classificacoes).Distinct()], ct),
             Classificacoes = [.. (await _classificacoes.ListarAsync(incluirInativos: true, ct)).Select(p => new ClassificacaoOpcaoDto(p.Id, p.Nome, p.Ativo))],
-            Empresas = await _empresas.ListarEmpresasAsync(ct)
+            Empresas = await _empresas.ListarEmpresasAsync(ct),
+            DiasAvisoFimVinculo = (await _parametros.ObterAsync(ct)).DiasAvisoFimVinculo,
+            Coberturas = await _coberturas.AvisosAsync(ct)
         };
     }
 }

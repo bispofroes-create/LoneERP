@@ -121,4 +121,25 @@ public class ModeloCarteiraTests
         var marca = up.FindIndex(o => o is Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation s && s.Sql == SqlMigracaoCarteira.ClassificacoesIniciais);
         Assert.True(cria >= 0 && marca > cria);
     }
+
+    // ---- Motor Comercial, Fase 1c ----
+
+    [Fact]
+    public void Ausencias_coberturas_e_parametros_tem_tabelas_protecoes_e_dados_iniciais()
+    {
+        var modelo = Modelo();
+        var cobertura = modelo.FindEntityType(typeof(CoberturaComercial))!;
+        Assert.Equal("CoberturasComerciais", cobertura.GetTableName());
+        Assert.Contains(cobertura.GetCheckConstraints(), c => c.ModelName == "CK_CoberturasComerciais_Periodo");
+        Assert.Contains(cobertura.GetCheckConstraints(), c => c.ModelName == "CK_CoberturasComerciais_QuemCobre");
+        Assert.Equal(typeof(byte), cobertura.FindProperty(nameof(CoberturaComercial.RegraCredito))!.GetProviderClrType());
+
+        var tipos = modelo.FindEntityType(typeof(TipoAusencia))!;
+        Assert.Equal(Lone.Domain.Comercial.TiposAusenciaIniciais.Todos.Count, tipos.GetSeedData().Count());
+
+        var parametros = modelo.FindEntityType(typeof(ParametrosComerciais))!;
+        var semente = Assert.Single(parametros.GetSeedData());
+        Assert.Equal(ParametrosComerciais.IdUnico, semente[nameof(ParametrosComerciais.Id)]);
+        Assert.Equal(30, semente[nameof(ParametrosComerciais.DiasAvisoFimVinculo)]);
+    }
 }

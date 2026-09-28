@@ -64,6 +64,10 @@ public static class ConfiguracaoDados
         services.AddScoped<ICondicaoPagamentoRepositorio, CondicaoPagamentoRepositorio>();
         services.AddScoped<IPerfilComercialRepositorio, PerfilComercialRepositorio>();
         services.AddScoped<ITipoCarteiraRepositorio, TipoCarteiraRepositorio>();
+        services.AddScoped<ITipoAusenciaRepositorio, TipoAusenciaRepositorio>();
+        services.AddScoped<IParametrosComerciaisRepositorio, ParametrosComerciaisRepositorio>();
+        services.AddScoped<ICoberturaRepositorio, CoberturaRepositorio>();
+        services.AddScoped<ICoberturaConsultas, CoberturaConsultas>();
         services.AddScoped<IComercialConsultas, ComercialConsultas>();
         services.AddScoped<ICnaeRepositorio, CnaeRepositorio>();
         services.AddScoped<ISituacaoRepositorio, SituacaoRepositorio>();

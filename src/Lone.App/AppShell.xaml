@@ -346,6 +346,21 @@
     <FlyoutItem Title="Configurações" Route="configuracoes-pessoas" IsVisible="{Binding PodeVerConfiguracoesPessoas}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Ausências e coberturas" Route="coberturas" IsVisible="{Binding PodeVerComercial}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Ausências e coberturas" ContentTemplate="{DataTemplate views:CoberturasPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Carteira vencendo" Route="carteira-vencendo" IsVisible="{Binding PodeVerComercial}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Carteira vencendo" ContentTemplate="{DataTemplate views:CarteiraVencendoPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Tipos de ausência" Route="tipos-ausencia" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Tipos de ausência" ContentTemplate="{DataTemplate views:TiposAusenciaPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Parâmetros comerciais" Route="parametros-comerciais" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Parâmetros comerciais" ContentTemplate="{DataTemplate views:ParametrosComerciaisPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Configurações" Route="configuracoes-comercial" IsVisible="{Binding PodeVerConfiguracoesComercial}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Configurações" Route="configuracoes-organizacao" IsVisible="{Binding PodeVerConfiguracoesOrganizacao}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
     </FlyoutItem>

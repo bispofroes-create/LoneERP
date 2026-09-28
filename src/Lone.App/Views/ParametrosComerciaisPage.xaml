@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Parâmetros do módulo Comercial (Motor Comercial, Fase 1c): aviso de fim dos vínculos e crédito padrão nas ausências. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:com="clr-namespace:Lone.Cliente.ViewModels.Comercial;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.ParametrosComerciaisPage"
+             x:DataType="com:ParametrosComerciaisViewModel"
+             Title="Parâmetros comerciais">
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView>
+            <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760" HorizontalOptions="Fill">
+                <Label Text="Parâmetros comerciais" Style="{StaticResource Titulo}" />
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                <Label Text="Carteira de clientes" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
+                <FlexLayout Wrap="Wrap">
+                    <c:Campo Rotulo="Aviso de fim do vínculo (dias)" Texto="{Binding DiasAviso}" Mascara="Numero" Dica="Ex.: 30" />
+                </FlexLayout>
+                <Label Text="Com esta antecedência, o cartão do vínculo na ficha do cliente fica destacado e o vínculo aparece em &quot;Carteira vencendo&quot;."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                <Label Text="Ausências e coberturas" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+                <FlexLayout Wrap="Wrap">
+                    <c:CampoEscolha Rotulo="Crédito das vendas durante a ausência" Itens="{Binding Creditos}" Selecionado="{Binding Credito}" />
+                    <c:Campo Rotulo="Percentual de quem cobre (%)" Texto="{Binding PercentualSubstituto}" Teclado="Numeric" IsVisible="{Binding Dividido}" />
+                </FlexLayout>
+                <Label Text="É a sugestão para cada nova cobertura (cada uma pode ter a sua). Padrão: do titular, porque a carteira continua sendo dele."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" />
+                <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>
