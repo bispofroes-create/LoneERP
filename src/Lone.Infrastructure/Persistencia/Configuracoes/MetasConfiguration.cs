@@ -17,6 +17,9 @@ public class EquipeConfiguration : IEntityTypeConfiguration<Equipe>
         b.HasOne<Departamento>().WithMany().HasForeignKey(x => x.DepartamentoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.LiderId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Membros).WithOne().HasForeignKey(x => x.EquipeId).OnDelete(DeleteBehavior.Restrict);
+
+        // Hierarquia (Fase 2a): equipe acima. Nunca apaga em cascata.
+        b.HasOne<Equipe>().WithMany().HasForeignKey(x => x.EquipePaiId).OnDelete(DeleteBehavior.NoAction);
     }
 }
 
@@ -29,6 +32,7 @@ public class MembroEquipeConfiguration : IEntityTypeConfiguration<MembroEquipe>
         b.HasOne<Pessoa>().WithMany().HasForeignKey(x => x.PessoaId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.EquipeId, x.PessoaId });
         b.HasIndex(x => x.PessoaId); // "de que equipes a pessoa participa" (apuração)
+        b.Property(x => x.Papel).HasConversion<byte>(); // 0 = Membro
     }
 }
 

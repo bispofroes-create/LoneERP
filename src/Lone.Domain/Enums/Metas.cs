@@ -64,3 +64,12 @@ public enum OrigemRealizado : byte
     Informado = 1,
     Importado = 2
 }
+
+/// <summary>Papel de um membro na equipe, com vigência (Motor Comercial, Fase 2a). Gravado no banco: valores novos entram no fim.</summary>
+public enum PapelNaEquipe : byte
+{
+    Membro = 0,
+
+    /// <summary>Lidera a equipe no período: vê a carteira dos membros e das equipes abaixo (alcance "Minha equipe").</summary>
+    Lider = 1
+}

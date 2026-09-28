@@ -63,6 +63,8 @@ public sealed class PerfilAppService : IPerfilAppService
             Descricao = string.IsNullOrWhiteSpace(dto.Descricao) ? null : dto.Descricao.Trim(),
             Administrador = dto.Administrador,
             Ativo = dto.Ativo,
+            // O administrador vê tudo: o alcance dele fica "Tudo" para não sugerir outra coisa.
+            AlcanceComercial = dto.Administrador ? Lone.Domain.Enums.AlcanceComercial.Tudo : dto.AlcanceComercial,
             Permissoes = dto.Administrador
                 ? new List<PerfilPermissao>()
                 : dto.Permissoes.Where(validos.Contains).Distinct()
@@ -73,6 +75,7 @@ public sealed class PerfilAppService : IPerfilAppService
         if (dados.Nome.Length == 0) erros.Add("Informe o nome do perfil.");
         else if (await _perfis.NomeEmUsoAsync(dados.Nome, id, ct)) erros.Add("Já existe um perfil com este nome.");
         if (!dados.Administrador && dados.Permissoes.Count == 0) erros.Add("Escolha ao menos uma permissão.");
+        if (!Enum.IsDefined(dados.AlcanceComercial)) erros.Add("Alcance inválido.");
 
         if (anterior is { Administrador: true, Ativo: true } && !(dados.Administrador && dados.Ativo))
         {
@@ -96,6 +99,7 @@ public sealed class PerfilAppService : IPerfilAppService
         Descricao = p.Descricao,
         Administrador = p.Administrador,
         Ativo = p.Ativo,
+        AlcanceComercial = p.AlcanceComercial,
         Permissoes = p.Permissoes.Select(x => x.Codigo).Order().ToList()
     };
 }

@@ -70,6 +70,13 @@
                 <c:CaixaMarcar Texto="Ativo" Marcado="{Binding Formulario.Ativo}" Margin="0,8,0,0" />
                 <c:CaixaMarcar Texto="Administrador (acesso a tudo, inclusive telas futuras)" Marcado="{Binding Formulario.Administrador}" />
 
+                <!-- Alcance (Motor Comercial, Fase 2a): até onde o perfil enxerga os cadastros. O administrador vê tudo. -->
+                <VerticalStackLayout IsVisible="{Binding Formulario.MostrarPermissoes}" Spacing="4" Margin="0,12,0,0">
+                    <c:CampoEscolha Rotulo="Alcance em Pessoas e no Comercial" Itens="{Binding Formulario.ListaAlcances}"
+                                    Selecionado="{Binding Formulario.Alcance}" />
+                    <Label Text="{Binding Formulario.AjudaAlcance}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
                 <!-- Permissões por módulo -->
                 <VerticalStackLayout IsVisible="{Binding Formulario.MostrarPermissoes}" Spacing="8" Margin="0,12,0,0">
                     <Label Text="Permissões" Style="{StaticResource Subtitulo}" />

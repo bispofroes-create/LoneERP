@@ -30,6 +30,8 @@ public static class SegurancaEndpoints
 
         grupo.MapGet("perfis-disponiveis", (IUsuarioAppService servico, CancellationToken ct) => servico.ListarPerfisAsync(ct));
 
+        grupo.MapGet("pessoas", (string? texto, IUsuarioAppService servico, CancellationToken ct) => servico.BuscarPessoasAsync(texto, ct));
+
         grupo.MapGet("{id:guid}", async (Guid id, IUsuarioAppService servico, CancellationToken ct) =>
             await servico.ObterAsync(id, ct) is { } usuario
                 ? Results.Ok(usuario)

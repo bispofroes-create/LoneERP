@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Comum;
 
@@ -38,6 +40,60 @@ public sealed partial class UsuarioFormulario : ObservableObject
 
     public ObservableCollection<PerfilAtribuido> Perfis { get; } = new();
 
+    // ---- Pessoa no cadastro (Fase 2a, decisão F1): quem é o usuário em Pessoas; base de "Minha carteira" e "Minha equipe" ----
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemPessoa), nameof(TextoPessoa))]
+    [NotifyCanExecuteChangedFor(nameof(TirarPessoaCommand))]
+    private Guid? _pessoaId;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoPessoa))]
+    private string _pessoaNome = string.Empty;
+
+    public bool TemPessoa => PessoaId is not null;
+
+    public string TextoPessoa => PessoaId is null
+        ? "Nenhuma pessoa ligada: com alcance \"Minha carteira\" ou \"Minha equipe\", este usuário não verá nenhum cliente."
+        : $"Ligado a: {PessoaNome}";
+
+    /// <summary>Texto digitado para buscar a pessoa (a busca é feita pela tela, que chama a API).</summary>
+    [ObservableProperty] private string _buscaPessoa = string.Empty;
+
+    /// <summary>Resultado da busca. Escolher na lista não liga: é preciso confirmar em "Ligar" (evita trocar a lista dentro da seleção).</summary>
+    public ObservableCollection<PessoaOpcaoDto> ResultadosPessoa { get; } = new();
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LigarPessoaCommand))]
+    private PessoaOpcaoDto? _pessoaEscolhida;
+
+    /// <summary>Troca o resultado da busca (chamado pela tela depois da API).</summary>
+    public void DefinirResultadosPessoa(IEnumerable<PessoaOpcaoDto> pessoas)
+    {
+        PessoaEscolhida = null;
+        ResultadosPessoa.Clear();
+        foreach (var p in pessoas) ResultadosPessoa.Add(p);
+    }
+
+    private bool PodeLigarPessoa() => PessoaEscolhida is not null;
+
+    [RelayCommand(CanExecute = nameof(PodeLigarPessoa))]
+    private void LigarPessoa()
+    {
+        if (PessoaEscolhida is not { } escolhida) return;
+        PessoaId = escolhida.Id;
+        PessoaNome = escolhida.Nome;
+        BuscaPessoa = string.Empty;
+        DefinirResultadosPessoa([]);
+    }
+
+    [RelayCommand(CanExecute = nameof(TemPessoa))]
+    private void TirarPessoa()
+    {
+        PessoaId = null;
+        PessoaNome = string.Empty;
+    }
+
     public DateTime? BloqueadoAte { get; private init; }
     public DateTime? UltimoAcessoEm { get; private init; }
 
@@ -65,6 +121,8 @@ public sealed partial class UsuarioFormulario : ObservableObject
             Email = dto.Email ?? string.Empty,
             Ativo = dto.Ativo,
             DeveTrocarSenha = dto.DeveTrocarSenha,
+            PessoaId = dto.PessoaId,
+            PessoaNome = dto.Pessoa ?? (dto.PessoaId is null ? string.Empty : "(pessoa não encontrada)"),
             BloqueadoAte = dto.BloqueadoAte,
             UltimoAcessoEm = dto.UltimoAcessoEm
         };
@@ -103,6 +161,7 @@ public sealed partial class UsuarioFormulario : ObservableObject
             Email = string.IsNullOrWhiteSpace(Email) ? null : Email,
             Ativo = Ativo,
             DeveTrocarSenha = DeveTrocarSenha,
+            PessoaId = PessoaId,
             Perfis = Perfis.Select(p => p.ParaDto()).ToList()
         },
         NovaSenha.Length == 0 ? null : NovaSenha);

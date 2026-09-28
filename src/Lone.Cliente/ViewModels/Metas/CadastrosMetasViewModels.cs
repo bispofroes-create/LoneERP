@@ -244,7 +244,11 @@ public sealed class LinhaEquipe
 
     public EquipeDto Item { get; }
     public string Nome => Item.Nome;
-    public string Detalhe => Item.Lider is { } l ? "Líder: " + l : string.Empty;
+    public string Detalhe => string.Join("  ·  ", new[]
+    {
+        Item.Lider is { } l ? "Líder: " + l : null,
+        Item.EquipePai is { } p ? "Acima: " + p : null
+    }.Where(x => x is not null));
     public string Membros { get; }
     public string Ativo => Item.Ativo ? "Sim" : "Não";
 }
@@ -263,7 +267,13 @@ public sealed partial class MembroEquipeFormulario : ItemDeLista
         _fimEm = TextoTela.Data(d.FimEm);
         _pessoas = OpcoesMetas.Participantes(opcoes, NivelParticipante.Colaborador, d.PessoaId == Guid.Empty ? null : d.PessoaId, d.Pessoa);
         _pessoa = OpcoesMetas.Escolher(_pessoas, d.PessoaId);
+        _papel = Papeis.FirstOrDefault(x => x.Valor == d.Papel) ?? Papeis[0];
     }
+
+    /// <summary>Membro ou Líder (um líder por vez; decisão F3). Array: o Picker precisa de IList.</summary>
+    public static readonly Opcao<PapelNaEquipe>[] Papeis = [new(PapelNaEquipe.Membro, "Membro"), new(PapelNaEquipe.Lider, "Líder")];
+
+    public Opcao<PapelNaEquipe>[] ListaPapeis => Papeis;
 
     public static MembroEquipeFormulario De(MembroEquipeDto d, IReadOnlyList<ParticipanteOpcaoDto> opcoes) => new(d, true, opcoes);
 
@@ -275,10 +285,14 @@ public sealed partial class MembroEquipeFormulario : ItemDeLista
     public bool PodeRemover => !Gravado;
     public bool PodeTrocarPessoa => !Gravado;
 
+    /// <summary>Papel de quem já entrou não muda (o histórico não é reescrito): encerra e inclui de novo.</summary>
+    public bool PodeTrocarPapel => !Gravado || _gravado.InicioEm > DateOnly.FromDateTime(DateTime.Today);
+
     [ObservableProperty] private string _inicioEm;
     [ObservableProperty] private string _fimEm;
     [ObservableProperty] private Opcao<Guid?>[] _pessoas;
     [ObservableProperty] private Opcao<Guid?> _pessoa;
+    [ObservableProperty] private Opcao<PapelNaEquipe> _papel;
 
     public IEnumerable<string> Validar()
     {
@@ -292,21 +306,52 @@ public sealed partial class MembroEquipeFormulario : ItemDeLista
     {
         TextoTela.TentarData(InicioEm, out var i);
         TextoTela.TentarData(FimEm, out var f);
-        return new MembroEquipeDto { Id = Id, PessoaId = Pessoa.Valor ?? _gravado.PessoaId, InicioEm = i ?? default, FimEm = f };
+        return new MembroEquipeDto { Id = Id, PessoaId = Pessoa.Valor ?? _gravado.PessoaId, InicioEm = i ?? default, FimEm = f, Papel = Papel.Valor };
     }
 }
 
 public sealed partial class EquipeEdicao : ObservableObject
 {
-    private EquipeEdicao(Guid id, bool novo, MetaOpcoesDto opcoes, Guid? departamento, Guid? lider, string? nomeLider)
+    private EquipeEdicao(Guid id, bool novo, MetaOpcoesDto opcoes, IReadOnlyList<EquipeDto> equipes, Guid? departamento, Guid? pai,
+                         string? nomeLider)
     {
         Id = id;
         Novo = novo;
         Opcoes = opcoes;
         _departamentos = OpcoesMetas.Participantes(opcoes.Participantes, NivelParticipante.Departamento, departamento, null);
         _departamento = OpcoesMetas.Escolher(_departamentos, departamento);
-        _lideres = OpcoesMetas.Participantes(opcoes.Participantes, NivelParticipante.Colaborador, lider, nomeLider);
-        _lider = OpcoesMetas.Escolher(_lideres, lider);
+        _equipesAcima = EquipesAcimaPossiveis(id, equipes, pai);
+        _equipeAcima = OpcoesMetas.Escolher(_equipesAcima, pai);
+        LiderHoje = nomeLider ?? "Sem líder hoje";
+    }
+
+    /// <summary>
+    /// Equipes que podem ficar acima: as ativas, menos a própria e as que estão abaixo dela (evita ciclo); a gravada fica
+    /// na lista mesmo desativada. O servidor confere de novo (RegrasEquipe).
+    /// </summary>
+    public static Opcao<Guid?>[] EquipesAcimaPossiveis(Guid id, IReadOnlyList<EquipeDto> equipes, Guid? atual)
+    {
+        var abaixo = Abaixo(id, equipes);
+        return
+        [
+            OpcoesMetas.Nenhum,
+            .. equipes.Where(e => e.Id != id && !abaixo.Contains(e.Id) && (e.Ativo || e.Id == atual))
+                .OrderBy(e => e.Nome, StringComparer.CurrentCultureIgnoreCase)
+                .Select(e => new Opcao<Guid?>(e.Id, e.Ativo ? e.Nome : e.Nome + " (desativada)"))
+        ];
+    }
+
+    /// <summary>As equipes abaixo de <paramref name="id"/> (filhas, netas...). Resiste a ciclo gravado.</summary>
+    private static HashSet<Guid> Abaixo(Guid id, IReadOnlyList<EquipeDto> equipes)
+    {
+        var filhas = equipes.Where(e => e.EquipePaiId is not null).ToLookup(e => e.EquipePaiId!.Value, e => e.Id);
+        var resultado = new HashSet<Guid>();
+        var fila = new Queue<Guid>();
+        fila.Enqueue(id);
+        while (fila.Count > 0)
+            foreach (var filha in filhas[fila.Dequeue()])
+                if (filha != id && resultado.Add(filha)) fila.Enqueue(filha);
+        return resultado;
     }
 
     public Guid Id { get; }
@@ -318,19 +363,24 @@ public sealed partial class EquipeEdicao : ObservableObject
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo))] private string _nome = string.Empty;
     [ObservableProperty] private Opcao<Guid?>[] _departamentos;
     [ObservableProperty] private Opcao<Guid?> _departamento;
-    [ObservableProperty] private Opcao<Guid?>[] _lideres;
-    [ObservableProperty] private Opcao<Guid?> _lider;
+    [ObservableProperty] private Opcao<Guid?>[] _equipesAcima;
+    [ObservableProperty] private Opcao<Guid?> _equipeAcima;
+
+    /// <summary>Somente leitura: o líder é o membro com papel Líder vigente hoje (recalculado ao salvar).</summary>
+    public string LiderHoje { get; }
 
     public ObservableCollection<MembroEquipeFormulario> Membros { get; } = new();
 
     public string Titulo => string.IsNullOrWhiteSpace(Nome) ? "Nova equipe" : Nome;
     public string SituacaoTexto => Novo ? "Nova equipe" : Ativo ? "Ativa" : "Desativada (não aparece para novas metas)";
 
-    public static EquipeEdicao Criar(MetaOpcoesDto opcoes) => new(IdSequencial.Novo(), true, opcoes, null, null, null);
+    public static EquipeEdicao Criar(MetaOpcoesDto opcoes, IReadOnlyList<EquipeDto> equipes) =>
+        new(IdSequencial.Novo(), true, opcoes, equipes, null, null, null);
 
-    public static EquipeEdicao De(EquipeDto d, MetaOpcoesDto opcoes)
+    public static EquipeEdicao De(EquipeDto d, MetaOpcoesDto opcoes, IReadOnlyList<EquipeDto> equipes)
     {
-        var e = new EquipeEdicao(d.Id, false, opcoes, d.DepartamentoId, d.LiderId, d.Lider) { Versao = d.Versao, Ativo = d.Ativo, Nome = d.Nome };
+        var e = new EquipeEdicao(d.Id, false, opcoes, equipes, d.DepartamentoId, d.EquipePaiId, d.Lider)
+            { Versao = d.Versao, Ativo = d.Ativo, Nome = d.Nome };
         foreach (var m in d.Membros.OrderBy(m => m.FimEm is not null).ThenBy(m => m.Pessoa)) e.Incluir(MembroEquipeFormulario.De(m, opcoes.Participantes));
         return e;
     }
@@ -351,7 +401,7 @@ public sealed partial class EquipeEdicao : ObservableObject
 
     public EquipeDto ParaDto() => new()
     {
-        Id = Id, Versao = Versao, Nome = Nome.Trim(), DepartamentoId = Departamento.Valor, LiderId = Lider.Valor, Ativo = Ativo,
+        Id = Id, Versao = Versao, Nome = Nome.Trim(), DepartamentoId = Departamento.Valor, EquipePaiId = EquipeAcima.Valor, Ativo = Ativo,
         Membros = Membros.Select(m => m.ParaDto()).ToList()
     };
 }
@@ -361,6 +411,7 @@ public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe
 {
     private readonly MetasApi _api;
     private MetaOpcoesDto _opcoes = new();
+    private IReadOnlyList<EquipeDto> _equipes = [];
 
     public EquipesViewModel(MetasApi api, IDialogos dialogos) : base(dialogos)
     {
@@ -381,7 +432,8 @@ public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe
     protected override async Task<IReadOnlyList<LinhaEquipe>> ListarAsync()
     {
         var hoje = DateOnly.FromDateTime(DateTime.Today);
-        return (await _api.ListarEquipesAsync()).OrderBy(t => !t.Ativo).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
+        _equipes = await _api.ListarEquipesAsync();
+        return _equipes.OrderBy(t => !t.Ativo).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
             .Select(t => new LinhaEquipe(t, hoje)).ToList();
     }
 
@@ -389,7 +441,7 @@ public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe
 
     protected override Task NovoItemAsync()
     {
-        Formulario = EquipeEdicao.Criar(_opcoes);
+        Formulario = EquipeEdicao.Criar(_opcoes, _equipes);
         return Task.CompletedTask;
     }
 
@@ -402,7 +454,7 @@ public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe
     }
 
     private async Task<EquipeEdicao> ObterAsync(Guid id) =>
-        EquipeEdicao.De(await _api.ObterEquipeAsync(id) ?? throw new ValidacaoException(["Esta equipe não existe mais."]), _opcoes);
+        EquipeEdicao.De(await _api.ObterEquipeAsync(id) ?? throw new ValidacaoException(["Esta equipe não existe mais."]), _opcoes, _equipes);
 
     [RelayCommand]
     private void AdicionarMembro() => Formulario?.Incluir(MembroEquipeFormulario.Novo(_opcoes.Participantes));
@@ -419,7 +471,7 @@ public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe
         EquipeDto? salvo = null;
         if (!await ExecutarAsync(async () => salvo = await _api.SalvarEquipeAsync(f.ParaDto()))) return;
         await AtualizarListaAposGravarAsync();
-        Formulario = EquipeEdicao.De(salvo!, _opcoes);
+        Formulario = EquipeEdicao.De(salvo!, _opcoes, _equipes);
         MarcarFichaSemAlteracoes();
         Mostrar(f.Novo ? "Equipe criada." : "Alterações salvas.", TipoMensagem.Sucesso);
     }
@@ -441,7 +493,7 @@ public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe
         EquipeDto? gravado = null;
         if (!await ExecutarAsync(async () => gravado = await _api.AlterarAtivoAsync<EquipeDto>(Rotas.Metas.Equipes, f.Id, ativar, f.Versao))) return;
         await AtualizarListaAposGravarAsync();
-        Formulario = EquipeEdicao.De(gravado!, _opcoes);
+        Formulario = EquipeEdicao.De(gravado!, _opcoes, _equipes);
         MarcarFichaSemAlteracoes();
         Mostrar(ativar ? "Reativada." : "Desativada.", TipoMensagem.Sucesso);
     }

@@ -8,10 +8,18 @@ public sealed class EquipeDto
     public byte[]? Versao { get; set; }
     public string Nome { get; set; } = string.Empty;
     public Guid? DepartamentoId { get; set; }
+
+    /// <summary>Somente leitura: o líder de hoje (membro com papel Líder); o servidor ignora o que vier aqui.</summary>
     public Guid? LiderId { get; set; }
 
     /// <summary>Somente leitura: nome do líder.</summary>
     public string? Lider { get; set; }
+
+    /// <summary>Equipe acima desta na hierarquia (nula = topo).</summary>
+    public Guid? EquipePaiId { get; set; }
+
+    /// <summary>Somente leitura: nome da equipe acima.</summary>
+    public string? EquipePai { get; set; }
     public bool Ativo { get; set; } = true;
     public List<MembroEquipeDto> Membros { get; set; } = new();
 }
@@ -25,6 +33,7 @@ public sealed class MembroEquipeDto
     public string? Pessoa { get; set; }
     public DateOnly InicioEm { get; set; }
     public DateOnly? FimEm { get; set; }
+    public Lone.Domain.Enums.PapelNaEquipe Papel { get; set; }
 }
 
 public sealed class IndicadorDto

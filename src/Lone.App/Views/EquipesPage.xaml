@@ -54,7 +54,7 @@
         <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
                              HorizontalOptions="Center" Spacing="6" Padding="24">
             <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Equipes agrupam colaboradores (ex.: Televendas Sul) e podem ser participantes das metas. Membros têm entrada e saída: quem sai continua no histórico."
+            <Label Text="Equipes agrupam colaboradores (ex.: Televendas Sul) e podem ser participantes das metas. Membros têm entrada e saída: quem sai continua no histórico. Uma equipe pode ficar abaixo de outra (ex.: Televendas Sul abaixo de Comercial)."
                    Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
         </VerticalStackLayout>
 
@@ -72,8 +72,17 @@
                     <FlexLayout Wrap="Wrap">
                         <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Televendas Sul" />
                         <c:CampoEscolha Rotulo="Departamento" Itens="{Binding Formulario.Departamentos}" Selecionado="{Binding Formulario.Departamento}" />
-                        <c:CampoEscolha Rotulo="Líder" Itens="{Binding Formulario.Lideres}" Selecionado="{Binding Formulario.Lider}" />
+                        <c:CampoEscolha Rotulo="Equipe acima" Itens="{Binding Formulario.EquipesAcima}" Selecionado="{Binding Formulario.EquipeAcima}" />
                     </FlexLayout>
+                    <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="Líder hoje: " />
+                                <Span Text="{Binding Formulario.LiderHoje}" FontAttributes="Bold" />
+                                <Span Text=". O líder é o membro com papel Líder (um por vez). Para trocar, informe a saída do líder atual e inclua o novo como Líder a partir do dia seguinte. Quem lidera enxerga a carteira da equipe e das equipes abaixo." />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
 
                     <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
                         <Label Text="Membros" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
@@ -91,6 +100,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <FlexLayout Wrap="Wrap">
                                             <c:CampoEscolha Rotulo="Pessoa" Itens="{Binding Pessoas}" Selecionado="{Binding Pessoa}" IsEnabled="{Binding PodeTrocarPessoa}" />
+                                            <c:CampoEscolha Rotulo="Papel" Itens="{Binding ListaPapeis}" Selecionado="{Binding Papel}" IsEnabled="{Binding PodeTrocarPapel}" />
                                             <c:Campo Rotulo="Entrada" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                             <c:Campo Rotulo="Saída" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
                                         </FlexLayout>

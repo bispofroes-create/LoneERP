@@ -14,6 +14,7 @@ public class PerfilConfiguration : IEntityTypeConfiguration<Perfil>
         b.Property(p => p.Nome).IsRequired().HasMaxLength(60);
         b.Property(p => p.Descricao).HasMaxLength(250);
         b.HasIndex(p => p.Nome).IsUnique();
+        b.Property(p => p.AlcanceComercial).HasConversion<byte>(); // 0 = Tudo: os perfis existentes continuam vendo tudo
 
         b.HasMany(p => p.Permissoes).WithOne().HasForeignKey(x => x.PerfilId).OnDelete(DeleteBehavior.Cascade);
     }

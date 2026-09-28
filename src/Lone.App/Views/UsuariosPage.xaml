@@ -4,6 +4,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:seg="clr-namespace:Lone.Cliente.ViewModels.Seguranca;assembly=Lone.Cliente"
              xmlns:dto="clr-namespace:Lone.Contracts.Seguranca;assembly=Lone.Contracts"
+             xmlns:col="clr-namespace:Lone.Contracts.Colaboradores;assembly=Lone.Contracts"
              xmlns:c="clr-namespace:Lone.App.Controles"
              x:Class="Lone.App.Views.UsuariosPage"
              x:DataType="seg:UsuariosViewModel"
@@ -83,6 +84,32 @@
                                 Command="{Binding DesbloquearCommand}" IsVisible="{Binding Formulario.Bloqueado}" />
                     </Grid>
                 </Border>
+
+                <!-- Pessoa no cadastro (Fase 2a): base de "Minha carteira" e "Minha equipe" -->
+                <Label Text="Pessoa no cadastro" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+                <Label Text="Quem é este usuário em Pessoas (o colaborador). Define a carteira e a equipe dele. Cada pessoa liga a um só usuário."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Text="{Binding Formulario.TextoPessoa}" FontAttributes="Bold" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                    <Button Grid.Column="1" Text="Tirar" Style="{StaticResource BotaoLink}" Command="{Binding Formulario.TirarPessoaCommand}"
+                            IsVisible="{Binding Formulario.TemPessoa}" ToolTipProperties.Text="Desfaz a ligação (vale ao salvar)" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MaximumWidthRequest="640" HorizontalOptions="Fill">
+                    <SearchBar Text="{Binding Formulario.BuscaPessoa}" Placeholder="Buscar pessoa: nome, código, CPF ou CNPJ"
+                               SearchCommand="{Binding BuscarPessoaCommand}" />
+                    <Button Grid.Column="1" Text="Buscar" Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding BuscarPessoaCommand}" IsEnabled="{Binding Livre}" />
+                </Grid>
+                <CollectionView ItemsSource="{Binding Formulario.ResultadosPessoa}" SelectionMode="Single"
+                                SelectedItem="{Binding Formulario.PessoaEscolhida}" MaximumHeightRequest="200">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="col:PessoaOpcaoDto">
+                            <Label Text="{Binding Nome}" Padding="12,6" LineBreakMode="TailTruncation" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Button Text="Ligar à pessoa escolhida" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
+                        Command="{Binding Formulario.LigarPessoaCommand}" />
 
                 <!-- Perfis -->
                 <Label Text="Perfis" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />

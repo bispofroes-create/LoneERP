@@ -121,6 +121,24 @@ public sealed partial class UsuariosViewModel : CadastroViewModelBase<UsuarioRes
         await AtualizarListaAposGravarAsync();
     }
 
+    /// <summary>Busca a pessoa para ligar ao usuário (ao menos 2 letras: nome, código, CPF ou CNPJ).</summary>
+    [RelayCommand]
+    private async Task BuscarPessoaAsync()
+    {
+        if (Formulario is not { } formulario) return;
+        var texto = formulario.BuscaPessoa.Trim();
+        if (texto.Length < 2)
+        {
+            Mostrar("Digite ao menos 2 letras (nome, código, CPF ou CNPJ) para buscar.", TipoMensagem.Aviso);
+            return;
+        }
+
+        List<Lone.Contracts.Colaboradores.PessoaOpcaoDto>? achadas = null;
+        if (!await ExecutarAsync(async () => achadas = await _api.BuscarPessoasAsync(texto))) return;
+        formulario.DefinirResultadosPessoa(achadas!);
+        if (achadas!.Count == 0) Mostrar("Nenhuma pessoa ativa encontrada.", TipoMensagem.Informacao);
+    }
+
     [RelayCommand]
     private async Task DesbloquearAsync()
     {

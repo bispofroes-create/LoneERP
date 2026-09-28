@@ -1,5 +1,6 @@
 using Lone.Application.Empresas;
 using Lone.Application.Seguranca;
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Empresas;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Entidades;
@@ -63,6 +64,19 @@ internal sealed class UsuariosEmMemoria : IUsuarioRepositorio
         usuario.DeveTrocarSenha = deveTrocarSenha;
         return Task.CompletedTask;
     }
+
+    /// <summary>Pessoas que o teste coloca à disposição: Id → (nome, ativa).</summary>
+    public Dictionary<Guid, (string Nome, bool Ativa)> Pessoas { get; } = new();
+
+    public Task<bool> PessoaEmUsoAsync(Guid pessoaId, Guid ignorarUsuarioId, CancellationToken ct) =>
+        Task.FromResult(Usuarios.Any(u => u.PessoaId == pessoaId && u.Id != ignorarUsuarioId));
+
+    public Task<(string Nome, bool Ativa)?> PessoaAsync(Guid pessoaId, CancellationToken ct) =>
+        Task.FromResult(Pessoas.TryGetValue(pessoaId, out var p) ? p : ((string Nome, bool Ativa)?)null);
+
+    public Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string texto, int limite, CancellationToken ct) =>
+        Task.FromResult(Pessoas.Where(p => p.Value.Ativa && p.Value.Nome.Contains(texto, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.Value.Nome).Take(limite).Select(p => new PessoaOpcaoDto(p.Key, p.Value.Nome)).ToList());
 }
 
 internal sealed class TokensEmMemoria : ITokenRenovacaoRepositorio

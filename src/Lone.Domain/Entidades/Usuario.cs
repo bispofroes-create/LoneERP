@@ -29,6 +29,13 @@ public class Usuario : AgregadoRaiz
     [DisplayName("Ativo")]
     public bool Ativo { get; set; } = true;
 
+    /// <summary>
+    /// Quem é este usuário no cadastro de Pessoas (ex.: o vendedor Rafael). Opcional; uma pessoa tem no máximo um usuário.
+    /// É a base do alcance "Minha carteira" e "Minha equipe" (Motor Comercial, Fase 2a; decisão F1).
+    /// </summary>
+    [DisplayName("Pessoa no cadastro")]
+    public Guid? PessoaId { get; set; }
+
     public List<UsuarioPerfil> Perfis { get; set; } = new();
 
     /// <summary>Tentativas, bloqueio e último acesso (tabela própria; nulo até o primeiro login).</summary>

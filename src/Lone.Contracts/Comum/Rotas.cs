@@ -309,6 +309,10 @@ public static class Rotas
 
         /// <summary>Perfis que podem ser atribuídos (para quem gerencia usuários, sem precisar gerenciar perfis).</summary>
         public const string PerfisDisponiveis = Grupo + "/perfis-disponiveis";
+
+        /// <summary>Busca de pessoas para ligar ao usuário (Fase 2a). Parâmetro: texto.</summary>
+        public const string Pessoas = Grupo + "/pessoas";
+        public static string BuscarPessoas(string texto) => $"{Pessoas}?texto={Uri.EscapeDataString(texto)}";
     }
 
     public static class Perfis

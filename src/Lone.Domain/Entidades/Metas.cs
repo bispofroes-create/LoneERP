@@ -19,8 +19,16 @@ public class Equipe : AgregadoRaiz
     [DisplayName("Departamento")]
     public Guid? DepartamentoId { get; set; }
 
+    /// <summary>
+    /// Cópia do líder vigente hoje (membro com papel Líder), gravada pelo servidor para listas e metas. A verdade, com o
+    /// histórico, está nos membros (Fase 2a; decisão F3). Não é editado direto.
+    /// </summary>
     [DisplayName("Líder")]
     public Guid? LiderId { get; set; }
+
+    /// <summary>Equipe acima desta na hierarquia (ex.: Regional Sul acima de Televendas Sul). Nula = topo.</summary>
+    [DisplayName("Equipe acima")]
+    public Guid? EquipePaiId { get; set; }
 
     [DisplayName("Ativa")]
     public bool Ativo { get; set; } = true;
@@ -56,6 +64,10 @@ public class MembroEquipe : EntidadeBase, IParteDeAgregado
 
     [DisplayName("Saída")]
     public DateOnly? FimEm { get; set; }
+
+    /// <summary>Membro ou líder no período. Mudar o papel depois de começar é sair e entrar de novo (o histórico fica).</summary>
+    [DisplayName("Papel")]
+    public PapelNaEquipe Papel { get; set; }
 
     string IParteDeAgregado.RaizEntidade => nameof(Equipe);
     Guid IParteDeAgregado.RaizId => EquipeId;

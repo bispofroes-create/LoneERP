@@ -18,6 +18,10 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 
         b.HasIndex(u => u.Login).IsUnique();
 
+        // Quem é o usuário no cadastro de Pessoas (Fase 2a): uma pessoa tem no máximo um usuário.
+        b.HasOne<Pessoa>().WithMany().HasForeignKey(u => u.PessoaId).OnDelete(DeleteBehavior.NoAction);
+        b.HasIndex(u => u.PessoaId).IsUnique().HasFilter("[PessoaId] IS NOT NULL");
+
         b.HasMany(u => u.Perfis).WithOne().HasForeignKey(p => p.UsuarioId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne(u => u.Acesso).WithOne().HasForeignKey<UsuarioAcesso>(a => a.UsuarioId).OnDelete(DeleteBehavior.Cascade);
     }

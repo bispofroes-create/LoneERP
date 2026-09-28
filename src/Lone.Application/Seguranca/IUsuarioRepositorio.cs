@@ -1,3 +1,4 @@
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Entidades;
 
@@ -34,6 +35,15 @@ public interface IUsuarioRepositorio
 
     /// <summary>Grava novo hash de senha (auditado sem o valor).</summary>
     Task AlterarSenhaAsync(Guid usuarioId, string senhaHash, bool deveTrocarSenha, CancellationToken ct);
+
+    /// <summary>Se a pessoa já está ligada a outro usuário (uma pessoa por usuário; Fase 2a, decisão F1).</summary>
+    Task<bool> PessoaEmUsoAsync(Guid pessoaId, Guid ignorarUsuarioId, CancellationToken ct);
+
+    /// <summary>Nome da pessoa e se está em uso (ativa ou em análise); nulo se não existe.</summary>
+    Task<(string Nome, bool Ativa)?> PessoaAsync(Guid pessoaId, CancellationToken ct);
+
+    /// <summary>Pessoas ativas ou em análise que batem com o texto (mesma busca da lista de Pessoas), para ligar ao usuário.</summary>
+    Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string texto, int limite, CancellationToken ct);
 }
 
 public interface IPerfilRepositorio

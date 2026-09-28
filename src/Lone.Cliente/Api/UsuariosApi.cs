@@ -1,3 +1,4 @@
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Empresas;
 using Lone.Contracts.Seguranca;
@@ -34,4 +35,8 @@ public sealed class UsuariosApi
     /// <summary>Empresas do grupo, para limitar um perfil a uma empresa.</summary>
     public Task<List<EmpresaResumo>> ListarEmpresasAsync(CancellationToken ct = default) =>
         _api.GetAsync<List<EmpresaResumo>>(Rotas.Empresas.DoGrupo, ct);
+
+    /// <summary>Pessoas ativas ou em análise para ligar ao usuário (Fase 2a).</summary>
+    public Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string texto, CancellationToken ct = default) =>
+        _api.GetAsync<List<PessoaOpcaoDto>>(Rotas.Usuarios.BuscarPessoas(texto), ct);
 }

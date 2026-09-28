@@ -25,13 +25,17 @@ public sealed class EquipeAppService : IEquipeAppService
     private readonly IEquipeRepositorio _repositorio;
     private readonly IMetaConsultas _consultas;
     private readonly IAutorizacao _autorizacao;
+    private readonly TimeProvider _relogio;
 
-    public EquipeAppService(IEquipeRepositorio repositorio, IMetaConsultas consultas, IAutorizacao autorizacao)
+    public EquipeAppService(IEquipeRepositorio repositorio, IMetaConsultas consultas, IAutorizacao autorizacao, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _consultas = consultas;
         _autorizacao = autorizacao;
+        _relogio = relogio;
     }
+
+    private DateOnly Hoje => DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime);
 
     public async Task<List<EquipeDto>> ListarAsync(bool incluirInativas, CancellationToken ct = default)
     {
@@ -59,35 +63,23 @@ public sealed class EquipeAppService : IEquipeAppService
             Versao = dto.Versao,
             Nome = RegrasMeta.Texto(dto.Nome) ?? string.Empty,
             DepartamentoId = dto.DepartamentoId == Guid.Empty ? null : dto.DepartamentoId,
-            LiderId = dto.LiderId == Guid.Empty ? null : dto.LiderId,
+            EquipePaiId = dto.EquipePaiId == Guid.Empty ? null : dto.EquipePaiId,
             Ativo = anterior?.Ativo ?? true,
             Membros = dto.Membros.Select(m => new MembroEquipe
             {
-                Id = m.Id == Guid.Empty ? IdSequencial.Novo() : m.Id, EquipeId = id, PessoaId = m.PessoaId, InicioEm = m.InicioEm, FimEm = m.FimEm
+                Id = m.Id == Guid.Empty ? IdSequencial.Novo() : m.Id, EquipeId = id, PessoaId = m.PessoaId, InicioEm = m.InicioEm,
+                FimEm = m.FimEm, Papel = m.Papel
             }).ToList()
         };
         // Membros gravados nunca somem: o que não veio continua como estava.
         foreach (var gravado in anterior?.Membros ?? [])
             if (dados.Membros.All(m => m.Id != gravado.Id)) dados.Membros.Add(gravado);
 
-        var erros = new List<string>();
-        if (dados.Nome.Length == 0) erros.Add("Informe o nome da equipe.");
-        else if (dados.Nome.Length > Equipe.TamanhoMaximoNome) erros.Add($"O nome pode ter no máximo {Equipe.TamanhoMaximoNome} caracteres.");
-        if (todas.Any(t => t.Id != id && TextoBusca.Normalizar(t.Nome) == TextoBusca.Normalizar(dados.Nome)))
-            erros.Add($"Já existe a equipe \"{dados.Nome}\".");
-        foreach (var m in dados.Membros)
-        {
-            if (m.PessoaId == Guid.Empty || m.InicioEm == default) erros.Add("Cada membro precisa da pessoa e da data de entrada.");
-            if (m.FimEm is { } fim && fim < m.InicioEm) erros.Add("A saída de um membro é anterior à entrada.");
-        }
-        foreach (var grupo in dados.Membros.GroupBy(m => m.PessoaId))
-        {
-            var lista = grupo.OrderBy(m => m.InicioEm).ToList();
-            for (var i = 1; i < lista.Count; i++)
-                if ((lista[i - 1].FimEm ?? DateOnly.MaxValue) >= lista[i].InicioEm)
-                    erros.Add("A mesma pessoa aparece duas vezes na equipe no mesmo período.");
-        }
+        var erros = RegrasEquipe.Validar(dados, todas, anterior, Hoje);
         if (erros.Count > 0) throw new ValidacaoException(erros.Distinct().ToList());
+
+        // O líder da lista e das metas é a cópia do líder vigente hoje (a verdade, com histórico, está nos membros).
+        dados.LiderId = RegrasEquipe.LiderEm(dados, Hoje);
 
         if (anterior is null) dados.RegistrarEvento($"Equipe '{dados.Nome}' criada.");
         else if (anterior.Nome != dados.Nome) dados.RegistrarEvento($"Equipe '{anterior.Nome}' renomeada para '{dados.Nome}'.");
@@ -114,15 +106,29 @@ public sealed class EquipeAppService : IEquipeAppService
 
     private async Task<List<EquipeDto>> ParaDtosAsync(IReadOnlyList<Equipe> equipes, CancellationToken ct)
     {
+        var hoje = Hoje;
         var nomes = await _consultas.NomesPessoasAsync(
-            equipes.SelectMany(e => e.Membros.Select(m => m.PessoaId)).Concat(equipes.Select(e => e.LiderId).OfType<Guid>()).Distinct().ToList(), ct);
-        return equipes.Select(e => new EquipeDto
+            equipes.SelectMany(e => e.Membros.Select(m => m.PessoaId)).Distinct().ToList(), ct);
+        var nomesEquipes = equipes.Any(e => e.EquipePaiId is not null)
+            ? (await _repositorio.ListarAsync(ct)).ToDictionary(e => e.Id, e => e.Nome)
+            : new Dictionary<Guid, string>();
+        return equipes.Select(e =>
         {
-            Id = e.Id, Versao = e.Versao, Nome = e.Nome, DepartamentoId = e.DepartamentoId, LiderId = e.LiderId,
-            Lider = e.LiderId is { } l ? nomes.GetValueOrDefault(l) : null, Ativo = e.Ativo,
-            Membros = e.Membros.OrderByDescending(m => m.FimEm is null).ThenBy(m => nomes.GetValueOrDefault(m.PessoaId))
-                .Select(m => new MembroEquipeDto { Id = m.Id, PessoaId = m.PessoaId, Pessoa = nomes.GetValueOrDefault(m.PessoaId), InicioEm = m.InicioEm, FimEm = m.FimEm })
-                .ToList()
+            // Líder de hoje pelos membros (a cópia gravada pode estar velha se a liderança venceu sem a equipe ser salva).
+            var lider = RegrasEquipe.LiderEm(e, hoje);
+            return new EquipeDto
+            {
+                Id = e.Id, Versao = e.Versao, Nome = e.Nome, DepartamentoId = e.DepartamentoId, LiderId = lider,
+                Lider = lider is { } l ? nomes.GetValueOrDefault(l) : null, Ativo = e.Ativo,
+                EquipePaiId = e.EquipePaiId, EquipePai = e.EquipePaiId is { } pai ? nomesEquipes.GetValueOrDefault(pai) : null,
+                Membros = e.Membros.OrderByDescending(m => m.FimEm is null).ThenByDescending(m => m.Papel).ThenBy(m => nomes.GetValueOrDefault(m.PessoaId))
+                    .Select(m => new MembroEquipeDto
+                    {
+                        Id = m.Id, PessoaId = m.PessoaId, Pessoa = nomes.GetValueOrDefault(m.PessoaId), InicioEm = m.InicioEm, FimEm = m.FimEm,
+                        Papel = m.Papel
+                    })
+                    .ToList()
+            };
         }).ToList();
     }
 }

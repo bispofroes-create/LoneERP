@@ -1,7 +1,9 @@
 using Lone.Application.Seguranca;
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
+using Lone.Domain.Enums;
 using Lone.Infrastructure.Persistencia.Servicos;
 using Microsoft.EntityFrameworkCore;
 
@@ -150,6 +152,36 @@ public class UsuarioRepositorio : ServicoDadosBase, IUsuarioRepositorio
         usuario.SenhaHash = senhaHash;
         usuario.DeveTrocarSenha = deveTrocarSenha;
         await GravarAsync(db, ct);
+    }
+
+    public async Task<bool> PessoaEmUsoAsync(Guid pessoaId, Guid ignorarUsuarioId, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        return await db.Usuarios.AnyAsync(u => u.PessoaId == pessoaId && u.Id != ignorarUsuarioId, ct);
+    }
+
+    public async Task<(string Nome, bool Ativa)?> PessoaAsync(Guid pessoaId, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var pessoa = await db.Pessoas.AsNoTracking().Where(p => p.Id == pessoaId)
+            .Select(p => new { Nome = p.NomeExibicao ?? p.Nome, p.Situacao })
+            .FirstOrDefaultAsync(ct);
+        return pessoa is null
+            ? null
+            : (pessoa.Nome, pessoa.Situacao is SituacaoPessoa.Ativo or SituacaoPessoa.EmAnalise);
+    }
+
+    public async Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string texto, int limite, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var consulta = db.Pessoas.AsNoTracking()
+            .Where(p => p.Situacao == SituacaoPessoa.Ativo || p.Situacao == SituacaoPessoa.EmAnalise);
+        consulta = PessoaRepositorio.AplicarBusca(consulta, texto, db);
+        return await consulta
+            .OrderBy(p => p.NomeExibicao ?? p.Nome).ThenBy(p => p.Id)
+            .Take(limite)
+            .Select(p => new PessoaOpcaoDto(p.Id, p.NomeExibicao ?? p.Nome))
+            .ToListAsync(ct);
     }
 
     private static bool Mesmo(UsuarioPerfil a, UsuarioPerfil b) => a.PerfilId == b.PerfilId && a.EmpresaId == b.EmpresaId;

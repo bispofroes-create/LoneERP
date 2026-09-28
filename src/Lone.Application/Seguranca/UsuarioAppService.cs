@@ -1,4 +1,5 @@
 using Lone.Application.Empresas;
+using Lone.Contracts.Colaboradores;
 using Lone.Contracts.Empresas;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Comum;
@@ -23,6 +24,9 @@ public interface IUsuarioAppService
 
     /// <summary>Empresas do grupo, para atribuir perfis por empresa.</summary>
     Task<List<EmpresaResumo>> ListarEmpresasAsync(CancellationToken ct = default);
+
+    /// <summary>Pessoas (ativas ou em análise) para ligar ao usuário; texto com ao menos 2 caracteres. Fase 2a.</summary>
+    Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string? texto, CancellationToken ct = default);
 }
 
 public sealed class UsuarioAppService : IUsuarioAppService
@@ -57,7 +61,7 @@ public sealed class UsuarioAppService : IUsuarioAppService
     {
         _autorizacao.Exigir(Permissoes.Seguranca.GerenciarUsuarios);
         var usuario = await _usuarios.ObterAsync(id, ct);
-        return usuario is null ? null : ParaDto(usuario);
+        return usuario is null ? null : await ParaDtoAsync(usuario, ct);
     }
 
     public async Task<UsuarioDto> SalvarAsync(SalvarUsuarioRequisicao requisicao, CancellationToken ct = default)
@@ -79,6 +83,7 @@ public sealed class UsuarioAppService : IUsuarioAppService
             Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
             Ativo = dto.Ativo,
             DeveTrocarSenha = dto.DeveTrocarSenha,
+            PessoaId = dto.PessoaId == Guid.Empty ? null : dto.PessoaId,
             Perfis = dto.Perfis
                 .DistinctBy(p => (p.PerfilId, p.EmpresaId))
                 .Select(p => new UsuarioPerfil { Id = IdSequencial.Novo(), UsuarioId = id, PerfilId = p.PerfilId, EmpresaId = p.EmpresaId })
@@ -99,6 +104,7 @@ public sealed class UsuarioAppService : IUsuarioAppService
 
         if (dados.Perfis.Count == 0) erros.Add("Escolha ao menos um perfil.");
         await ValidarPerfisEEmpresasAsync(dados, erros, ct);
+        await ValidarPessoaAsync(dados, anterior, erros, ct);
 
         if (novo && novaSenha is null)
             erros.Add("Informe a senha inicial do usuário.");
@@ -127,7 +133,7 @@ public sealed class UsuarioAppService : IUsuarioAppService
             await _tokens.RevogarTodosDoUsuarioAsync(id, ct);
 
         var salvo = await _usuarios.ObterAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
-        return ParaDto(salvo);
+        return await ParaDtoAsync(salvo, ct);
     }
 
     public Task<List<PerfilResumo>> ListarPerfisAsync(CancellationToken ct = default)
@@ -142,6 +148,13 @@ public sealed class UsuarioAppService : IUsuarioAppService
         return _empresas.ListarEmpresasAsync(ct);
     }
 
+    public async Task<List<PessoaOpcaoDto>> BuscarPessoasAsync(string? texto, CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Seguranca.GerenciarUsuarios);
+        var termo = (texto ?? string.Empty).Trim();
+        return termo.Length < TamanhoMinimoBusca ? [] : await _usuarios.BuscarPessoasAsync(termo, LimiteBusca, ct);
+    }
+
     public async Task DesbloquearAsync(Guid id, CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Seguranca.GerenciarUsuarios);
@@ -150,6 +163,34 @@ public sealed class UsuarioAppService : IUsuarioAppService
     }
 
     // ---------------------------------------------------------------- Apoio
+
+    /// <summary>Menor texto aceito na busca de pessoas.</summary>
+    public const int TamanhoMinimoBusca = 2;
+
+    /// <summary>Quantas pessoas a busca devolve no máximo.</summary>
+    public const int LimiteBusca = 20;
+
+    /// <summary>
+    /// Pessoa ligada (decisão F1): só é conferida quando muda, para não impedir salvar um usuário cuja pessoa foi desativada
+    /// depois. Precisa existir, estar em uso e não estar ligada a outro usuário.
+    /// </summary>
+    private async Task ValidarPessoaAsync(Usuario dados, Usuario? anterior, List<string> erros, CancellationToken ct)
+    {
+        if (dados.PessoaId is not { } pessoaId || pessoaId == anterior?.PessoaId) return;
+        var pessoa = await _usuarios.PessoaAsync(pessoaId, ct);
+        if (pessoa is null || !pessoa.Value.Ativa)
+            erros.Add("A pessoa escolhida não existe mais ou não está ativa.");
+        else if (await _usuarios.PessoaEmUsoAsync(pessoaId, dados.Id, ct))
+            erros.Add($"{pessoa.Value.Nome} já está ligada a outro usuário (cada pessoa pode estar ligada a um só usuário).");
+    }
+
+    /// <summary>DTO com o nome da pessoa ligada.</summary>
+    private async Task<UsuarioDto> ParaDtoAsync(Usuario u, CancellationToken ct)
+    {
+        var dto = ParaDto(u);
+        if (u.PessoaId is { } pessoaId) dto.Pessoa = (await _usuarios.PessoaAsync(pessoaId, ct))?.Nome;
+        return dto;
+    }
 
     /// <summary>Perfis precisam existir; empresas precisam ser do grupo.</summary>
     private async Task ValidarPerfisEEmpresasAsync(Usuario dados, List<string> erros, CancellationToken ct)
@@ -191,6 +232,7 @@ public sealed class UsuarioAppService : IUsuarioAppService
         Email = u.Email,
         Ativo = u.Ativo,
         DeveTrocarSenha = u.DeveTrocarSenha,
+        PessoaId = u.PessoaId,
         Perfis = u.Perfis.Select(p => new UsuarioPerfilDto(p.PerfilId, p.EmpresaId)).ToList(),
         BloqueadoAte = Utc(u.Acesso?.BloqueadoAte),
         UltimoAcessoEm = Utc(u.Acesso?.UltimoAcessoEm)

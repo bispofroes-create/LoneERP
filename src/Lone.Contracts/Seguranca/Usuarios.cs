@@ -38,6 +38,12 @@ public sealed class UsuarioDto
     public bool DeveTrocarSenha { get; set; } = true;
     public List<UsuarioPerfilDto> Perfis { get; set; } = new();
 
+    /// <summary>Quem é o usuário no cadastro de Pessoas (opcional; uma pessoa por usuário). Fase 2a.</summary>
+    public Guid? PessoaId { get; set; }
+
+    /// <summary>Somente leitura: nome da pessoa.</summary>
+    public string? Pessoa { get; set; }
+
     // Somente leitura (preenchidos pela API).
     public DateTime? BloqueadoAte { get; set; }
     public DateTime? UltimoAcessoEm { get; set; }
@@ -69,6 +75,9 @@ public sealed class PerfilDto
     public string? Descricao { get; set; }
     public bool Administrador { get; set; }
     public bool Ativo { get; set; } = true;
+
+    /// <summary>Até onde quem tem o perfil enxerga em Pessoas e no Comercial (Fase 2a). Ignorado quando Administrador.</summary>
+    public Lone.Domain.Enums.AlcanceComercial AlcanceComercial { get; set; }
 
     /// <summary>Códigos do catálogo (Permissoes). Ignorado quando Administrador.</summary>
     public List<string> Permissoes { get; set; } = new();

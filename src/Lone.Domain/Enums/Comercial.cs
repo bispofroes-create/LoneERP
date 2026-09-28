@@ -75,3 +75,22 @@ public enum ResultadoItemTransferencia : byte
     /// <summary>Falhou ao gravar (conflito de edição, cadastro que não existe mais): o motivo fica no item.</summary>
     Erro = 2
 }
+
+/// <summary>
+/// Até onde o usuário enxerga no cadastro de Pessoas e no Comercial (Motor Comercial, Fase 2a; decisão F2). Fica no perfil;
+/// o administrador vê tudo. Gravado no banco: valores novos entram no fim (ex.: "Meus territórios" na Fase 2b).
+/// </summary>
+public enum AlcanceComercial : byte
+{
+    /// <summary>Toda a base (o comportamento de antes; padrão, para ninguém perder acesso).</summary>
+    Tudo = 0,
+
+    /// <summary>A carteira de quem está nas equipes que o usuário lidera e nas equipes abaixo delas, mais a dele.</summary>
+    MinhaEquipe = 1,
+
+    /// <summary>Só os clientes da carteira da pessoa do usuário (e os que ele cobre numa ausência).</summary>
+    MinhaCarteira = 2,
+
+    /// <summary>Nenhum cadastro de Pessoas (perfis só de configuração ou de outros módulos).</summary>
+    Nenhum = 3
+}
