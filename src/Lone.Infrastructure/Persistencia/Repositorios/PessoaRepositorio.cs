@@ -387,7 +387,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         var carteiraIntermediaria = db.ChangeTracker.Entries<CarteiraCliente>()
             .Where(e => e.State == EntityState.Modified)
             .Select(PassoIntermediarioCarteira)
-            .OfType<(Guid Id, DateOnly Inicio, DateOnly? Fim, bool Ativo)>()
+            .OfType<(Guid Id, DateOnly Inicio, DateOnly? Fim, bool Ativo, bool Exclusivo)>()
             .ToList();
 
         try
@@ -405,10 +405,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             if (reativados.Count > 0)
                 await db.PessoaEnderecos.Where(e => reativados.Contains(e.Id))
                     .ExecuteUpdateAsync(s => s.SetProperty(e => e.Ativo, true), ct);
-            foreach (var (id, inicio, fim, ativo) in carteiraIntermediaria)
+            foreach (var (id, inicio, fim, ativo, exclusivo) in carteiraIntermediaria)
                 await db.CarteiraClientes.Where(c => c.Id == id)
                     .ExecuteUpdateAsync(s => s.SetProperty(c => c.InicioEm, inicio).SetProperty(c => c.FimEm, fim)
-                                              .SetProperty(c => c.Ativo, ativo), ct);
+                                              .SetProperty(c => c.Ativo, ativo).SetProperty(c => c.Exclusivo, exclusivo), ct);
             await db.SaveChangesAsync(ct); // usa a transação aberta; a auditoria registra as mudanças normalmente
             await transacao.CommitAsync(ct);
         }
@@ -426,11 +426,12 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
     /// <summary>
     /// Estado intermediário de um vínculo alterado: a interseção do período antes e depois, ativo só se estava e continua
-    /// ativo no mesmo tipo e empresa. Vazio (ou mudou de tipo/empresa) = inativo por um instante, com as datas antigas.
+    /// ativo no mesmo tipo e empresa, e exclusivo só se era e continua exclusivo. Vazio (ou mudou de tipo/empresa) = inativo
+    /// por um instante, com as datas antigas.
     /// Nulo = nada a fazer antes (o vínculo só cresceu: a gravação final já é segura). Não passa pela auditoria: a
     /// gravação final registra o antes e o depois de verdade.
     /// </summary>
-    private static (Guid Id, DateOnly Inicio, DateOnly? Fim, bool Ativo)? PassoIntermediarioCarteira(
+    private static (Guid Id, DateOnly Inicio, DateOnly? Fim, bool Ativo, bool Exclusivo)? PassoIntermediarioCarteira(
         Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<CarteiraCliente> entrada)
     {
         var antes = entrada.OriginalValues;
@@ -445,9 +446,12 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         DateOnly? fim = fimAntes is null ? depois.FimEm : depois.FimEm is null ? fimAntes : fimAntes < depois.FimEm ? fimAntes : depois.FimEm;
         var ativo = ativoAntes && depois.Ativo && mesmoLugar && (fim is null || fim >= inicio);
 
-        if (!ativo) return ativoAntes ? (depois.Id, inicioAntes, fimAntes, false) : null;
-        if (inicio == inicioAntes && fim == fimAntes) return null;
-        return (depois.Id, inicio, fim, true);
+        var exclusivoAntes = antes.GetValue<bool>(nameof(CarteiraCliente.Exclusivo));
+        var exclusivo = exclusivoAntes && depois.Exclusivo;
+
+        if (!ativo) return ativoAntes ? (depois.Id, inicioAntes, fimAntes, false, exclusivoAntes) : null;
+        if (inicio == inicioAntes && fim == fimAntes && exclusivo == exclusivoAntes) return null;
+        return (depois.Id, inicio, fim, true, exclusivo);
     }
 
     public async Task<List<PendenciaMunicipio>> ListarPendenciasMunicipioAsync(Guid pessoaId, CancellationToken ct)

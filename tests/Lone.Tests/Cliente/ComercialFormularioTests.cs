@@ -7,7 +7,11 @@ namespace Lone.Tests.Cliente;
 
 public class ComercialFormularioTests
 {
-    private static readonly TipoCarteiraDto Vendedor = new() { Id = Guid.NewGuid(), Nome = "Vendedor", Principal = true, Ordem = 1 };
+    private static readonly TipoCarteiraDto Vendedor = new()
+    {
+        Id = Guid.NewGuid(), Nome = "Vendedor", ResponsavelDaConta = true, LimitePorVez = 1,
+        TipoCredito = Lone.Domain.Enums.TipoCreditoComercial.Receita, Ordem = 1
+    };
     private static readonly PerfilComercialDto Atacado = new() { Id = Guid.NewGuid(), Nome = "Atacado", DescontoMaximo = 12 };
     private static readonly CondicaoPagamentoDto Trinta = new() { Id = Guid.NewGuid(), Nome = "30 dias", Parcelas = "30" };
 
@@ -20,7 +24,7 @@ public class ComercialFormularioTests
     };
 
     [Fact]
-    public void Carteira_nova_ja_vem_com_o_tipo_principal_e_gravada_so_desativa()
+    public void Carteira_nova_ja_vem_com_o_papel_responsavel_e_gravada_so_desativa()
     {
         var gravada = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Guid.NewGuid(), Vendedor = "Ana", InicioEm = new DateOnly(2025, 1, 1) };
         var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente", Carteira = [gravada] });
@@ -127,6 +131,7 @@ public class ComercialFormularioTests
 
         Assert.True(substituicao.Impedida);
         Assert.Contains("o histórico não é alterado", substituicao.Mensagem);
+        Assert.Contains("use um papel que aceite mais de um", substituicao.Mensagem);
         Assert.Throws<InvalidOperationException>(() => substituicao.Aplicar());
         Assert.Equal(string.Empty, atual.FimEm);
     }
@@ -146,5 +151,44 @@ public class ComercialFormularioTests
         f.DefinirOpcoesComercial(opcoes);
         nova.Tipo = nova.Tipos.First(t => t.Valor == televendas.Id);
         Assert.Empty(f.SubstituicoesDeVendedor());
+    }
+
+    // ---- Motor Comercial, Fase 1a: crédito (%) no vínculo ----
+
+    [Fact]
+    public void Novo_vendedor_herda_o_credito_do_anterior_e_desfazer_devolve()
+    {
+        var (f, atual, nova) = FichaComVendedor("15/03/2026");
+        atual.PercentualCredito = "70";
+
+        var substituicao = Assert.Single(f.SubstituicoesDeVendedor());
+        var desfazer = substituicao.Aplicar();
+        Assert.Equal("70", nova.PercentualCredito);
+        Assert.Equal(70m, nova.ParaDto().PercentualCredito);
+
+        desfazer();
+        Assert.Equal(string.Empty, nova.PercentualCredito);
+    }
+
+    [Fact]
+    public void Credito_aparece_so_para_papel_que_recebe_e_valida_a_faixa()
+    {
+        var apoio = new TipoCarteiraDto { Id = Guid.NewGuid(), Nome = "Apoio", Ordem = 2 };
+        var opcoes = Opcoes();
+        opcoes.TiposCarteira = [Vendedor, apoio];
+        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente" });
+        f.DefinirOpcoesComercial(opcoes);
+        f.NovaCarteira();
+        var v = f.Carteira[0];
+
+        Assert.True(v.RecebeCredito);
+        Assert.Contains("100%", v.DicaCredito);
+        v.PercentualCredito = "150";
+        Assert.Contains(v.Validar("Carteira 1"), e => e.Contains("crédito inválido"));
+
+        v.PercentualCredito = string.Empty;
+        v.Tipo = v.Tipos.First(t => t.Valor == apoio.Id);
+        Assert.False(v.RecebeCredito);
+        Assert.Null(v.ParaDto().PercentualCredito);
     }
 }

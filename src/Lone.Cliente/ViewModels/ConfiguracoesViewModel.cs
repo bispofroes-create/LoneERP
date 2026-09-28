@@ -142,7 +142,7 @@ public partial class ConfiguracoesViewModel : ViewModelBase
         (ModulosConfiguracao.Pessoas, "Comercial (cliente e fornecedor)", Permissoes.Cadastros.Comercial,
             new ItemConfiguracao("Perfis comerciais", "Limite, desconto e aprovação padrão", "perfis-comerciais")),
         (ModulosConfiguracao.Pessoas, "Comercial (cliente e fornecedor)", Permissoes.Cadastros.Comercial,
-            new ItemConfiguracao("Tipos de carteira", "Vendedor, representante, televendas...", "tipos-carteira")),
+            new ItemConfiguracao("Papéis comerciais", "Vendedor, representante... quantos por vez, crédito e metas", "tipos-carteira")),
         // ---- Organização ----
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Cargos", "Cargos dos colaboradores", "cargos")),
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Centros de custo", "Árvore de centros de custo", "centros-custo")),

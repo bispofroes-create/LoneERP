@@ -314,10 +314,12 @@ public sealed class PessoaAppService : IPessoaAppService
         erros.AddRange(RegrasColaborador.Validar(dados));
         erros.AddRange(await _colaborador.ValidarAsync(dados, anterior, ct));
 
-        // Comercial: perfis, condições, exceções com vigência e carteira (D5: o vendedor principal vigente vira o vendedor padrão).
+        // Comercial: perfis, condições, exceções com vigência e carteira (política dos papéis; o responsável da conta vigente vira o vendedor padrão).
         var tiposCarteira = await _comercial.TiposAsync(ct);
-        erros.AddRange(RegrasComercial.Validar(dados, tiposCarteira));
+        erros.AddRange(RegrasComercial.Validar(dados, tiposCarteira, anterior));
+        erros.AddRange(RegrasComercial.ValidarCarteira(dados, anterior, tiposCarteira));
         erros.AddRange(await _comercial.ValidarAsync(dados, anterior, tiposCarteira, ct));
+        RegrasComercial.DefinirOrigens(dados, anterior, tiposCarteira);
         RegrasComercial.AtualizarVendedorPadrao(dados, tiposCarteira, DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime));
 
         // Fiscal: CNAEs em tabela (a partir dos campos de texto) e histórico com vigência (regime, IE, situação, produtor rural).

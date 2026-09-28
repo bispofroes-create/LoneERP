@@ -111,7 +111,8 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
 
 /// <summary>
 /// Realizado dos indicadores de sistema, contado no banco (sem trazer os clientes para a memória):
-/// participante → vendedores do nível no período → clientes da carteira desses vendedores no período → contagem.
+/// participante → vendedores do nível no período → clientes da carteira desses vendedores no período, nos papéis que
+/// contam para metas → contagem.
 /// Filial usa a empresa da filial enquanto a lotação não tiver estabelecimento (ver CONTINUIDADE.md).
 /// </summary>
 public class FonteIndicadoresCadastro : ServicoDadosBase, IFonteIndicadores
@@ -133,9 +134,12 @@ public class FonteIndicadoresCadastro : ServicoDadosBase, IFonteIndicadores
             var (vendedores, empresa) = await VendedoresAsync(db, p, inicio, fim, ct);
             if (vendedores.Count == 0) { resultado[p.Id] = 0; continue; }
 
+            // Só os papéis que contam para metas (Motor Comercial, Fase 1a): um supervisor ou apoio na carteira não soma
+            // o cliente ao realizado dele como se fosse o vendedor.
             var clientes = db.CarteiraClientes.AsNoTracking()
                 .Where(c => c.Ativo && vendedores.Contains(c.VendedorId) && c.InicioEm <= fim && (c.FimEm == null || c.FimEm >= inicio) &&
-                            (empresa == null || c.EmpresaId == null || c.EmpresaId == empresa))
+                            (empresa == null || c.EmpresaId == null || c.EmpresaId == empresa) &&
+                            db.TiposCarteira.Any(t => t.Id == c.TipoCarteiraId && t.ContaParaMetas))
                 .Select(c => c.PessoaId)
                 .Distinct();
 

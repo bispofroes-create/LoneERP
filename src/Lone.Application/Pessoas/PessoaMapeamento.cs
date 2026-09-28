@@ -264,13 +264,15 @@ public static class PessoaMapeamento
     private static Lone.Contracts.Comercial.CarteiraDto ParaDto(CarteiraCliente c) => new()
     {
         Id = c.Id, EmpresaId = c.EmpresaId, TipoCarteiraId = c.TipoCarteiraId, VendedorId = c.VendedorId, InicioEm = c.InicioEm,
-        FimEm = c.FimEm, Exclusivo = c.Exclusivo, Observacao = c.Observacao, Ativo = c.Ativo
+        FimEm = c.FimEm, Exclusivo = c.Exclusivo, PercentualCredito = c.PercentualCredito, Origem = c.Origem,
+        Observacao = c.Observacao, Ativo = c.Ativo
     };
 
     private static CarteiraCliente ParaEntidade(Lone.Contracts.Comercial.CarteiraDto c, Guid pessoaId) => new()
     {
         Id = IdOuNovo(c.Id), PessoaId = pessoaId, EmpresaId = c.EmpresaId, TipoCarteiraId = c.TipoCarteiraId, VendedorId = c.VendedorId,
-        InicioEm = c.InicioEm, FimEm = c.FimEm, Exclusivo = c.Exclusivo, Observacao = c.Observacao, Ativo = c.Ativo
+        InicioEm = c.InicioEm, FimEm = c.FimEm, Exclusivo = c.Exclusivo, PercentualCredito = c.PercentualCredito,
+        Observacao = c.Observacao, Ativo = c.Ativo // a origem é do servidor (RegrasComercial.DefinirOrigens)
     };
 
     // ---------------------------------------------------------------- Colaborador

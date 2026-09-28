@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Tipos de carteira: tabela à esquerda, ficha ao lado. Nada é excluído: é desativado. -->
+<!-- Papéis comerciais (tipos de carteira): tabela à esquerda, ficha ao lado, com a política de cada papel. Nada é
+     excluído: é desativado. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
              x:Class="Lone.App.Views.TiposCarteiraPage"
              x:DataType="cad:TiposCarteiraViewModel"
-             Title="Tipos de carteira">
+             Title="Papéis comerciais">
 
     <Grid x:Name="Grade" ColumnDefinitions="340,*">
 
@@ -23,7 +24,7 @@
             </ContentView>
 
             <Grid Grid.Row="2" ColumnDefinitions="*,72,40" Padding="12,0">
-                <Label Text="Tipo de carteira" Style="{StaticResource Rotulo}" />
+                <Label Text="Papel comercial" Style="{StaticResource Rotulo}" />
                 <Label Grid.Column="1" Text="Em uso" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
                 <Label Grid.Column="2" Text="Ativo" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
             </Grid>
@@ -56,7 +57,7 @@
         <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
                              HorizontalOptions="Center" Spacing="6" Padding="24">
             <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Tipos de vínculo da carteira de clientes (quem atende o cliente). Só um tipo é principal: o vendedor vigente dele é o vendedor padrão da conta."
+            <Label Text="Papéis de quem atende o cliente na carteira (vendedor, representante, supervisor...), cada um com a sua política: quantos ao mesmo tempo, crédito da venda e metas. Um só papel é o responsável da conta: o vendedor vigente dele é o vendedor padrão do cliente."
                    Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
         </VerticalStackLayout>
 
@@ -65,7 +66,7 @@
             <ScrollView>
                 <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
                                      HorizontalOptions="Fill">
-                    <Button Text="‹ Tipos de carteira" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                    <Button Text="‹ Papéis comerciais" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
                             IsVisible="{Binding ModoCompacto}" />
                     <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
                     <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
@@ -74,12 +75,27 @@
                     <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
 
                     <FlexLayout Wrap="Wrap">
-                                                <c:Campo Rotulo="Ordem" Texto="{Binding Formulario.Ordem}" Mascara="Numero" />
-                        <c:CaixaMarcar Texto="Principal (o vendedor vigente deste tipo vira o vendedor padrão do cliente)" Marcado="{Binding Formulario.Principal}" />
                         <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Televendas" />
+                        <c:Campo Rotulo="Ordem" Texto="{Binding Formulario.Ordem}" Mascara="Numero" />
                     </FlexLayout>
                     <Label Text="Maiúsculas e acentos não contam no nome."
                            Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <!-- Política do papel (Motor Comercial, Fase 1) -->
+                    <Label Text="Política do papel" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                    <FlexLayout Wrap="Wrap">
+                        <c:Campo Rotulo="Quantos ao mesmo tempo" Texto="{Binding Formulario.LimitePorVez}" Mascara="Numero"
+                                 Dica="vazio = sem limite" />
+                        <c:CampoEscolha Rotulo="Crédito da venda" Itens="{Binding Formulario.Creditos}" Selecionado="{Binding Formulario.Credito}" />
+                        <c:Campo Rotulo="Percentual padrão (%)" Texto="{Binding Formulario.PercentualPadrao}" Teclado="Numeric"
+                                 Dica="vazio = sem padrão" IsVisible="{Binding Formulario.RecebeCredito}" />
+                    </FlexLayout>
+                    <c:CaixaMarcar Texto="Responsável da conta (o vendedor vigente deste papel vira o vendedor padrão do cliente; sempre um por vez)"
+                                   Marcado="{Binding Formulario.ResponsavelDaConta}" />
+                    <c:CaixaMarcar Texto="Conta para metas (os clientes deste papel entram no realizado das metas do vendedor)"
+                                   Marcado="{Binding Formulario.ContaParaMetas}" />
+                    <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+                           Text="Um por vez: incluir outro vendedor deste papel no cliente encerra o anterior na véspera (com confirmação). Receita: os vínculos de receita vigentes dividem os 100% da venda (um só fica com 100%). Sobreposição: crédito extra, como o de um supervisor. Baixar o limite só é aceito se nenhum cliente ficar acima dele." />
 
                     <!-- Situação -->
                     <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">

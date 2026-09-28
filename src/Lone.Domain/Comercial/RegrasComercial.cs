@@ -1,5 +1,7 @@
 using System.Globalization;
+using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
+using Lone.Domain.Enums;
 
 namespace Lone.Domain.Comercial;
 
@@ -24,17 +26,29 @@ public sealed record PlanoSubstituicao(IReadOnlyList<CarteiraCliente> Encerrar, 
     public bool Impedida => Impedem.Count > 0;
 }
 
-/// <summary>Os tipos de carteira iniciais (Ids fixos; o usuário pode criar outros).</summary>
+/// <summary>Um papel comercial inicial, com a sua política.</summary>
+public sealed record PapelComercialInicial(Guid Id, string Nome, int Ordem, bool ResponsavelDaConta, int? LimitePorVez,
+                                           TipoCreditoComercial TipoCredito, bool ContaParaMetas);
+
+/// <summary>
+/// Os papéis comerciais (tipos de carteira) iniciais, com Ids fixos; o usuário pode criar outros. A política inicial
+/// mantém o comportamento de antes do Motor Comercial: só o Vendedor é um por vez e recebe o crédito; os demais ficam sem
+/// limite e sem crédito; todos contam para metas (como antes) até a empresa desmarcar os que não devem contar.
+/// </summary>
 public static class TiposCarteiraIniciais
 {
-    public static IReadOnlyList<(Guid Id, string Nome, int Ordem, bool Principal)> Todos { get; } =
+    public static IReadOnlyList<PapelComercialInicial> Todos { get; } =
     [
-        (new Guid("7a9e1c04-0000-0000-0000-000000000001"), "Vendedor", 1, true),
-        (new Guid("7a9e1c04-0000-0000-0000-000000000002"), "Representante", 2, false),
-        (new Guid("7a9e1c04-0000-0000-0000-000000000003"), "Televendas", 3, false),
-        (new Guid("7a9e1c04-0000-0000-0000-000000000004"), "Supervisor", 4, false)
+        new(new Guid("7a9e1c04-0000-0000-0000-000000000001"), "Vendedor", 1, true, 1, TipoCreditoComercial.Receita, true),
+        new(new Guid("7a9e1c04-0000-0000-0000-000000000002"), "Representante", 2, false, null, TipoCreditoComercial.Nenhum, true),
+        new(new Guid("7a9e1c04-0000-0000-0000-000000000003"), "Televendas", 3, false, null, TipoCreditoComercial.Nenhum, true),
+        new(new Guid("7a9e1c04-0000-0000-0000-000000000004"), "Supervisor", 4, false, null, TipoCreditoComercial.Nenhum, true)
     ];
 }
+
+/// <summary>Crédito de um vínculo numa data (<see cref="RegrasComercial.CreditosEmData"/>).</summary>
+/// <param name="Percentual">Percentual efetivo; nulo quando a divisão de receita não está definida (falta o % de algum vínculo).</param>
+public sealed record CreditoDoVinculo(CarteiraCliente Vinculo, TipoCreditoComercial Tipo, decimal? Percentual);
 
 /// <summary>Regras comerciais: condições de pagamento, perfis, exceções com vigência e carteira de clientes. Não acessa banco.</summary>
 public static class RegrasComercial
@@ -124,8 +138,12 @@ public static class RegrasComercial
     private static bool Sobrepoem(DateOnly inicioA, DateOnly? fimA, DateOnly inicioB, DateOnly? fimB) =>
         inicioA <= (fimB ?? DateOnly.MaxValue) && inicioB <= (fimA ?? DateOnly.MaxValue);
 
-    /// <summary>Datas, valores e sobreposições das exceções e da carteira (sem consultar cadastros).</summary>
-    public static List<string> Validar(Pessoa p, IReadOnlyDictionary<Guid, TipoCarteira> tipos)
+    /// <summary>
+    /// Datas, valores e sobreposições das exceções e da carteira (sem consultar cadastros). Os conflitos da carteira só
+    /// contam no que esta gravação acrescenta a algum vínculo (<see cref="Crescimentos"/>; sem <paramref name="anterior"/>,
+    /// tudo é novo): uma política mais nova do papel não trava a ficha por sobreposições antigas.
+    /// </summary>
+    public static List<string> Validar(Pessoa p, IReadOnlyDictionary<Guid, TipoCarteira> tipos, Pessoa? anterior = null)
     {
         var erros = new List<string>();
         for (var i = 0; i < p.ExcecoesComerciais.Count; i++)
@@ -155,20 +173,24 @@ public static class RegrasComercial
             var rotulo = $"Carteira {i + 1}";
             if (c.VendedorId == Guid.Empty) erros.Add($"{rotulo}: escolha o vendedor.");
             if (c.VendedorId == p.Id) erros.Add($"{rotulo}: o cliente não pode ser vendedor de si mesmo.");
-            if (c.TipoCarteiraId == Guid.Empty) erros.Add($"{rotulo}: escolha o tipo.");
+            if (c.TipoCarteiraId == Guid.Empty) erros.Add($"{rotulo}: escolha o papel.");
             if (c.InicioEm == default) erros.Add($"{rotulo}: informe o início.");
             if (c.FimEm is { } fim && fim < c.InicioEm) erros.Add($"{rotulo}: o fim é anterior ao início.");
             if (c.Observacao is { Length: > 250 }) erros.Add($"{rotulo}: observação de no máximo 250 caracteres.");
         }
 
-        // Exclusivo: ninguém mais do mesmo tipo no período. Principal: um só vendedor principal por vez (vira o vendedor padrão).
+        // Exclusivo: ninguém mais do mesmo papel no período. Um por vez: um só vínculo do papel de cada vez.
+        var antes = (anterior?.Carteira ?? []).ToDictionary(c => c.Id);
+        bool NoQueCresceu(CarteiraCliente a, CarteiraCliente b) =>
+            Crescimentos(a, antes.GetValueOrDefault(a.Id)).Any(f => Sobrepoem(f.De, f.Ate, b.InicioEm, b.FimEm)) ||
+            Crescimentos(b, antes.GetValueOrDefault(b.Id)).Any(f => Sobrepoem(f.De, f.Ate, a.InicioEm, a.FimEm));
         foreach (var a in ativos)
-            foreach (var b in ativos.Where(b => Conflitam(a, b, tipos)))
+            foreach (var b in ativos.Where(b => Conflitam(a, b, tipos) && NoQueCresceu(a, b)))
             {
-                var principal = tipos.TryGetValue(a.TipoCarteiraId, out var tipo) && tipo.Principal;
-                erros.Add(principal
-                    ? $"Carteira: só um \"{tipo!.Nome}\" (principal) por vez; os períodos se sobrepõem em {Data(Maior(a.InicioEm, b.InicioEm))}."
-                    : $"Carteira: o vínculo exclusivo de {Data((a.Exclusivo ? a : b).InicioEm)} se sobrepõe a outro do mesmo tipo.");
+                var umPorVez = tipos.TryGetValue(a.TipoCarteiraId, out var tipo) && tipo.UmPorVez;
+                erros.Add(umPorVez
+                    ? $"Carteira: só um \"{tipo!.Nome}\" por vez; os períodos se sobrepõem em {Data(Maior(a.InicioEm, b.InicioEm))}."
+                    : $"Carteira: o vínculo exclusivo de {Data((a.Exclusivo ? a : b).InicioEm)} se sobrepõe a outro do mesmo papel.");
             }
         return erros.Distinct().ToList();
     }
@@ -177,14 +199,15 @@ public static class RegrasComercial
 
     /// <summary>
     /// Dois vínculos que não podem valer ao mesmo tempo (a regra única da carteira, usada na validação, na substituição
-    /// da ficha e no gatilho do banco, SqlMigracaoCarteira): ambos ativos, mesmo tipo, mesma empresa (nula = todas), períodos sobrepostos e o tipo é
-    /// principal ou algum dos dois é exclusivo. Tipos diferentes ou empresas diferentes nunca conflitam.
+    /// da ficha e no gatilho do banco, SqlMigracaoCarteira): ambos ativos, mesmo papel, mesma empresa (nula = todas), períodos
+    /// sobrepostos e o papel aceita um por vez ou algum dos dois é exclusivo. Papéis ou empresas diferentes nunca conflitam.
+    /// Papéis com limite maior que 1 são conferidos pela contagem (<see cref="ValidarCarteira"/>).
     /// </summary>
     public static bool Conflitam(CarteiraCliente a, CarteiraCliente b, IReadOnlyDictionary<Guid, TipoCarteira> tipos) =>
         !ReferenceEquals(a, b) && a.Ativo && b.Ativo &&
         a.TipoCarteiraId == b.TipoCarteiraId && a.EmpresaId == b.EmpresaId &&
         Sobrepoem(a.InicioEm, a.FimEm, b.InicioEm, b.FimEm) &&
-        (a.Exclusivo || b.Exclusivo || (tipos.TryGetValue(a.TipoCarteiraId, out var tipo) && tipo.Principal));
+        (a.Exclusivo || b.Exclusivo || (tipos.TryGetValue(a.TipoCarteiraId, out var tipo) && tipo.UmPorVez));
 
     /// <summary>
     /// O que acontece se <paramref name="novo"/> entrar na carteira da pessoa: os vínculos que podem ser encerrados no dia
@@ -213,13 +236,12 @@ public static class RegrasComercial
     }
 
     /// <summary>
-    /// Frases do histórico para as substituições feitas nesta gravação: um vínculo já gravado que passou a terminar na
-    /// véspera do início de um vínculo novo do mesmo tipo e empresa ("João (Vendedor) encerrado em 14/03/2026 e
-    /// substituído por Maria a partir de 15/03/2026"). Roda na gravação da pessoa: vale para a ficha e, quando existir, para o
-    /// lote da Etapa 4b, que também grava pela pessoa.
+    /// As substituições feitas nesta gravação: um vínculo já gravado que passou a terminar na véspera do início de um
+    /// vínculo novo que conflitaria com ele como estava gravado (papel de um por vez ou exclusivo). Encerrar um e incluir
+    /// outro de um papel que aceita vários não é substituição.
     /// </summary>
-    public static IEnumerable<string> Substituicoes(IEnumerable<CarteiraCliente> anteriores, IEnumerable<CarteiraCliente> atuais,
-                                                    IReadOnlyDictionary<Guid, TipoCarteira> tipos, Func<Guid, string> nomeVendedor)
+    public static IEnumerable<(CarteiraCliente Encerrado, CarteiraCliente Sucessor)> ParesSubstituidos(
+        IEnumerable<CarteiraCliente> anteriores, IEnumerable<CarteiraCliente> atuais, IReadOnlyDictionary<Guid, TipoCarteira> tipos)
     {
         var antes = anteriores.ToDictionary(c => c.Id);
         var lista = atuais.ToList();
@@ -228,14 +250,239 @@ public static class RegrasComercial
         {
             if (!antes.TryGetValue(encerrado.Id, out var gravado) || !encerrado.Ativo || encerrado.FimEm is not { } fim) continue;
             if (gravado.FimEm is { } fimAntes && fimAntes <= fim) continue; // não foi encurtado agora
-            // Sucessor: novo, começa no dia seguinte e conflitaria com o anterior como estava gravado (tipo principal ou
-            // exclusivo). Encerrar um e incluir outro de um tipo que aceita vários não é substituição.
             var sucessor = novos.FirstOrDefault(n => n.InicioEm == fim.AddDays(1) && Conflitam(gravado, n, tipos));
-            if (sucessor is null) continue;
+            if (sucessor is not null) yield return (encerrado, sucessor);
+        }
+    }
+
+    /// <summary>
+    /// Frases do histórico para as substituições desta gravação ("João (Vendedor) encerrado em 14/03/2026 e substituído
+    /// por Maria a partir de 15/03/2026"). Roda na gravação da pessoa: vale para a ficha e para o que grava pela pessoa.
+    /// </summary>
+    public static IEnumerable<string> Substituicoes(IEnumerable<CarteiraCliente> anteriores, IEnumerable<CarteiraCliente> atuais,
+                                                    IReadOnlyDictionary<Guid, TipoCarteira> tipos, Func<Guid, string> nomeVendedor)
+    {
+        foreach (var (encerrado, sucessor) in ParesSubstituidos(anteriores, atuais, tipos))
+        {
             var tipo = tipos.TryGetValue(encerrado.TipoCarteiraId, out var t) ? t.Nome : "carteira";
-            yield return $"Carteira: {nomeVendedor(encerrado.VendedorId)} ({tipo}) encerrado em {Data(fim)} e substituído por " +
+            yield return $"Carteira: {nomeVendedor(encerrado.VendedorId)} ({tipo}) encerrado em {Data(encerrado.FimEm!.Value)} e substituído por " +
                          $"{nomeVendedor(sucessor.VendedorId)} a partir de {Data(sucessor.InicioEm)}.";
         }
+    }
+
+    /// <summary>
+    /// A origem do vínculo é do servidor (a ficha não a envia): o gravado mantém a sua; o novo recebe
+    /// <paramref name="origemDosNovos"/> ("Manual" na ficha), ou "Substituição" quando entra no lugar de um vigente
+    /// encerrado na véspera pela confirmação da ficha.
+    /// </summary>
+    public static void DefinirOrigens(Pessoa p, Pessoa? anterior, IReadOnlyDictionary<Guid, TipoCarteira> tipos,
+                                      OrigemVinculoCarteira origemDosNovos = OrigemVinculoCarteira.Manual)
+    {
+        var antes = (anterior?.Carteira ?? []).ToDictionary(c => c.Id);
+        foreach (var c in p.Carteira)
+            c.Origem = antes.TryGetValue(c.Id, out var gravado) ? gravado.Origem : origemDosNovos;
+        if (origemDosNovos != OrigemVinculoCarteira.Manual) return;
+        foreach (var (_, sucessor) in ParesSubstituidos(anterior?.Carteira ?? [], p.Carteira, tipos))
+            sucessor.Origem = OrigemVinculoCarteira.Substituicao;
+    }
+
+    // ---------------------------------------------------------------- Carteira: política dos papéis e crédito
+
+    private static readonly CultureInfo Brasil = CultureInfo.GetCultureInfo("pt-BR");
+
+    private static bool Cobre(CarteiraCliente c, DateOnly data) => c.InicioEm <= data && (c.FimEm is null || c.FimEm >= data);
+
+    private static TipoCreditoComercial TipoDe(CarteiraCliente c, IReadOnlyDictionary<Guid, TipoCarteira> tipos) =>
+        tipos.TryGetValue(c.TipoCarteiraId, out var t) ? t.TipoCredito : TipoCreditoComercial.Nenhum;
+
+    /// <summary>Percentual efetivo do vínculo: o dele ou, sem ele, o padrão do papel (nulo se nenhum dos dois).</summary>
+    public static decimal? PercentualEfetivo(CarteiraCliente c, IReadOnlyDictionary<Guid, TipoCarteira> tipos) =>
+        c.PercentualCredito ?? (tipos.TryGetValue(c.TipoCarteiraId, out var t) ? t.PercentualPadrao : null);
+
+    /// <summary>Datas em que o conjunto de vínculos vigentes muda: cada início e o dia seguinte a cada fim.</summary>
+    private static IEnumerable<DateOnly> Mudancas(IEnumerable<CarteiraCliente> vinculos) =>
+        vinculos.Select(c => c.InicioEm)
+            .Concat(vinculos.Where(c => c.FimEm is { } f && f < DateOnly.MaxValue).Select(c => c.FimEm!.Value.AddDays(1)))
+            .Distinct().Order();
+
+    /// <summary>
+    /// O que esta gravação acrescenta ao período em que o vínculo vale com as mesmas regras (mesmo papel e empresa, ativo,
+    /// sem passar a exclusivo): o período todo se é novo, foi reativado ou mudou de papel, empresa ou para exclusivo; senão
+    /// só os trechos que cresceram (início antecipado, fim adiado). Encurtar não acrescenta nada. A mesma ideia está no
+    /// gatilho do banco (SqlMigracaoCarteira.CriarProtecaoPorLimite).
+    /// </summary>
+    public static List<(DateOnly De, DateOnly? Ate)> Crescimentos(CarteiraCliente atual, CarteiraCliente? gravado)
+    {
+        if (!atual.Ativo || atual.InicioEm == default || atual.FimEm < atual.InicioEm) return [];
+        if (gravado is null || !gravado.Ativo || gravado.TipoCarteiraId != atual.TipoCarteiraId || gravado.EmpresaId != atual.EmpresaId ||
+            (atual.Exclusivo && !gravado.Exclusivo))
+            return [(atual.InicioEm, atual.FimEm)];
+
+        var trechos = new List<(DateOnly De, DateOnly? Ate)>();
+        if (atual.InicioEm < gravado.InicioEm)
+        {
+            var ate = gravado.InicioEm.AddDays(-1);
+            trechos.Add((atual.InicioEm, atual.FimEm is { } f && f < ate ? f : ate));
+        }
+        if (gravado.FimEm is { } fimAntes && fimAntes < DateOnly.MaxValue && (atual.FimEm is null || atual.FimEm > fimAntes))
+        {
+            var de = fimAntes.AddDays(1);
+            trechos.Add((atual.InicioEm > de ? atual.InicioEm : de, atual.FimEm));
+        }
+        return trechos;
+    }
+
+    /// <summary>
+    /// Política dos papéis (Motor Comercial, Fase 1): o percentual de crédito de cada vínculo, o limite de vínculos
+    /// simultâneos acima de 1 (o de 1 é o conflito par a par de <see cref="Validar"/>) e a divisão do crédito de receita
+    /// (com dois ou mais vínculos vigentes, cada um com o seu % e a soma em 100%, por empresa).
+    /// Confere só o que esta gravação afeta: o limite, nos trechos acrescentados (<see cref="Crescimentos"/>); a divisão do
+    /// crédito, no período antigo e no novo de cada vínculo incluído ou alterado (e no dia seguinte ao fim), porque tirar um
+    /// vínculo também muda a soma dos que ficam. Mudar a política de um papel não trava a ficha de quem não mexe na
+    /// carteira, e o histórico não é revalidado com regra nova.
+    /// </summary>
+    public static List<string> ValidarCarteira(Pessoa p, Pessoa? anterior, IReadOnlyDictionary<Guid, TipoCarteira> tipos)
+    {
+        var erros = new List<string>();
+        var antes = (anterior?.Carteira ?? []).ToDictionary(c => c.Id);
+        bool Mexido(CarteiraCliente c) => !antes.TryGetValue(c.Id, out var g) || g.TipoCarteiraId != c.TipoCarteiraId ||
+            g.EmpresaId != c.EmpresaId || g.InicioEm != c.InicioEm || g.FimEm != c.FimEm || g.Ativo != c.Ativo ||
+            g.Exclusivo != c.Exclusivo || g.PercentualCredito != c.PercentualCredito;
+
+        for (var i = 0; i < p.Carteira.Count; i++)
+        {
+            var c = p.Carteira[i];
+            if (c.PercentualCredito is not { } pct) continue;
+            var rotulo = $"Carteira {i + 1}";
+            if (pct is < 0 or > 100) erros.Add($"{rotulo}: o crédito deve ficar entre 0% e 100%.");
+            else if (decimal.Round(pct, 2) != pct) erros.Add($"{rotulo}: crédito com no máximo 2 casas decimais.");
+            if (Mexido(c) && tipos.TryGetValue(c.TipoCarteiraId, out var t) && t.TipoCredito == TipoCreditoComercial.Nenhum)
+                erros.Add($"{rotulo}: o papel \"{t.Nome}\" não recebe crédito da venda; deixe o crédito vazio.");
+        }
+
+        var faixas = p.Carteira.Where(Mexido)
+            .SelectMany(c => antes.TryGetValue(c.Id, out var g)
+                ? new[] { (c.InicioEm, c.FimEm), (g.InicioEm, g.FimEm) }
+                : new[] { (c.InicioEm, c.FimEm) })
+            .Where(f => f.InicioEm != default).ToList();
+        bool Afetada(DateOnly d) => faixas.Any(f => f.InicioEm <= d && (f.FimEm is null || f.FimEm >= d.AddDays(-1)));
+
+        var validos = p.Carteira.Where(c => c.Ativo && c.InicioEm != default && (c.FimEm is null || c.FimEm >= c.InicioEm)).ToList();
+
+        foreach (var grupo in validos.GroupBy(c => (c.TipoCarteiraId, c.EmpresaId)))
+        {
+            if (!tipos.TryGetValue(grupo.Key.TipoCarteiraId, out var tipo) || tipo.LimitePorVez is not ({ } limite and > 1)) continue;
+            // Só no que esta gravação acrescenta; em cada trecho, o máximo simultâneo está no começo dele ou no início de
+            // algum vínculo dentro dele.
+            var datas = grupo.SelectMany(c => Crescimentos(c, antes.GetValueOrDefault(c.Id)))
+                .SelectMany(f => grupo.Select(c => c.InicioEm).Where(d => d > f.De && (f.Ate is null || d <= f.Ate)).Append(f.De))
+                .Distinct().Order();
+            foreach (var data in datas)
+            {
+                var quantos = grupo.Count(c => Cobre(c, data));
+                if (quantos <= limite) continue;
+                erros.Add($"Carteira: no máximo {limite} \"{tipo.Nome}\" ao mesmo tempo; em {Data(data)} seriam {quantos}. " +
+                          "Encerre um vínculo antes de incluir outro.");
+                break;
+            }
+        }
+
+        foreach (var grupo in validos.Where(c => TipoDe(c, tipos) == TipoCreditoComercial.Receita).GroupBy(c => c.EmpresaId))
+        {
+            foreach (var data in Mudancas(grupo).Where(Afetada))
+            {
+                var vigentes = grupo.Where(c => Cobre(c, data)).ToList();
+                if (vigentes.Count < 2) continue; // um só fica com 100%
+                var percentuais = vigentes.Select(c => PercentualEfetivo(c, tipos)).ToList();
+                if (percentuais.Any(x => x is null))
+                {
+                    erros.Add($"Carteira: há mais de um vínculo com crédito de receita ao mesmo tempo (em {Data(data)}); " +
+                              "informe o crédito (%) de cada um.");
+                    break;
+                }
+                var soma = percentuais.Sum(x => x!.Value);
+                if (soma == 100) continue;
+                erros.Add($"Carteira: o crédito de receita soma {soma.ToString("0.##", Brasil)}% em {Data(data)}; precisa somar 100%.");
+                break;
+            }
+        }
+        return erros.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Quem recebe crédito de uma venda do cliente nesta data e empresa (consulta temporal, base do motor de crédito).
+    /// Para cada tipo de crédito, os vínculos da própria empresa têm preferência; sem eles, valem os de "todas" (empresa
+    /// nula). Receita: um só vigente fica com 100%; com vários, cada um com o seu percentual (nulo em todos se faltar
+    /// algum: divisão indefinida). Sobreposição: o % do vínculo ou do papel, senão 100%. Papéis sem crédito não entram.
+    /// </summary>
+    public static List<CreditoDoVinculo> CreditosEmData(IEnumerable<CarteiraCliente> carteira, IReadOnlyDictionary<Guid, TipoCarteira> tipos,
+                                                        Guid? empresaId, DateOnly data)
+    {
+        var vigentes = carteira.Where(c => c.Vigente(data) && (c.EmpresaId == empresaId || c.EmpresaId is null)).ToList();
+        List<CarteiraCliente> DoTipo(TipoCreditoComercial tipo)
+        {
+            var doTipo = vigentes.Where(c => TipoDe(c, tipos) == tipo).ToList();
+            var daEmpresa = doTipo.Where(c => c.EmpresaId is not null && c.EmpresaId == empresaId).ToList();
+            return daEmpresa.Count > 0 ? daEmpresa : doTipo.Where(c => c.EmpresaId is null).ToList();
+        }
+
+        var resultado = new List<CreditoDoVinculo>();
+        var receita = DoTipo(TipoCreditoComercial.Receita);
+        if (receita.Count == 1)
+            resultado.Add(new CreditoDoVinculo(receita[0], TipoCreditoComercial.Receita, 100m));
+        else if (receita.Count > 1)
+        {
+            var percentuais = receita.Select(c => PercentualEfetivo(c, tipos)).ToList();
+            var definido = percentuais.All(x => x is not null) && percentuais.Sum(x => x!.Value) == 100;
+            resultado.AddRange(receita.Select((c, i) => new CreditoDoVinculo(c, TipoCreditoComercial.Receita, definido ? percentuais[i] : null)));
+        }
+        resultado.AddRange(DoTipo(TipoCreditoComercial.Sobreposicao)
+            .Select(c => new CreditoDoVinculo(c, TipoCreditoComercial.Sobreposicao, PercentualEfetivo(c, tipos) ?? 100m)));
+        return resultado;
+    }
+
+    /// <summary>Regras do cadastro de um papel comercial (a lista <paramref name="todos"/> inclui os desativados).</summary>
+    public static List<string> ValidarPapel(TipoCarteira dados, IReadOnlyCollection<TipoCarteira> todos)
+    {
+        var erros = new List<string>();
+        if (dados.Nome.Length == 0) erros.Add("Informe o nome do papel.");
+        else if (dados.Nome.Length > TipoCarteira.TamanhoMaximoNome) erros.Add($"O nome pode ter no máximo {TipoCarteira.TamanhoMaximoNome} caracteres.");
+        if (dados.Nome.Length > 0 && todos.Any(t => t.Id != dados.Id && TextoBusca.Normalizar(t.Nome) == TextoBusca.Normalizar(dados.Nome)))
+            erros.Add($"Já existe \"{dados.Nome}\" (ativo ou desativado; maiúsculas e acentos não contam).");
+
+        if (dados.LimitePorVez is < 1 or > TipoCarteira.MaximoPorVez)
+            erros.Add($"Quantos ao mesmo tempo: de 1 a {TipoCarteira.MaximoPorVez} (vazio = sem limite).");
+        if (dados.ResponsavelDaConta)
+        {
+            if (todos.FirstOrDefault(t => t.ResponsavelDaConta && t.Id != dados.Id) is { } outro)
+                erros.Add($"\"{outro.Nome}\" já é o responsável da conta: desmarque-o antes (só um papel define o vendedor padrão).");
+            if (dados.LimitePorVez != 1)
+                erros.Add("O responsável da conta precisa ser um por vez (\"Quantos ao mesmo tempo\" = 1): ele é o vendedor padrão do cliente.");
+        }
+
+        if (dados.PercentualPadrao is { } pct)
+        {
+            if (dados.TipoCredito == TipoCreditoComercial.Nenhum)
+                erros.Add("Percentual padrão: este papel não recebe crédito da venda; deixe vazio ou escolha o tipo de crédito.");
+            else if (pct is < 0 or > 100) erros.Add("Percentual padrão: entre 0% e 100%.");
+            else if (decimal.Round(pct, 2) != pct) erros.Add("Percentual padrão: no máximo 2 casas decimais.");
+        }
+        return erros;
+    }
+
+    /// <summary>
+    /// Clientes que passariam do limite novo do papel (vínculos ativos de hoje em diante, por cliente e empresa). Usado ao
+    /// reduzir o "Quantos ao mesmo tempo": o limite só pode baixar quando ninguém fica acima dele.
+    /// </summary>
+    public static int ClientesAcimaDoLimite(IEnumerable<CarteiraCliente> vinculosDoPapel, int limite, DateOnly hoje)
+    {
+        var quantos = 0;
+        foreach (var grupo in vinculosDoPapel.Where(c => c.Ativo && (c.FimEm is null || c.FimEm >= hoje)).GroupBy(c => (c.PessoaId, c.EmpresaId)))
+        {
+            var datas = grupo.Select(c => c.InicioEm < hoje ? hoje : c.InicioEm).Distinct();
+            if (datas.Any(d => grupo.Count(c => Cobre(c, d)) > limite)) quantos++;
+        }
+        return quantos;
     }
 
     private static DateOnly Maior(DateOnly a, DateOnly b) => a > b ? a : b;
@@ -286,15 +533,15 @@ public static class RegrasComercial
     }
 
     /// <summary>
-    /// D5: o vendedor padrão de cada conta passa a ser o vendedor principal vigente da carteira (mesma empresa).
-    /// Sem vendedor principal vigente, a conta fica como estava (compatibilidade com o que já existia).
+    /// D5: o vendedor padrão de cada conta passa a ser o vendedor vigente do papel "responsável da conta" (mesma empresa).
+    /// Sem responsável vigente, a conta fica como estava (compatibilidade com o que já existia).
     /// </summary>
     public static void AtualizarVendedorPadrao(Pessoa p, IReadOnlyDictionary<Guid, TipoCarteira> tipos, DateOnly hoje)
     {
         foreach (var conta in p.ContasCliente)
         {
             var principal = p.Carteira
-                .Where(c => c.Vigente(hoje) && c.EmpresaId == conta.EmpresaId && tipos.TryGetValue(c.TipoCarteiraId, out var t) && t.Principal)
+                .Where(c => c.Vigente(hoje) && c.EmpresaId == conta.EmpresaId && tipos.TryGetValue(c.TipoCarteiraId, out var t) && t.ResponsavelDaConta)
                 .OrderByDescending(c => c.InicioEm).FirstOrDefault();
             if (principal is not null) conta.VendedorPadraoId = principal.VendedorId;
         }

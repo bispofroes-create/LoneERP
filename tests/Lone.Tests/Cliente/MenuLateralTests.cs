@@ -103,7 +103,9 @@ public class MenuLateralTests
     {
         var catalogo = MenuViewModel.CriarCatalogo(new ItemMenu("Início", ItemMenu.RotaInicio), MenuViewModel.CriarSecoes(Tudo), Tudo);
 
-        Assert.Equal("papeis", Assert.Single(MenuViewModel.Pesquisar(catalogo, "PAPEIS")).Rota);
+        // "Papéis" e "Papéis comerciais" (Motor Comercial, Fase 1a): o nome exato vem primeiro; duas palavras escolhem um.
+        Assert.Equal(["papeis", "tipos-carteira"], MenuViewModel.Pesquisar(catalogo, "PAPEIS").Select(i => i.Rota));
+        Assert.Equal("tipos-carteira", Assert.Single(MenuViewModel.Pesquisar(catalogo, "papeis comerciais")).Rota);
         Assert.Contains(MenuViewModel.Pesquisar(catalogo, "cadastro pessoas"), i => i.Rota == "pessoas");
         Assert.Empty(MenuViewModel.Pesquisar(catalogo, "consulta avançada")); // virou o painel de filtros da tela de Pessoas
         Assert.Equal("configuracoes-pessoas", MenuViewModel.Pesquisar(catalogo, "config pessoas")[0].Rota);

@@ -42,9 +42,15 @@ public sealed class TipoCarteiraDto
     public byte[]? Versao { get; set; }
     public string Nome { get; set; } = string.Empty;
     public bool Ativo { get; set; } = true;
-    /// <summary>O vendedor vigente deste tipo vira o vendedor padrão da conta (só um tipo é principal).</summary>
-    public bool Principal { get; set; }
+    /// <summary>O vendedor vigente deste papel vira o vendedor padrão da conta (só um papel; exige um por vez).</summary>
+    public bool ResponsavelDaConta { get; set; }
     public int Ordem { get; set; }
+
+    /// <summary>Vínculos simultâneos por cliente e empresa; nulo = sem limite; 1 = um por vez (substituição).</summary>
+    public int? LimitePorVez { get; set; }
+    public Lone.Domain.Enums.TipoCreditoComercial TipoCredito { get; set; }
+    public decimal? PercentualPadrao { get; set; }
+    public bool ContaParaMetas { get; set; }
 
     /// <summary>Somente leitura: onde está em uso (só para quem gerencia).</summary>
     public int QuantidadeUsos { get; set; }
@@ -78,6 +84,12 @@ public sealed class CarteiraDto
     public DateOnly InicioEm { get; set; }
     public DateOnly? FimEm { get; set; }
     public bool Exclusivo { get; set; }
+
+    /// <summary>Crédito da venda (%) deste vínculo; nulo = o padrão do papel.</summary>
+    public decimal? PercentualCredito { get; set; }
+
+    /// <summary>Somente leitura: como o vínculo foi criado (o servidor define).</summary>
+    public Lone.Domain.Enums.OrigemVinculoCarteira Origem { get; set; }
     public string? Observacao { get; set; }
     public bool Ativo { get; set; } = true;
 }

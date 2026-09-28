@@ -311,7 +311,7 @@ public static class CadastrosEndpoints
 
     private static void MapTiposCarteira(IEndpointRouteBuilder app)
     {
-        var grupo = app.MapGroup(Rotas.Comercial.TiposCarteira).WithTags("Tipos de carteira").RequireAuthorization();
+        var grupo = app.MapGroup(Rotas.Comercial.TiposCarteira).WithTags("Papéis comerciais").RequireAuthorization();
 
         grupo.MapGet(string.Empty, (bool? incluirInativos, ITipoCarteiraAppService servico, CancellationToken ct) =>
             servico.ListarAsync(incluirInativos ?? false, ct));

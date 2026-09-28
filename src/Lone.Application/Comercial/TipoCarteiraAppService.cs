@@ -5,6 +5,7 @@ using Lone.Contracts.Seguranca;
 using Lone.Domain.Comercial;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
+using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Comercial;
@@ -18,16 +19,18 @@ public interface ITipoCarteiraAppService
     Task<TipoCarteiraDto> ReativarAsync(Guid id, AlterarSituacaoRequisicao requisicao, CancellationToken ct = default);
 }
 
-/// <summary>Tipo de carteira: permissão → normalização → regras → gravação (com eventos no histórico).</summary>
+/// <summary>Papel comercial (tipo de carteira): permissão → normalização → regras → gravação (com eventos no histórico).</summary>
 public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
 {
     private readonly ITipoCarteiraRepositorio _repositorio;
     private readonly IAutorizacao _autorizacao;
+    private readonly TimeProvider _relogio;
 
-    public TipoCarteiraAppService(ITipoCarteiraRepositorio repositorio, IAutorizacao autorizacao)
+    public TipoCarteiraAppService(ITipoCarteiraRepositorio repositorio, IAutorizacao autorizacao, TimeProvider relogio)
     {
         _repositorio = repositorio;
         _autorizacao = autorizacao;
+        _relogio = relogio;
     }
 
     public async Task<List<TipoCarteiraDto>> ListarAsync(bool incluirInativos, CancellationToken ct = default)
@@ -55,23 +58,30 @@ public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
             Id = dto.Id == Guid.Empty ? IdSequencial.Novo() : dto.Id,
             Versao = dto.Versao,
             Nome = Texto(dto.Nome),
-            Principal = dto.Principal,
+            ResponsavelDaConta = dto.ResponsavelDaConta,
             Ordem = dto.Ordem,
+            LimitePorVez = dto.LimitePorVez,
+            TipoCredito = Enum.IsDefined(dto.TipoCredito) ? dto.TipoCredito : TipoCreditoComercial.Nenhum,
+            PercentualPadrao = dto.PercentualPadrao,
+            ContaParaMetas = dto.ContaParaMetas,
             Ativo = anterior?.Ativo ?? true
         };
 
-        var erros = new List<string>();
-        if (dados.Nome.Length == 0) erros.Add("Informe o nome do tipo.");
-        else if (dados.Nome.Length > TipoCarteira.TamanhoMaximoNome) erros.Add($"O nome pode ter no máximo {TipoCarteira.TamanhoMaximoNome} caracteres.");
-        if (dados.Principal && todos.Any(t => t.Principal && t.Id != dados.Id))
-            erros.Add($"Já existe o tipo principal \"{todos.First(t => t.Principal && t.Id != dados.Id).Nome}\": desmarque-o antes (só um tipo define o vendedor padrão).");
-        if (dados.Nome.Length > 0 && todos.Any(t => t.Id != dados.Id && TextoBusca.Normalizar(t.Nome) == TextoBusca.Normalizar(dados.Nome)))
-            erros.Add($"Já existe \"{dados.Nome}\" (ativo ou desativado; maiúsculas e acentos não contam).");
+        var erros = RegrasComercial.ValidarPapel(dados, todos);
+        // Baixar o limite só quando nenhum cliente fica acima dele (de hoje em diante; o histórico não é revalidado).
+        if (erros.Count == 0 && anterior is not null && dados.LimitePorVez is { } limite && (anterior.LimitePorVez is null || anterior.LimitePorVez > limite))
+        {
+            var hoje = DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime);
+            var acima = RegrasComercial.ClientesAcimaDoLimite(await _repositorio.VinculosAtivosAsync(dados.Id, hoje, ct), limite, hoje);
+            if (acima > 0)
+                erros.Add($"{acima} cliente(s) têm mais de {limite} vínculo(s) de \"{dados.Nome}\" ao mesmo tempo, de hoje em diante. " +
+                          "Encerre os excedentes na carteira desses clientes (ou transfira) antes de baixar o limite.");
+        }
         if (erros.Count > 0) throw new ValidacaoException(erros);
 
-        if (anterior is null) dados.RegistrarEvento($"Tipo de carteira '{dados.Nome}' criado.");
+        if (anterior is null) dados.RegistrarEvento($"Papel comercial '{dados.Nome}' criado.");
         else if (!string.Equals(anterior.Nome, dados.Nome, StringComparison.Ordinal))
-            dados.RegistrarEvento($"Tipo de carteira '{anterior.Nome}' renomeado para '{dados.Nome}'.");
+            dados.RegistrarEvento($"Papel comercial '{anterior.Nome}' renomeado para '{dados.Nome}'.");
 
         await _repositorio.SalvarAsync(dados, anterior is null, ct);
         return await ReleAsync(dados.Id, ct) ?? throw new ConflitoDeEdicaoException();
@@ -104,8 +114,12 @@ public sealed class TipoCarteiraAppService : ITipoCarteiraAppService
         Id = x.Id,
         Versao = x.Versao,
         Nome = x.Nome,
-        Principal = x.Principal,
+        ResponsavelDaConta = x.ResponsavelDaConta,
         Ordem = x.Ordem,
+        LimitePorVez = x.LimitePorVez,
+        TipoCredito = x.TipoCredito,
+        PercentualPadrao = x.PercentualPadrao,
+        ContaParaMetas = x.ContaParaMetas,
         Ativo = x.Ativo,
         QuantidadeUsos = usos
     };

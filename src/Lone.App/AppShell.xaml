@@ -325,8 +325,8 @@
     <FlyoutItem Title="Condições de pagamento" Route="condicoes-pagamento" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Condições de pagamento" ContentTemplate="{DataTemplate views:CondicoesPagamentoPage}" />
     </FlyoutItem>
-    <FlyoutItem Title="Tipos de carteira" Route="tipos-carteira" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
-        <ShellContent Title="Tipos de carteira" ContentTemplate="{DataTemplate views:TiposCarteiraPage}" />
+    <FlyoutItem Title="Papéis comerciais" Route="tipos-carteira" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Papéis comerciais" ContentTemplate="{DataTemplate views:TiposCarteiraPage}" />
     </FlyoutItem>
     <FlyoutItem Title="Indicadores" Route="indicadores" IsVisible="{Binding PodeGerenciarMetas}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Indicadores" ContentTemplate="{DataTemplate views:IndicadoresPage}" />

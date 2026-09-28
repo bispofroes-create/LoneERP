@@ -20,8 +20,11 @@ public static class ConflitosEnderecoFinalidade
         "Não foi possível salvar porque um endereço inativo ficaria como principal de uma finalidade. " +
         "Atualize os dados e tente novamente.";
     public const string CarteiraSobreposta =
-        "Não foi possível salvar porque esta pessoa ficaria com dois vendedores ativos do mesmo tipo principal ou exclusivo " +
-        "no mesmo período. Atualize os dados e tente novamente.";
+        "Não foi possível salvar porque esta pessoa ficaria com dois vínculos ativos do mesmo papel de um por vez (ou " +
+        "exclusivo) no mesmo período. Atualize os dados e tente novamente.";
+    public const string CarteiraAcimaDoLimite =
+        "Não foi possível salvar porque esta pessoa ficaria com mais vínculos ativos de um papel ao mesmo tempo do que o " +
+        "limite do papel. Atualize os dados e tente novamente.";
 
     /// <summary>Mensagem do conflito, ou nulo se o erro não é um dos casos conhecidos.</summary>
     public static string? Mensagem(Exception erro) => erro switch
@@ -39,6 +42,7 @@ public static class ConflitosEnderecoFinalidade
         SqlMigracaoFinalidadesEndereco.ErroPrincipalEmEnderecoInativo or
         SqlMigracaoFinalidadesEndereco.ErroEnderecoInativoComPrincipal => EnderecoInativoPrincipal,
         SqlMigracaoCarteira.ErroSobreposicao => CarteiraSobreposta, // gatilho da carteira (Etapa 4)
+        SqlMigracaoCarteira.ErroAcimaDoLimite => CarteiraAcimaDoLimite, // gatilho da carteira (Motor Comercial, Fase 1a)
         _ => null
     };
 }

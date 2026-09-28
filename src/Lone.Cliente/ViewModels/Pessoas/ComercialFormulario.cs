@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Comercial;
 using Lone.Domain.Comum;
+using Lone.Domain.Enums;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
 
@@ -141,9 +142,10 @@ public sealed partial class CarteiraFormulario : ItemDeLista
         _inicioEm = TextoTela.Data(d.InicioEm == default ? null : d.InicioEm);
         _fimEm = TextoTela.Data(d.FimEm);
         _exclusivo = d.Exclusivo;
+        _percentualCredito = TextoTela.Decimal(d.PercentualCredito);
         _observacao = d.Observacao ?? string.Empty;
         _ativo = d.Ativo;
-        _tipos = [new Opcao<Guid?>(d.TipoCarteiraId == Guid.Empty ? null : d.TipoCarteiraId, "(tipo gravado)")];
+        _tipos = [new Opcao<Guid?>(d.TipoCarteiraId == Guid.Empty ? null : d.TipoCarteiraId, "(papel gravado)")];
         _tipo = _tipos[0];
         _vendedores = [new Opcao<Guid?>(d.VendedorId == Guid.Empty ? null : d.VendedorId, d.Vendedor ?? "—")];
         _vendedor = _vendedores[0];
@@ -153,7 +155,7 @@ public sealed partial class CarteiraFormulario : ItemDeLista
 
     public static CarteiraFormulario Nova(OpcoesComercial? opcoes)
     {
-        var principal = opcoes?.Dados.TiposCarteira.FirstOrDefault(t => t.Principal && t.Ativo);
+        var principal = opcoes?.Dados.TiposCarteira.FirstOrDefault(t => t.ResponsavelDaConta && t.Ativo);
         var nova = new CarteiraFormulario(new CarteiraDto
         {
             Id = IdSequencial.Novo(),
@@ -171,10 +173,11 @@ public sealed partial class CarteiraFormulario : ItemDeLista
     [ObservableProperty] private string _inicioEm;
     [ObservableProperty] private string _fimEm;
     [ObservableProperty] private bool _exclusivo;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito))] private string _percentualCredito;
     [ObservableProperty] private string _observacao;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Inativo))] private bool _ativo;
     [ObservableProperty] private Opcao<Guid?>[] _tipos;
-    [ObservableProperty] private Opcao<Guid?> _tipo;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(RecebeCredito), nameof(DicaCredito))] private Opcao<Guid?> _tipo;
     [ObservableProperty] private Opcao<Guid?>[] _vendedores;
     [ObservableProperty] private Opcao<Guid?> _vendedor;
     [ObservableProperty] private Opcao<Guid?>[] _empresas = [OpcoesComercial.Todas];
@@ -182,12 +185,29 @@ public sealed partial class CarteiraFormulario : ItemDeLista
 
     public bool Inativo => !Ativo;
 
+    /// <summary>Política dos papéis (lida com as opções): o crédito só aparece para papel que recebe crédito da venda.</summary>
+    private IReadOnlyDictionary<Guid, TipoCarteiraDto> _papeis = new Dictionary<Guid, TipoCarteiraDto>();
+
+    private TipoCarteiraDto? Papel => Tipo.Valor is { } id ? _papeis.GetValueOrDefault(id) : null;
+
+    public bool RecebeCredito => Papel is { TipoCredito: not TipoCreditoComercial.Nenhum } || !string.IsNullOrWhiteSpace(PercentualCredito);
+
+    public string DicaCredito => Papel switch
+    {
+        { TipoCredito: TipoCreditoComercial.Receita, PercentualPadrao: { } p } => $"vazio = {TextoTela.Decimal(p)}% (padrão)",
+        { TipoCredito: TipoCreditoComercial.Receita } => "vazio = 100% se for o único",
+        { TipoCredito: TipoCreditoComercial.Sobreposicao, PercentualPadrao: { } p } => $"extra; vazio = {TextoTela.Decimal(p)}%",
+        { TipoCredito: TipoCreditoComercial.Sobreposicao } => "extra; vazio = 100%",
+        _ => "este papel não recebe crédito"
+    };
+
     public void DefinirOpcoes(OpcoesComercial opcoes)
     {
         var atual = ParaDto();
         var d = opcoes.Dados;
-        Tipos = OpcoesColaborador.Lista(d.TiposCarteira.OrderBy(t => t.Ordem), t => t.Id, t => t.Principal ? t.Nome + " (principal)" : t.Nome,
-            t => t.Ativo, _gravada.TipoCarteiraId);
+        _papeis = d.TiposCarteira.ToDictionary(t => t.Id);
+        Tipos = OpcoesColaborador.Lista(d.TiposCarteira.OrderBy(t => t.Ordem), t => t.Id,
+            t => t.ResponsavelDaConta ? t.Nome + " (responsável da conta)" : t.Nome, t => t.Ativo, _gravada.TipoCarteiraId);
         Tipo = OpcoesComercial.Escolher(Tipos, atual.TipoCarteiraId == Guid.Empty ? null : atual.TipoCarteiraId);
         var vendedores = d.Vendedores.Select(v => new Opcao<Guid?>(v.Id, v.Nome)).ToList();
         if (_gravada.VendedorId != Guid.Empty && vendedores.All(v => v.Valor != _gravada.VendedorId))
@@ -197,21 +217,26 @@ public sealed partial class CarteiraFormulario : ItemDeLista
         Empresas = opcoes.Empresas(_gravada.EmpresaId);
         Empresa = OpcoesComercial.Escolher(Empresas, atual.EmpresaId);
         _carregadas = true;
+        OnPropertyChanged(nameof(RecebeCredito));
+        OnPropertyChanged(nameof(DicaCredito));
     }
 
     public IEnumerable<string> Validar(string rotulo)
     {
         if (!Ativo) yield break;
+        if (!TextoTela.TentarDecimal(PercentualCredito, out var pct) || pct is < 0 or > 100)
+            yield return $"{rotulo}: crédito inválido (de 0 a 100%).";
         if (!TextoTela.TentarData(InicioEm, out var inicio) || inicio is null) yield return $"{rotulo}: informe o início (dd/mm/aaaa).";
         if (!TextoTela.TentarData(FimEm, out _)) yield return $"{rotulo}: fim inválido (use dd/mm/aaaa).";
         if (Vendedor.Valor is null) yield return $"{rotulo}: escolha o vendedor.";
-        if (Tipo.Valor is null) yield return $"{rotulo}: escolha o tipo.";
+        if (Tipo.Valor is null) yield return $"{rotulo}: escolha o papel.";
     }
 
     public CarteiraDto ParaDto()
     {
         TextoTela.TentarData(InicioEm, out var inicio);
         TextoTela.TentarData(FimEm, out var fim);
+        TextoTela.TentarDecimal(PercentualCredito, out var percentual);
         return new CarteiraDto
         {
             Id = Id,
@@ -221,6 +246,8 @@ public sealed partial class CarteiraFormulario : ItemDeLista
             InicioEm = inicio ?? default,
             FimEm = fim,
             Exclusivo = Exclusivo,
+            PercentualCredito = percentual,
+            Origem = _gravada.Origem,
             Observacao = TextoTela.Nulo(Observacao)?.Trim(),
             Ativo = Ativo
         };

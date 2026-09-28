@@ -5,20 +5,20 @@ using Lone.Domain.Entidades;
 namespace Lone.Cliente.ViewModels.Pessoas;
 
 /// <summary>
-/// Um vínculo novo da carteira que entra no lugar de um vigente do mesmo tipo principal/exclusivo (decisão D3 da Etapa 4).
+/// Um vínculo novo da carteira que entra no lugar de um vigente do mesmo papel de um por vez/exclusivo (decisão D3 da Etapa 4).
 /// A regra de conflito é a do domínio (<see cref="RegrasComercial.Conflitam"/>): a ficha só pergunta antes e, com a
 /// confirmação, encerra o anterior na véspera do início do novo. Nada é apagado; o servidor confere tudo de novo ao gravar.
 /// </summary>
 public sealed class SubstituicaoVendedor
 {
     private SubstituicaoVendedor(CarteiraFormulario novo, IReadOnlyList<CarteiraFormulario> encerrar,
-                                 IReadOnlyList<CarteiraFormulario> impedem, string tipo, bool principal)
+                                 IReadOnlyList<CarteiraFormulario> impedem, string tipo, bool umPorVez)
     {
         Novo = novo;
         Encerrar = encerrar;
         Impedem = impedem;
         Tipo = tipo;
-        Principal = principal;
+        UmPorVez = umPorVez;
     }
 
     public CarteiraFormulario Novo { get; }
@@ -30,7 +30,8 @@ public sealed class SubstituicaoVendedor
     public IReadOnlyList<CarteiraFormulario> Impedem { get; }
 
     public string Tipo { get; }
-    public bool Principal { get; }
+    /// <summary>O papel aceita um vínculo por vez (senão, o conflito vem de um vínculo exclusivo).</summary>
+    public bool UmPorVez { get; }
     public bool Impedida => Impedem.Count > 0;
 
     private DateOnly InicioNovo => TextoTela.TentarData(Novo.InicioEm, out var d) && d is { } inicio ? inicio : default;
@@ -42,7 +43,11 @@ public sealed class SubstituicaoVendedor
     public static List<SubstituicaoVendedor> Planejar(IReadOnlyList<CarteiraFormulario> carteira, OpcoesComercial? opcoes)
     {
         if (opcoes is null || carteira.Count == 0) return [];
-        var tipos = opcoes.Dados.TiposCarteira.ToDictionary(t => t.Id, t => new TipoCarteira { Id = t.Id, Nome = t.Nome, Principal = t.Principal });
+        var tipos = opcoes.Dados.TiposCarteira.ToDictionary(t => t.Id, t => new TipoCarteira
+        {
+            Id = t.Id, Nome = t.Nome, ResponsavelDaConta = t.ResponsavelDaConta, LimitePorVez = t.LimitePorVez,
+            TipoCredito = t.TipoCredito, PercentualPadrao = t.PercentualPadrao
+        });
         var porEntidade = carteira.ToDictionary(Entidade);
         var gravados = porEntidade.Where(p => p.Value.Gravada).Select(p => p.Key).ToList();
 
@@ -54,7 +59,7 @@ public sealed class SubstituicaoVendedor
             var tipo = tipos.GetValueOrDefault(entidade.TipoCarteiraId);
             resultado.Add(new SubstituicaoVendedor(item,
                 [.. plano.Encerrar.Select(e => porEntidade[e])], [.. plano.Impedem.Select(e => porEntidade[e])],
-                tipo?.Nome ?? "carteira", tipo?.Principal == true));
+                tipo?.Nome ?? "carteira", tipo?.UmPorVez == true));
         }
         return resultado;
     }
@@ -69,7 +74,17 @@ public sealed class SubstituicaoVendedor
         var antes = Encerrar.Select(a => (Item: a, Fim: a.FimEm)).ToList();
         var fim = TextoTela.Data(InicioNovo.AddDays(-1));
         foreach (var anterior in Encerrar) anterior.FimEm = fim;
-        return () => { foreach (var (item, fimAntes) in antes) item.FimEm = fimAntes; };
+
+        // O novo herda o crédito (%) do anterior, se não tiver o seu: a divisão da venda continua somando 100%.
+        var creditoAntes = Novo.PercentualCredito;
+        if (string.IsNullOrWhiteSpace(Novo.PercentualCredito) && Encerrar.Count == 1)
+            Novo.PercentualCredito = Encerrar[0].PercentualCredito;
+
+        return () =>
+        {
+            foreach (var (item, fimAntes) in antes) item.FimEm = fimAntes;
+            Novo.PercentualCredito = creditoAntes;
+        };
     }
 
     public string Titulo => Impedida ? "Não dá para substituir o vendedor" : "Vendedor já atribuído";
@@ -81,7 +96,7 @@ public sealed class SubstituicaoVendedor
         {
             var inicio = InicioNovo;
             var novo = Novo.Vendedor.Texto;
-            var regra = Principal ? $"um \"{Tipo}\" (principal) ativo"
+            var regra = UmPorVez ? $"um \"{Tipo}\" ativo (um por vez)"
                 : Encerrar.Concat(Impedem).Any(e => e.Exclusivo) ? $"um vínculo exclusivo de \"{Tipo}\" ativo"
                 : $"um vínculo de \"{Tipo}\" ativo, e o novo é exclusivo";
             if (Impedida)
@@ -90,7 +105,8 @@ public sealed class SubstituicaoVendedor
                 return $"Esta pessoa já tem {regra}: {outro.Vendedor.Texto}, desde {outro.InicioEm}.\n\n" +
                        $"{novo} começaria em {TextoTela.Data(inicio)}, no mesmo dia ou antes dele. Encerrar o vínculo atual " +
                        "antes do início dele apagaria o período em que ele foi o responsável, e o histórico não é alterado.\n\n" +
-                       "Ajuste o início do novo vínculo para depois do início do atual, ou corrija o vínculo atual na lista.";
+                       "Ajuste o início do novo vínculo para depois do início do atual, ou corrija o vínculo atual na lista." +
+                       DicaVarios;
             }
             var atuais = string.Join(", ", Encerrar.Select(a => $"{a.Vendedor.Texto} (desde {a.InicioEm})"));
             var nomes = string.Join(", ", Encerrar.Select(a => a.Vendedor.Texto));
@@ -101,9 +117,18 @@ public sealed class SubstituicaoVendedor
                    $"• O vínculo de {nomes} será encerrado em {TextoTela.Data(inicio.AddDays(-1))}.\n" +
                    $"• {novo} passa a ser o responsável a partir de {TextoTela.Data(inicio)}.\n" +
                    "• O vínculo anterior continua no histórico.\n" +
-                   "• Nenhum cadastro é excluído.";
+                   "• Nenhum cadastro é excluído." +
+                   DicaVarios;
         }
     }
+
+    /// <summary>
+    /// Papel de um por vez: quem quer dois atendendo juntos (e dividindo a venda) usa outro papel, não um segundo deste.
+    /// </summary>
+    private string DicaVarios => UmPorVez
+        ? $"\n\nPara dois atenderem juntos e dividirem o crédito da venda, use um papel que aceite mais de um (ex.: " +
+          "Representante, com crédito \"Receita\"), em Configurações › Papéis comerciais."
+        : string.Empty;
 
     public const string TextoConfirmar = "Encerrar anterior e atribuir novo vendedor";
 

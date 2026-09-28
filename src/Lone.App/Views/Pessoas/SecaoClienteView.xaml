@@ -60,7 +60,8 @@
             </BindableLayout.ItemTemplate>
         </VerticalStackLayout>
 
-        <!-- Carteira de clientes (D5): quem atende este cliente, com vigência. O vendedor principal vigente vira o vendedor padrão. -->
+        <!-- Carteira de clientes (D5): quem atende este cliente, com vigência e papel. O vendedor vigente do papel "responsável da
+             conta" vira o vendedor padrão. Crédito (%): divisão da venda entre os papéis de receita (soma 100%). -->
         <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
             <Label Text="Carteira (quem atende)" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
             <Button Grid.Column="1" Text="Adicionar à carteira" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarCarteiraCommand}" />
@@ -76,12 +77,14 @@
                             <Label Text="Inativo (lançado por engano): fica só no histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <FlexLayout Wrap="Wrap">
-                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
+                                <c:CampoEscolha Rotulo="Papel" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:CampoEscolha Rotulo="Vendedor" Itens="{Binding Vendedores}" Selecionado="{Binding Vendedor}" />
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" />
                                 <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
-                                <c:CaixaMarcar Texto="Exclusivo (ninguém mais do mesmo tipo no período)" Marcado="{Binding Exclusivo}" />
+                                <c:Campo Rotulo="Crédito (%)" Texto="{Binding PercentualCredito}" Dica="{Binding DicaCredito}"
+                                         Teclado="Numeric" IsVisible="{Binding RecebeCredito}" />
+                                <c:CaixaMarcar Texto="Exclusivo (ninguém mais do mesmo papel no período)" Marcado="{Binding Exclusivo}" />
                                 <c:CaixaMarcar Texto="Ativo" Marcado="{Binding Ativo}" />
                                 <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" FlexLayout.Basis="100%" />
                             </FlexLayout>

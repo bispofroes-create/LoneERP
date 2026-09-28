@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Lone.Domain.Enums;
 
 namespace Lone.Domain.Entidades;
 
@@ -88,20 +89,48 @@ public class PerfilComercial : AgregadoRaiz
 }
 
 /// <summary>
-/// Tipo de vínculo da carteira de clientes (Vendedor, Representante, Televendas, Supervisor...). O tipo "principal"
-/// (só um) define o vendedor padrão copiado para a conta do cliente. Nunca é excluído: desativado.
+/// Papel comercial: a função de quem atende o cliente na carteira (Vendedor, Representante, Televendas, Supervisor...).
+/// Cada papel tem a sua política (Motor Comercial, Fase 1): quantos vínculos ao mesmo tempo, como entra no crédito da
+/// venda, o percentual padrão e se conta para as metas. O papel "responsável da conta" (só um) define o vendedor padrão
+/// copiado para a conta do cliente. Nunca é excluído: desativado. Na tabela continua "TiposCarteira".
 /// </summary>
-[DisplayName("Tipo de carteira")]
+[DisplayName("Papel comercial")]
 public class TipoCarteira : AgregadoRaiz
 {
     public const int TamanhoMaximoNome = 40;
 
+    /// <summary>Limite de vínculos simultâneos aceito no cadastro (acima disso é "sem limite").</summary>
+    public const int MaximoPorVez = 99;
+
     [DisplayName("Nome")]
     public string Nome { get; set; } = string.Empty;
 
-    /// <summary>O vendedor vigente deste tipo é o "vendedor padrão" da conta do cliente (só um tipo pode ser principal).</summary>
-    [DisplayName("Principal")]
-    public bool Principal { get; set; }
+    /// <summary>
+    /// O vendedor vigente deste papel é o "vendedor padrão" da conta do cliente (só um papel; exige no máximo 1 por vez).
+    /// </summary>
+    [DisplayName("Responsável da conta")]
+    public bool ResponsavelDaConta { get; set; }
+
+    /// <summary>
+    /// Quantos vínculos ativos deste papel o cliente pode ter ao mesmo tempo (por empresa). Nulo = sem limite. 1 = um por
+    /// vez: incluir outro pede a substituição (encerra o anterior na véspera). "Exclusivo" no vínculo continua valendo.
+    /// </summary>
+    [DisplayName("Quantos ao mesmo tempo")]
+    public int? LimitePorVez { get; set; }
+
+    [DisplayName("Crédito da venda")]
+    public TipoCreditoComercial TipoCredito { get; set; }
+
+    /// <summary>Percentual de crédito sugerido para os vínculos deste papel (o vínculo pode ter o seu).</summary>
+    [DisplayName("Percentual padrão (%)")]
+    public decimal? PercentualPadrao { get; set; }
+
+    /// <summary>Os clientes dos vínculos deste papel contam no realizado das metas do vendedor.</summary>
+    [DisplayName("Conta para metas")]
+    public bool ContaParaMetas { get; set; }
+
+    /// <summary>Um vínculo por vez (a regra de substituição vale para ele).</summary>
+    public bool UmPorVez => LimitePorVez == 1;
 
     [DisplayName("Ordem")]
     public int Ordem { get; set; }
@@ -113,14 +142,14 @@ public class TipoCarteira : AgregadoRaiz
     {
         if (!Ativo) return;
         Ativo = false;
-        RegistrarEvento($"Tipo de carteira '{Nome}' desativado.");
+        RegistrarEvento($"Papel comercial '{Nome}' desativado.");
     }
 
     public void Reativar()
     {
         if (Ativo) return;
         Ativo = true;
-        RegistrarEvento($"Tipo de carteira '{Nome}' reativado.");
+        RegistrarEvento($"Papel comercial '{Nome}' reativado.");
     }
 }
 
@@ -188,6 +217,17 @@ public class CarteiraCliente : EntidadePessoaFilha
 
     [DisplayName("Exclusivo")]
     public bool Exclusivo { get; set; }
+
+    /// <summary>
+    /// Percentual do crédito da venda para este vínculo (papel com crédito de receita ou sobreposição). Nulo = o percentual
+    /// padrão do papel. Com um só vínculo de receita vigente, ele fica com 100%.
+    /// </summary>
+    [DisplayName("Crédito (%)")]
+    public decimal? PercentualCredito { get; set; }
+
+    /// <summary>Como o vínculo foi criado (ficha, substituição, transferência...). Definido pelo servidor.</summary>
+    [DisplayName("Origem")]
+    public OrigemVinculoCarteira Origem { get; set; }
 
     [DisplayName("Observação")]
     public string? Observacao { get; set; }

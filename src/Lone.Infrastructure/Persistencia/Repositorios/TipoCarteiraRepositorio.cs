@@ -43,6 +43,20 @@ public class TipoCarteiraRepositorio : ServicoDadosBase, ITipoCarteiraRepositori
             .Select(g => new { g.Key, Quantidade = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Quantidade, ct);
     }
 
+    public async Task<List<CarteiraCliente>> VinculosAtivosAsync(Guid tipoId, DateOnly desde, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        // Só as colunas que a conferência usa (sem acompanhar alterações).
+        return await db.CarteiraClientes.AsNoTracking()
+            .Where(c => c.TipoCarteiraId == tipoId && c.Ativo && (c.FimEm == null || c.FimEm >= desde))
+            .Select(c => new CarteiraCliente
+            {
+                Id = c.Id, PessoaId = c.PessoaId, EmpresaId = c.EmpresaId, TipoCarteiraId = c.TipoCarteiraId,
+                InicioEm = c.InicioEm, FimEm = c.FimEm, Ativo = c.Ativo
+            })
+            .ToListAsync(ct);
+    }
+
     public async Task SalvarAsync(TipoCarteira item, bool novo, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
