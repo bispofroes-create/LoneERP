@@ -663,6 +663,42 @@ Todo o código está nesta pasta (`C:\Users\Windows 11\source\repos\Lone`). Este
     de compilação: CS8620 em `FiltrosPessoasSql` (a expressão do nome foi remontada como `string?`; um cast só trocava
     o aviso pelo CS8619) e MVVMTK0034 em `GradePessoas.AplicarLayout`, onde o acesso direto ao campo é intencional e
     ficou com `#pragma` e comentário. Build final: 0 avisos e 0 erros.
+- **Etapa 4 — plano e decisões (28/09/2026):** `docs/PLANO-ETAPA4-PESSOAS.md`. O plano foi escrito por outra sessão; a
+  auditoria da carteira e as decisões do usuário estão nas seções 5 e 6. Ordem: primeiro a regra do vendedor na ficha,
+  depois a 4a (seleção, etiquetar, exportar, inativar) e por último a 4b (vendedor em lote).
+- **Etapa 4 — regra de substituição de vendedor (28/09/2026; código entregue, sem compilar; migration aprovada, falta
+  gerar):**
+  - Domínio (`RegrasComercial`):
+    - `Conflitam` é a regra única: mesmo tipo, mesma empresa, períodos sobrepostos, tipo principal ou algum exclusivo.
+      `Validar` passou a usá-la.
+    - `PlanejarSubstituicao` separa o que encerrar do que impede. Retroativo (o novo começa no mesmo dia ou antes do
+      vigente) não substitui.
+    - `Substituir` encerra o anterior na véspera, sem apagar nem desativar.
+    - `Substituicoes` gera a frase do histórico ("João (Vendedor) encerrado em 14/03/2026 e substituído por Maria a
+      partir de 15/03/2026").
+  - Servidor: `PessoaAppService` registra a frase ao gravar (nomes por `ReferenciasComercial.NomesAsync`).
+  - App:
+    - `SubstituicaoVendedor` e `PessoaFormulario.SubstituicoesDeVendedor`. `PessoasViewModel.SalvarAsync` pergunta
+      antes de gravar ("Vendedor já atribuído": atual, novo, o que vai acontecer), com os botões "Cancelar" e "Encerrar
+      anterior e atribuir novo vendedor".
+    - Se a gravação falhar ou o usuário cancelar, desfaz o encerramento. Retroativo: explica e não grava.
+  - Banco:
+    - Gatilho `TR_CarteiraClientes_SemSobreposicao` (`SqlMigracaoCarteira`, erro 50060 traduzido em
+      `ConflitosEnderecoFinalidade.CarteiraSobreposta`), declarado com `HasTrigger` em `CarteiraClienteConfiguration`.
+    - `PessoaRepositorio.SalvarAsync` grava a carteira alterada em dois passos (interseção antes × depois, depois o
+      final), na mesma transação, para o gatilho nunca ver um estado intermediário sobreposto.
+    - **Migration `20260928104115_CarteiraSemSobreposicao`:** gerada pelo usuário e sem operação de esquema (o
+      snapshot só ganhou `HasTrigger` e `UseSqlOutputClause = false`). Ajustada à mão: `CriarProtecao` no Up e
+      `RemoverProtecao` no Down. **Se for gerada de novo, essas duas linhas precisam ser recolocadas.**
+  - Build: 0 avisos. Testes: 1.338 aprovados e 22 ignorados (testes de banco).
+  - Incidente (28/09, manhã): outra sessão tinha escrito uma 4a na mesma cópia de trabalho do assistente, antes das
+    decisões D1–D5. Parte dela foi ao PC junto com o `PessoasViewModel` e quebrou o build. A regra do vendedor foi
+    remontada limpa sobre `1191b48`, e o trabalho da outra sessão ficou em `_entrega/etapa4a-outra-sessao.patch`,
+    sem revisão.
+  - Concorrência: a `rowversion` da pessoa já barra duas gravações simultâneas (409), e o gatilho protege contra
+    gravações fora do agregado.
+  - Testes: `ComercialTests` (5 novos), `ComercialFormularioTests` (3 novos), `ModeloCarteiraTests`. O passo
+    intermediário do repositório não tem teste (precisaria de banco).
 - **Migration pendente de aprovação (documentos):** no tipo de documento, "Aplica-se a" (PF/PJ/estrangeiro) e quais campos
   padrão usa (órgão emissor, UF, emissão); no documento, estabelecimento opcional (alvará/licença da filial), com resumo
   dos documentos da filial no cartão do estabelecimento (Fiscal) e link para a aba Documentos.

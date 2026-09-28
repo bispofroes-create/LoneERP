@@ -381,10 +381,18 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Where(e => e.State == EntityState.Modified && !e.OriginalValues.GetValue<bool>(nameof(PessoaEndereco.Ativo)) && e.Entity.Ativo)
             .Select(e => e.Entity.Id)
             .ToList();
+        // 3. carteira: o gatilho da carteira confere cada UPDATE, e o EF grava um vínculo por comando, sem ordem garantida.
+        //    Cada vínculo alterado passa antes pela interseção do antes com o depois (nunca maior que nenhum dos dois):
+        //    assim nenhum passo intermediário tem sobreposição se o estado final não tem.
+        var carteiraIntermediaria = db.ChangeTracker.Entries<CarteiraCliente>()
+            .Where(e => e.State == EntityState.Modified)
+            .Select(PassoIntermediarioCarteira)
+            .OfType<(Guid Id, DateOnly Inicio, DateOnly? Fim, bool Ativo)>()
+            .ToList();
 
         try
         {
-            if (desmarcados.Count == 0 && reativados.Count == 0)
+            if (desmarcados.Count == 0 && reativados.Count == 0 && carteiraIntermediaria.Count == 0)
             {
                 await db.SaveChangesAsync(ct);
                 return;
@@ -397,6 +405,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             if (reativados.Count > 0)
                 await db.PessoaEnderecos.Where(e => reativados.Contains(e.Id))
                     .ExecuteUpdateAsync(s => s.SetProperty(e => e.Ativo, true), ct);
+            foreach (var (id, inicio, fim, ativo) in carteiraIntermediaria)
+                await db.CarteiraClientes.Where(c => c.Id == id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.InicioEm, inicio).SetProperty(c => c.FimEm, fim)
+                                              .SetProperty(c => c.Ativo, ativo), ct);
             await db.SaveChangesAsync(ct); // usa a transação aberta; a auditoria registra as mudanças normalmente
             await transacao.CommitAsync(ct);
         }
@@ -410,6 +422,32 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             // clara; o erro original vai junto (e para o log). Outros erros de banco seguem como erro inesperado.
             throw new ConflitoDeEdicaoException(mensagem, ex);
         }
+    }
+
+    /// <summary>
+    /// Estado intermediário de um vínculo alterado: a interseção do período antes e depois, ativo só se estava e continua
+    /// ativo no mesmo tipo e empresa. Vazio (ou mudou de tipo/empresa) = inativo por um instante, com as datas antigas.
+    /// Nulo = nada a fazer antes (o vínculo só cresceu: a gravação final já é segura). Não passa pela auditoria: a
+    /// gravação final registra o antes e o depois de verdade.
+    /// </summary>
+    private static (Guid Id, DateOnly Inicio, DateOnly? Fim, bool Ativo)? PassoIntermediarioCarteira(
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<CarteiraCliente> entrada)
+    {
+        var antes = entrada.OriginalValues;
+        var depois = entrada.Entity;
+        var ativoAntes = antes.GetValue<bool>(nameof(CarteiraCliente.Ativo));
+        var inicioAntes = antes.GetValue<DateOnly>(nameof(CarteiraCliente.InicioEm));
+        var fimAntes = antes.GetValue<DateOnly?>(nameof(CarteiraCliente.FimEm));
+        var mesmoLugar = antes.GetValue<Guid>(nameof(CarteiraCliente.TipoCarteiraId)) == depois.TipoCarteiraId &&
+                         antes.GetValue<Guid?>(nameof(CarteiraCliente.EmpresaId)) == depois.EmpresaId;
+
+        var inicio = inicioAntes > depois.InicioEm ? inicioAntes : depois.InicioEm;
+        DateOnly? fim = fimAntes is null ? depois.FimEm : depois.FimEm is null ? fimAntes : fimAntes < depois.FimEm ? fimAntes : depois.FimEm;
+        var ativo = ativoAntes && depois.Ativo && mesmoLugar && (fim is null || fim >= inicio);
+
+        if (!ativo) return ativoAntes ? (depois.Id, inicioAntes, fimAntes, false) : null;
+        if (inicio == inicioAntes && fim == fimAntes) return null;
+        return (depois.Id, inicio, fim, true);
     }
 
     public async Task<List<PendenciaMunicipio>> ListarPendenciasMunicipioAsync(Guid pessoaId, CancellationToken ct)

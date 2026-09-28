@@ -14,6 +14,16 @@ public sealed record ComercialParaConferir(
     IReadOnlyDictionary<Guid, TipoCarteira> TiposCarteira,
     IReadOnlySet<Guid> Vendedores);
 
+/// <summary>
+/// Resultado de <see cref="RegrasComercial.PlanejarSubstituicao"/>: os vínculos vigentes que um vínculo novo substitui e
+/// os que impedem a substituição (começam no mesmo dia ou depois dele).
+/// </summary>
+public sealed record PlanoSubstituicao(IReadOnlyList<CarteiraCliente> Encerrar, IReadOnlyList<CarteiraCliente> Impedem)
+{
+    public bool TemConflito => Encerrar.Count > 0 || Impedem.Count > 0;
+    public bool Impedida => Impedem.Count > 0;
+}
+
 /// <summary>Os tipos de carteira iniciais (Ids fixos; o usuário pode criar outros).</summary>
 public static class TiposCarteiraIniciais
 {
@@ -153,16 +163,79 @@ public static class RegrasComercial
 
         // Exclusivo: ninguém mais do mesmo tipo no período. Principal: um só vendedor principal por vez (vira o vendedor padrão).
         foreach (var a in ativos)
-            foreach (var b in ativos.Where(b => !ReferenceEquals(a, b) && b.TipoCarteiraId == a.TipoCarteiraId && b.EmpresaId == a.EmpresaId))
+            foreach (var b in ativos.Where(b => Conflitam(a, b, tipos)))
             {
-                if (!Sobrepoem(a.InicioEm, a.FimEm, b.InicioEm, b.FimEm)) continue;
                 var principal = tipos.TryGetValue(a.TipoCarteiraId, out var tipo) && tipo.Principal;
-                if (a.Exclusivo || principal)
-                    erros.Add(principal
-                        ? $"Carteira: só um \"{tipo!.Nome}\" (principal) por vez; os períodos se sobrepõem em {Data(Maior(a.InicioEm, b.InicioEm))}."
-                        : $"Carteira: o vínculo exclusivo de {Data(a.InicioEm)} se sobrepõe a outro do mesmo tipo.");
+                erros.Add(principal
+                    ? $"Carteira: só um \"{tipo!.Nome}\" (principal) por vez; os períodos se sobrepõem em {Data(Maior(a.InicioEm, b.InicioEm))}."
+                    : $"Carteira: o vínculo exclusivo de {Data((a.Exclusivo ? a : b).InicioEm)} se sobrepõe a outro do mesmo tipo.");
             }
         return erros.Distinct().ToList();
+    }
+
+    // ---------------------------------------------------------------- Carteira: conflito e substituição
+
+    /// <summary>
+    /// Dois vínculos que não podem valer ao mesmo tempo (a regra única da carteira, usada na validação, na substituição
+    /// da ficha e no gatilho do banco, SqlMigracaoCarteira): ambos ativos, mesmo tipo, mesma empresa (nula = todas), períodos sobrepostos e o tipo é
+    /// principal ou algum dos dois é exclusivo. Tipos diferentes ou empresas diferentes nunca conflitam.
+    /// </summary>
+    public static bool Conflitam(CarteiraCliente a, CarteiraCliente b, IReadOnlyDictionary<Guid, TipoCarteira> tipos) =>
+        !ReferenceEquals(a, b) && a.Ativo && b.Ativo &&
+        a.TipoCarteiraId == b.TipoCarteiraId && a.EmpresaId == b.EmpresaId &&
+        Sobrepoem(a.InicioEm, a.FimEm, b.InicioEm, b.FimEm) &&
+        (a.Exclusivo || b.Exclusivo || (tipos.TryGetValue(a.TipoCarteiraId, out var tipo) && tipo.Principal));
+
+    /// <summary>
+    /// O que acontece se <paramref name="novo"/> entrar na carteira da pessoa: os vínculos que podem ser encerrados no dia
+    /// anterior ao início dele (substituição) e os que impedem (começam no mesmo dia do novo ou depois: encerrá-los
+    /// apagaria o período deles, e o histórico não é alterado retroativamente).
+    /// </summary>
+    public static PlanoSubstituicao PlanejarSubstituicao(IEnumerable<CarteiraCliente> carteira, CarteiraCliente novo,
+                                                         IReadOnlyDictionary<Guid, TipoCarteira> tipos)
+    {
+        var conflitos = carteira.Where(c => Conflitam(c, novo, tipos)).ToList();
+        return new PlanoSubstituicao(
+            [.. conflitos.Where(c => c.InicioEm < novo.InicioEm)],
+            [.. conflitos.Where(c => c.InicioEm >= novo.InicioEm)]);
+    }
+
+    /// <summary>
+    /// Encerra os vínculos do plano no dia anterior ao início do novo (o fim conta como dia de vigência: assim não há
+    /// sobreposição nem dia sem responsável). Nada é apagado nem desativado: o anterior fica com o período em que valeu.
+    /// Só aplica se nada impede (quem chama confere <see cref="PlanoSubstituicao.Impedida"/> antes).
+    /// </summary>
+    public static void Substituir(PlanoSubstituicao plano, CarteiraCliente novo)
+    {
+        if (plano.Impedida) throw new InvalidOperationException("Substituição impedida: há vínculo que começa no mesmo dia ou depois do novo.");
+        var fim = novo.InicioEm.AddDays(-1);
+        foreach (var anterior in plano.Encerrar) anterior.FimEm = fim;
+    }
+
+    /// <summary>
+    /// Frases do histórico para as substituições feitas nesta gravação: um vínculo já gravado que passou a terminar na
+    /// véspera do início de um vínculo novo do mesmo tipo e empresa ("João (Vendedor) encerrado em 14/03/2026 e
+    /// substituído por Maria a partir de 15/03/2026"). Roda na gravação da pessoa: vale para a ficha e, quando existir, para o
+    /// lote da Etapa 4b, que também grava pela pessoa.
+    /// </summary>
+    public static IEnumerable<string> Substituicoes(IEnumerable<CarteiraCliente> anteriores, IEnumerable<CarteiraCliente> atuais,
+                                                    IReadOnlyDictionary<Guid, TipoCarteira> tipos, Func<Guid, string> nomeVendedor)
+    {
+        var antes = anteriores.ToDictionary(c => c.Id);
+        var lista = atuais.ToList();
+        var novos = lista.Where(c => c.Ativo && !antes.ContainsKey(c.Id)).ToList();
+        foreach (var encerrado in lista)
+        {
+            if (!antes.TryGetValue(encerrado.Id, out var gravado) || !encerrado.Ativo || encerrado.FimEm is not { } fim) continue;
+            if (gravado.FimEm is { } fimAntes && fimAntes <= fim) continue; // não foi encurtado agora
+            // Sucessor: novo, começa no dia seguinte e conflitaria com o anterior como estava gravado (tipo principal ou
+            // exclusivo). Encerrar um e incluir outro de um tipo que aceita vários não é substituição.
+            var sucessor = novos.FirstOrDefault(n => n.InicioEm == fim.AddDays(1) && Conflitam(gravado, n, tipos));
+            if (sucessor is null) continue;
+            var tipo = tipos.TryGetValue(encerrado.TipoCarteiraId, out var t) ? t.Nome : "carteira";
+            yield return $"Carteira: {nomeVendedor(encerrado.VendedorId)} ({tipo}) encerrado em {Data(fim)} e substituído por " +
+                         $"{nomeVendedor(sucessor.VendedorId)} a partir de {Data(sucessor.InicioEm)}.";
+        }
     }
 
     private static DateOnly Maior(DateOnly a, DateOnly b) => a > b ? a : b;

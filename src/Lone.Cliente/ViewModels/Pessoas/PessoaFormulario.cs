@@ -1398,6 +1398,9 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     public void NovaCarteira() => AdicionarCarteira(CarteiraFormulario.Nova(_opcoesComercial));
 
+    /// <summary>Vínculos novos da carteira que entram no lugar de um vigente (a ficha confirma antes de gravar).</summary>
+    public List<SubstituicaoVendedor> SubstituicoesDeVendedor() => SubstituicaoVendedor.Planejar([.. Carteira], _opcoesComercial);
+
     /// <summary>
     /// O que vale hoje para a conta padrão: exceção vigente → perfil → conta (a API usa a mesma ordem).
     /// Vazio enquanto as opções não chegam.

@@ -19,6 +19,15 @@ public static class FiltrosPessoasSql
     /// <summary>O que as condições precisam além da consulta: o banco, o dia de hoje e os parâmetros de relacionamento.</summary>
     public sealed record Contexto(LoneDbContext Db, DateOnly Hoje, ParametrosRelacionamento Parametros);
 
+    /// <summary>
+    /// O nome para exibir do repositório (mesmo corpo e parâmetro), tipado como <c>string?</c> para o filtro de texto, que
+    /// aceita campos que podem ser nulos. Montar a expressão de novo evita o aviso de nulidade sem mudar o SQL. Fica antes
+    /// de PorCampo: os campos estáticos são iniciados na ordem do arquivo (depois dele, o compilador avisa CS8604).
+    /// </summary>
+    private static readonly Expression<Func<Pessoa, string?>> NomeParaExibir =
+        Expression.Lambda<Func<Pessoa, string?>>(Repositorios.PessoaRepositorio.NomeParaExibirNoBanco.Body,
+            Repositorios.PessoaRepositorio.NomeParaExibirNoBanco.Parameters);
+
     private delegate IQueryable<Pessoa> Condicao(IQueryable<Pessoa> q, CondicaoFiltro c, Contexto x);
 
     private static readonly Dictionary<string, Condicao> PorCampo = new(StringComparer.Ordinal)
@@ -230,14 +239,6 @@ public static class FiltrosPessoasSql
         },
         [CamposFiltroPessoas.AlteradoEm] = AlteradoEm
     };
-
-    /// <summary>
-    /// O nome para exibir do repositório (mesmo corpo e parâmetro), tipado como <c>string?</c> para o filtro de texto, que
-    /// aceita campos que podem ser nulos. Montar a expressão de novo evita o aviso de nulidade sem mudar o SQL.
-    /// </summary>
-    private static readonly Expression<Func<Pessoa, string?>> NomeParaExibir =
-        Expression.Lambda<Func<Pessoa, string?>>(Repositorios.PessoaRepositorio.NomeParaExibirNoBanco.Body,
-            Repositorios.PessoaRepositorio.NomeParaExibirNoBanco.Parameters);
 
     /// <summary>Campos com condição implementada (um teste confere contra o catálogo).</summary>
     public static IReadOnlyCollection<string> Implementados => PorCampo.Keys;

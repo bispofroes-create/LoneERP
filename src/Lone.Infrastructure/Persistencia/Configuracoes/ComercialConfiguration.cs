@@ -70,7 +70,9 @@ public class CarteiraClienteConfiguration : IEntityTypeConfiguration<CarteiraCli
 {
     public void Configure(EntityTypeBuilder<CarteiraCliente> b)
     {
-        b.ToTable("CarteiraClientes");
+        // Gatilho da regra "um principal/exclusivo por vez" (SqlMigracaoCarteira): declarado para o EF não usar OUTPUT
+        // nas gravações desta tabela, que o SQL Server recusa em tabela com gatilho.
+        b.ToTable("CarteiraClientes", t => t.HasTrigger(SqlMigracaoCarteira.Gatilho));
         b.HasKey(x => x.Id);
         b.Property(x => x.Observacao).HasMaxLength(250);
         b.HasOne<TipoCarteira>().WithMany().HasForeignKey(x => x.TipoCarteiraId).OnDelete(DeleteBehavior.Restrict);

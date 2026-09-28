@@ -72,4 +72,79 @@ public class ComercialFormularioTests
         Assert.Single(f.Excecoes);
         Assert.Equal(15, f.ParaDto().ExcecoesComerciais[0].DescontoMaximo);
     }
+    // ---- Substituição de vendedor (Etapa 4, D3) ----
+
+    private static readonly Guid Joao = Guid.NewGuid();
+    private static readonly Guid Maria = Guid.NewGuid();
+
+    private static (PessoaFormulario Ficha, CarteiraFormulario Atual, CarteiraFormulario Nova) FichaComVendedor(string inicioDaNova)
+    {
+        var atual = new CarteiraDto { Id = Guid.NewGuid(), TipoCarteiraId = Vendedor.Id, VendedorId = Joao, Vendedor = "João da Silva", InicioEm = new DateOnly(2026, 1, 1) };
+        var f = PessoaFormulario.De(new PessoaDto { Id = Guid.NewGuid(), Nome = "Cliente", Carteira = [atual] });
+        var opcoes = Opcoes();
+        opcoes.Vendedores = [new PessoaOpcaoDto(Joao, "João da Silva"), new PessoaOpcaoDto(Maria, "Maria Oliveira")];
+        f.DefinirOpcoesComercial(opcoes);
+        f.NovaCarteira();
+        var nova = f.Carteira[0];
+        nova.Vendedor = nova.Vendedores.First(v => v.Valor == Maria);
+        nova.InicioEm = inicioDaNova;
+        return (f, f.Carteira[1], nova);
+    }
+
+    [Fact]
+    public void Vendedor_novo_no_lugar_do_vigente_pede_confirmacao_e_encerra_o_anterior_na_vespera()
+    {
+        var (f, atual, nova) = FichaComVendedor("15/03/2026");
+
+        var substituicao = Assert.Single(f.SubstituicoesDeVendedor());
+        Assert.Same(nova, substituicao.Novo);
+        Assert.Same(atual, Assert.Single(substituicao.Encerrar));
+        Assert.False(substituicao.Impedida);
+        Assert.Equal("Vendedor já atribuído", substituicao.Titulo);
+        Assert.Contains("Vendedor atual: João da Silva (desde 01/01/2026)", substituicao.Mensagem);
+        Assert.Contains("Novo vendedor: Maria Oliveira (a partir de 15/03/2026)", substituicao.Mensagem);
+        Assert.Contains("será encerrado em 14/03/2026", substituicao.Mensagem);
+        Assert.Contains("Nenhum cadastro é excluído", substituicao.Mensagem);
+        Assert.Equal("Encerrar anterior e atribuir novo vendedor", SubstituicaoVendedor.TextoConfirmar);
+
+        var desfazer = substituicao.Aplicar();
+
+        Assert.Equal("14/03/2026", atual.FimEm);
+        Assert.True(atual.Ativo); // continua no histórico
+        Assert.Empty(f.SubstituicoesDeVendedor());
+
+        desfazer(); // a gravação falhou: a ficha volta como estava e a pergunta aparece de novo
+        Assert.Equal(string.Empty, atual.FimEm);
+        Assert.Single(f.SubstituicoesDeVendedor());
+    }
+
+    [Fact]
+    public void Vendedor_novo_no_mesmo_dia_ou_antes_do_vigente_nao_substitui()
+    {
+        var (f, atual, _) = FichaComVendedor("01/01/2026");
+
+        var substituicao = Assert.Single(f.SubstituicoesDeVendedor());
+
+        Assert.True(substituicao.Impedida);
+        Assert.Contains("o histórico não é alterado", substituicao.Mensagem);
+        Assert.Throws<InvalidOperationException>(() => substituicao.Aplicar());
+        Assert.Equal(string.Empty, atual.FimEm);
+    }
+
+    [Fact]
+    public void Vendedor_de_outro_tipo_ou_ja_encerrado_nao_e_substituicao()
+    {
+        var (f, atual, nova) = FichaComVendedor("15/03/2026");
+        atual.FimEm = "31/01/2026";
+        Assert.Empty(f.SubstituicoesDeVendedor());
+
+        atual.FimEm = string.Empty;
+        var televendas = new TipoCarteiraDto { Id = Guid.NewGuid(), Nome = "Televendas", Ordem = 2 };
+        var opcoes = Opcoes();
+        opcoes.TiposCarteira = [Vendedor, televendas];
+        opcoes.Vendedores = [new PessoaOpcaoDto(Joao, "João da Silva"), new PessoaOpcaoDto(Maria, "Maria Oliveira")];
+        f.DefinirOpcoesComercial(opcoes);
+        nova.Tipo = nova.Tipos.First(t => t.Valor == televendas.Id);
+        Assert.Empty(f.SubstituicoesDeVendedor());
+    }
 }

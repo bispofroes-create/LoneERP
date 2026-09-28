@@ -92,6 +92,9 @@ public sealed class ReferenciasComercial
         return RegrasComercial.ValidarReferencias(dados, anterior, referencias);
     }
 
+    /// <summary>Nomes dos vendedores (para as frases do histórico da carteira).</summary>
+    public Task<Dictionary<Guid, string>> NomesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => _consultas.NomesAsync(ids, ct);
+
     public async Task PreencherNomesAsync(IReadOnlyList<CarteiraDto> carteira, CancellationToken ct)
     {
         if (carteira.Count == 0) return;

@@ -439,6 +439,17 @@ public sealed class PessoaAppService : IPessoaAppService
                 dados.RegistrarEvento(mudanca);
         }
 
+        // Vendedor substituído (o vigente encerrado na véspera de um novo que conflitaria com ele, pela confirmação da
+        // ficha) vira frase no histórico; os campos de cada vínculo também ficam na auditoria.
+        if (anterior is not null && RegrasComercial.Substituicoes(anterior.Carteira, dados.Carteira, tiposCarteira, _ => string.Empty).Any())
+        {
+            var nomes = await _comercial.NomesAsync(
+                [.. anterior.Carteira.Select(c => c.VendedorId).Concat(dados.Carteira.Select(c => c.VendedorId)).Distinct()], ct);
+            foreach (var frase in RegrasComercial.Substituicoes(anterior.Carteira, dados.Carteira, tiposCarteira,
+                         id => nomes.GetValueOrDefault(id, "(vendedor)")))
+                dados.RegistrarEvento(frase);
+        }
+
         var avisos = await BuscarAvisosDeDuplicidadeAsync(dados, ct);
         avisos.AddRange(ConferenciaInscricaoEstadual.Avisos(dados, referencia));
         if (DuplicidadeEndereco.Pares(dados.Enderecos, incluirPossiveis: false).Count > 0)

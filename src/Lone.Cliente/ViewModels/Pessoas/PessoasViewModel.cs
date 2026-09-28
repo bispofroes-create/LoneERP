@@ -1586,10 +1586,15 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         }
 
+        if (await ConfirmarSubstituicoesDeVendedorAsync(formulario) is not { } desfazerSubstituicoes) return;
+
         var eraEmpresaDoGrupo = formulario.PapelEmpresaDoGrupo.Existia && !formulario.Nova;
         ResultadoSalvarPessoa? resultado = null;
         if (!await ExecutarAsync(async () => resultado = await _pessoas.SalvarAsync(formulario.ParaDto())))
+        {
+            desfazerSubstituicoes(); // não gravou: o vendedor anterior volta como estava (a pergunta aparece de novo)
             return;
+        }
 
         MostrarGravada(resultado!.Pessoa);
         MarcarFichaSemAlteracoes();
@@ -1604,6 +1609,36 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             await AtualizarEmpresasDaSessaoAsync();
 
         await AtualizarListaAposGravarAsync();
+    }
+
+    /// <summary>
+    /// Vendedor novo no lugar de um vigente do mesmo tipo principal/exclusivo (D3): pergunta com o que vai acontecer e, se
+    /// o usuário confirmar, encerra o anterior na véspera (nada é apagado). Retroativo não substitui: explica e não grava.
+    /// O servidor confere tudo de novo na mesma gravação (e a versão da pessoa barra quem gravou antes).
+    /// </summary>
+    /// <returns>Como desfazer o que foi aplicado (se a gravação falhar); nulo = não gravar (cancelou ou é retroativo).</returns>
+    private async Task<Action?> ConfirmarSubstituicoesDeVendedorAsync(PessoaFormulario formulario)
+    {
+        var aplicadas = new List<Action>();
+        void Desfazer() { foreach (var desfazer in Enumerable.Reverse(aplicadas)) desfazer(); }
+
+        foreach (var substituicao in formulario.SubstituicoesDeVendedor())
+        {
+            if (substituicao.Impedida)
+            {
+                Desfazer();
+                Mostrar(substituicao.Mensagem, TipoMensagem.Aviso);
+                IrParaAba(SecaoPessoa.Comercial);
+                return null;
+            }
+            if (!await ConfirmarAsync(substituicao.Titulo, substituicao.Mensagem, SubstituicaoVendedor.TextoConfirmar, "Cancelar"))
+            {
+                Desfazer();
+                return null;
+            }
+            aplicadas.Add(substituicao.Aplicar());
+        }
+        return Desfazer;
     }
 
     private async Task AtualizarEmpresasDaSessaoAsync()

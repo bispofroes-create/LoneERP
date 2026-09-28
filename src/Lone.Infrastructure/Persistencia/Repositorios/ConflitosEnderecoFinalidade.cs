@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Lone.Infrastructure.Persistencia.Repositorios;
 
 /// <summary>
-/// Violações CONHECIDAS das proteções de endereço × finalidade no banco, traduzidas em mensagem para o usuário (a
+/// Violações CONHECIDAS das proteções da pessoa no banco (endereço × finalidade e, desde a Etapa 4, a carteira de
+/// vendedores), traduzidas em mensagem para o usuário (a
 /// gravação responde 409 com o erro original anexado). Só estes casos: qualquer outra violação (outro índice, FK,
 /// CHECK...) não é reconhecida aqui e continua como erro inesperado.
 /// </summary>
@@ -18,6 +19,9 @@ public static class ConflitosEnderecoFinalidade
     public const string EnderecoInativoPrincipal =
         "Não foi possível salvar porque um endereço inativo ficaria como principal de uma finalidade. " +
         "Atualize os dados e tente novamente.";
+    public const string CarteiraSobreposta =
+        "Não foi possível salvar porque esta pessoa ficaria com dois vendedores ativos do mesmo tipo principal ou exclusivo " +
+        "no mesmo período. Atualize os dados e tente novamente.";
 
     /// <summary>Mensagem do conflito, ou nulo se o erro não é um dos casos conhecidos.</summary>
     public static string? Mensagem(Exception erro) => erro switch
@@ -34,6 +38,7 @@ public static class ConflitosEnderecoFinalidade
         2601 or 2627 when texto.Contains(SqlMigracaoFinalidadesEndereco.IndiceFinalidadeAtiva, StringComparison.Ordinal) => FinalidadeRepetida,
         SqlMigracaoFinalidadesEndereco.ErroPrincipalEmEnderecoInativo or
         SqlMigracaoFinalidadesEndereco.ErroEnderecoInativoComPrincipal => EnderecoInativoPrincipal,
+        SqlMigracaoCarteira.ErroSobreposicao => CarteiraSobreposta, // gatilho da carteira (Etapa 4)
         _ => null
     };
 }

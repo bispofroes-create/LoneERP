@@ -97,4 +97,85 @@ public class ComercialTests
         Assert.Contains(erros, e => e.Contains("ao menos um valor"));
         Assert.Contains(erros, e => e.Contains("sobrepostos"));
     }
+    // ---- Substituição de vendedor (Etapa 4, decisão D3) ----
+
+    private static CarteiraCliente Vinculo(TipoCarteira tipo, DateOnly inicio, DateOnly? fim = null, Guid? empresa = null, bool exclusivo = false) =>
+        new() { Id = Guid.NewGuid(), TipoCarteiraId = tipo.Id, VendedorId = Guid.NewGuid(), InicioEm = inicio, FimEm = fim, EmpresaId = empresa, Exclusivo = exclusivo };
+
+    [Fact]
+    public void Conflito_so_no_mesmo_tipo_e_empresa_com_periodo_sobreposto_e_tipo_principal_ou_exclusivo()
+    {
+        var joao = Vinculo(Vendedor, Hoje.AddDays(-100));
+        Assert.True(RegrasComercial.Conflitam(joao, Vinculo(Vendedor, Hoje), Tipos));
+        Assert.False(RegrasComercial.Conflitam(joao, Vinculo(Televendas, Hoje), Tipos));                 // outro tipo
+        Assert.False(RegrasComercial.Conflitam(joao, Vinculo(Vendedor, Hoje, empresa: Guid.NewGuid()), Tipos)); // outra empresa
+        Assert.False(RegrasComercial.Conflitam(Vinculo(Vendedor, Hoje.AddDays(-100), Hoje.AddDays(-1)), Vinculo(Vendedor, Hoje), Tipos));
+        Assert.False(RegrasComercial.Conflitam(Vinculo(Televendas, Hoje), Vinculo(Televendas, Hoje), Tipos));   // vários televendas podem
+        Assert.True(RegrasComercial.Conflitam(Vinculo(Televendas, Hoje, exclusivo: true), Vinculo(Televendas, Hoje), Tipos));
+        var desativado = Vinculo(Vendedor, Hoje.AddDays(-100));
+        desativado.Ativo = false;                                                                           // lançado por engano
+        Assert.False(RegrasComercial.Conflitam(desativado, Vinculo(Vendedor, Hoje), Tipos));
+    }
+
+    [Fact]
+    public void Substituir_encerra_o_anterior_na_vespera_sem_apagar_e_a_validacao_passa()
+    {
+        var p = new Pessoa { Id = Guid.NewGuid(), Nome = "Cliente" };
+        var joao = Vinculo(Vendedor, new DateOnly(2026, 1, 1));
+        p.Carteira.Add(joao);
+        var maria = Vinculo(Vendedor, new DateOnly(2026, 3, 15));
+
+        var plano = RegrasComercial.PlanejarSubstituicao(p.Carteira, maria, Tipos);
+        Assert.Equal([joao], plano.Encerrar);
+        Assert.False(plano.Impedida);
+
+        RegrasComercial.Substituir(plano, maria);
+        p.Carteira.Add(maria);
+
+        Assert.Equal(new DateOnly(2026, 3, 14), joao.FimEm);
+        Assert.True(joao.Ativo);                          // continua no histórico, com o período em que valeu
+        Assert.Equal(new DateOnly(2026, 1, 1), joao.InicioEm);
+        Assert.Empty(RegrasComercial.Validar(p, Tipos));
+    }
+
+    [Fact]
+    public void Novo_que_comeca_no_mesmo_dia_ou_antes_do_vigente_nao_substitui()
+    {
+        var joao = Vinculo(Vendedor, Hoje);
+        var mesmoDia = RegrasComercial.PlanejarSubstituicao([joao], Vinculo(Vendedor, Hoje), Tipos);
+        var antes = RegrasComercial.PlanejarSubstituicao([joao], Vinculo(Vendedor, Hoje.AddDays(-10)), Tipos);
+
+        Assert.True(mesmoDia.Impedida);
+        Assert.True(antes.Impedida);
+        Assert.Throws<InvalidOperationException>(() => RegrasComercial.Substituir(antes, Vinculo(Vendedor, Hoje.AddDays(-10))));
+        Assert.Null(joao.FimEm); // nada foi mexido
+    }
+
+    [Fact]
+    public void Sem_conflito_o_plano_fica_vazio()
+    {
+        var plano = RegrasComercial.PlanejarSubstituicao([Vinculo(Televendas, Hoje)], Vinculo(Vendedor, Hoje), Tipos);
+        Assert.False(plano.TemConflito);
+    }
+
+    [Fact]
+    public void Substituicao_vira_frase_no_historico_so_quando_o_anterior_foi_encerrado_na_vespera_do_novo()
+    {
+        var joaoGravado = Vinculo(Vendedor, new DateOnly(2026, 1, 1));
+        var joaoAgora = new CarteiraCliente
+        {
+            Id = joaoGravado.Id, TipoCarteiraId = Vendedor.Id, VendedorId = joaoGravado.VendedorId,
+            InicioEm = joaoGravado.InicioEm, FimEm = new DateOnly(2026, 3, 14)
+        };
+        var maria = Vinculo(Vendedor, new DateOnly(2026, 3, 15));
+        var nomes = new Dictionary<Guid, string> { [joaoGravado.VendedorId] = "João da Silva", [maria.VendedorId] = "Maria Oliveira" };
+
+        var frases = RegrasComercial.Substituicoes([joaoGravado], [joaoAgora, maria], Tipos, id => nomes[id]).ToList();
+
+        Assert.Equal("Carteira: João da Silva (Vendedor) encerrado em 14/03/2026 e substituído por Maria Oliveira a partir de 15/03/2026.",
+            Assert.Single(frases));
+        // Encerrar sem incluir outro (ou incluir sem encerrar) não é substituição.
+        Assert.Empty(RegrasComercial.Substituicoes([joaoGravado], [joaoAgora], Tipos, id => nomes[id]));
+        Assert.Empty(RegrasComercial.Substituicoes([joaoGravado], [joaoGravado, maria], Tipos, id => nomes[id]));
+    }
 }
