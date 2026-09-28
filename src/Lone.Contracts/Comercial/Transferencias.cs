@@ -100,3 +100,68 @@ public sealed class TransferenciaDto
     /// <summary>Vazio na lista; preenchido ao abrir uma transferência.</summary>
     public List<ItemTransferenciaDto> Itens { get; set; } = new();
 }
+
+/// <summary>Opções do assistente de transferência numa chamada só (lida quando a tela abre).</summary>
+public sealed class TransferenciaOpcoesDto
+{
+    /// <summary>Quem pode ser origem ou destino: pessoas que podem ocupar algum papel comercial ativo.</summary>
+    public List<AtendenteOpcaoDto> Pessoas { get; set; } = new();
+
+    /// <summary>Quantos clientes cada pessoa atende hoje (vínculos ativos vigentes).</summary>
+    public Dictionary<Guid, int> ClientesHoje { get; set; } = new();
+
+    public List<TipoCarteiraDto> Papeis { get; set; } = new();
+    public List<Lone.Contracts.Empresas.EmpresaResumo> Empresas { get; set; } = new();
+
+    /// <summary>Até quantos dias antes de hoje vale a data de efeito (Parâmetros comerciais).</summary>
+    public int DiasRetroativosMaximo { get; set; } = 30;
+}
+
+/// <summary>Um vínculo que valia na data consultada ("Carteira em uma data").</summary>
+public sealed class VinculoEmDataDto
+{
+    public Guid VinculoId { get; set; }
+    public Guid ClienteId { get; set; }
+    public string Cliente { get; set; } = string.Empty;
+    public Guid TipoCarteiraId { get; set; }
+    public string Papel { get; set; } = string.Empty;
+
+    /// <summary>Quem atendia.</summary>
+    public Guid PessoaId { get; set; }
+    public string Pessoa { get; set; } = string.Empty;
+    public string? Empresa { get; set; }
+    public DateOnly InicioEm { get; set; }
+    public DateOnly? FimEm { get; set; }
+    public bool Exclusivo { get; set; }
+    public OrigemVinculoCarteira Origem { get; set; }
+
+    /// <summary>Número da transferência que criou o vínculo ("TR-2026-0001").</summary>
+    public string? Transferencia { get; set; }
+
+    public TipoCreditoComercial TipoCredito { get; set; }
+
+    /// <summary>Percentual do crédito naquele dia (só na consulta por cliente); nulo = sem crédito ou divisão indefinida.</summary>
+    public decimal? Credito { get; set; }
+
+    /// <summary>Ausência de quem atendia que valia naquele dia, com quem cobria.</summary>
+    public string? Cobertura { get; set; }
+}
+
+/// <summary>"Como estava a carteira em DD/MM": de um cliente (quem ocupava cada papel) ou de uma pessoa (quem ela atendia).</summary>
+public sealed class CarteiraEmDataDto
+{
+    public DateOnly Data { get; set; }
+    public Guid? ClienteId { get; set; }
+    public Guid? PessoaId { get; set; }
+
+    /// <summary>Nome do cliente ou da pessoa consultada.</summary>
+    public string? Nome { get; set; }
+
+    public List<VinculoEmDataDto> Vinculos { get; set; } = new();
+
+    /// <summary>Na consulta por pessoa: as ausências dela que valiam naquele dia.</summary>
+    public List<string> Ausencias { get; set; } = new();
+
+    /// <summary>Verdadeiro quando a lista foi cortada no limite (pessoa com muitos clientes).</summary>
+    public bool Cortada { get; set; }
+}

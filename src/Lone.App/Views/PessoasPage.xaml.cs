@@ -1,3 +1,4 @@
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels;
 using Lone.Cliente.ViewModels.Pessoas;
 
@@ -11,10 +12,12 @@ namespace Lone.App.Views;
 public partial class PessoasPage : ContentPage
 {
     private readonly PessoasViewModel _viewModel;
+    private readonly AberturaDePessoa _abertura;
     private bool _carregado;
 
-    public PessoasPage(PessoasViewModel viewModel)
+    public PessoasPage(PessoasViewModel viewModel, AberturaDePessoa abertura)
     {
+        _abertura = abertura;
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
         _viewModel.ModoCompacto = true; // lista OU ficha, nunca lado a lado
@@ -102,12 +105,16 @@ public partial class PessoasPage : ContentPage
         _viewModel.Resumo.DefinirLargura(Math.Min(Width - 64, 1600));
     }
 
-    protected override void OnAppearing()
+    /// <summary>Carrega na primeira vez; depois, abre a ficha pedida por outra tela ("Abrir ficha"), se houver.</summary>
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_carregado) return;
-        _carregado = true;
-        _viewModel.CarregarCommand.Execute(null);
+        if (!_carregado)
+        {
+            _carregado = true;
+            await _viewModel.CarregarCommand.ExecuteAsync(null);
+        }
+        if (_abertura.Retirar() is { } id) _viewModel.AbrirPessoa(id);
     }
 
     /// <summary>Botão voltar do Android com a ficha aberta: volta para a lista (pergunta se houver alterações).</summary>

@@ -19,6 +19,7 @@ public static class ConfiguracaoCliente
     public static IServiceCollection AddLoneCliente(this IServiceCollection services)
     {
         services.AddSingleton<SessaoCliente>();
+        services.AddSingleton<AberturaDePessoa>();
         services.AddSingleton<ConfiguracaoServidor>();
         services.AddSingleton<ClienteApi>();
         services.AddSingleton<ServicoAutenticacao>();
@@ -77,6 +78,8 @@ public static class ConfiguracaoCliente
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.ParametrosComerciaisViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.CoberturasViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.CarteiraVencendoViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Comercial.TransferenciasViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Comercial.CarteiraEmDataViewModel>();
 
         return services;
     }

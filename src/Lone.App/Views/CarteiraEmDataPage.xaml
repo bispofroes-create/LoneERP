@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Carteira em uma data (Motor Comercial, Fase 1d): "como estava a carteira em DD/MM", por cliente ou por quem atende,
+     pelas vigências gravadas (não pelo estado de hoje). Só leitura. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:com="clr-namespace:Lone.Cliente.ViewModels.Comercial;assembly=Lone.Cliente"
+             xmlns:pes="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.CarteiraEmDataPage"
+             x:DataType="com:CarteiraEmDataViewModel"
+             Title="Carteira em uma data">
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="960" HorizontalOptions="Fill">
+            <Label Text="Carteira em uma data" Style="{StaticResource Titulo}" />
+            <Label Text="Como estava a carteira num dia do passado (ou do futuro já planejado): quem atendia, o crédito de cada um, as ausências e de onde veio cada vínculo."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+            <FlexLayout Wrap="Wrap">
+                <c:CampoEscolha Rotulo="Consultar" Itens="{Binding ListaModos}" Selecionado="{Binding Modo}" />
+                <c:Campo Rotulo="Data" Texto="{Binding Data}" Dica="dd/mm/aaaa" Mascara="Data" />
+            </FlexLayout>
+
+            <!-- Por cliente: busca e escolha -->
+            <VerticalStackLayout Spacing="6" IsVisible="{Binding PorCliente}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <SearchBar Text="{Binding BuscaCliente}" Placeholder="Nome, código ou CPF/CNPJ do cliente" SearchCommand="{Binding BuscarClienteCommand}" />
+                    <Button Grid.Column="1" Text="Buscar" Command="{Binding BuscarClienteCommand}" IsEnabled="{Binding Livre}" />
+                </Grid>
+                <CollectionView ItemsSource="{Binding ClientesEncontrados}" SelectionMode="Single" SelectedItem="{Binding Cliente}" MaximumHeightRequest="220">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="pes:PessoaResumo">
+                            <HorizontalStackLayout Padding="8,6" Spacing="8">
+                                <Label Text="{Binding Nome}" FontAttributes="Bold" />
+                                <Label Text="{Binding DocumentoPrincipal}" Style="{StaticResource Secundario}" />
+                            </HorizontalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <!-- Por quem atende -->
+            <FlexLayout Wrap="Wrap" IsVisible="{Binding PorPessoa}">
+                <c:CampoEscolha Rotulo="Quem atende" Itens="{Binding Pessoas}" Selecionado="{Binding Pessoa}" />
+            </FlexLayout>
+
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="Consultar" Command="{Binding ConsultarCommand}" IsEnabled="{Binding Livre}" />
+                <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+            <Label Text="{Binding Resumo}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+            <Border IsVisible="{Binding TemAusencias}" StrokeThickness="0" Padding="12,8"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}">
+                <Label Text="{Binding Ausencias}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
+            </Border>
+
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Linhas}" Spacing="6">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="com:LinhaVinculoEmData">
+                        <Border Style="{StaticResource Cartao}" Padding="12,8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding Credito}" IsVisible="{Binding TemCredito}" Style="{StaticResource Secundario}" />
+                                    <Label Text="{Binding Cobertura}" IsVisible="{Binding TemCobertura}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="Abrir ficha" Style="{StaticResource BotaoLink}" VerticalOptions="Start"
+                                        IsVisible="{Binding PodeAbrirFicha, Source={RelativeSource AncestorType={x:Type com:CarteiraEmDataViewModel}}, x:DataType=com:CarteiraEmDataViewModel}"
+                                        Command="{Binding AbrirClienteCommand, Source={RelativeSource AncestorType={x:Type com:CarteiraEmDataViewModel}}, x:DataType=com:CarteiraEmDataViewModel}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

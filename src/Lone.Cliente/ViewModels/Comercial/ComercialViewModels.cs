@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.Plataforma;
 using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Cliente.ViewModels.Comum;
@@ -121,8 +122,27 @@ public sealed class LinhaVencendo
 public sealed partial class CarteiraVencendoViewModel : ViewModelBase
 {
     private readonly ComercialApi _api;
+    private readonly AberturaDePessoa _abertura;
 
-    public CarteiraVencendoViewModel(ComercialApi api) => _api = api;
+    public CarteiraVencendoViewModel(ComercialApi api, AberturaDePessoa abertura)
+    {
+        _api = api;
+        _abertura = abertura;
+    }
+
+    /// <summary>Navegação para outra tela (a tela liga ao Shell): usada por "Abrir ficha".</summary>
+    public Func<string, Task>? AbrirTela { get; set; }
+
+    public bool PodeAbrirFicha => _abertura.Permitida;
+
+    /// <summary>Abre a ficha do cliente (para renovar, trocar ou deixar encerrar o vínculo).</summary>
+    [RelayCommand]
+    private async Task AbrirClienteAsync(LinhaVencendo? linha)
+    {
+        if (linha is null || !PodeAbrirFicha || AbrirTela is null) return;
+        _abertura.Pedir(linha.Item.ClienteId);
+        await AbrirTela(AberturaDePessoa.RotaPessoas);
+    }
 
     public ObservableCollection<LinhaVencendo> Itens { get; } = new();
     public bool Vazia => Itens.Count == 0;

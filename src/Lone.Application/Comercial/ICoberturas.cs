@@ -42,6 +42,12 @@ public interface ICoberturaConsultas
     /// <summary>Vínculos ativos da carteira que terminam entre as datas (inclusive), com nomes.</summary>
     Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, CancellationToken ct);
 
+    /// <summary>
+    /// Vínculos ativos da carteira que valiam na data: de um cliente (todos os papéis) ou de quem atende (os clientes dela),
+    /// no máximo <paramref name="limite"/>, em ordem de papel e início.
+    /// </summary>
+    Task<List<CarteiraCliente>> VinculosEmDataAsync(Guid? clienteId, Guid? pessoaId, DateOnly data, int limite, CancellationToken ct);
+
     /// <summary>Nomes das equipes (ativas e desativadas).</summary>
     Task<Dictionary<Guid, string>> NomesEquipesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 }

@@ -93,6 +93,16 @@ public class TransferenciaCarteiraRepositorio : ServicoDadosBase, ITransferencia
         return await db.TransferenciasCarteira.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
     }
 
+    public async Task<Dictionary<Guid, string>> NumerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return new();
+        await using var db = await AbrirAsync(ct);
+        var lista = ids.Distinct().ToList();
+        var linhas = await db.TransferenciasCarteira.AsNoTracking().Where(t => lista.Contains(t.Id))
+            .Select(t => new { t.Id, t.Ano, t.Sequencia }).ToListAsync(ct);
+        return linhas.ToDictionary(t => t.Id, t => RegrasTransferencia.Numero(t.Ano, t.Sequencia));
+    }
+
     public async Task<List<TransferenciaCarteiraItem>> ItensAsync(Guid transferenciaId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);

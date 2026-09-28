@@ -10,6 +10,7 @@ public partial class CarteiraVencendoPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
+        _viewModel.AbrirTela = rota => Shell.Current.GoToAsync("//" + rota);
     }
 
     /// <summary>Relê a cada vez que a tela aparece (os dias diminuem e a carteira muda).</summary>

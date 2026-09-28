@@ -135,6 +135,13 @@ public static class Rotas
         public const string Transferencias = Base + "/comercial/transferencias";
         public const string TransferenciasPrevia = Transferencias + "/previa";
         public static string TransferenciaPorId(Guid id) => $"{Transferencias}/{id}";
+        public const string TransferenciasOpcoes = Transferencias + "/opcoes";
+
+        /// <summary>"Como estava a carteira" de um cliente ou de uma pessoa numa data.</summary>
+        public const string CarteiraEmData = Base + "/comercial/carteira-em-data";
+        public static string ConsultarCarteiraEmData(Guid? clienteId, Guid? pessoaId, DateOnly data) =>
+            $"{CarteiraEmData}?data={data.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}" + (clienteId is { } c ? $"&clienteId={c}" : string.Empty) +
+            (pessoaId is { } p ? $"&pessoaId={p}" : string.Empty);
     }
 
     /// <summary>Tabela CNAE (IBGE): busca para a ficha e atualização pelo administrador.</summary>

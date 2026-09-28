@@ -57,4 +57,25 @@ public sealed class ComercialApi
 
     public Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(int? dias, CancellationToken ct = default) =>
         _api.GetAsync<List<VinculoVencendoDto>>(dias is { } d ? $"{Rotas.Comercial.CarteiraVencendo}?dias={d}" : Rotas.Comercial.CarteiraVencendo, ct);
+
+    // ---- Motor Comercial, Fase 1d ----
+
+    public Task<TransferenciaOpcoesDto> ListarOpcoesTransferenciaAsync(CancellationToken ct = default) =>
+        _api.GetAsync<TransferenciaOpcoesDto>(Rotas.Comercial.TransferenciasOpcoes, ct);
+
+    public Task<List<TransferenciaDto>> ListarTransferenciasAsync(CancellationToken ct = default) =>
+        _api.GetAsync<List<TransferenciaDto>>(Rotas.Comercial.Transferencias, ct);
+
+    public Task<TransferenciaDto?> ObterTransferenciaAsync(Guid id, CancellationToken ct = default) =>
+        _api.GetOuNuloAsync<TransferenciaDto>(Rotas.Comercial.TransferenciaPorId(id), ct);
+
+    /// <summary>O que aconteceria, cliente a cliente (nada é gravado).</summary>
+    public Task<PreviaTransferenciaDto> PreviaTransferenciaAsync(TransferenciaRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<PreviaTransferenciaDto>(Rotas.Comercial.TransferenciasPrevia, requisicao, ct: ct);
+
+    public Task<TransferenciaDto> TransferirAsync(TransferenciaRequisicao requisicao, CancellationToken ct = default) =>
+        _api.PostAsync<TransferenciaDto>(Rotas.Comercial.Transferencias, requisicao, ct: ct);
+
+    public Task<CarteiraEmDataDto> CarteiraEmDataAsync(Guid? clienteId, Guid? pessoaId, DateOnly data, CancellationToken ct = default) =>
+        _api.GetAsync<CarteiraEmDataDto>(Rotas.Comercial.ConsultarCarteiraEmData(clienteId, pessoaId, data), ct);
 }

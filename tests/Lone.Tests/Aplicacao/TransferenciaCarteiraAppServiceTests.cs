@@ -53,7 +53,7 @@ public class TransferenciaCarteiraAppServiceTests
         var tipos = new TiposFixos(_vendedor);
         var referencias = new ReferenciasComercial(new PerfisVazios(), new CondicoesVazias(), tipos, _consultas, new ClassificacoesFixas());
         _servico = new TransferenciaCarteiraAppService(_transferencias, _pessoas, referencias, _consultas, new ParametrosPadrao(), _coberturas,
-            _autorizacao, _motivo, new UsuarioFixo(), new FakeTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero)));
+            new Lone.Tests.Apoio.EmpresasFixas(), _autorizacao, _motivo, new UsuarioFixo(), new FakeTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero)));
     }
 
     private Pessoa Cliente(string nome, DateOnly inicioDoJoao)
@@ -153,7 +153,80 @@ public class TransferenciaCarteiraAppServiceTests
         Assert.Contains("Nenhum cliente a transferir", Assert.Single(erro.Erros));
     }
 
+    [Fact]
+    public async Task Opcoes_trazem_quem_pode_atender_com_a_carteira_de_hoje_e_o_limite_de_dias()
+    {
+        _transferencias.Cargas[_joao] = 42;
+
+        var opcoes = await _servico.ListarOpcoesAsync();
+
+        Assert.Equal(new[] { "João", "Maria", "Pedro" }, opcoes.Pessoas.Select(p => p.Nome).ToArray());
+        Assert.Equal(42, opcoes.ClientesHoje[_joao]);
+        Assert.Equal("Vendedor", Assert.Single(opcoes.Papeis).Nome);
+        Assert.Equal(30, opcoes.DiasRetroativosMaximo);
+    }
+
+    [Fact]
+    public async Task Carteira_em_uma_data_responde_pelo_historico_com_credito_transferencia_e_ausencia()
+    {
+        var abc = Cliente("ABC", new DateOnly(2025, 1, 1));
+        await _servico.TransferirAsync(Pedido(_maria));
+        _coberturas.DoTitular.Add(new CoberturaComercial
+        {
+            Id = Guid.NewGuid(), TitularId = _maria, SubstitutoId = _pedro, TipoAusenciaId = Ferias,
+            InicioEm = Efeito.AddDays(2), FimEm = Efeito.AddDays(10)
+        });
+        var consulta = new CarteiraEmDataAppService(new CarteiraEmMemoria(_pessoas), _coberturas, new TiposAusenciaFixos(), _transferencias,
+            new ReferenciasComercial(new PerfisVazios(), new CondicoesVazias(), new TiposFixos(_vendedor), _consultas, new ClassificacoesFixas()),
+            _consultas, _autorizacao);
+
+        var antes = Assert.Single((await consulta.ConsultarAsync(abc.Id, null, new DateOnly(2026, 9, 15))).Vinculos);
+        Assert.Equal("João", antes.Pessoa);
+        Assert.Equal(100, antes.Credito);
+        Assert.Null(antes.Transferencia);
+
+        var depois = Assert.Single((await consulta.ConsultarAsync(abc.Id, null, Efeito.AddDays(4))).Vinculos);
+        Assert.Equal("Maria", depois.Pessoa);
+        Assert.Equal(OrigemVinculoCarteira.Transferencia, depois.Origem);
+        Assert.Equal("TR-2026-0001", depois.Transferencia);
+        Assert.StartsWith("Férias de 03/10/2026 a 11/10/2026 · atendimento por Pedro", depois.Cobertura);
+
+        var daMaria = await consulta.ConsultarAsync(null, _maria, Efeito.AddDays(4));
+        Assert.Equal("ABC", Assert.Single(daMaria.Vinculos).Cliente);
+        Assert.Single(daMaria.Ausencias);
+        Assert.Empty((await consulta.ConsultarAsync(null, _maria, Efeito.AddDays(-1))).Vinculos); // antes do efeito, não atendia
+
+        await Assert.ThrowsAsync<ValidacaoException>(() => consulta.ConsultarAsync(abc.Id, _maria, Efeito));
+    }
+
     // ---------------------------------------------------------------- Apoio
+
+    private static readonly Guid Ferias = Guid.NewGuid();
+
+    private sealed class CarteiraEmMemoria : ICoberturaConsultas
+    {
+        private readonly PessoasEmMemoria _pessoas;
+        public CarteiraEmMemoria(PessoasEmMemoria pessoas) => _pessoas = pessoas;
+
+        public Task<List<CarteiraCliente>> VinculosEmDataAsync(Guid? clienteId, Guid? pessoaId, DateOnly data, int limite, CancellationToken ct) =>
+            Task.FromResult(_pessoas.Gravadas.Values.SelectMany(p => p.Carteira)
+                .Where(v => v.Vigente(data) && (clienteId == null || v.PessoaId == clienteId) && (pessoaId == null || v.VendedorId == pessoaId))
+                .Take(limite).ToList());
+
+        public Task<Dictionary<Guid, int>> ContarClientesAsync(IReadOnlyCollection<CoberturaComercial> coberturas, CancellationToken ct) =>
+            throw new NotImplementedException();
+        public Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, CancellationToken ct) => throw new NotImplementedException();
+        public Task<Dictionary<Guid, string>> NomesEquipesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => throw new NotImplementedException();
+    }
+
+    private sealed class TiposAusenciaFixos : ITipoAusenciaRepositorio
+    {
+        public Task<List<TipoAusencia>> ListarAsync(CancellationToken ct) =>
+            Task.FromResult(new List<TipoAusencia> { new() { Id = Ferias, Nome = "Férias", Ordem = 1 } });
+        public Task<TipoAusencia?> ObterAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
+        public Task<Dictionary<Guid, int>> ContarUsosAsync(Guid? somenteId, CancellationToken ct) => throw new NotImplementedException();
+        public Task SalvarAsync(TipoAusencia item, bool novo, CancellationToken ct) => throw new NotImplementedException();
+    }
 
     private sealed class PessoasEmMemoria : IPessoaRepositorio
     {
@@ -236,6 +309,9 @@ public class TransferenciaCarteiraAppServiceTests
 
         public Task<List<TransferenciaCarteiraItem>> ItensAsync(Guid transferenciaId, CancellationToken ct) =>
             Task.FromResult(Itens.Where(i => i.TransferenciaId == transferenciaId).ToList());
+
+        public Task<Dictionary<Guid, string>> NumerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult(Gravadas.Values.Where(t => ids.Contains(t.Id)).ToDictionary(t => t.Id, t => t.Numero));
     }
 
     private sealed class ConsultasFixas : IComercialConsultas
@@ -244,7 +320,8 @@ public class TransferenciaCarteiraAppServiceTests
         public Dictionary<Guid, string> Nomes { get; } = new();
 
         public Task<List<AtendenteOpcaoDto>> ListarAtendentesAsync(IReadOnlyCollection<Guid> classificacoes, CancellationToken ct) =>
-            throw new NotImplementedException();
+            Task.FromResult(Pessoas.Where(p => p.Value.Classificacoes.Any(classificacoes.Contains))
+                .Select(p => new AtendenteOpcaoDto(p.Key, p.Value.Nome, [.. p.Value.Classificacoes])).OrderBy(p => p.Nome).ToList());
 
         public Task<Dictionary<Guid, PessoaElegivel>> PessoasElegiveisAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult(Pessoas.Where(p => ids.Contains(p.Key)).ToDictionary(p => p.Key, p => p.Value));
@@ -311,7 +388,8 @@ public class TransferenciaCarteiraAppServiceTests
         public Task<CoberturaComercial?> ObterAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<CoberturaComercial>> DoTitularAsync(Guid titularId, CancellationToken ct) =>
             Task.FromResult(DoTitular.Where(c => c.TitularId == titularId).ToList());
-        public Task<List<CoberturaComercial>> ListarAsync(DateOnly desde, bool incluirEncerradas, CancellationToken ct) => throw new NotImplementedException();
+        public Task<List<CoberturaComercial>> ListarAsync(DateOnly desde, bool incluirEncerradas, CancellationToken ct) =>
+            Task.FromResult(DoTitular.Where(c => incluirEncerradas || (!c.Cancelada && c.FimEm >= desde)).ToList());
         public Task SalvarAsync(CoberturaComercial item, bool novo, CancellationToken ct) => throw new NotImplementedException();
     }
 

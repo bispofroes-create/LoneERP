@@ -1872,6 +1872,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             await ConsultarCnpjAsync(ficha.Principal);
     }
 
+    /// <summary>
+    /// Abre a ficha pedida por outra tela ("Abrir ficha" em transferências, carteira vencendo...). Pergunta antes se houver
+    /// alterações não salvas em outra ficha, como ao tocar numa linha.
+    /// </summary>
+    public void AbrirPessoa(Guid id) => Selecionado = new PessoaResumo { Id = id };
+
     /// <summary>Abre o cadastro que já tem o documento (pergunta antes se houver alterações não salvas).</summary>
     [RelayCommand]
     private void AbrirCadastroEmUso()

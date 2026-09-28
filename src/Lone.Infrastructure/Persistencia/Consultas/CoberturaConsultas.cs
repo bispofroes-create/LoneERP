@@ -29,6 +29,17 @@ public class CoberturaConsultas : ServicoDadosBase, ICoberturaConsultas
         return resultado;
     }
 
+    public async Task<List<CarteiraCliente>> VinculosEmDataAsync(Guid? clienteId, Guid? pessoaId, DateOnly data, int limite, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        // Mesma condição de CarteiraCliente.Vigente(data), no banco.
+        var consulta = db.CarteiraClientes.AsNoTracking()
+            .Where(v => v.Ativo && v.InicioEm <= data && (v.FimEm == null || v.FimEm >= data));
+        if (clienteId is { } cliente) consulta = consulta.Where(v => v.PessoaId == cliente);
+        if (pessoaId is { } pessoa) consulta = consulta.Where(v => v.VendedorId == pessoa);
+        return await consulta.OrderBy(v => v.TipoCarteiraId).ThenBy(v => v.InicioEm).Take(limite).ToListAsync(ct);
+    }
+
     public async Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);

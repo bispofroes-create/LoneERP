@@ -36,4 +36,7 @@ public interface ITransferenciaCarteiraRepositorio
     Task<TransferenciaCarteira?> ObterAsync(Guid id, CancellationToken ct);
 
     Task<List<TransferenciaCarteiraItem>> ItensAsync(Guid transferenciaId, CancellationToken ct);
+
+    /// <summary>Os números legíveis ("TR-2026-0001") das transferências informadas.</summary>
+    Task<Dictionary<Guid, string>> NumerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 }

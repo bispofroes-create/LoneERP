@@ -1,4 +1,5 @@
 using System.Globalization;
+using Lone.Application.Empresas;
 using Lone.Application.Pessoas;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Comercial;
@@ -22,6 +23,9 @@ public interface ITransferenciaCarteiraAppService
     Task<List<TransferenciaDto>> ListarAsync(CancellationToken ct = default);
 
     Task<TransferenciaDto?> ObterAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Pessoas, papéis, empresas e o limite de dias no passado, para o assistente.</summary>
+    Task<TransferenciaOpcoesDto> ListarOpcoesAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -41,6 +45,7 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
     private readonly IComercialConsultas _consultas;
     private readonly IParametrosComerciaisRepositorio _parametros;
     private readonly ICoberturaRepositorio _coberturas;
+    private readonly IEmpresaConsultas _empresas;
     private readonly IAutorizacao _autorizacao;
     private readonly IMotivoDaOperacao _motivo;
     private readonly IUsuarioAtual _usuario;
@@ -48,7 +53,8 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
 
     public TransferenciaCarteiraAppService(ITransferenciaCarteiraRepositorio repositorio, IPessoaRepositorio pessoas, ReferenciasComercial comercial,
                                            IComercialConsultas consultas, IParametrosComerciaisRepositorio parametros, ICoberturaRepositorio coberturas,
-                                           IAutorizacao autorizacao, IMotivoDaOperacao motivo, IUsuarioAtual usuario, TimeProvider relogio)
+                                           IEmpresaConsultas empresas, IAutorizacao autorizacao, IMotivoDaOperacao motivo, IUsuarioAtual usuario,
+                                           TimeProvider relogio)
     {
         _repositorio = repositorio;
         _pessoas = pessoas;
@@ -56,6 +62,7 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
         _consultas = consultas;
         _parametros = parametros;
         _coberturas = coberturas;
+        _empresas = empresas;
         _autorizacao = autorizacao;
         _motivo = motivo;
         _usuario = usuario;
@@ -310,6 +317,21 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
     }
 
     // ---------------------------------------------------------------- Consulta
+
+    public async Task<TransferenciaOpcoesDto> ListarOpcoesAsync(CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Comercial.Transferir);
+        var papeis = (await _comercial.TiposAsync(ct)).Values.OrderBy(p => p.Ordem).ThenBy(p => p.Nome).ToList();
+        var pessoas = await _consultas.ListarAtendentesAsync([.. papeis.Where(p => p.Ativo).SelectMany(p => p.ClassificacoesAceitas).Distinct()], ct);
+        return new TransferenciaOpcoesDto
+        {
+            Pessoas = pessoas,
+            ClientesHoje = await _repositorio.CargasAsync([.. pessoas.Select(p => p.Id)], null, Hoje, ct),
+            Papeis = [.. papeis.Select(p => TipoCarteiraAppService.ParaDto(p, 0))],
+            Empresas = await _empresas.ListarEmpresasAsync(ct),
+            DiasRetroativosMaximo = (await _parametros.ObterAsync(ct)).DiasRetroativosMaximo
+        };
+    }
 
     public async Task<List<TransferenciaDto>> ListarAsync(CancellationToken ct = default)
     {

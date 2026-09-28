@@ -33,6 +33,10 @@
                         <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" HorizontalOptions="End">
                             <Label Text="{Binding Fim}" HorizontalOptions="End" />
                             <Label Text="{Binding Faltam}" TextColor="{StaticResource Aviso}" FontAttributes="Bold" HorizontalOptions="End" />
+                            <Button Text="Abrir ficha" Style="{StaticResource BotaoLink}" HorizontalOptions="End"
+                                    IsVisible="{Binding PodeAbrirFicha, Source={RelativeSource AncestorType={x:Type com:CarteiraVencendoViewModel}}, x:DataType=com:CarteiraVencendoViewModel}"
+                                    Command="{Binding AbrirClienteCommand, Source={RelativeSource AncestorType={x:Type com:CarteiraVencendoViewModel}}, x:DataType=com:CarteiraVencendoViewModel}"
+                                    CommandParameter="{Binding .}" />
                         </VerticalStackLayout>
                     </Grid>
                 </DataTemplate>

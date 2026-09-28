@@ -189,3 +189,29 @@ O usuário aceitou todas as recomendações:
   - adiciona `CarteiraClientes.TransferenciaId` (nula), com FK e índice;
   - adiciona `ParametrosComerciais.DiasRetroativosMaximo` com default 0, seguido de um `UpdateData` do registro único para 30;
   - nenhum DROP e nenhum SQL manual.
+
+## 7. Andamento da 1d-2 (28/09/2026, desenho aprovado pelo usuário)
+
+- **Servidor:**
+  - `GET api/v1/comercial/transferencias/opcoes` traz as pessoas que podem atender, quantos clientes cada uma tem hoje, os papéis, as empresas e o limite de dias no passado. Exige `COMERCIAL.TRANSFERIR`.
+  - `CarteiraEmDataAppService` atende `GET api/v1/comercial/carteira-em-data?data=&clienteId=|pessoaId=`.
+    - **Por cliente:** os vínculos vigentes no dia, o crédito de cada um (`CreditosEmData`, por empresa do vínculo), a ausência de quem atendia e a origem, com o número da transferência.
+    - **Por pessoa:** os clientes dela (até 2.000) e as ausências dela.
+    - **Permissão:** `COMERCIAL.VISUALIZAR`, `COMERCIAL.COBERTURAS` ou `COMERCIAL.TRANSFERIR`.
+  - Consultas novas: `ICoberturaConsultas.VinculosEmDataAsync` e `ITransferenciaCarteiraRepositorio.NumerosAsync`.
+- **"Abrir ficha" pelo Id:** o serviço `AberturaDePessoa` (singleton, em `Lone.Cliente/Navegacao`) guarda o pedido.
+  - A tela de origem pede a pessoa e vai para `//pessoas`.
+  - `PessoasPage.OnAppearing` carrega a lista, se ainda não carregou, e abre a ficha com `PessoasViewModel.AbrirPessoa(id)`, perguntando antes se houver alterações não salvas.
+  - O botão só aparece com `PESSOAS.VISUALIZAR`.
+  - Está em: Transferências (resultado), Carteira vencendo e Carteira em uma data.
+- **Telas:**
+  - **"Transferências"** (`TransferenciasPage`, `TransferenciasViewModel`): lista, resultado por cliente e o assistente em 3 passos.
+    - A prévia agrupa por cliente, marca quem passa e deixa trocar o destino quando há vários.
+    - O pedido final leva os clientes marcados e o destino mostrado de cada um, para a gravação fazer o que a prévia mostrou.
+  - **"Carteira em uma data"** (`CarteiraEmDataPage`, `CarteiraEmDataViewModel`), com consulta por cliente (busca) ou por quem atende.
+  - Os dois itens entram no menu Comercial: Transferências com `TRANSFERIR`; Carteira em uma data com VISUALIZAR, COBERTURAS ou TRANSFERIR.
+- **Banco:** nenhuma mudança (sem migration).
+- **Testes:**
+  - `Cliente/TransferenciasTests` (6);
+  - `Aplicacao/TransferenciaCarteiraAppServiceTests` (+2: opções e carteira em uma data);
+  - `MenuLateralTests` (itens novos do menu).

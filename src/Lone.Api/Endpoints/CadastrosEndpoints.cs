@@ -422,6 +422,8 @@ public static class CadastrosEndpoints
 
         grupo.MapGet(string.Empty, (ITransferenciaCarteiraAppService servico, CancellationToken ct) => servico.ListarAsync(ct));
 
+        grupo.MapGet("opcoes", (ITransferenciaCarteiraAppService servico, CancellationToken ct) => servico.ListarOpcoesAsync(ct));
+
         grupo.MapGet("{id:guid}", async (Guid id, ITransferenciaCarteiraAppService servico, CancellationToken ct) =>
             await servico.ObterAsync(id, ct) is { } item
                 ? Results.Ok(item)
@@ -432,6 +434,11 @@ public static class CadastrosEndpoints
 
         grupo.MapPost(string.Empty, (TransferenciaRequisicao requisicao, ITransferenciaCarteiraAppService servico, CancellationToken ct) =>
             servico.TransferirAsync(requisicao, ct));
+
+        // ?data=2026-04-15&clienteId=... ou &pessoaId=... (um dos dois).
+        app.MapGet(Rotas.Comercial.CarteiraEmData, (DateOnly data, Guid? clienteId, Guid? pessoaId, ICarteiraEmDataAppService servico, CancellationToken ct) =>
+                servico.ConsultarAsync(clienteId, pessoaId, data, ct))
+            .WithTags("Transferências de carteira").RequireAuthorization();
     }
 
     private static void MapCnaes(IEndpointRouteBuilder app)

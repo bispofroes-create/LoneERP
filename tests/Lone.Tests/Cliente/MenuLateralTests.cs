@@ -51,8 +51,9 @@ public class MenuLateralTests
         Assert.Equal("Cadastro de pessoas", cadastro.Descricao); // fora (atalhos, busca, leitor de tela), o nome completo
         Assert.True(cadastro.Corresponde("configuracoes-pessoas"));
         Assert.True(cadastro.Corresponde("papeis"));
-        Assert.Equal(new[] { "coberturas", "carteira-vencendo", "configuracoes-comercial" }, secoes[1].Itens.Select(i => i.Rota).ToArray());
-        var comercial = secoes[1].Itens[2];
+        Assert.Equal(new[] { "coberturas", "carteira-vencendo", "transferencias", "carteira-em-data", "configuracoes-comercial" },
+            secoes[1].Itens.Select(i => i.Rota).ToArray());
+        var comercial = secoes[1].Itens[4];
         Assert.Equal("Configurações do Comercial", comercial.Descricao);
         Assert.True(comercial.Corresponde("tipos-carteira"));
         Assert.True(comercial.Corresponde("tipos-ausencia"));
@@ -64,6 +65,14 @@ public class MenuLateralTests
         Assert.Equal("configuracoes-sistema", sistema.Rota);
         Assert.Equal("⚙  Configurações do sistema", sistema.TextoExibido);
         Assert.True(secoes[4].MostrarItens); // entrada solta: sem cabeçalho, sempre visível
+    }
+
+    [Fact]
+    public void Quem_so_transfere_carteira_ve_transferencias_e_carteira_em_uma_data()
+    {
+        var secoes = MenuViewModel.CriarSecoes(p => p == Lone.Contracts.Seguranca.Permissoes.Comercial.Transferir);
+        Assert.Equal(new string?[] { "Comercial", null }, secoes.Select(s => s.Titulo).ToArray()); // e Configurações do sistema
+        Assert.Equal(new[] { "transferencias", "carteira-em-data" }, secoes[0].Itens.Select(i => i.Rota).ToArray());
     }
 
     [Fact]
