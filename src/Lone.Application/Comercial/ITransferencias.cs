@@ -37,6 +37,9 @@ public interface ITransferenciaCarteiraRepositorio
 
     Task<List<TransferenciaCarteiraItem>> ItensAsync(Guid transferenciaId, CancellationToken ct);
 
+    /// <summary>Os destinos de cada transferência (escopo da lista, Fase 2a-3).</summary>
+    Task<Dictionary<Guid, List<Guid>>> DestinosAsync(IReadOnlyCollection<Guid> transferencias, CancellationToken ct);
+
     /// <summary>Os números legíveis ("TR-2026-0001") das transferências informadas.</summary>
     Task<Dictionary<Guid, string>> NumerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct);
 }

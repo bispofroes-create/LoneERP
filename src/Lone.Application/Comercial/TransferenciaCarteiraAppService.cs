@@ -50,12 +50,14 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
     private readonly IMotivoDaOperacao _motivo;
     private readonly IUsuarioAtual _usuario;
     private readonly TimeProvider _relogio;
+    private readonly IEscopoPessoas _escopo;
 
     public TransferenciaCarteiraAppService(ITransferenciaCarteiraRepositorio repositorio, IPessoaRepositorio pessoas, ReferenciasComercial comercial,
                                            IComercialConsultas consultas, IParametrosComerciaisRepositorio parametros, ICoberturaRepositorio coberturas,
                                            IEmpresaConsultas empresas, IAutorizacao autorizacao, IMotivoDaOperacao motivo, IUsuarioAtual usuario,
-                                           TimeProvider relogio)
+                                           TimeProvider relogio, IEscopoPessoas escopo)
     {
+        _escopo = escopo;
         _repositorio = repositorio;
         _pessoas = pessoas;
         _comercial = comercial;
@@ -154,7 +156,9 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
                 : $"Transferência {transferencia.Numero} interrompida depois de {itens.Select(i => i.ClienteId).Distinct().Count()} cliente(s).");
             await _repositorio.ConcluirAsync(transferencia, itens, CancellationToken.None);
         }
-        return await ObterAsync(transferencia.Id, ct) ?? throw new ConflitoDeEdicaoException();
+        // Relê sem o filtro de hoje: quem gravou passou pela liderança na data de efeito (E12), que pode não ser a de hoje.
+        var gravada = await _repositorio.ObterAsync(transferencia.Id, ct) ?? throw new ConflitoDeEdicaoException();
+        return await MontarAsync(gravada, await _repositorio.ItensAsync(transferencia.Id, ct), ct);
     }
 
     /// <summary>
@@ -274,6 +278,16 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
         if (destinos.Any(d => !elegiveis.ContainsKey(d)))
             throw new ValidacaoException(["Um destino escolhido não existe mais ou não está ativo."]);
 
+        // E12 (Fase 2a-3): origem e cada destino dentro do alcance, pela liderança na data de efeito. Sempre por esta
+        // operação (o histórico fica), nunca editando o vínculo; destino fora do alcance bloqueia tudo.
+        // A origem vale também pela véspera: no desligamento, quem sai deixa a equipe no dia anterior ao efeito.
+        if (!await _escopo.GerenciaEmAsync(filtro.OrigemId, filtro.EfeitoEm, ct) &&
+            !await _escopo.GerenciaEmAsync(filtro.OrigemId, filtro.EfeitoEm.AddDays(-1), ct))
+            throw new ValidacaoException(["A origem da transferência não está no seu alcance (sua equipe) na data de efeito."]);
+        foreach (var destino in destinos.Where(d => d != filtro.OrigemId).Distinct())
+            if (!await _escopo.GerenciaEmAsync(destino, filtro.EfeitoEm, ct))
+                throw new ValidacaoException([$"O destino {elegiveis.GetValueOrDefault(destino)?.Nome ?? "escolhido"} não está no seu alcance (sua equipe) na data de efeito: a transferência não foi feita."]);
+
         var clientes = await _repositorio.ClientesDaOrigemAsync(filtro, ct);
         if (r.Clientes is { } marcados)
         {
@@ -337,6 +351,14 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
     {
         _autorizacao.Exigir(Permissoes.Comercial.Transferir);
         var lista = await _repositorio.ListarAsync(LimiteLista, ct);
+        var escopo = await _escopo.ObterAsync(ct);
+        if (!escopo.Tudo && lista.Count > 0)
+        {
+            // Só as que envolvem alguém do alcance (origem ou algum destino); alcance de hoje (E10).
+            var destinos = await _repositorio.DestinosAsync([.. lista.Select(t => t.Id)], ct);
+            lista = [.. lista.Where(t => escopo.AlcancaPessoa(t.OrigemId) ||
+                                         destinos.GetValueOrDefault(t.Id, []).Any(escopo.AlcancaPessoa))];
+        }
         var tipos = await _comercial.TiposAsync(ct);
         var nomes = await _consultas.NomesAsync(
             [.. lista.Select(t => t.OrigemId).Concat(lista.Select(t => t.EmpresaId).OfType<Guid>()).Distinct()], ct);
@@ -348,6 +370,15 @@ public sealed class TransferenciaCarteiraAppService : ITransferenciaCarteiraAppS
         _autorizacao.Exigir(Permissoes.Comercial.Transferir);
         if (await _repositorio.ObterAsync(id, ct) is not { } t) return null;
         var itens = await _repositorio.ItensAsync(id, ct);
+        var escopo = await _escopo.ObterAsync(ct);
+        if (!escopo.AlcancaPessoa(t.OrigemId) && !itens.Any(i => i.DestinoId is { } d && escopo.AlcancaPessoa(d)))
+            return null; // fora do alcance: como se não existisse
+        return await MontarAsync(t, itens, ct);
+    }
+
+    /// <summary>A transferência com os itens para a tela (sem conferir o alcance: quem chama já conferiu).</summary>
+    private async Task<TransferenciaDto> MontarAsync(TransferenciaCarteira t, List<TransferenciaCarteiraItem> itens, CancellationToken ct)
+    {
         var tipos = await _comercial.TiposAsync(ct);
         var nomes = await _consultas.NomesAsync(
             [.. new[] { t.OrigemId }.Concat(new[] { t.EmpresaId }.OfType<Guid>()).Concat(itens.Select(i => i.ClienteId)).Distinct()], ct);

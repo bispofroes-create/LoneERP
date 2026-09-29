@@ -90,6 +90,42 @@ embaixo não vê nada e pode achar que gravou e mudar de tela.
 6. **Onde vale:** a ficha de Pessoas primeiro, depois todas as telas de cadastro (componente comum). Vira padrão em
    `docs/UX-ARQUITETURA.md`.
 
+## C4. Permissões do perfil: ordem alfabética e busca (28/09/2026, 23h13)
+
+**O que acontece:** em Perfis de acesso, as permissões aparecem na ordem em que foram criadas no código (grupos e itens
+fora de ordem alfabética), e com o sistema crescendo o administrador perde tempo procurando.
+
+**Pedido do usuário:** grupos e permissões em ordem alfabética, e uma caixa de busca (pelo grupo, pelo nome, ou algo mais
+inteligente, como fazem os ERPs maduros).
+
+**Como os sistemas maduros fazem:**
+- **SAP (PFCG/Fiori) e Dynamics 365:** permissões agrupadas por área, com busca que filtra enquanto digita.
+- **Salesforce:** "Localizar configurações" busca por palavras em nome e descrição.
+- **Todos:** mostram quantas estão marcadas em cada grupo, têm "Marcar todas do grupo" e o filtro "Só as marcadas", e
+  deixam comparar perfis.
+
+**Proposta:**
+1. **Ordem:** grupos em ordem alfabética, e permissões em ordem alfabética dentro de cada grupo (pela descrição, que é o
+   que aparece). Ignora acentos e maiúsculas ("Ações" junto de "Acesso").
+2. **Busca que filtra enquanto digita:**
+   - procura no nome do grupo, na descrição e no código (ex.: `PESSOAS.EDITAR`);
+   - sem acento e sem diferença de maiúsculas;
+   - várias palavras em qualquer ordem ("cliente bloqueio" acha "Alterar limite de crédito e bloqueios de cliente");
+   - destaca o trecho encontrado;
+   - grupo sem resultado some, e o que sobra fica aberto;
+   - "Nenhuma permissão encontrada" quando nada bate.
+3. **Sinônimos simples, o "mais inteligente":**
+   - uma lista curta de palavras equivalentes (ex.: "excluir/apagar/desativar/inativar", "ver/visualizar/consultar",
+     "editar/alterar", "vendedor/carteira/comercial", "senha/usuário/acesso");
+   - quem busca "excluir" acha "Desativar e reativar cadastros", já que o Lone nunca apaga.
+4. **Atalhos:**
+   - cada grupo mostra "3 de 15 marcadas", com "Marcar todas" e "Desmarcar todas" (só nas visíveis, quando há busca);
+   - filtro "Só as marcadas", para conferir o que o perfil tem.
+5. **Onde:** a regra (ordem, busca e sinônimos) fica num componente do cliente, testável sem MAUI, usado na tela de
+   Perfis. Depois, a mesma busca pode servir no menu e nas Configurações de cada módulo.
+6. **Futuro (anotado, não entra agora):** comparar dois perfis lado a lado e "quem tem esta permissão" (a lista de usuários
+   e perfis que a têm), como no SAP e no Salesforce.
+
 ## Outras anotações
 
 - Senhas, crachá e verificação em duas etapas: `docs/PLANO-SENHAS-E-CRACHA.md`.

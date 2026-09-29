@@ -3,6 +3,7 @@ using Lone.Application.Seguranca;
 using Lone.Contracts.Metas;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
+using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
 using Lone.Infrastructure.Persistencia.Servicos;
 using Microsoft.Data.SqlClient;
@@ -124,6 +125,18 @@ public class MetaRepositorio : ServicoDadosBase, IMetaRepositorio
     {
         await using var db = await AbrirAsync(ct);
         return await Completa(db).AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct);
+    }
+
+    public async Task<Dictionary<Guid, List<(NivelParticipante Nivel, Guid ReferenciaId)>>> ParticipantesAsync(IReadOnlyCollection<Guid> metas,
+                                                                                                              CancellationToken ct)
+    {
+        if (metas.Count == 0) return new();
+        await using var db = await AbrirAsync(ct);
+        var lista = metas.Distinct().ToList();
+        var linhas = await db.Metas.AsNoTracking().Where(m => lista.Contains(m.Id))
+            .SelectMany(m => m.Participantes.Select(p => new { p.MetaId, p.Nivel, p.ReferenciaId }))
+            .ToListAsync(ct);
+        return linhas.GroupBy(l => l.MetaId).ToDictionary(g => g.Key, g => g.Select(l => (l.Nivel, l.ReferenciaId)).ToList());
     }
 
     private static IQueryable<Meta> Completa(LoneDbContext db) =>

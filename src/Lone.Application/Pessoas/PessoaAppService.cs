@@ -33,6 +33,7 @@ using Lone.Domain.Comercial;
 using Lone.Domain.Fiscal;
 using Lone.Domain.GruposEmpresariais;
 using Lone.Domain.Pessoas;
+using Lone.Domain.Relacionamentos;
 using Lone.Domain.Validacao;
 
 namespace Lone.Application.Pessoas;
@@ -330,8 +331,11 @@ public sealed class PessoaAppService : IPessoaAppService
         // Alcance restrito (Fase 2a-2): só clientes entram (E4) e o cliente novo sem responsável da conta recebe quem o
         // cadastrou (F4), senão sumiria da lista dele ao salvar.
         var escopo = await _escopo.ObterAsync(ct);
+        var relacaoInicial = nova && dto.RelacionarAoCriar is { } pedido
+            ? await PrepararRelacaoInicialAsync(dados, pedido, escopo, erros, ct)
+            : null;
         if (nova && escopo.Restrito)
-            erros.AddRange(ErrosDoCadastroRestrito(dados, escopo));
+            erros.AddRange(ErrosDoCadastroRestrito(dados, escopo, relacaoInicial is not null));
         erros.AddRange(errosPapeis);
         erros.AddRange(RegrasFiscal.ValidarCamposDeEmpresa(dados, anterior));
         erros.AddRange(RegrasColaborador.Validar(dados));
@@ -490,7 +494,10 @@ public sealed class PessoaAppService : IPessoaAppService
         if (DuplicidadeEndereco.Pares(dados.Enderecos, incluirPossiveis: false).Count > 0)
             avisos.Add("Há endereços iguais já gravados nesta ficha. Use \"Consolidar endereços\" para juntar as finalidades num só.");
 
-        await _repositorio.SalvarAsync(dados, nova, OrigemAlteracao.Usuario, ct);
+        if (relacaoInicial is not null)
+            await _repositorio.SalvarNovaComRelacionamentoAsync(dados, relacaoInicial, OrigemAlteracao.Usuario, ct); // mesma transação
+        else
+            await _repositorio.SalvarAsync(dados, nova, OrigemAlteracao.Usuario, ct);
 
         // Gravou, mas saiu do alcance (cliente novo com outro responsável, ou quem atende foi trocado): avisa agora, porque
         // da próxima vez o cadastro não abre mais para este usuário.
@@ -510,14 +517,54 @@ public sealed class PessoaAppService : IPessoaAppService
     /// Cadastro novo com alcance restrito (Fase 2a-2): sem pessoa ligada ou com alcance "Nenhum" não há onde o cadastro
     /// ficar; e só clientes entram (E4), porque fornecedor, funcionário e outros ficam fora de qualquer carteira (F5).
     /// </summary>
-    internal static IEnumerable<string> ErrosDoCadastroRestrito(Pessoa dados, EscopoResolvido escopo)
+    internal static IEnumerable<string> ErrosDoCadastroRestrito(Pessoa dados, EscopoResolvido escopo, bool nasceRelacionadaAoAlcance = false)
     {
         if (escopo.SemPessoaLigada)
             yield return "Seu usuário não está ligado a uma pessoa do cadastro, então o cadastro novo ficaria fora do seu alcance. Peça ao administrador para ligar.";
         else if (escopo.Alcance == AlcanceComercial.Nenhum)
             yield return "Seu perfil não dá acesso ao cadastro de Pessoas.";
-        else if (!RegrasEscopo.EhCliente(dados))
+        else if (!RegrasEscopo.EhCliente(dados) && !nasceRelacionadaAoAlcance) // E9: contato ou sócio de um cliente do alcance
             yield return RegrasEscopo.SoClientes;
+    }
+
+    /// <summary>
+    /// E9 (Fase 2a-3): o relacionamento com que o cadastro novo nasce, conferido antes de gravar a pessoa (as mesmas regras
+    /// e permissões de "Relacionamentos"). Com alcance restrito, o outro lado precisa ser um cliente no alcance pela carteira:
+    /// assim a pessoa nova entra no alcance por essa relação. Nulo se houver erro (vai para <paramref name="erros"/>).
+    /// </summary>
+    private async Task<PessoaRelacionamento?> PrepararRelacaoInicialAsync(Pessoa dados, IncluirRelacionamentoRequisicao pedido, EscopoResolvido escopo,
+                                                                          List<string> erros, CancellationToken ct)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Editar);
+        if (RegrasRelacionamento.EhSocietario(pedido.TipoRelacionamentoId))
+            _autorizacao.Exigir(Permissoes.Pessoas.EstruturaEmpresarial);
+        if (escopo.Restrito && !(await _noEscopo.ClientesDiretosAsync([pedido.OutraPessoaId], escopo, ct)).Contains(pedido.OutraPessoaId))
+        {
+            erros.Add("O cadastro só pode nascer relacionado a um cliente da sua carteira (ou da sua equipe).");
+            return null;
+        }
+
+        var relacao = new PessoaRelacionamento
+        {
+            Id = IdSequencial.Novo(),
+            PessoaId = pedido.Inverso ? pedido.OutraPessoaId : dados.Id,
+            PessoaDestinoId = pedido.Inverso ? dados.Id : pedido.OutraPessoaId,
+            TipoRelacionamentoId = pedido.TipoRelacionamentoId,
+            InicioEm = pedido.InicioEm,
+            FimEm = pedido.FimEm,
+            Observacoes = RegrasRelacionamento.Texto(pedido.Observacoes),
+            Ativo = true
+        };
+        var tipo = (await _relacionamentos.ListarTiposAsync(ct)).FirstOrDefault(t => t.Id == relacao.TipoRelacionamentoId);
+        var outra = (await _relacionamentos.PessoasAsync([pedido.OutraPessoaId], ct)).GetValueOrDefault(pedido.OutraPessoaId);
+        var nova = new PessoaNoRelacionamento(dados.Id, dados.Natureza, dados.Situacao, dados.Nome);
+        var errosRelacao = RegrasRelacionamento.ValidarNovo(relacao, tipo, pedido.Inverso ? outra : nova, pedido.Inverso ? nova : outra,
+            pedido.Inverso ? await _relacionamentos.ListarDaOrigemAsync(pedido.OutraPessoaId, ct) : []);
+        // Com alcance restrito, a relação precisa valer hoje: é ela que põe a pessoa no alcance (senão nasceria fora dele).
+        if (escopo.Restrito && !relacao.Vigente(escopo.Hoje))
+            errosRelacao.Add("O relacionamento precisa valer hoje (sem início no futuro nem fim no passado).");
+        erros.AddRange(errosRelacao.Select(e => "Relacionamento: " + e));
+        return errosRelacao.Count == 0 ? relacao : null;
     }
 
     /// <summary>

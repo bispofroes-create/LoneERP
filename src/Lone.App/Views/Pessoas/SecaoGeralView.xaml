@@ -10,6 +10,9 @@
          traço fino dentro da mesma superfície. Papéis e etiquetas: a ficha mostra só o que a pessoa tem (padrão do Lone:
          o cadastro auxiliar oferece as opções; a ficha mostra as utilizadas). -->
     <VerticalStackLayout Spacing="8">
+        <!-- Cadastro novo que nasce relacionado (Fase 2a-3, E9): diz com quem, antes de salvar. -->
+        <Label Text="{Binding Formulario.AvisoRelacionarAoCriar}" IsVisible="{Binding Formulario.TemRelacionarAoCriar}"
+               FontAttributes="Bold" LineBreakMode="WordWrap" />
         <Label Text="Dados principais" Style="{StaticResource SecaoTitulo}" />
         <FlexLayout Wrap="Wrap">
             <c:CampoEscolha Rotulo="Natureza" Itens="{Binding Formulario.Naturezas}" Selecionado="{Binding Formulario.NaturezaNaTela}" />

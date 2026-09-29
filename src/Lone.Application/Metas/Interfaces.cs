@@ -26,6 +26,9 @@ public interface IMetaRepositorio
     /// <summary>A meta com itens, faixas, participantes e alvos (sem rastreamento).</summary>
     Task<Meta?> ObterAsync(Guid id, CancellationToken ct);
 
+    /// <summary>Os participantes de cada meta (nível e referência), para o escopo da lista (Fase 2a-3).</summary>
+    Task<Dictionary<Guid, List<(NivelParticipante Nivel, Guid ReferenciaId)>>> ParticipantesAsync(IReadOnlyCollection<Guid> metas, CancellationToken ct);
+
     /// <summary>Inclui ou altera a meta e os filhos (alvos e participantes que saíram do rascunho são removidos).</summary>
     Task SalvarAsync(Meta meta, bool novo, CancellationToken ct);
 }

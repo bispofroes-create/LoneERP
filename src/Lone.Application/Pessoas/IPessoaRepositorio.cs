@@ -50,4 +50,11 @@ public interface IPessoaRepositorio
     /// Lança ConflitoDeEdicaoException se outro usuário gravou antes.
     /// </summary>
     Task SalvarAsync(Pessoa pessoa, bool nova, OrigemAlteracao origem, CancellationToken ct);
+
+    /// <summary>
+    /// Inclui a pessoa nova e o relacionamento com que ela nasce na mesma transação (Fase 2a-3, E9): ou os dois ficam, ou
+    /// nenhum. Sem isso, com alcance restrito, a pessoa poderia ficar gravada sem a relação que a põe no alcance.
+    /// </summary>
+    Task SalvarNovaComRelacionamentoAsync(Pessoa pessoa, PessoaRelacionamento relacao, OrigemAlteracao origem, CancellationToken ct) =>
+        throw new NotSupportedException("Este repositório não grava o relacionamento inicial.");
 }

@@ -40,7 +40,7 @@ public interface ICoberturaConsultas
     Task<Dictionary<Guid, int>> ContarClientesAsync(IReadOnlyCollection<CoberturaComercial> coberturas, CancellationToken ct);
 
     /// <summary>Vínculos ativos da carteira que terminam entre as datas (inclusive), com nomes.</summary>
-    Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, CancellationToken ct);
+    Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, Lone.Domain.Comercial.EscopoResolvido escopo, CancellationToken ct);
 
     /// <summary>
     /// Vínculos ativos da carteira que valiam na data: de um cliente (todos os papéis) ou de quem atende (os clientes dela),

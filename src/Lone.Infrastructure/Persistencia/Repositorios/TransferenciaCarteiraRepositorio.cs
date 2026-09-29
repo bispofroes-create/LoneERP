@@ -24,7 +24,7 @@ public class TransferenciaCarteiraRepositorio : ServicoDadosBase, ITransferencia
                         (papel == null || v.TipoCarteiraId == papel) &&
                         (empresa == null || v.EmpresaId == empresa))
             .Select(v => v.PessoaId).Distinct();
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): clientes da transferência.
+        // Sem escopo: os clientes da origem, e a origem já foi conferida no alcance (liderança na data de efeito, E12).
         var lista = await db.Pessoas.AsNoTracking()
             .Where(p => clientes.Contains(p.Id))
             .Select(p => new { p.Id, Nome = p.NomeExibicao ?? p.Nome })
@@ -108,5 +108,16 @@ public class TransferenciaCarteiraRepositorio : ServicoDadosBase, ITransferencia
     {
         await using var db = await AbrirAsync(ct);
         return await db.TransferenciaCarteiraItens.AsNoTracking().Where(i => i.TransferenciaId == transferenciaId).ToListAsync(ct);
+    }
+
+    public async Task<Dictionary<Guid, List<Guid>>> DestinosAsync(IReadOnlyCollection<Guid> transferencias, CancellationToken ct)
+    {
+        if (transferencias.Count == 0) return new();
+        await using var db = await AbrirAsync(ct);
+        var lista = transferencias.Distinct().ToList();
+        var linhas = await db.TransferenciaCarteiraItens.AsNoTracking()
+            .Where(i => lista.Contains(i.TransferenciaId) && i.DestinoId != null)
+            .Select(i => new { i.TransferenciaId, DestinoId = i.DestinoId!.Value }).Distinct().ToListAsync(ct);
+        return linhas.GroupBy(l => l.TransferenciaId).ToDictionary(g => g.Key, g => g.Select(l => l.DestinoId).ToList());
     }
 }

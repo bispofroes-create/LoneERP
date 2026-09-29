@@ -66,8 +66,14 @@
                IsVisible="{Binding Formulario.Relacionamentos.TemPessoaEscolhida}" />
         <c:Campo Rotulo="Observações (opcional)" Texto="{Binding Formulario.Relacionamentos.NovasObservacoes}" MaximumWidthRequest="640"
                  HorizontalOptions="Start" />
-        <Button Text="Registrar relacionamento" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
-                Command="{Binding Formulario.Relacionamentos.IncluirCommand}" IsEnabled="{Binding Livre}" />
+        <HorizontalStackLayout Spacing="8">
+            <Button Text="Registrar relacionamento" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding Formulario.Relacionamentos.IncluirCommand}" IsEnabled="{Binding Livre}" />
+            <!-- Fase 2a-3 (E9): a pessoa ainda não existe? Cadastra já com este relacionamento (ex.: contato do cliente). -->
+            <Button Text="Cadastrar nova pessoa assim" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding Formulario.Relacionamentos.CadastrarNovaCommand}" IsEnabled="{Binding Livre}"
+                    ToolTipProperties.Text="Abre um cadastro novo que, ao salvar, já fica com o tipo escolhido acima em relação a esta ficha" />
+        </HorizontalStackLayout>
         <Label Text="Sócio e administrador exigem a permissão de estrutura empresarial e ligam a pessoa a uma empresa. O vínculo fica no histórico da pessoa de origem."
                Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
     </VerticalStackLayout>

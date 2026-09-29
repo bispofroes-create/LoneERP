@@ -58,6 +58,9 @@ public class EscopoPessoasTests
         public HashSet<Guid> Existem { get; } = new();
         public HashSet<Guid> Fora { get; } = new();
         public int Consultas { get; private set; }
+        public Task<HashSet<Guid>> ClientesDiretosAsync(IReadOnlyCollection<Guid> ids, EscopoResolvido escopo, CancellationToken ct) =>
+            Task.FromResult(ids.Where(i => Existem.Contains(i) && !Fora.Contains(i)).ToHashSet());
+
         public Task<SituacaoNoEscopo> SituacaoAsync(Guid pessoaId, EscopoResolvido escopo, CancellationToken ct)
         {
             Consultas++;

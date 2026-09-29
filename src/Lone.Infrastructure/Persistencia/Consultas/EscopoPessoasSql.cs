@@ -19,14 +19,27 @@ public static class EscopoPessoasSql
     public static IQueryable<Pessoa> Pessoas(LoneDbContext db, EscopoResolvido escopo) =>
         Aplicar(db.Pessoas.AsNoTracking(), escopo, db);
 
-    /// <summary>Restringe uma consulta de Pessoas ao escopo. Tudo: não muda nada (o comportamento de antes).</summary>
+    /// <summary>
+    /// Restringe uma consulta de Pessoas ao escopo. Tudo: não muda nada (o comportamento de antes). Restrito: os clientes da
+    /// carteira alcançada e, um nível só, quem tem relacionamento vigente com um deles (E9, a mesma regra de
+    /// <see cref="RegrasEscopo.AlcancaPorRelacao"/>).
+    /// </summary>
     public static IQueryable<Pessoa> Aplicar(IQueryable<Pessoa> consulta, EscopoResolvido escopo, LoneDbContext db)
     {
         if (escopo.Tudo) return consulta;
         if (escopo.Vazio) return consulta.Where(p => false);
-        var vinculos = db.CarteiraClientes.AsNoTracking().Where(RegrasEscopo.VinculoNoEscopo(escopo));
-        return consulta.Where(p => vinculos.Any(c => c.PessoaId == p.Id));
+        var diretos = ClientesDiretos(db, escopo);
+        var hoje = escopo.Hoje;
+        var relacoes = db.PessoaRelacionamentos.AsNoTracking()
+            .Where(r => r.Ativo && (r.InicioEm == null || r.InicioEm <= hoje) && (r.FimEm == null || r.FimEm >= hoje));
+        return consulta.Where(p => diretos.Contains(p.Id) ||
+                                   relacoes.Any(r => (r.PessoaId == p.Id && diretos.Contains(r.PessoaDestinoId)) ||
+                                                     (r.PessoaDestinoId == p.Id && diretos.Contains(r.PessoaId))));
     }
+
+    /// <summary>Os ids dos clientes no alcance pela carteira (sem o nível dos relacionamentos). Escopo restrito e não vazio.</summary>
+    public static IQueryable<Guid> ClientesDiretos(LoneDbContext db, EscopoResolvido escopo) =>
+        db.CarteiraClientes.AsNoTracking().Where(RegrasEscopo.VinculoNoEscopo(escopo)).Select(c => c.PessoaId);
 }
 
 /// <summary>Conferência de um cadastro contra o escopo (rotas com o id da pessoa, documento em uso, depois de salvar).</summary>
@@ -43,5 +56,15 @@ public sealed class PessoasNoEscopo : ServicoDadosBase, IPessoasNoEscopo
         return await EscopoPessoasSql.Aplicar(db.Pessoas.AsNoTracking().Where(p => p.Id == pessoaId), escopo, db).AnyAsync(ct)
             ? SituacaoNoEscopo.NoEscopo
             : SituacaoNoEscopo.ForaDoEscopo;
+    }
+
+    public async Task<HashSet<Guid>> ClientesDiretosAsync(IReadOnlyCollection<Guid> ids, EscopoResolvido escopo, CancellationToken ct)
+    {
+        if (ids.Count == 0) return [];
+        var lista = ids.Distinct().ToList();
+        if (escopo.Tudo) return [.. lista];
+        if (escopo.Vazio) return [];
+        await using var db = await AbrirAsync(ct);
+        return [.. await EscopoPessoasSql.ClientesDiretos(db, escopo).Where(id => lista.Contains(id)).Distinct().ToListAsync(ct)];
     }
 }

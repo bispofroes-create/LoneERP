@@ -40,10 +40,19 @@ public class CoberturaConsultas : ServicoDadosBase, ICoberturaConsultas
         return await consulta.OrderBy(v => v.TipoCarteiraId).ThenBy(v => v.InicioEm).Take(limite).ToListAsync(ct);
     }
 
-    public async Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, CancellationToken ct)
+    public async Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, Lone.Domain.Comercial.EscopoResolvido escopo,
+                                                                     CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
-        var linhas = await db.CarteiraClientes.AsNoTracking()
+        var vinculos = db.CarteiraClientes.AsNoTracking();
+        // Só os vínculos de clientes no alcance pela carteira (Fase 2a-3; contatos e sócios da E9 não têm carteira a vencer).
+        if (escopo.Vazio) vinculos = vinculos.Where(v => false);
+        else if (!escopo.Tudo)
+        {
+            var diretos = EscopoPessoasSql.ClientesDiretos(db, escopo);
+            vinculos = vinculos.Where(v => diretos.Contains(v.PessoaId));
+        }
+        var linhas = await vinculos
             .Where(v => v.Ativo && v.FimEm != null && v.FimEm >= de && v.FimEm <= ate &&
                         // Já trocado: outro vínculo do mesmo papel e empresa começa no dia seguinte (não precisa de ação).
                         !db.CarteiraClientes.Any(n => n.Ativo && n.Id != v.Id && n.PessoaId == v.PessoaId && n.TipoCarteiraId == v.TipoCarteiraId &&
@@ -52,12 +61,12 @@ public class CoberturaConsultas : ServicoDadosBase, ICoberturaConsultas
             {
                 v.Id,
                 v.PessoaId,
-                // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes das coberturas.
+                // Sem escopo: nomes das linhas, cujos clientes já passaram pelo escopo acima.
                 Cliente = db.Pessoas.Where(p => p.Id == v.PessoaId).Select(p => p.NomeExibicao ?? p.Nome).FirstOrDefault(),
                 Papel = db.TiposCarteira.Where(t => t.Id == v.TipoCarteiraId).Select(t => t.Nome).FirstOrDefault(),
-                // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes das coberturas.
+                // Sem escopo: nome de quem atende (colaborador) nas linhas já filtradas pelo escopo.
                 Pessoa = db.Pessoas.Where(p => p.Id == v.VendedorId).Select(p => p.NomeExibicao ?? p.Nome).FirstOrDefault(),
-                // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes das coberturas.
+                // Sem escopo: nome da empresa do grupo.
                 Empresa = v.EmpresaId == null ? null : db.Pessoas.Where(p => p.Id == v.EmpresaId).Select(p => p.NomeExibicao ?? p.Nome).FirstOrDefault(),
                 v.InicioEm,
                 FimEm = v.FimEm!.Value

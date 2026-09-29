@@ -17,7 +17,7 @@ public class ComercialConsultas : ServicoDadosBase, IComercialConsultas
         if (classificacoes.Count == 0) return [];
         await using var db = await AbrirAsync(ct);
         var aceitas = classificacoes.Distinct().ToList();
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): opções e nomes do Comercial.
+        // Sem escopo: quem pode atender (colaboradores elegíveis ao papel, E14) e seus nomes, independentes do alcance de clientes.
         var linhas = await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo && p.Papeis.Any(x => x.Ativo && aceitas.Contains(x.PapelId)))
             .OrderBy(p => p.NomeExibicao ?? p.Nome)
@@ -37,7 +37,7 @@ public class ComercialConsultas : ServicoDadosBase, IComercialConsultas
         if (ids.Count == 0) return new();
         await using var db = await AbrirAsync(ct);
         var lista = ids.Distinct().ToList();
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): opções e nomes do Comercial.
+        // Sem escopo: quem pode atender (colaboradores elegíveis ao papel, E14) e seus nomes, independentes do alcance de clientes.
         var linhas = await db.Pessoas.AsNoTracking()
             .Where(p => lista.Contains(p.Id) && p.Situacao == SituacaoPessoa.Ativo)
             .Select(p => new
@@ -56,7 +56,7 @@ public class ComercialConsultas : ServicoDadosBase, IComercialConsultas
         if (ids.Count == 0) return new();
         await using var db = await AbrirAsync(ct);
         var lista = ids.Distinct().ToList();
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): opções e nomes do Comercial.
+        // Sem escopo: nomes por id, de colaboradores (E14) ou de linhas que já passaram pelo escopo em quem chama.
         return await db.Pessoas.AsNoTracking().Where(p => lista.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.NomeExibicao ?? p.Nome, ct);
     }
 }

@@ -2,6 +2,7 @@ using Lone.Application.GruposEmpresariais;
 using Lone.Application.Seguranca;
 using Lone.Contracts.Pessoas;
 using Lone.Contracts.Seguranca;
+using Lone.Domain.Comercial;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
@@ -34,10 +35,15 @@ public sealed class PessoaRelacionamentoAppService : IPessoaRelacionamentoAppSer
     private readonly IAutorizacao _autorizacao;
     private readonly IMotivoDaOperacao _motivo;
     private readonly TimeProvider _relogio;
+    private readonly IEscopoPessoas _escopo;
+    private readonly IPessoasNoEscopo _noEscopo;
 
     public PessoaRelacionamentoAppService(IPessoaRelacionamentoRepositorio repositorio, IGrupoEmpresarialRepositorio grupos,
-                                          IAutorizacao autorizacao, IMotivoDaOperacao motivo, TimeProvider relogio)
+                                          IAutorizacao autorizacao, IMotivoDaOperacao motivo, TimeProvider relogio,
+                                          IEscopoPessoas escopo, IPessoasNoEscopo noEscopo)
     {
+        _escopo = escopo;
+        _noEscopo = noEscopo;
         _repositorio = repositorio;
         _grupos = grupos;
         _autorizacao = autorizacao;
@@ -51,7 +57,21 @@ public sealed class PessoaRelacionamentoAppService : IPessoaRelacionamentoAppSer
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
         var vinculos = await _repositorio.ListarDaPessoaAsync(pessoaId, ct);
-        return await ParaDtosAsync(pessoaId, vinculos, ct);
+        return await ParaDtosAsync(pessoaId, await SoVisiveisAsync(pessoaId, vinculos, ct), ct);
+    }
+
+    /// <summary>
+    /// E9 (Fase 2a-3): na ficha de quem está no alcance só por um relacionamento, aparecem só os relacionamentos com clientes
+    /// do alcance pela carteira; na ficha de um cliente direto, todos (E3). Alcance Tudo: todos.
+    /// </summary>
+    private async Task<List<PessoaRelacionamento>> SoVisiveisAsync(Guid pessoaId, IReadOnlyList<PessoaRelacionamento> vinculos, CancellationToken ct)
+    {
+        var escopo = await _escopo.ObterAsync(ct);
+        if (escopo.Tudo || vinculos.Count == 0) return [.. vinculos];
+        var outros = vinculos.Select(v => v.PessoaId == pessoaId ? v.PessoaDestinoId : v.PessoaId).Append(pessoaId).Distinct().ToList();
+        var diretos = await _noEscopo.ClientesDiretosAsync(outros, escopo, ct);
+        var fichaDireta = diretos.Contains(pessoaId);
+        return [.. vinculos.Where(v => RegrasEscopo.RelacionamentoVisivel(v, pessoaId, fichaDireta, diretos))];
     }
 
     public async Task<PessoaRelacionamentoDto> IncluirAsync(Guid pessoaId, IncluirRelacionamentoRequisicao requisicao, CancellationToken ct = default)
@@ -59,6 +79,10 @@ public sealed class PessoaRelacionamentoAppService : IPessoaRelacionamentoAppSer
         _autorizacao.Exigir(Permissoes.Pessoas.Editar);
         if (RegrasRelacionamento.EhSocietario(requisicao.TipoRelacionamentoId))
             _autorizacao.Exigir(Permissoes.Pessoas.EstruturaEmpresarial);
+
+        // O outro lado também precisa estar no alcance (Fase 2a-3): senão ligar alguém de fora a um cliente meu o traria para
+        // dentro (E9). Fora do alcance responde como inexistente.
+        await _escopo.ExigirAsync(requisicao.OutraPessoaId, ct: ct);
 
         // Na ficha do destino ("Tem como sócio João"), o vínculo é gravado no sentido de sempre: João → Sócio de → ABC.
         var origemId = requisicao.Inverso ? requisicao.OutraPessoaId : pessoaId;
@@ -133,7 +157,8 @@ public sealed class PessoaRelacionamentoAppService : IPessoaRelacionamentoAppSer
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Editar);
         var vinculo = await _repositorio.ObterAsync(relacionamentoId, ct);
-        if (vinculo is null || (vinculo.PessoaId != pessoaId && vinculo.PessoaDestinoId != pessoaId))
+        if (vinculo is null || (vinculo.PessoaId != pessoaId && vinculo.PessoaDestinoId != pessoaId) ||
+            (await SoVisiveisAsync(pessoaId, [vinculo], ct)).Count == 0) // oculto pelo alcance (E9): como se não existisse
             throw new ValidacaoException(["Este relacionamento não existe mais."]);
         if (RegrasRelacionamento.EhSocietario(vinculo.TipoRelacionamentoId))
             _autorizacao.Exigir(Permissoes.Pessoas.EstruturaEmpresarial);

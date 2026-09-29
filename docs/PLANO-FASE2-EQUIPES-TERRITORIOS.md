@@ -274,3 +274,133 @@ alcance, só diz "Este documento já está cadastrado. Peça acesso ao responsá
   "fora do alcance" (404). Os ids têm 8 bytes aleatórios, então só vale para ids já vistos. Aceito.
 - **Configurações** (grupos empresariais, profissões) e o histórico mostram nomes de cadastros fora do alcance; são telas
   com permissão própria. As telas do Comercial e as metas recebem o escopo na 2a-3.
+
+### 2a-3 — escopo nas telas do Comercial e nas metas (plano aprovado em 28/09/2026, 18h37, com ajustes)
+
+**Duas listas, a partir do escopo que a 2a-2 já resolve (`EscopoResolvido`), sem migration:**
+- **clientes no alcance:** a mesma regra da lista de Pessoas;
+- **pessoas no alcance:** o próprio usuário e, em "Minha equipe", os membros das equipes que ele lidera e das de baixo.
+  Quem ele só cobre numa ausência dá acesso aos clientes, mas não entra aqui, porque não é gente que ele gerencia.
+
+Com alcance Tudo, nada muda.
+
+| Tela | O que muda com alcance restrito |
+|---|---|
+| **Carteira vencendo** | Só os vínculos de clientes no alcance. |
+| **Carteira em uma data** | Por cliente: só cliente no alcance. Por pessoa: só pessoa no alcance. A data pode ser passada, e vale o alcance de hoje (**[E10]**). |
+| **Ausências e coberturas** | A lista mostra as coberturas em que o titular ou quem cobre está no alcance. Cadastrar, encerrar e cancelar (com a permissão de hoje) só para titular no alcance: o líder lança as férias da equipe dele (**[E11]**). |
+| **Transferências** | A origem e cada destino precisam estar no alcance. A lista mostra as transferências que envolvem alguém do alcance (**[E12]**). |
+| **Metas** | Aparecem as metas com algum participante no alcance, e dentro delas só esses participantes, com alvos, realizado e apuração. Participante Empresa, Filial ou Departamento só aparece com alcance Tudo. Criar e editar metas continua exigindo alcance Tudo (**[E13]**). |
+| **Opções de pessoas** (quem pode ser, atendentes) | Continuam com todos que podem ocupar o papel: são colaboradores, não clientes. O vendedor pode pôr um representante de fora da equipe no cliente dele (**[E14]**). |
+
+Todo acesso por id (abrir cobertura, transferência ou meta) confere o alcance no serviço e, fora dele, responde como
+inexistente, igual à 2a-2. Os comentários "Sem escopo (fica para a 2a-3...)" da Infraestrutura saem ou viram o escopo.
+
+**Contatos e sócios com alcance restrito** (o ponto aberto da 2a-2) (**[E9]**): hoje o vendedor com "Minha carteira" não
+consegue ligar um contato ou sócio (pessoa física) ao cliente dele. Proposta:
+- aceitar cadastrar quem não é cliente quando a pessoa nasce já relacionada a um cliente do alcance;
+- ela passa a estar no alcance por esse relacionamento, enquanto ele estiver vigente;
+- a busca de pessoa para relacionar também acha quem já está relacionado a clientes do alcance.
+
+**Testes:** as regras no domínio (pessoas no alcance, metas filtradas, relacionamento que dá alcance) e testes de
+aplicação de cada tela. O teste de arquitetura passa a cobrir também as consultas do Comercial e das metas.
+
+**Decisões novas (recomendado: A em todas):**
+- **[E9] Contatos e sócios:** A: pessoa relacionada a um cliente do alcance entra no alcance, e pode ser cadastrada assim;
+  B: continua como está (só o alcance Tudo cadastra contatos).
+- **[E10] Consulta do passado:** A: vale o alcance de hoje (o líder novo vê o histórico da equipe); B: vale quem estava no
+  alcance naquela data.
+- **[E11] Coberturas:** A: o líder cadastra as ausências da equipe; B: só alcance Tudo cadastra.
+- **[E12] Transferências:** A: dentro do alcance (o gerente transfere entre vendedores da equipe dele); B: só alcance Tudo
+  transfere.
+- **[E13] Metas:** A: vê as metas com participantes no alcance, só as linhas deles, e só o alcance Tudo cria e edita;
+  B: vê a meta inteira se tiver algum participante no alcance.
+- **[E14] Opções de pessoas:** A: todos que podem ocupar o papel; B: só as pessoas no alcance.
+
+**Decisões do usuário (28/09/2026, 18h37):**
+- **E9 aprovada com ajuste:** o contato ou sócio entra no alcance **pela relação com aquele cliente**, e isso não é
+  global. João vê Maria porque ela é sócia do Cliente A, que está no alcance dele. Isso não mostra a João os outros
+  relacionamentos de Maria (com clientes fora do alcance), e o alcance não se propaga em cadeia.
+- **E10 aprovada:** as consultas do passado usam o alcance de hoje.
+- **E11 aprovada com ajuste:** o líder cadastra e administra as ausências da equipe, respeitando a **liderança
+  temporal**. Vale quem era líder da equipe (e membro dela) no período da ausência, não só quem lidera hoje.
+- **E12 aprovada:** o gerente transfere entre vendedores do alcance dele. A transferência continua sendo a operação
+  própria, que preserva o histórico. Destino fora do alcance é bloqueado.
+- **E13 alterada:** a **permissão** decide se o usuário cria e edita metas; o **alcance** decide quais metas e
+  participantes ele vê e opera. Não exigir alcance Tudo.
+- **E14 aprovada:** a escolha de quem atende considera todos os colaboradores elegíveis ao papel, independentemente do
+  alcance de clientes.
+- **Regras gerais:**
+  - registro fora do alcance se comporta como inexistente em todo acesso (id, rota, API, ficha, consulta e exportação);
+  - sem migration se não houver mudança no banco;
+  - relatório ao final;
+  - sem push;
+  - a 2b só com plano novo e aprovação.
+
+**Decisões do usuário (28/09/2026, 22h09):**
+- **E9 — aprovada com ajuste:** o contato ou sócio entra no alcance **pela relação com aquele cliente**, e só um nível: isso
+  não abre os outros relacionamentos da pessoa (na ficha dela, só aparecem os relacionamentos com clientes do alcance).
+- **E10 — aprovada:** consultas do passado usam o alcance de hoje.
+- **E11 — aprovada:** o líder cadastra e administra as ausências e coberturas da equipe, com **liderança temporal**: vale
+  quem liderava a equipe do titular na data da ausência.
+- **E12 — aprovada:** transferência entre pessoas no alcance, sempre pela operação de transferência (histórico
+  preservado, nunca edição direta do vínculo); destino fora do alcance bloqueia a operação.
+- **E13 — alterada:** **permissão ≠ alcance.** A permissão (METAS.*) diz se o usuário cria, edita ou lança; o alcance diz
+  quais metas e participantes ele vê e pode operar. Não exigir alcance Tudo.
+- **E14 — aprovada:** as opções de quem atende são todos os colaboradores elegíveis ao papel, independentes do alcance de
+  clientes; valem os critérios próprios de elegibilidade.
+- Fora do alcance = inexistente também por id, rota, API, ficha, consulta e exportação. Sem migration, se não houver
+  mudança de banco. Não antecipar a 2b.
+
+**Andamento da 2a-3 (28/09/2026): aprovada pelo usuário (23h14) e commitada. Sem migration.** Depois dos testes nas telas, o aviso do "Novo relacionamento" passou a sumir quando o tipo ou a pessoa é escolhido.
+
+- **Domínio** (`RegrasEscopo`):
+  - o escopo passa a trazer `Pessoas` (o usuário e a equipe), `EquipesGeridas` e `EquipesDasPessoas`;
+  - `GerenciaEm` (liderança na data: E11 e E12);
+  - `AlcancaPorRelacao` e `RelacionamentoVisivel` (E9, um nível);
+  - `ParticipanteNoAlcance`, `MetaVisivel` e `MetaInteiraNoAlcance` (E13).
+- **E9:**
+  - o escopo de Pessoas no banco inclui quem tem relacionamento vigente com um cliente da carteira alcançada;
+  - na ficha dessa pessoa, só aparecem os relacionamentos com esses clientes;
+  - relacionar alguém de fora a um cliente do alcance é recusado (fora do alcance = inexistente);
+  - cadastro novo pode nascer relacionado (`PessoaDto.RelacionarAoCriar`, botão "Cadastrar nova pessoa assim" na aba
+    Relacionamentos), e com alcance restrito isso libera cadastrar quem não é cliente, desde que o outro lado seja um
+    cliente da carteira.
+- **Coberturas (E11):**
+  - a lista e a leitura mostram só o que envolve o alcance (titular, quem cobre ou a equipe);
+  - cadastrar, alterar e cancelar exigem liderar o titular no início da ausência;
+  - o aviso na ficha fica só com as ausências de quem atende clientes do alcance.
+- **Carteira vencendo:** só clientes do alcance.
+- **Carteira em uma data:** cliente ou pessoa no alcance de hoje (E10).
+- **Transferências (E12):**
+  - origem e destinos precisam estar no alcance pela liderança na data de efeito, e destino fora bloqueia tudo;
+  - a lista e a leitura mostram só o que envolve alguém do alcance.
+- **Metas (E13):**
+  - lista, leitura e apuração mostram só os participantes do alcance (`MetaDto.ParcialPorAlcance`, com aviso na tela);
+  - estrutura, situação e cancelamento exigem a permissão e a meta inteira no alcance;
+  - lançar e importar realizado vale só para os participantes do alcance;
+  - as opções de participantes são as do alcance.
+- **Opções de quem atende (E14):** sem mudança; as leituras de `db.Pessoas` do Comercial e das metas ganharam o motivo.
+- **Testes:**
+  - domínio: pessoas e equipes no alcance, liderança temporal, E9 e metas;
+  - aplicação: relacionamentos com alcance restrito, transferência dentro e fora da equipe, lista de transferências;
+  - os testes que constroem os serviços usam o `EscopoFixo` (alcance Tudo por padrão).
+- **Depois da revisão independente:**
+  - a origem da transferência vale também pela véspera do efeito (no desligamento, o vendedor sai da equipe no dia
+    anterior), e a transferência gravada é relida sem o filtro de hoje;
+  - a pessoa nova e o relacionamento com que ela nasce são gravados na mesma transação
+    (`IPessoaRepositorio.SalvarNovaComRelacionamentoAsync`);
+  - com alcance restrito, esse relacionamento precisa valer hoje;
+  - meta sem participantes só aparece para o alcance Tudo, e o gerente cria a meta já com participantes do alcance;
+  - com alcance restrito, "não existe" e "fora do alcance" respondem igual também em coberturas e metas;
+  - a carteira vencendo usa só os clientes diretos (contatos e sócios não têm carteira);
+  - a permissão é conferida antes da regra da meta inteira.
+- **Aceitos, anotados para decidir depois:**
+  - os filtros "Pessoa relacionada" e "Tipo de relacionamento" da lista consideram todos os relacionamentos da pessoa;
+    mostram só pessoas do alcance, mas poderiam indicar um relacionamento que a ficha esconde;
+  - o aviso de ausência na ficha mostra só as ausências de quem atende pelo alcance;
+  - o líder pode indicar como substituto alguém de fora da equipe (E14: colaboradores elegíveis), e a cobertura com
+    "pode acessar" dá a essa pessoa acesso aos clientes do titular durante a ausência.
+- **Testes de aplicação novos:** coberturas do líder (lista, leitura, cancelar e cadastrar fora da equipe), carteira em uma
+  data com alcance restrito e metas (`Aplicacao/MetasEscopoTests`: lista, leitura parcial, apuração, situação bloqueada,
+  lançamento só dos seus, criação só com participantes do alcance).

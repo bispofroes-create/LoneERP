@@ -247,4 +247,91 @@ public class EscopoTests
         Assert.Null(RegrasEscopo.ResponsavelDoCadastro(fornecedor, Carla, daCarla, tipos, Hoje));
         Assert.False(RegrasEscopo.EhCliente(fornecedor));
     }
+    // ---------------------------------------------------------------- Fase 2a-3
+
+    [Fact]
+    public void Pessoas_e_equipes_no_alcance_nao_incluem_quem_so_e_coberto()
+    {
+        var (todas, regional, televendas, norte) = Estrutura();
+        var ana = Resolver(AlcanceComercial.MinhaEquipe, Ana, todas, [Cobertura(Diego, substituto: Ana)]);
+        Assert.Equal(new HashSet<Guid> { Ana, Bruno, Carla }, ana.Pessoas.ToHashSet());
+        Assert.Equal(new HashSet<Guid> { regional.Id, televendas.Id }, ana.EquipesGeridas.ToHashSet());
+        Assert.False(ana.AlcancaPessoa(Diego));          // cobre o Diego: vê os clientes dele, mas não o gerencia
+        Assert.True(Ve(ana, Vinculo(Diego)));
+        Assert.DoesNotContain(norte.Id, ana.EquipesGeridas);
+
+        var carla = Resolver(AlcanceComercial.MinhaCarteira, Carla, todas);
+        Assert.Equal(new HashSet<Guid> { Carla }, carla.Pessoas.ToHashSet());
+        Assert.Empty(carla.EquipesGeridas);
+        Assert.Contains(televendas.Id, carla.EquipesDasPessoas);
+        Assert.True(Resolver(AlcanceComercial.Tudo, null).AlcancaPessoa(Diego));
+    }
+
+    [Fact]
+    public void Lideranca_temporal_vale_quem_liderava_na_data()
+    {
+        var (todas, _, televendas, _) = Estrutura();
+        // Bruno liderou a Televendas só até 31/08; Elisa foi membro até 31/08.
+        televendas.Membros.Single(m => m.PessoaId == Bruno).FimEm = new(2026, 8, 31);
+
+        Assert.True(RegrasEscopo.GerenciaEm(AlcanceComercial.MinhaEquipe, Bruno, todas, Carla, new(2026, 8, 15)));   // liderava
+        Assert.False(RegrasEscopo.GerenciaEm(AlcanceComercial.MinhaEquipe, Bruno, todas, Carla, new(2026, 9, 15)));  // não mais
+        Assert.True(RegrasEscopo.GerenciaEm(AlcanceComercial.MinhaEquipe, Ana, todas, Elisa, new(2026, 8, 15)));     // Elisa ainda estava
+        Assert.False(RegrasEscopo.GerenciaEm(AlcanceComercial.MinhaEquipe, Ana, todas, Elisa, Hoje));                // já saiu
+        Assert.True(RegrasEscopo.GerenciaEm(AlcanceComercial.MinhaCarteira, Carla, todas, Carla, Hoje));             // ela mesma
+        Assert.False(RegrasEscopo.GerenciaEm(AlcanceComercial.MinhaCarteira, Carla, todas, Bruno, Hoje));
+        Assert.False(RegrasEscopo.GerenciaEm(AlcanceComercial.Nenhum, Ana, todas, Ana, Hoje));
+        Assert.True(RegrasEscopo.GerenciaEm(AlcanceComercial.Tudo, null, todas, Diego, Hoje));
+    }
+
+    [Fact]
+    public void Contato_de_cliente_do_alcance_entra_por_um_nivel_so()
+    {
+        var clienteA = Guid.NewGuid();
+        var maria = Guid.NewGuid();
+        var empresaY = Guid.NewGuid();
+        var diretos = new HashSet<Guid> { clienteA };
+        PessoaRelacionamento Rel(Guid origem, Guid destino, DateOnly? fim = null, bool ativo = true) =>
+            new() { Id = Guid.NewGuid(), PessoaId = origem, PessoaDestinoId = destino, FimEm = fim, Ativo = ativo };
+
+        var contato = Rel(maria, clienteA);
+        var socia = Rel(maria, empresaY);
+        Assert.True(RegrasEscopo.AlcancaPorRelacao(maria, [contato, socia], diretos, Hoje));
+        Assert.False(RegrasEscopo.AlcancaPorRelacao(empresaY, [socia], diretos, Hoje));      // um nível só: Y não entra
+        Assert.False(RegrasEscopo.AlcancaPorRelacao(maria, [Rel(maria, clienteA, fim: new(2026, 9, 1))], diretos, Hoje));
+        Assert.False(RegrasEscopo.AlcancaPorRelacao(maria, [Rel(maria, clienteA, ativo: false)], diretos, Hoje));
+
+        // Na ficha da Maria (não é cliente direto) só aparece a relação com o cliente A.
+        Assert.True(RegrasEscopo.RelacionamentoVisivel(contato, maria, fichaEhClienteDireto: false, diretos));
+        Assert.False(RegrasEscopo.RelacionamentoVisivel(socia, maria, fichaEhClienteDireto: false, diretos));
+        Assert.True(RegrasEscopo.RelacionamentoVisivel(contato, clienteA, fichaEhClienteDireto: true, diretos));
+    }
+
+    [Fact]
+    public void Metas_mostram_so_os_participantes_do_alcance_e_so_a_meta_inteira_pode_mudar()
+    {
+        var (todas, _, televendas, norte) = Estrutura();
+        var ana = Resolver(AlcanceComercial.MinhaEquipe, Ana, todas);
+        MetaParticipante P(NivelParticipante nivel, Guid referencia) => new() { Id = Guid.NewGuid(), Nivel = nivel, ReferenciaId = referencia };
+
+        Assert.True(RegrasEscopo.ParticipanteNoAlcance(ana, NivelParticipante.Colaborador, Carla));
+        Assert.False(RegrasEscopo.ParticipanteNoAlcance(ana, NivelParticipante.Colaborador, Diego));
+        Assert.True(RegrasEscopo.ParticipanteNoAlcance(ana, NivelParticipante.Equipe, televendas.Id));
+        Assert.False(RegrasEscopo.ParticipanteNoAlcance(ana, NivelParticipante.Equipe, norte.Id));
+        Assert.False(RegrasEscopo.ParticipanteNoAlcance(ana, NivelParticipante.Empresa, Guid.NewGuid()));
+        Assert.True(RegrasEscopo.ParticipanteNoAlcance(Resolver(AlcanceComercial.Tudo, null), NivelParticipante.Empresa, Guid.NewGuid()));
+
+        var mista = new Meta { Participantes = [P(NivelParticipante.Colaborador, Carla), P(NivelParticipante.Colaborador, Diego)] };
+        Assert.True(RegrasEscopo.MetaVisivel(ana, mista));
+        Assert.False(RegrasEscopo.MetaInteiraNoAlcance(ana, mista));
+
+        var daEquipe = new Meta { Participantes = [P(NivelParticipante.Colaborador, Carla), P(NivelParticipante.Equipe, televendas.Id)] };
+        Assert.True(RegrasEscopo.MetaInteiraNoAlcance(ana, daEquipe));
+
+        var deFora = new Meta { Participantes = [P(NivelParticipante.Colaborador, Diego)] };
+        Assert.False(RegrasEscopo.MetaVisivel(ana, deFora));
+        Assert.False(RegrasEscopo.MetaVisivel(ana, new Meta()));          // sem participantes: só o alcance Tudo vê
+        Assert.False(RegrasEscopo.MetaInteiraNoAlcance(ana, new Meta()));
+        Assert.True(RegrasEscopo.MetaVisivel(Resolver(AlcanceComercial.Tudo, null), new Meta()));
+    }
 }

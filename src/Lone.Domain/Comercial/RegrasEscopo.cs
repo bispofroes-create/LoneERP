@@ -22,13 +22,20 @@ public sealed record FonteEscopo(Guid VendedorId, Guid? TipoCarteiraId = null, G
 /// </summary>
 public sealed class EscopoResolvido
 {
-    private EscopoResolvido(AlcanceComercial alcance, IReadOnlyList<FonteEscopo> fontes, Guid? empresaId, DateOnly hoje, bool semPessoa)
+    private static readonly IReadOnlySet<Guid> NenhumId = new HashSet<Guid>();
+
+    private EscopoResolvido(AlcanceComercial alcance, IReadOnlyList<FonteEscopo> fontes, Guid? empresaId, DateOnly hoje, bool semPessoa,
+                            IReadOnlySet<Guid>? pessoas = null, IReadOnlySet<Guid>? equipesGeridas = null,
+                            IReadOnlySet<Guid>? equipesDasPessoas = null)
     {
         Alcance = alcance;
         Fontes = fontes;
         EmpresaId = empresaId;
         Hoje = hoje;
         SemPessoaLigada = semPessoa;
+        Pessoas = pessoas ?? NenhumId;
+        EquipesGeridas = equipesGeridas ?? NenhumId;
+        EquipesDasPessoas = equipesDasPessoas ?? NenhumId;
     }
 
     /// <summary>O alcance do perfil (o maior entre os perfis do usuário na empresa; decisão E1).</summary>
@@ -45,6 +52,22 @@ public sealed class EscopoResolvido
     /// <summary>Alcance restrito, mas o usuário não está ligado a uma pessoa do cadastro (decisão E2: não vê nada).</summary>
     public bool SemPessoaLigada { get; }
 
+    /// <summary>
+    /// Pessoas no alcance (Fase 2a-3): o próprio usuário e, em "Minha equipe", os membros vigentes das equipes que ele lidera
+    /// hoje e das de baixo. Quem ele só cobre numa ausência dá acesso aos clientes (<see cref="Fontes"/>), mas não entra
+    /// aqui: não é gente que ele gerencia. Vazio com alcance Tudo (use <see cref="AlcancaPessoa"/>).
+    /// </summary>
+    public IReadOnlySet<Guid> Pessoas { get; }
+
+    /// <summary>Equipes ativas que o usuário lidera hoje e as de baixo delas (metas por equipe; só em "Minha equipe").</summary>
+    public IReadOnlySet<Guid> EquipesGeridas { get; }
+
+    /// <summary>Equipes ativas de que alguma das <see cref="Pessoas"/> é membro hoje (coberturas dadas a uma equipe).</summary>
+    public IReadOnlySet<Guid> EquipesDasPessoas { get; }
+
+    /// <summary>A pessoa está no alcance (alcance Tudo: qualquer uma).</summary>
+    public bool AlcancaPessoa(Guid pessoaId) => Tudo || Pessoas.Contains(pessoaId);
+
     /// <summary>Sem restrição: o comportamento de antes da Fase 2.</summary>
     public bool Tudo => Alcance == AlcanceComercial.Tudo;
 
@@ -58,8 +81,9 @@ public sealed class EscopoResolvido
         new(AlcanceComercial.Tudo, [], empresaId, hoje, semPessoa: false);
 
     internal static EscopoResolvido Criar(AlcanceComercial alcance, IReadOnlyList<FonteEscopo> fontes, Guid? empresaId, DateOnly hoje,
-                                          bool semPessoa = false) =>
-        new(alcance, fontes, empresaId, hoje, semPessoa);
+                                          bool semPessoa = false, IReadOnlySet<Guid>? pessoas = null,
+                                          IReadOnlySet<Guid>? equipesGeridas = null, IReadOnlySet<Guid>? equipesDasPessoas = null) =>
+        new(alcance, fontes, empresaId, hoje, semPessoa, pessoas, equipesGeridas, equipesDasPessoas);
 }
 
 /// <summary>
@@ -111,6 +135,7 @@ public static class RegrasEscopo
             return EscopoResolvido.Criar(alcance, [], empresaId, hoje, semPessoa: true);
 
         var pessoas = new HashSet<Guid> { eu };
+        var geridas = alcance == AlcanceComercial.MinhaEquipe ? EquipesGeridasEm(equipes, eu, hoje) : new HashSet<Guid>();
         if (alcance == AlcanceComercial.MinhaEquipe)
             foreach (var membro in MembrosAlcancados(equipes, eu, hoje))
                 pessoas.Add(membro);
@@ -126,8 +151,36 @@ public static class RegrasEscopo
             if (!cobre || pessoas.Contains(c.TitularId)) continue; // a carteira inteira do titular já está no alcance
             fontes.Add(new FonteEscopo(c.TitularId, c.TipoCarteiraId, c.EmpresaId));
         }
-        return EscopoResolvido.Criar(alcance, fontes.Distinct().ToList(), empresaId, hoje);
+        return EscopoResolvido.Criar(alcance, fontes.Distinct().ToList(), empresaId, hoje,
+            pessoas: pessoas, equipesGeridas: geridas, equipesDasPessoas: equipesDasPessoas);
     }
+
+    /// <summary>As equipes ativas que a pessoa lidera na data e as ativas abaixo delas (sem ciclo).</summary>
+    public static HashSet<Guid> EquipesGeridasEm(IReadOnlyCollection<Equipe> equipes, Guid lider, DateOnly data)
+    {
+        var ativas = equipes.Where(e => e.Ativo).ToList();
+        var geridas = new HashSet<Guid>();
+        foreach (var liderada in RegrasEquipe.LideradasPor(ativas, lider, data))
+        {
+            geridas.Add(liderada);
+            geridas.UnionWith(RegrasEquipe.Descendentes(ativas, liderada));
+        }
+        return geridas;
+    }
+
+    /// <summary>
+    /// Liderança temporal (Fase 2a-3, E11 e E12): o usuário gerencia a pessoa na data (a da ausência, o efeito da
+    /// transferência). Tudo: sempre; Nenhum ou sem pessoa ligada: nunca; a própria pessoa: sempre; "Minha equipe": se na data
+    /// ela era membro de uma equipe que ele liderava (ou de uma abaixo). Não usa o escopo de hoje: vale quem liderava naquele dia.
+    /// </summary>
+    public static bool GerenciaEm(AlcanceComercial alcance, Guid? pessoaDoUsuario, IReadOnlyCollection<Equipe> equipes, Guid pessoa,
+                                  DateOnly data) => alcance switch
+    {
+        AlcanceComercial.Tudo => true,
+        AlcanceComercial.MinhaCarteira or AlcanceComercial.MinhaEquipe when pessoaDoUsuario == pessoa => true,
+        AlcanceComercial.MinhaEquipe when pessoaDoUsuario is { } eu => MembrosAlcancados(equipes, eu, data).Contains(pessoa),
+        _ => false
+    };
 
     /// <summary>
     /// Os membros vigentes hoje das equipes ativas que a pessoa lidera hoje e das equipes ativas abaixo delas (sem ciclo,
@@ -135,14 +188,8 @@ public static class RegrasEscopo
     /// </summary>
     public static HashSet<Guid> MembrosAlcancados(IReadOnlyCollection<Equipe> equipes, Guid lider, DateOnly hoje)
     {
-        var ativas = equipes.Where(e => e.Ativo).ToList();
-        var alcancadas = new HashSet<Guid>();
-        foreach (var liderada in RegrasEquipe.LideradasPor(ativas, lider, hoje))
-        {
-            alcancadas.Add(liderada);
-            alcancadas.UnionWith(RegrasEquipe.Descendentes(ativas, liderada));
-        }
-        return ativas.Where(e => alcancadas.Contains(e.Id))
+        var alcancadas = EquipesGeridasEm(equipes, lider, hoje);
+        return equipes.Where(e => e.Ativo && alcancadas.Contains(e.Id))
             .SelectMany(e => e.Membros.Where(m => m.Vigente(hoje, hoje)).Select(m => m.PessoaId))
             .ToHashSet();
     }
@@ -199,6 +246,57 @@ public static class RegrasEscopo
     {
         protected override Expression VisitParameter(ParameterExpression node) => node == de ? para : base.VisitParameter(node);
     }
+
+    // ---------------------------------------------------------------- Contatos e sócios (E9)
+
+    /// <summary>
+    /// E9 (Fase 2a-3): quem tem relacionamento vigente (contato, sócio, representante...) com um cliente que está no alcance
+    /// pela carteira também entra no alcance, **por essa relação e só um nível**: os outros relacionamentos dessa pessoa não
+    /// abrem nada. <paramref name="clientesDiretos"/> são os clientes no alcance pela carteira (<see cref="VinculoNoEscopo"/>).
+    /// A mesma regra está no banco (EscopoPessoasSql): mudou aqui, mude lá.
+    /// </summary>
+    public static bool AlcancaPorRelacao(Guid pessoaId, IEnumerable<PessoaRelacionamento> relacoes, IReadOnlySet<Guid> clientesDiretos,
+                                         DateOnly hoje) =>
+        relacoes.Any(r => r.Vigente(hoje) &&
+                          ((r.PessoaId == pessoaId && clientesDiretos.Contains(r.PessoaDestinoId)) ||
+                           (r.PessoaDestinoId == pessoaId && clientesDiretos.Contains(r.PessoaId))));
+
+    /// <summary>
+    /// Na ficha de quem está no alcance só pela relação (E9), os relacionamentos mostrados são os com clientes no alcance
+    /// pela carteira; os demais ficam ocultos (a herança não é global).
+    /// </summary>
+    public static bool RelacionamentoVisivel(PessoaRelacionamento r, Guid pessoaDaFicha, bool fichaEhClienteDireto,
+                                             IReadOnlySet<Guid> clientesDiretos) =>
+        fichaEhClienteDireto || clientesDiretos.Contains(r.PessoaId == pessoaDaFicha ? r.PessoaDestinoId : r.PessoaId);
+
+    // ---------------------------------------------------------------- Metas (E13: permissão ≠ alcance)
+
+    /// <summary>
+    /// O participante de uma meta está no alcance (Fase 2a-3, E13): colaborador no alcance; equipe que o usuário lidera
+    /// hoje (ou abaixo dela); empresa, filial e departamento só com alcance Tudo. A permissão (METAS.*) decide se ele cria,
+    /// edita ou lança; o alcance decide sobre quais participantes.
+    /// </summary>
+    public static bool ParticipanteNoAlcance(EscopoResolvido escopo, NivelParticipante nivel, Guid referencia) =>
+        escopo.Tudo || nivel switch
+        {
+            NivelParticipante.Colaborador => escopo.Pessoas.Contains(referencia),
+            NivelParticipante.Equipe => escopo.EquipesGeridas.Contains(referencia),
+            _ => false
+        };
+
+    /// <summary>
+    /// A meta aparece para o usuário: tem algum participante no alcance. Com alcance restrito, meta sem participantes não
+    /// aparece (não há como saber de quem é); por isso quem tem alcance restrito cria a meta já com participantes.
+    /// </summary>
+    public static bool MetaVisivel(EscopoResolvido escopo, Meta meta) =>
+        escopo.Tudo || meta.Participantes.Any(p => ParticipanteNoAlcance(escopo, p.Nivel, p.ReferenciaId));
+
+    /// <summary>
+    /// A meta inteira está no alcance: só então ele pode mudar a estrutura, a situação ou cancelar (senão mexeria em alvos de
+    /// quem não vê). Lançar realizado vale participante a participante.
+    /// </summary>
+    public static bool MetaInteiraNoAlcance(EscopoResolvido escopo, Meta meta) =>
+        escopo.Tudo || (meta.Participantes.Count > 0 && meta.Participantes.All(p => ParticipanteNoAlcance(escopo, p.Nivel, p.ReferenciaId)));
 
     // ---------------------------------------------------------------- Cadastro novo com alcance restrito (F4 e E4)
 

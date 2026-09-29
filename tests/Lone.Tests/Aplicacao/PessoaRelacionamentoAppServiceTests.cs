@@ -24,7 +24,56 @@ public class PessoaRelacionamentoAppServiceTests
 
     private readonly RelacionamentosEmMemoria _repositorio = new();
     private readonly AutorizacaoFixa _autorizacao = new();
+    private readonly Lone.Tests.Apoio.EscopoFixo _escopo = new();
     private readonly PessoaRelacionamentoAppService _servico;
+
+    private PessoaRelacionamentoAppService ServicoCom(Lone.Tests.Apoio.EscopoFixo escopo) =>
+        new(_repositorio, new GruposVazios(), _autorizacao, new MotivoEmMemoria(),
+            new FakeTimeProvider(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)), escopo, escopo);
+
+    private PessoaRelacionamento Vinculo(Guid origem, TipoRelacionamento tipo, Guid destino) => new()
+    {
+        Id = Guid.NewGuid(), PessoaId = origem, PessoaDestinoId = destino, TipoRelacionamentoId = tipo.Id, Ativo = true
+    };
+
+    [Fact]
+    public async Task Com_alcance_restrito_o_contato_de_um_cliente_mostra_so_as_relacoes_com_clientes_do_alcance()
+    {
+        // E9 (Fase 2a-3): João é contato da ABC (cliente do alcance) e sócio da XYZ (fora). O alcance vem pela relação com a
+        // ABC e não abre a XYZ.
+        var comAbc = Vinculo(_joao.Id, ContatoDe, _abc.Id);
+        var comXyz = Vinculo(_joao.Id, SocioDe, _xyz.Id);
+        _repositorio.Vinculos.AddRange([comAbc, comXyz]);
+        var escopo = new Lone.Tests.Apoio.EscopoFixo { Restrito = true };
+        escopo.NoEscopo.Add(_abc.Id);
+        var servico = ServicoCom(escopo);
+
+        var naFichaDoJoao = Assert.Single(await servico.ListarAsync(_joao.Id));
+        Assert.Equal("ABC Comércio", naFichaDoJoao.OutraPessoaNome);
+
+        // Na ficha do cliente direto, tudo o que é dele aparece (E3).
+        Assert.Single(await servico.ListarAsync(_abc.Id));
+
+        // A relação oculta não pode ser encerrada nem desativada pela ficha do João: é como se não existisse.
+        var erro = await Assert.ThrowsAsync<ValidacaoException>(() => servico.EncerrarAsync(_joao.Id, comXyz.Id, new EncerrarRelacionamentoRequisicao()));
+        Assert.Contains(erro.Erros, e => e.Contains("não existe mais"));
+    }
+
+    [Fact]
+    public async Task Com_alcance_restrito_nao_liga_alguem_de_fora_a_um_cliente_do_alcance()
+    {
+        var escopo = new Lone.Tests.Apoio.EscopoFixo { Restrito = true };
+        escopo.NoEscopo.Add(_abc.Id);
+        var servico = ServicoCom(escopo);
+
+        await Assert.ThrowsAsync<ForaDoEscopoException>(() => servico.IncluirAsync(_abc.Id,
+            new IncluirRelacionamentoRequisicao { TipoRelacionamentoId = ContatoDe.Id, Inverso = true, OutraPessoaId = _xyz.Id }));
+        Assert.Empty(_repositorio.Vinculos);
+
+        escopo.NoEscopo.Add(_joao.Id); // João já está no alcance: pode
+        await servico.IncluirAsync(_abc.Id, new IncluirRelacionamentoRequisicao { TipoRelacionamentoId = ContatoDe.Id, Inverso = true, OutraPessoaId = _joao.Id });
+        Assert.Single(_repositorio.Vinculos);
+    }
 
     private readonly PessoaNoRelacionamento _joao = new(Guid.NewGuid(), NaturezaPessoa.Fisica, SituacaoPessoa.Ativo, "João da Silva");
     private readonly PessoaNoRelacionamento _abc = new(Guid.NewGuid(), NaturezaPessoa.Juridica, SituacaoPessoa.Ativo, "ABC Comércio");
@@ -35,7 +84,7 @@ public class PessoaRelacionamentoAppServiceTests
         _repositorio.Tipos.AddRange([SocioDe, AdministradorDe, ContatoDe]);
         foreach (var p in new[] { _joao, _abc, _xyz }) _repositorio.Pessoas[p.Id] = p;
         _servico = new PessoaRelacionamentoAppService(_repositorio, new GruposVazios(), _autorizacao, new MotivoEmMemoria(),
-            new FakeTimeProvider(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)));
+            new FakeTimeProvider(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)), _escopo, _escopo);
     }
 
     [Fact]

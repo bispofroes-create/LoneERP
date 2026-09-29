@@ -368,18 +368,26 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
 
     // ---------------------------------------------------------------- Gravação
 
-    public async Task SalvarAsync(Pessoa pessoa, bool nova, OrigemAlteracao origem, CancellationToken ct)
+    public Task SalvarAsync(Pessoa pessoa, bool nova, OrigemAlteracao origem, CancellationToken ct) =>
+        SalvarAsync(pessoa, nova, origem, relacaoInicial: null, ct);
+
+    public Task SalvarNovaComRelacionamentoAsync(Pessoa pessoa, PessoaRelacionamento relacao, OrigemAlteracao origem, CancellationToken ct) =>
+        SalvarAsync(pessoa, nova: true, origem, relacao, ct);
+
+    private async Task SalvarAsync(Pessoa pessoa, bool nova, OrigemAlteracao origem, PessoaRelacionamento? relacaoInicial, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
         db.Origem = origem;
 
         if (nova)
         {
-            // Bloqueios e relacionamentos têm operações próprias; nunca entram pelo cadastro.
+            // Bloqueios e relacionamentos têm operações próprias; nunca entram pelo cadastro. A exceção é o relacionamento
+            // com que a pessoa nasce (E9), gravado aqui na mesma transação.
             pessoa.Bloqueios.Clear();
             pessoa.Relacionamentos.Clear();
             // Sem escopo: gravação (o cadastro novo com alcance restrito segue F4 e E4 no PessoaAppService).
             db.Pessoas.Add(pessoa);
+            if (relacaoInicial is not null) db.PessoaRelacionamentos.Add(relacaoInicial);
         }
         else
         {

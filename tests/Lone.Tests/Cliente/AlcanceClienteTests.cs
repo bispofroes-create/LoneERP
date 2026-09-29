@@ -54,4 +54,20 @@ public class AlcanceClienteTests
         f.DefinirDocumentoEmUso(new DocumentoEmUsoResposta { EmUso = true, Id = Guid.NewGuid(), Codigo = 12, Nome = "ABC Ltda" });
         Assert.True(f.PodeAbrirDocumentoEmUso);
     }
+
+    [Fact]
+    public void Escolher_o_tipo_ou_a_pessoa_do_relacionamento_avisa_para_tirar_o_aviso_antigo()
+    {
+        // Fase 2a-3: o aviso "Escolha o tipo de relacionamento..." some quando o tipo é escolhido (não fica até a próxima ação).
+        var r = new RelacionamentosFormulario();
+        var avisos = 0;
+        r.Acoes.AoMudarEscolha = () => avisos++;
+        r.DefinirTipos([new TipoRelacionamentoDto { Id = Guid.NewGuid(), Nome = "Contato de", NomeInverso = "Tem como contato" }]);
+        avisos = 0;
+
+        r.NovoTipo = r.Tipos[1];
+        Assert.Equal(1, avisos);
+        r.PessoaEscolhida = new PessoaResumo { Id = Guid.NewGuid(), Nome = "ABC" };
+        Assert.Equal(2, avisos);
+    }
 }

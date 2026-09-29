@@ -31,11 +31,13 @@ public sealed class CarteiraEmDataAppService : ICarteiraEmDataAppService
     private readonly ReferenciasComercial _comercial;
     private readonly IComercialConsultas _nomes;
     private readonly IAutorizacao _autorizacao;
+    private readonly IEscopoPessoas _escopo;
 
     public CarteiraEmDataAppService(ICoberturaConsultas consultas, ICoberturaRepositorio coberturas, ITipoAusenciaRepositorio tiposAusencia,
                                     ITransferenciaCarteiraRepositorio transferencias, ReferenciasComercial comercial, IComercialConsultas nomes,
-                                    IAutorizacao autorizacao)
+                                    IAutorizacao autorizacao, IEscopoPessoas escopo)
     {
+        _escopo = escopo;
         _consultas = consultas;
         _coberturas = coberturas;
         _tiposAusencia = tiposAusencia;
@@ -52,6 +54,12 @@ public sealed class CarteiraEmDataAppService : ICarteiraEmDataAppService
         if ((clienteId is null) == (pessoaId is null))
             throw new ValidacaoException(["Escolha um cliente ou uma pessoa que atende (um dos dois)."]);
         if (data == default) throw new ValidacaoException(["Informe a data."]);
+
+        // Escopo (Fase 2a-3): o cliente ou a pessoa precisa estar no alcance de hoje, mesmo para uma data passada (E10). Fora
+        // do alcance, como se não existisse.
+        if (clienteId is { } cliente) await _escopo.ExigirAsync(cliente, ct: ct);
+        if (pessoaId is { } pessoaConsultada && !(await _escopo.ObterAsync(ct)).AlcancaPessoa(pessoaConsultada))
+            throw new ForaDoEscopoException();
 
         var limite = clienteId is null ? LimiteVinculos + 1 : LimiteVinculos;
         var vinculos = await _consultas.VinculosEmDataAsync(clienteId, pessoaId, data, limite, ct);

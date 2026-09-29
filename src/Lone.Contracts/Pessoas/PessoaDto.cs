@@ -99,6 +99,13 @@ public sealed class PessoaDto
 
     /// <summary>Só no envio: motivo da alteração (opcional), gravado na auditoria desta gravação. Não é lido de volta.</summary>
     public string? MotivoAlteracao { get; set; }
+
+    /// <summary>
+    /// Só no envio e só no cadastro novo (Fase 2a-3, E9): o relacionamento com que a pessoa nasce (ex.: "Contato de" um
+    /// cliente), visto desta pessoa. Gravado junto, logo depois do cadastro. Com alcance restrito, é o que permite cadastrar
+    /// quem não é cliente, desde que o outro lado seja um cliente do alcance.
+    /// </summary>
+    public IncluirRelacionamentoRequisicao? RelacionarAoCriar { get; set; }
     public List<PapelDto> Papeis { get; set; } = new();
     public List<ContaClienteDto> ContasCliente { get; set; } = new();
 

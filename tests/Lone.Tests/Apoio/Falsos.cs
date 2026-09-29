@@ -143,3 +143,60 @@ internal sealed class EmissorDeTeste : IEmissorToken
     public TokenAcesso Emitir(Guid usuarioId, string nome, string login, EmpresaAtiva? empresa) =>
         new($"acesso:{usuarioId}:{empresa?.EstabelecimentoId}", _relogio.GetUtcNow().AddMinutes(15));
 }
+
+/// <summary>
+/// Escopo de acesso para os testes (Fase 2a-2/2a-3). Padrão: alcance Tudo (o comportamento de antes). Com
+/// <see cref="Restrito"/>, só as pessoas em <see cref="Gerenciadas"/> (e o que estiver em <see cref="NoEscopo"/>) contam.
+/// </summary>
+internal sealed class EscopoFixo : IEscopoPessoas, IPessoasNoEscopo
+{
+    private static readonly DateOnly Hoje = new(2026, 9, 28);
+    private readonly Guid _euPadrao = Guid.NewGuid();
+
+    public bool Restrito { get; init; }
+    public Guid? Eu { get; init; }
+    private Guid EuEfetivo => Eu ?? _euPadrao;
+
+    /// <summary>Pessoas no alcance (e que o usuário gerencia em qualquer data).</summary>
+    public HashSet<Guid> Gerenciadas { get; } = new();
+
+    /// <summary>Cadastros de Pessoas no escopo (clientes diretos); os demais existem e ficam fora.</summary>
+    public HashSet<Guid> NoEscopo { get; } = new();
+
+    public Task<Lone.Domain.Comercial.EscopoResolvido> ObterAsync(CancellationToken ct = default) =>
+        Task.FromResult(Restrito
+            ? Lone.Domain.Comercial.RegrasEscopo.Resolver(Lone.Domain.Enums.AlcanceComercial.MinhaEquipe, EuEfetivo, null,
+                [EquipeDoTeste()], [], Hoje)
+            : Lone.Domain.Comercial.EscopoResolvido.Todos(Hoje));
+
+    /// <summary>Uma equipe liderada por <see cref="Eu"/> com as <see cref="Gerenciadas"/> como membros.</summary>
+    private Equipe EquipeDoTeste()
+    {
+        var id = Guid.NewGuid();
+        var eu = EuEfetivo;
+        var membros = Gerenciadas.Where(g => g != eu)
+            .Select(g => new MembroEquipe { Id = Guid.NewGuid(), EquipeId = id, PessoaId = g, InicioEm = new DateOnly(2020, 1, 1) }).ToList();
+        membros.Add(new MembroEquipe
+        {
+            Id = Guid.NewGuid(), EquipeId = id, PessoaId = eu, InicioEm = new DateOnly(2020, 1, 1),
+            Papel = Lone.Domain.Enums.PapelNaEquipe.Lider
+        });
+        return new Equipe { Id = id, Nome = "Equipe do teste", Membros = membros };
+    }
+
+    public async Task ExigirAsync(Guid pessoaId, bool podeSerNovo = false, CancellationToken ct = default)
+    {
+        var escopo = await ObterAsync(ct);
+        if (escopo.Tudo) return;
+        if (!NoEscopo.Contains(pessoaId)) throw new ForaDoEscopoException();
+    }
+
+    public Task<bool> GerenciaEmAsync(Guid pessoaId, DateOnly data, CancellationToken ct = default) =>
+        Task.FromResult(!Restrito || pessoaId == EuEfetivo || Gerenciadas.Contains(pessoaId));
+
+    public Task<SituacaoNoEscopo> SituacaoAsync(Guid pessoaId, Lone.Domain.Comercial.EscopoResolvido escopo, CancellationToken ct) =>
+        Task.FromResult(escopo.Tudo || NoEscopo.Contains(pessoaId) ? SituacaoNoEscopo.NoEscopo : SituacaoNoEscopo.ForaDoEscopo);
+
+    public Task<HashSet<Guid>> ClientesDiretosAsync(IReadOnlyCollection<Guid> ids, Lone.Domain.Comercial.EscopoResolvido escopo, CancellationToken ct) =>
+        Task.FromResult(ids.Where(i => escopo.Tudo || NoEscopo.Contains(i)).ToHashSet());
+}

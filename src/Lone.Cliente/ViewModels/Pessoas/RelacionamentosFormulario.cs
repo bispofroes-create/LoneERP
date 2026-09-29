@@ -11,6 +11,12 @@ public sealed class AcoesRelacionamento
 {
     public Func<Task>? BuscarPessoa { get; set; }
     public Func<Task>? Incluir { get; set; }
+
+    /// <summary>"Cadastrar nova pessoa assim" (Fase 2a-3, E9): abre um cadastro novo que nasce com este relacionamento.</summary>
+    public Func<Task>? CadastrarNova { get; set; }
+
+    /// <summary>O tipo ou a pessoa escolhida mudou: o aviso que pedia essa escolha deixa de valer.</summary>
+    public Action? AoMudarEscolha { get; set; }
     public Func<RelacionamentoItem, Task>? Encerrar { get; set; }
     public Func<RelacionamentoItem, Task>? Desativar { get; set; }
 }
@@ -156,6 +162,44 @@ public sealed partial class RelacionamentosFormulario : ObservableObject
         return erros;
     }
 
+    /// <summary>Para "Cadastrar nova pessoa assim": basta o tipo (a outra pessoa é a nova).</summary>
+    public IReadOnlyList<string> ValidarParaCadastroNovo()
+    {
+        var erros = new List<string>();
+        if (NovoTipo.Valor is null) erros.Add("Escolha o tipo de relacionamento (ex.: \"Tem como contato\") antes de cadastrar a nova pessoa.");
+        if (!TextoTela.TentarData(NovoInicio, out _)) erros.Add("Início inválido (use dd/mm/aaaa).");
+        return erros;
+    }
+
+    /// <summary>
+    /// O relacionamento visto da pessoa nova (E9): o mesmo tipo, no sentido contrário ao escolhido nesta ficha, com esta ficha
+    /// como o outro lado. Ex.: nesta ficha (cliente) "Tem como contato" vira, na nova, "Contato de" este cliente.
+    /// </summary>
+    public IncluirRelacionamentoRequisicao ParaCadastroNovo(Guid fichaId)
+    {
+        TextoTela.TentarData(NovoInicio, out var inicio);
+        return new IncluirRelacionamentoRequisicao
+        {
+            TipoRelacionamentoId = NovoTipo.Valor!.TipoId,
+            Inverso = !NovoTipo.Valor.Inverso,
+            OutraPessoaId = fichaId,
+            InicioEm = inicio,
+            Observacoes = TextoTela.Nulo(NovasObservacoes)
+        };
+    }
+
+    /// <summary>Como o relacionamento aparece na ficha da pessoa nova (o nome do tipo no outro sentido).</summary>
+    public string TipoVistoDaNova()
+    {
+        var escolhido = NovoTipo.Valor!;
+        return Tipos.FirstOrDefault(t => t.Valor is { } v && v.TipoId == escolhido.TipoId && v.Inverso != escolhido.Inverso)?.Texto
+               ?? NovoTipo.Texto; // tipo com o mesmo nome nos dois sentidos (ex.: "Parceiro de")
+    }
+
+    partial void OnNovoTipoChanged(Opcao<TipoRelacionamentoEscolhido?> value) => Acoes.AoMudarEscolha?.Invoke();
+
+    partial void OnPessoaEscolhidaChanged(PessoaResumo? value) => Acoes.AoMudarEscolha?.Invoke();
+
     public IncluirRelacionamentoRequisicao ParaRequisicao()
     {
         TextoTela.TentarData(NovoInicio, out var inicio);
@@ -180,6 +224,9 @@ public sealed partial class RelacionamentosFormulario : ObservableObject
 
     [RelayCommand]
     private Task IncluirAsync() => Acoes.Incluir?.Invoke() ?? Task.CompletedTask;
+
+    [RelayCommand]
+    private Task CadastrarNovaAsync() => Acoes.CadastrarNova?.Invoke() ?? Task.CompletedTask;
 
     private void Incluir(PessoaRelacionamentoDto dto) =>
         Itens.Add(new RelacionamentoItem(dto, Acoes) { MostrarEncerrados = MostrarEncerrados });

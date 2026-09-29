@@ -41,11 +41,14 @@ public sealed class CoberturaAppService : ICoberturaAppService
     private readonly IEmpresaConsultas _empresas;
     private readonly IAutorizacao _autorizacao;
     private readonly TimeProvider _relogio;
+    private readonly IEscopoPessoas _escopo;
 
     public CoberturaAppService(ICoberturaRepositorio repositorio, ICoberturaConsultas consultas, ITipoAusenciaRepositorio tipos,
                                ITipoCarteiraRepositorio papeis, IParametrosComerciaisRepositorio parametros, IComercialConsultas comercial,
-                               IEquipeRepositorio equipes, IEmpresaConsultas empresas, IAutorizacao autorizacao, TimeProvider relogio)
+                               IEquipeRepositorio equipes, IEmpresaConsultas empresas, IAutorizacao autorizacao, TimeProvider relogio,
+                               IEscopoPessoas escopo)
     {
+        _escopo = escopo;
         _repositorio = repositorio;
         _consultas = consultas;
         _tipos = tipos;
@@ -70,14 +73,40 @@ public sealed class CoberturaAppService : ICoberturaAppService
     public async Task<List<CoberturaDto>> ListarAsync(bool incluirEncerradas, CancellationToken ct = default)
     {
         ExigirVer();
-        var lista = await _repositorio.ListarAsync(Hoje, incluirEncerradas, ct);
+        var escopo = await _escopo.ObterAsync(ct);
+        var lista = (await _repositorio.ListarAsync(Hoje, incluirEncerradas, ct)).Where(c => Visivel(escopo, c)).ToList();
         return await ParaDtosAsync(lista, ct);
     }
 
     public async Task<CoberturaDto?> ObterAsync(Guid id, CancellationToken ct = default)
     {
         ExigirVer();
-        return await _repositorio.ObterAsync(id, ct) is { } item ? (await ParaDtosAsync([item], ct))[0] : null;
+        var escopo = await _escopo.ObterAsync(ct);
+        return await _repositorio.ObterAsync(id, ct) is { } item && Visivel(escopo, item) ? (await ParaDtosAsync([item], ct))[0] : null;
+    }
+
+    /// <summary>
+    /// A cobertura aparece para o usuário (Fase 2a-3; alcance de hoje, E10): o titular ou quem cobre está no alcance, ou a
+    /// cobertura foi dada a uma equipe de alguém do alcance. Fora disso, é como se não existisse.
+    /// </summary>
+    private static bool Visivel(EscopoResolvido escopo, CoberturaComercial c) =>
+        escopo.AlcancaPessoa(c.TitularId) ||
+        (c.SubstitutoId is { } s && escopo.AlcancaPessoa(s)) ||
+        (c.EquipeSubstitutaId is { } e && escopo.EquipesDasPessoas.Contains(e));
+
+    /// <summary>
+    /// E11 (liderança temporal): cadastrar, alterar ou cancelar só a ausência de quem o usuário gerenciava no início dela (ele
+    /// mesmo, ou membro de uma equipe que ele liderava naquele dia). Fora disso, responde como inexistente.
+    /// </summary>
+    /// <param name="gravada">
+    /// Verdadeiro para a cobertura já gravada (fora do alcance = inexistente). Falso para o que o usuário está escolhendo
+    /// agora (o titular é um colaborador das opções): aí a recusa explica a regra.
+    /// </param>
+    private async Task ExigirGerenciaAsync(Guid titularId, DateOnly inicio, bool gravada, CancellationToken ct)
+    {
+        if (titularId == Guid.Empty || inicio == default || await _escopo.GerenciaEmAsync(titularId, inicio, ct)) return;
+        if (gravada) throw new ForaDoEscopoException();
+        throw new ValidacaoException(["Você só pode lançar a ausência de quem estava na sua equipe (ou de você mesmo) no início dela."]);
     }
 
     public async Task<CoberturaOpcoesDto> ListarOpcoesAsync(CancellationToken ct = default)
@@ -121,6 +150,8 @@ public sealed class CoberturaAppService : ICoberturaAppService
             MotivoCancelamento = anterior?.MotivoCancelamento,
             CriadoEm = anterior?.CriadoEm ?? default
         };
+        if (anterior is not null) await ExigirGerenciaAsync(anterior.TitularId, anterior.InicioEm, gravada: true, ct);
+        await ExigirGerenciaAsync(dados.TitularId, dados.InicioEm, gravada: false, ct);
         await ValidarAsync(dados, anterior, ct);
 
         var nomes = await NomesAsync(dados, ct);
@@ -131,13 +162,20 @@ public sealed class CoberturaAppService : ICoberturaAppService
                 : $"Cobertura de {nomes.Titular} alterada.");
 
         await _repositorio.SalvarAsync(dados, anterior is null, ct);
-        return await ObterAsync(dados.Id, ct) ?? throw new ConflitoDeEdicaoException();
+        return await ReleAsync(dados.Id, ct);
     }
 
     public async Task<CoberturaDto> CancelarAsync(Guid id, CancelarCoberturaRequisicao requisicao, CancellationToken ct = default)
     {
         _autorizacao.Exigir(Permissoes.Comercial.Coberturas);
-        var anterior = await _repositorio.ObterAsync(id, ct) ?? throw new ValidacaoException(["Esta cobertura não existe mais."]);
+        var anterior = await _repositorio.ObterAsync(id, ct);
+        // Com alcance restrito, "não existe" e "fora do alcance" respondem igual (não revela quais existem).
+        if (anterior is null)
+        {
+            if ((await _escopo.ObterAsync(ct)).Tudo) throw new ValidacaoException(["Esta cobertura não existe mais."]);
+            throw new ForaDoEscopoException();
+        }
+        await ExigirGerenciaAsync(anterior.TitularId, anterior.InicioEm, gravada: true, ct);
         if (anterior.Cancelada) throw new ValidacaoException(["Esta cobertura já foi cancelada."]);
         if (string.IsNullOrWhiteSpace(requisicao.Motivo)) throw new ValidacaoException(["Informe o motivo do cancelamento."]);
         var dados = await _repositorio.ObterAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
@@ -151,7 +189,7 @@ public sealed class CoberturaAppService : ICoberturaAppService
         var nomes = await NomesAsync(dados, ct);
         dados.RegistrarEvento($"Cobertura de {nomes.Titular} ({Data(anterior.InicioEm)} a {Data(anterior.FimEm)}) cancelada: {dados.MotivoCancelamento}");
         await _repositorio.SalvarAsync(dados, novo: false, ct);
-        return await ObterAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
+        return await ReleAsync(id, ct);
     }
 
     public async Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(int? dias, CancellationToken ct = default)
@@ -159,17 +197,25 @@ public sealed class CoberturaAppService : ICoberturaAppService
         ExigirVer();
         var parametros = await _parametros.ObterAsync(ct);
         var prazo = Math.Clamp(dias ?? parametros.DiasAvisoFimVinculo, 0, ParametrosComerciais.MaximoDiasAviso);
-        return await _consultas.CarteiraVencendoAsync(Hoje, Hoje.AddDays(prazo), ct);
+        return await _consultas.CarteiraVencendoAsync(Hoje, Hoje.AddDays(prazo), await _escopo.ObterAsync(ct), ct);
     }
 
     public async Task<List<CoberturaAvisoDto>> AvisosAsync(CancellationToken ct = default)
     {
-        var lista = await _repositorio.ListarAsync(Hoje, incluirEncerradas: false, ct);
+        // Só as ausências de quem atende clientes no alcance (Fase 2a-3): o aviso aparece na carteira da ficha.
+        var escopo = await _escopo.ObterAsync(ct);
+        var titulares = escopo.Fontes.Select(f => f.VendedorId).ToHashSet();
+        var lista = (await _repositorio.ListarAsync(Hoje, incluirEncerradas: false, ct))
+            .Where(c => escopo.Tudo || titulares.Contains(c.TitularId)).ToList();
         if (lista.Count == 0) return [];
         var dtos = await ParaDtosAsync(lista, ct, contarClientes: false);
         return [.. lista.Zip(dtos, (c, d) => new CoberturaAvisoDto(c.TitularId, c.TipoCarteiraId, c.EmpresaId, c.InicioEm, c.FimEm,
             $"{d.Titular}: {RegrasCobertura.Descrever(c, d.TipoAusencia ?? "Ausência", d.QuemCobre ?? "?")}"))];
     }
+
+    /// <summary>Relê depois de gravar (quem gravou já passou pela conferência de liderança; não depende do alcance de hoje).</summary>
+    private async Task<CoberturaDto> ReleAsync(Guid id, CancellationToken ct) =>
+        await _repositorio.ObterAsync(id, ct) is { } item ? (await ParaDtosAsync([item], ct))[0] : throw new ConflitoDeEdicaoException();
 
     // ---- Regras com referências ----
 

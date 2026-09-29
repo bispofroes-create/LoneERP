@@ -40,7 +40,8 @@ public sealed partial class MetaEdicao : ObservableObject
         Situacao = d.Situacao;
         Ativo = d.Ativo;
         FechadaTexto = d.FechadaEm is { } f ? $"Fechada em {TextoTela.DataHora(f.ToLocalTime())} por {d.FechadaPor}." : string.Empty;
-        EditarEstrutura = podeGerenciar && Ativo && Situacao == SituacaoMeta.Rascunho;
+        Parcial = d.ParcialPorAlcance;
+        EditarEstrutura = podeGerenciar && !Parcial && Ativo && Situacao == SituacaoMeta.Rascunho;
         Lancavel = podeLancar && Ativo && Situacao is SituacaoMeta.Publicada or SituacaoMeta.EmApuracao;
         _nome = d.Nome;
         _descricao = d.Descricao ?? string.Empty;
@@ -56,6 +57,16 @@ public sealed partial class MetaEdicao : ObservableObject
 
     public Guid Id { get; }
     public bool Novo { get; }
+
+    /// <summary>
+    /// A meta tem participantes fora do alcance do usuário, que não vieram (Fase 2a-3, E13): ele vê e lança o realizado dos
+    /// seus, mas não muda a estrutura, a situação nem cancela (a API confere de novo).
+    /// </summary>
+    public bool Parcial { get; }
+
+    public string AvisoParcial => Parcial
+        ? "Você vê só os participantes do seu alcance. Mudar a estrutura, a situação ou cancelar fica com quem alcança todos."
+        : string.Empty;
     public byte[]? Versao { get; }
     public SituacaoMeta Situacao { get; }
     public bool Ativo { get; }
@@ -278,12 +289,12 @@ public sealed partial class MetasViewModel : CadastroViewModelBase<LinhaMeta>
     public bool MostrarApuracao => Formulario is { Novo: false };
     public bool PodeSalvar => Formulario is { EditarEstrutura: true };
     public bool PodeLancar => Formulario is { Lancavel: true };
-    public bool PodePublicar => PodeGerenciar && Formulario is { Novo: false, Ativo: true, Situacao: SituacaoMeta.Rascunho };
-    public bool PodeVoltarRascunho => PodeGerenciar && Formulario is { Ativo: true, Situacao: SituacaoMeta.Publicada };
-    public bool PodeIniciarApuracao => PodeGerenciar && Formulario is { Ativo: true, Situacao: SituacaoMeta.Publicada };
-    public bool PodeFecharMeta => PodeFechar && Formulario is { Ativo: true, Situacao: SituacaoMeta.EmApuracao };
-    public bool PodeReabrir => PodeFechar && Formulario is { Ativo: true, Situacao: SituacaoMeta.Fechada };
-    public bool PodeCancelar => PodeGerenciar && Formulario is { Novo: false, Ativo: true, Situacao: SituacaoMeta.Rascunho };
+    public bool PodePublicar => PodeGerenciar && Formulario is { Novo: false, Ativo: true, Parcial: false, Situacao: SituacaoMeta.Rascunho };
+    public bool PodeVoltarRascunho => PodeGerenciar && Formulario is { Ativo: true, Parcial: false, Situacao: SituacaoMeta.Publicada };
+    public bool PodeIniciarApuracao => PodeGerenciar && Formulario is { Ativo: true, Parcial: false, Situacao: SituacaoMeta.Publicada };
+    public bool PodeFecharMeta => PodeFechar && Formulario is { Ativo: true, Parcial: false, Situacao: SituacaoMeta.EmApuracao };
+    public bool PodeReabrir => PodeFechar && Formulario is { Ativo: true, Parcial: false, Situacao: SituacaoMeta.Fechada };
+    public bool PodeCancelar => PodeGerenciar && Formulario is { Novo: false, Ativo: true, Parcial: false, Situacao: SituacaoMeta.Rascunho };
 
     // ---- Apuração ----
     public ObservableCollection<LinhaApuracao> Apuracao { get; } = new();

@@ -79,6 +79,12 @@ public sealed class MetaDto
     public List<MetaFaixaDto> Faixas { get; set; } = new();
     public List<MetaParticipanteDto> Participantes { get; set; } = new();
     public List<MetaAlvoDto> Alvos { get; set; } = new();
+
+    /// <summary>
+    /// Só leitura: a meta tem participantes fora do alcance do usuário, que não vieram (Fase 2a-3, E13). Ele vê e lança o
+    /// realizado dos seus, mas não muda a estrutura, a situação nem cancela.
+    /// </summary>
+    public bool ParcialPorAlcance { get; set; }
 }
 
 public sealed class MetaItemDto

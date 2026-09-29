@@ -66,6 +66,9 @@
                     <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
                     <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
                     <Label Text="{Binding Formulario.FechadaTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <!-- Fase 2a-3 (E13): meta com participantes fora do alcance, que não vieram. -->
+                    <Label Text="{Binding Formulario.AvisoParcial}" IsVisible="{Binding Formulario.Parcial}" FontAttributes="Bold"
+                           LineBreakMode="WordWrap" />
 
                     <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
 

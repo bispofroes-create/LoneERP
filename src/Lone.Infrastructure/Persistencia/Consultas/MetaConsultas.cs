@@ -27,7 +27,7 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
         var pessoas = Ids(NivelParticipante.Empresa).Concat(Ids(NivelParticipante.Colaborador)).Distinct().ToList();
         if (pessoas.Count > 0)
         {
-            // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes e opções das metas.
+            // Sem escopo: participantes das metas são colaboradores e empresas do grupo, não clientes; quais aparecem é o MetaAppService que decide (E13).
             var nomes = await db.Pessoas.AsNoTracking().Where(p => pessoas.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.NomeExibicao ?? p.Nome, ct);
             foreach (var n in new[] { NivelParticipante.Empresa, NivelParticipante.Colaborador })
@@ -58,7 +58,7 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
     /// pelos Ids antes de projetar (o EF não filtra sobre um record criado pelo construtor).
     /// </summary>
     private static Task<List<ParticipanteOpcaoDto>> Filiais(LoneDbContext db, List<Guid> ids) =>
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes e opções das metas.
+        // Sem escopo: participantes das metas são colaboradores e empresas do grupo, não clientes; quais aparecem é o MetaAppService que decide (E13).
         db.Pessoas.AsNoTracking()
             .Where(p => p.Papeis.Any(x => x.Papel == TipoPapel.EmpresaDoGrupo))
             .SelectMany(p => p.Estabelecimentos.Where(e => ids.Contains(e.Id)).Select(e => new ParticipanteOpcaoDto(
@@ -71,13 +71,13 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
         await using var db = await AbrirAsync(ct);
         var lista = new List<ParticipanteOpcaoDto>();
 
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes e opções das metas.
+        // Sem escopo: participantes das metas são colaboradores e empresas do grupo, não clientes; quais aparecem é o MetaAppService que decide (E13).
         lista.AddRange(await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo && p.Papeis.Any(x => x.Papel == TipoPapel.EmpresaDoGrupo && x.Ativo))
             .Select(p => new ParticipanteOpcaoDto(NivelParticipante.Empresa, p.Id, p.NomeExibicao ?? p.Nome))
             .ToListAsync(ct));
 
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes e opções das metas.
+        // Sem escopo: participantes das metas são colaboradores e empresas do grupo, não clientes; quais aparecem é o MetaAppService que decide (E13).
         lista.AddRange(await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo && p.Papeis.Any(x => x.Papel == TipoPapel.EmpresaDoGrupo && x.Ativo))
             .SelectMany(p => p.Estabelecimentos.Where(e => e.Ativo).Select(e => new ParticipanteOpcaoDto(
@@ -96,7 +96,7 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
         var aceitas = db.TiposCarteiraClassificacoes.AsNoTracking()
             .Where(c => c.Ativo && db.TiposCarteira.Any(t => t.Id == c.TipoCarteiraId && t.Ativo && t.ContaParaMetas))
             .Select(c => c.PapelId);
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes e opções das metas.
+        // Sem escopo: participantes das metas são colaboradores e empresas do grupo, não clientes; quais aparecem é o MetaAppService que decide (E13).
         lista.AddRange(await db.Pessoas.AsNoTracking()
             .Where(p => p.Situacao == SituacaoPessoa.Ativo &&
                         (db.VinculosColaborador.Any(v => v.PessoaId == p.Id && v.AdmissaoEm <= hoje && (v.DesligamentoEm == null || v.DesligamentoEm >= hoje)) ||
@@ -112,7 +112,7 @@ public class MetaConsultas : ServicoDadosBase, IMetaConsultas
         if (ids.Count == 0) return new();
         await using var db = await AbrirAsync(ct);
         var lista = ids.Distinct().ToList();
-        // Sem escopo (fica para a 2a-3, que leva o escopo às telas do Comercial e às metas): nomes e opções das metas.
+        // Sem escopo: participantes das metas são colaboradores e empresas do grupo, não clientes; quais aparecem é o MetaAppService que decide (E13).
         return await db.Pessoas.AsNoTracking().Where(p => lista.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.NomeExibicao ?? p.Nome, ct);
     }
 }

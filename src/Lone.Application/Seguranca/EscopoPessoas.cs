@@ -39,6 +39,12 @@ public interface IPessoasNoEscopo
 {
     /// <summary>Se o cadastro existe e se está no escopo (escopo Tudo: nunca "fora").</summary>
     Task<SituacaoNoEscopo> SituacaoAsync(Guid pessoaId, EscopoResolvido escopo, CancellationToken ct);
+
+    /// <summary>
+    /// Dos <paramref name="ids"/>, os que estão no alcance pela carteira (clientes diretos, sem o nível dos relacionamentos
+    /// da E9). Alcance Tudo: todos.
+    /// </summary>
+    Task<HashSet<Guid>> ClientesDiretosAsync(IReadOnlyCollection<Guid> ids, EscopoResolvido escopo, CancellationToken ct);
 }
 
 /// <summary>
@@ -56,6 +62,12 @@ public interface IEscopoPessoas
     /// <paramref name="podeSerNovo"/> (a gravação de um cadastro novo, cujo id vem do aparelho).
     /// </summary>
     Task ExigirAsync(Guid pessoaId, bool podeSerNovo = false, CancellationToken ct = default);
+
+    /// <summary>
+    /// Liderança temporal (Fase 2a-3, E11 e E12): o usuário gerencia a pessoa na data (ele mesmo, ou membro de uma equipe que
+    /// ele liderava naquele dia, ou de uma abaixo). Alcance Tudo: sempre.
+    /// </summary>
+    Task<bool> GerenciaEmAsync(Guid pessoaId, DateOnly data, CancellationToken ct = default);
 }
 
 public sealed class EscopoPessoas : IEscopoPessoas
@@ -67,6 +79,7 @@ public sealed class EscopoPessoas : IEscopoPessoas
     private readonly IPessoasNoEscopo _pessoas;
     private readonly TimeProvider _relogio;
     private EscopoResolvido? _resolvido;
+    private IReadOnlyCollection<Domain.Entidades.Equipe>? _todasEquipes;
 
     public EscopoPessoas(IAlcanceDoUsuario alcance, IEmpresaAtual empresa, IEquipeRepositorio equipes, ICoberturaRepositorio coberturas,
                          IPessoasNoEscopo pessoas, TimeProvider relogio)
@@ -89,13 +102,25 @@ public sealed class EscopoPessoas : IEscopoPessoas
         if (alcance is (AlcanceComercial.MinhaCarteira or AlcanceComercial.MinhaEquipe) && _alcance.PessoaId is not null)
         {
             // As equipes entram nos dois níveis: em "Minha carteira" a cobertura pode ter sido dada à equipe da pessoa.
-            var equipes = await _equipes.ListarAsync(ct);
+            var equipes = await EquipesAsync(ct);
             var coberturas = await _coberturas.ListarAsync(hoje, incluirEncerradas: false, ct);
             _resolvido = RegrasEscopo.Resolver(alcance, _alcance.PessoaId, _empresa.EmpresaId, equipes, coberturas, hoje);
         }
         else
             _resolvido = RegrasEscopo.Resolver(alcance, _alcance.PessoaId, _empresa.EmpresaId, [], [], hoje);
         return _resolvido;
+    }
+
+    private async Task<IReadOnlyCollection<Domain.Entidades.Equipe>> EquipesAsync(CancellationToken ct) =>
+        _todasEquipes ??= await _equipes.ListarAsync(ct);
+
+    public async Task<bool> GerenciaEmAsync(Guid pessoaId, DateOnly data, CancellationToken ct = default)
+    {
+        var alcance = _alcance.Alcance;
+        if (alcance == AlcanceComercial.Tudo) return true;
+        if (alcance != AlcanceComercial.MinhaEquipe)
+            return RegrasEscopo.GerenciaEm(alcance, _alcance.PessoaId, [], pessoaId, data);
+        return RegrasEscopo.GerenciaEm(alcance, _alcance.PessoaId, await EquipesAsync(ct), pessoaId, data);
     }
 
     public async Task ExigirAsync(Guid pessoaId, bool podeSerNovo = false, CancellationToken ct = default)

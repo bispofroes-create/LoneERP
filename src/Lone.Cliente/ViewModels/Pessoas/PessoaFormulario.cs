@@ -702,7 +702,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             PrimeiroContatoEm = primeiroContato,
             EtiquetaIds = Etiquetas.Marcadas.ToList(),
             ValoresPersonalizados = InformacoesAdicionais.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList(),
-            MotivoAlteracao = TextoTela.Nulo(MotivoAlteracao)?.Trim()
+            MotivoAlteracao = TextoTela.Nulo(MotivoAlteracao)?.Trim(),
+            RelacionarAoCriar = Nova ? RelacionarAoCriar : null
         };
 
         // Conta padrão entra quando o papel existe (ativo ou não); as de outras empresas voltam intactas.
@@ -1146,6 +1147,25 @@ public sealed partial class PessoaFormulario : ObservableObject
         : EhFisica && DocumentoFiscal.CpfValido(Documento) ? DocumentoFiscal.Normalizar(Documento) : string.Empty;
 
     private string ChaveDocumento() => DocumentoCompleto is { Length: > 0 } d ? $"{Natureza.Valor}:{d}" : string.Empty;
+
+    /// <summary>
+    /// Cadastro novo que nasce relacionado a outro (Fase 2a-3, E9): o relacionamento vai junto na gravação. Nulo = normal.
+    /// </summary>
+    public IncluirRelacionamentoRequisicao? RelacionarAoCriar { get; private set; }
+
+    /// <summary>"Ao salvar, esta pessoa será registrada como Contato de ABC Ltda." (vazio = cadastro comum).</summary>
+    public string AvisoRelacionarAoCriar { get; private set; } = string.Empty;
+
+    public bool TemRelacionarAoCriar => AvisoRelacionarAoCriar.Length > 0;
+
+    public void NascerRelacionada(IncluirRelacionamentoRequisicao pedido, string tipo, string outraPessoa)
+    {
+        if (!Nova) return;
+        RelacionarAoCriar = pedido;
+        AvisoRelacionarAoCriar = $"Ao salvar, esta pessoa será registrada como \"{tipo}\" {outraPessoa}.";
+        OnPropertyChanged(nameof(AvisoRelacionarAoCriar));
+        OnPropertyChanged(nameof(TemRelacionarAoCriar));
+    }
 
     /// <summary>"Esta empresa já está cadastrada: 000012 - ..." (vazio = sem aviso).</summary>
     [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAvisoDocumentoEmUso), nameof(PodeAbrirDocumentoEmUso))]

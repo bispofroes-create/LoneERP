@@ -1347,8 +1347,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override Task NovoItemAsync()
     {
         Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
+        if (_relacaoParaNova is { } relacao) Formulario.NascerRelacionada(relacao.Pedido, relacao.Tipo, relacao.Outra);
         return Task.CompletedTask;
     }
+
+    /// <summary>Relacionamento com que o próximo cadastro novo nasce ("Cadastrar nova pessoa assim"; Fase 2a-3, E9).</summary>
+    private (IncluirRelacionamentoRequisicao Pedido, string Tipo, string Outra)? _relacaoParaNova;
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
     protected override bool FichaNova => Formulario?.Nova ?? true;
@@ -1403,6 +1407,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.Situacoes.Acoes.RegistrarInteracao = RegistrarInteracaoAsync;
         newValue.Relacionamentos.Acoes.BuscarPessoa = BuscarPessoaParaRelacionamentoAsync;
         newValue.Relacionamentos.Acoes.Incluir = IncluirRelacionamentoAsync;
+        newValue.Relacionamentos.Acoes.CadastrarNova = CadastrarNovaRelacionadaAsync;
+        newValue.Relacionamentos.Acoes.AoMudarEscolha = LimparAvisoDoRelacionamento;
         newValue.Relacionamentos.Acoes.Encerrar = EncerrarRelacionamentoAsync;
         newValue.Relacionamentos.Acoes.Desativar = DesativarRelacionamentoAsync;
         newValue.AcoesAnexos.Abrir = AbrirAnexoAsync;
@@ -1425,6 +1431,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         formulario.Situacoes.Acoes.RegistrarInteracao = null;
         formulario.Relacionamentos.Acoes.BuscarPessoa = null;
         formulario.Relacionamentos.Acoes.Incluir = null;
+        formulario.Relacionamentos.Acoes.CadastrarNova = null;
+        formulario.Relacionamentos.Acoes.AoMudarEscolha = null;
         formulario.Relacionamentos.Acoes.Encerrar = null;
         formulario.Relacionamentos.Acoes.Desativar = null;
         formulario.Privacidade.Acoes.Conceder = null;
@@ -2054,6 +2062,25 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (r.ResultadosBusca.Count == 0) Mostrar("Nenhum cadastro encontrado.", TipoMensagem.Informacao);
     }
 
+    /// <summary>O último aviso de preenchimento do "Novo relacionamento" (some quando o tipo ou a pessoa muda).</summary>
+    private string? _avisoDoRelacionamento;
+
+    private void AvisarRelacionamento(string texto)
+    {
+        _avisoDoRelacionamento = texto;
+        Mostrar(texto, TipoMensagem.Aviso);
+    }
+
+    /// <summary>
+    /// O usuário escolheu o tipo ou a pessoa que o aviso pedia: o aviso sai da tela (só ele; outra mensagem que tenha vindo
+    /// depois fica). Ao tentar de novo, a conferência roda outra vez.
+    /// </summary>
+    private void LimparAvisoDoRelacionamento()
+    {
+        if (_avisoDoRelacionamento is not null && Mensagem == _avisoDoRelacionamento) LimparMensagem();
+        _avisoDoRelacionamento = null;
+    }
+
     private async Task IncluirRelacionamentoAsync()
     {
         if (Formulario is not { Existente: true } ficha)
@@ -2064,12 +2091,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         var r = ficha.Relacionamentos;
         if (r.ValidarNovo() is { Count: > 0 } erros)
         {
-            Mostrar(string.Join(Environment.NewLine, erros), TipoMensagem.Aviso);
+            AvisarRelacionamento(string.Join(Environment.NewLine, erros));
             return;
         }
         if (r.NovoTipo.Valor is { Societario: true } && !PodeAlterarEstruturaEmpresarial)
         {
-            Mostrar("Vínculos societários (sócio, administrador) exigem a permissão \"Alterar estrutura empresarial\".", TipoMensagem.Aviso);
+            AvisarRelacionamento("Vínculos societários (sócio, administrador) exigem a permissão \"Alterar estrutura empresarial\".");
             return;
         }
 
@@ -2078,6 +2105,40 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         r.Incluido(incluido!);
         Mostrar($"Relacionamento registrado: {incluido!.Tipo} {incluido.OutraPessoaNome}.", TipoMensagem.Sucesso);
+    }
+
+    /// <summary>
+    /// "Cadastrar nova pessoa assim" (Fase 2a-3, E9): abre um cadastro novo que, ao salvar, já nasce com o relacionamento
+    /// escolhido com esta ficha (ex.: contato de um cliente). É o caminho para quem tem alcance restrito cadastrar um contato
+    /// ou sócio do cliente dele; a API confere tudo de novo.
+    /// </summary>
+    private async Task CadastrarNovaRelacionadaAsync()
+    {
+        if (Formulario is not { Existente: true } ficha)
+        {
+            Mostrar("Salve o cadastro antes de registrar relacionamentos.", TipoMensagem.Aviso);
+            return;
+        }
+        var r = ficha.Relacionamentos;
+        if (r.ValidarParaCadastroNovo() is { Count: > 0 } erros)
+        {
+            AvisarRelacionamento(string.Join(Environment.NewLine, erros));
+            return;
+        }
+        if (r.NovoTipo.Valor is { Societario: true } && !PodeAlterarEstruturaEmpresarial)
+        {
+            AvisarRelacionamento("Vínculos societários (sócio, administrador) exigem a permissão \"Alterar estrutura empresarial\".");
+            return;
+        }
+        _relacaoParaNova = (r.ParaCadastroNovo(ficha.Id), r.TipoVistoDaNova(), ficha.Nome);
+        try
+        {
+            await NovoCommand.ExecuteAsync(null);
+        }
+        finally
+        {
+            _relacaoParaNova = null;
+        }
     }
 
     private async Task EncerrarRelacionamentoAsync(RelacionamentoItem item)

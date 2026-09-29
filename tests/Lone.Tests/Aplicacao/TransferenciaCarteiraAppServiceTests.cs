@@ -53,7 +53,8 @@ public class TransferenciaCarteiraAppServiceTests
         var tipos = new TiposFixos(_vendedor);
         var referencias = new ReferenciasComercial(new PerfisVazios(), new CondicoesVazias(), tipos, _consultas, new ClassificacoesFixas());
         _servico = new TransferenciaCarteiraAppService(_transferencias, _pessoas, referencias, _consultas, new ParametrosPadrao(), _coberturas,
-            new Lone.Tests.Apoio.EmpresasFixas(), _autorizacao, _motivo, new UsuarioFixo(), new FakeTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero)));
+            new Lone.Tests.Apoio.EmpresasFixas(), _autorizacao, _motivo, new UsuarioFixo(), new FakeTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero)),
+            new Lone.Tests.Apoio.EscopoFixo());
     }
 
     private Pessoa Cliente(string nome, DateOnly inicioDoJoao)
@@ -72,6 +73,108 @@ public class TransferenciaCarteiraAppServiceTests
     {
         OrigemId = _joao, TipoCarteiraId = _vendedor.Id, EfeitoEm = Efeito, Destinos = [.. destinos], Motivo = "Desligamento"
     };
+
+    private TransferenciaCarteiraAppService ServicoCom(Lone.Tests.Apoio.EscopoFixo escopo)
+    {
+        var referencias = new ReferenciasComercial(new PerfisVazios(), new CondicoesVazias(), new TiposFixos(_vendedor), _consultas, new ClassificacoesFixas());
+        return new TransferenciaCarteiraAppService(_transferencias, _pessoas, referencias, _consultas, new ParametrosPadrao(), _coberturas,
+            new Lone.Tests.Apoio.EmpresasFixas(), _autorizacao, _motivo, new UsuarioFixo(),
+            new FakeTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero)), escopo);
+    }
+
+    [Fact]
+    public async Task Gerente_transfere_so_dentro_da_equipe_e_destino_de_fora_bloqueia_tudo()
+    {
+        // E12 (Fase 2a-3): João e Maria estão na equipe do gerente; Pedro, não.
+        var abc = Cliente("ABC", new DateOnly(2025, 1, 1));
+        var escopo = new Lone.Tests.Apoio.EscopoFixo { Restrito = true, Eu = Guid.NewGuid() };
+        escopo.Gerenciadas.UnionWith([_joao, _maria]);
+        var servico = ServicoCom(escopo);
+
+        var erro = await Assert.ThrowsAsync<ValidacaoException>(() => servico.TransferirAsync(Pedido(_maria, _pedro)));
+        Assert.Contains(erro.Erros, e => e.Contains("Pedro") && e.Contains("não está no seu alcance"));
+        Assert.Empty(_transferencias.Gravadas);                        // nada gravado
+        Assert.Single(_pessoas.Gravadas[abc.Id].Carteira);            // o vínculo continua como estava
+
+        var feita = await servico.TransferirAsync(Pedido(_maria));   // dentro da equipe: vale, pela operação própria
+        Assert.Equal(1, feita.Transferidos);
+        Assert.Single(await servico.ListarAsync());
+    }
+
+    [Fact]
+    public async Task Origem_fora_da_equipe_nao_transfere_e_a_lista_esconde_o_que_nao_envolve_a_equipe()
+    {
+        Cliente("ABC", new DateOnly(2025, 1, 1));
+        await _servico.TransferirAsync(Pedido(_pedro));            // feita por quem vê tudo, João → Pedro
+
+        var escopo = new Lone.Tests.Apoio.EscopoFixo { Restrito = true, Eu = Guid.NewGuid() };
+        escopo.Gerenciadas.Add(_maria);
+        var servico = ServicoCom(escopo);
+
+        var erro = await Assert.ThrowsAsync<ValidacaoException>(() => servico.PreviaAsync(Pedido(_maria)));
+        Assert.Contains(erro.Erros, e => e.Contains("origem"));
+        Assert.Empty(await servico.ListarAsync());                 // João e Pedro fora do alcance
+        Assert.Null(await servico.ObterAsync(_transferencias.Gravadas.Keys.Single()));
+    }
+
+    private sealed class EquipesVazias : Lone.Application.Metas.IEquipeRepositorio
+    {
+        public Task<List<Equipe>> ListarAsync(CancellationToken ct) => Task.FromResult(new List<Equipe>());
+        public Task<Equipe?> ObterAsync(Guid id, CancellationToken ct) => Task.FromResult<Equipe?>(null);
+        public Task SalvarAsync(Equipe equipe, bool novo, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private CoberturaAppService CoberturasCom(Lone.Tests.Apoio.EscopoFixo escopo) =>
+        new(_coberturas, new CarteiraEmMemoria(_pessoas), new TiposAusenciaFixos(), new TiposFixos(_vendedor), new ParametrosPadrao(), _consultas,
+            new EquipesVazias(), new Lone.Tests.Apoio.EmpresasFixas(), _autorizacao,
+            new FakeTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero)), escopo);
+
+    [Fact]
+    public async Task Lider_ve_e_administra_so_as_ausencias_da_equipe()
+    {
+        // E11 (Fase 2a-3): Maria está na equipe do líder; Pedro, não.
+        var daMaria = new CoberturaComercial
+        {
+            Id = Guid.NewGuid(), TitularId = _maria, SubstitutoId = _joao, TipoAusenciaId = Ferias, InicioEm = Efeito, FimEm = Efeito.AddDays(10)
+        };
+        var doPedro = new CoberturaComercial
+        {
+            Id = Guid.NewGuid(), TitularId = _pedro, SubstitutoId = _joao, TipoAusenciaId = Ferias, InicioEm = Efeito, FimEm = Efeito.AddDays(10)
+        };
+        _coberturas.DoTitular.AddRange([daMaria, doPedro]);
+        var escopo = new Lone.Tests.Apoio.EscopoFixo { Restrito = true };
+        escopo.Gerenciadas.Add(_maria);
+        var servico = CoberturasCom(escopo);
+
+        var lista = await servico.ListarAsync(incluirEncerradas: false);
+        Assert.Equal(daMaria.Id, Assert.Single(lista).Id);
+        Assert.Null(await servico.ObterAsync(doPedro.Id));                                   // fora do alcance: como se não existisse
+
+        await Assert.ThrowsAsync<ForaDoEscopoException>(() => servico.CancelarAsync(doPedro.Id, new CancelarCoberturaRequisicao { Motivo = "x" }));
+        await Assert.ThrowsAsync<ForaDoEscopoException>(() => servico.CancelarAsync(Guid.NewGuid(), new CancelarCoberturaRequisicao { Motivo = "x" }));
+
+        var nova = new CoberturaDto { TitularId = _pedro, SubstitutoId = _joao, TipoAusenciaId = Ferias, InicioEm = Efeito, FimEm = Efeito.AddDays(3) };
+        var erro = await Assert.ThrowsAsync<ValidacaoException>(() => servico.SalvarAsync(nova));
+        Assert.Contains(erro.Erros, e => e.Contains("sua equipe"));
+    }
+
+    [Fact]
+    public async Task Carteira_em_uma_data_so_de_quem_esta_no_alcance()
+    {
+        var abc = Cliente("ABC", new DateOnly(2025, 1, 1));
+        var escopo = new Lone.Tests.Apoio.EscopoFixo { Restrito = true };
+        escopo.Gerenciadas.Add(_maria);
+        var consulta = new CarteiraEmDataAppService(new CarteiraEmMemoria(_pessoas), _coberturas, new TiposAusenciaFixos(), _transferencias,
+            new ReferenciasComercial(new PerfisVazios(), new CondicoesVazias(), new TiposFixos(_vendedor), _consultas, new ClassificacoesFixas()),
+            _consultas, _autorizacao, escopo);
+
+        await Assert.ThrowsAsync<ForaDoEscopoException>(() => consulta.ConsultarAsync(null, _joao, new DateOnly(2026, 9, 15)));   // João fora
+        await Assert.ThrowsAsync<ForaDoEscopoException>(() => consulta.ConsultarAsync(abc.Id, null, new DateOnly(2026, 9, 15)));  // cliente fora
+        Assert.Empty((await consulta.ConsultarAsync(null, _maria, new DateOnly(2026, 9, 15))).Vinculos);                        // Maria: no alcance
+
+        escopo.NoEscopo.Add(abc.Id);
+        Assert.Single((await consulta.ConsultarAsync(abc.Id, null, new DateOnly(2026, 9, 15))).Vinculos);
+    }
 
     [Fact]
     public async Task Cada_cliente_vale_por_si_e_o_resultado_fica_registrado()
@@ -178,7 +281,7 @@ public class TransferenciaCarteiraAppServiceTests
         });
         var consulta = new CarteiraEmDataAppService(new CarteiraEmMemoria(_pessoas), _coberturas, new TiposAusenciaFixos(), _transferencias,
             new ReferenciasComercial(new PerfisVazios(), new CondicoesVazias(), new TiposFixos(_vendedor), _consultas, new ClassificacoesFixas()),
-            _consultas, _autorizacao);
+            _consultas, _autorizacao, new Lone.Tests.Apoio.EscopoFixo());
 
         var antes = Assert.Single((await consulta.ConsultarAsync(abc.Id, null, new DateOnly(2026, 9, 15))).Vinculos);
         Assert.Equal("João", antes.Pessoa);
@@ -214,9 +317,11 @@ public class TransferenciaCarteiraAppServiceTests
                 .Take(limite).ToList());
 
         public Task<Dictionary<Guid, int>> ContarClientesAsync(IReadOnlyCollection<CoberturaComercial> coberturas, CancellationToken ct) =>
-            throw new NotImplementedException();
-        public Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, CancellationToken ct) => throw new NotImplementedException();
-        public Task<Dictionary<Guid, string>> NomesEquipesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => throw new NotImplementedException();
+            Task.FromResult(new Dictionary<Guid, int>());
+        public Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(DateOnly de, DateOnly ate, Lone.Domain.Comercial.EscopoResolvido escopo,
+                                                                    CancellationToken ct) => throw new NotImplementedException();
+        public Task<Dictionary<Guid, string>> NomesEquipesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
+            Task.FromResult(new Dictionary<Guid, string>());
     }
 
     private sealed class TiposAusenciaFixos : ITipoAusenciaRepositorio
@@ -312,6 +417,10 @@ public class TransferenciaCarteiraAppServiceTests
 
         public Task<Dictionary<Guid, string>> NumerosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) =>
             Task.FromResult(Gravadas.Values.Where(t => ids.Contains(t.Id)).ToDictionary(t => t.Id, t => t.Numero));
+
+        public Task<Dictionary<Guid, List<Guid>>> DestinosAsync(IReadOnlyCollection<Guid> transferencias, CancellationToken ct) =>
+            Task.FromResult(Itens.Where(i => transferencias.Contains(i.TransferenciaId) && i.DestinoId is not null)
+                .GroupBy(i => i.TransferenciaId).ToDictionary(g => g.Key, g => g.Select(i => i.DestinoId!.Value).Distinct().ToList()));
     }
 
     private sealed class ConsultasFixas : IComercialConsultas
@@ -385,7 +494,7 @@ public class TransferenciaCarteiraAppServiceTests
     private sealed class CoberturasFixas : ICoberturaRepositorio
     {
         public List<CoberturaComercial> DoTitular { get; } = new();
-        public Task<CoberturaComercial?> ObterAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
+        public Task<CoberturaComercial?> ObterAsync(Guid id, CancellationToken ct) => Task.FromResult(DoTitular.FirstOrDefault(c => c.Id == id));
         public Task<List<CoberturaComercial>> DoTitularAsync(Guid titularId, CancellationToken ct) =>
             Task.FromResult(DoTitular.Where(c => c.TitularId == titularId).ToList());
         public Task<List<CoberturaComercial>> ListarAsync(DateOnly desde, bool incluirEncerradas, CancellationToken ct) =>
