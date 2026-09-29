@@ -69,6 +69,9 @@ public static class MauiProgram
         builder.Services.AddTransient<CarteiraVencendoPage>();
         builder.Services.AddTransient<TransferenciasPage>();
         builder.Services.AddTransient<CarteiraEmDataPage>();
+        builder.Services.AddTransient<TiposTerritorioPage>();
+        builder.Services.AddTransient<MapasTerritoriaisPage>();
+        builder.Services.AddTransient<TerritoriosPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

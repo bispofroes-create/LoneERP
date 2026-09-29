@@ -57,6 +57,13 @@ public class LoneDbContext : DbContext
     public DbSet<Interacao> Interacoes => Set<Interacao>();
     public DbSet<ParametrosRelacionamento> ParametrosRelacionamento => Set<ParametrosRelacionamento>();
     public DbSet<OcupacaoCbo> OcupacoesCbo => Set<OcupacaoCbo>();
+    public DbSet<TipoTerritorio> TiposTerritorio => Set<TipoTerritorio>();
+    public DbSet<MapaTerritorial> MapasTerritoriais => Set<MapaTerritorial>();
+    public DbSet<MapaTerritorialArvore> MapaTerritorialArvores => Set<MapaTerritorialArvore>();
+    public DbSet<MapaTerritorialClassificacao> MapaTerritorialClassificacoes => Set<MapaTerritorialClassificacao>();
+    public DbSet<Territorio> Territorios => Set<Territorio>();
+    public DbSet<TerritorioPosicao> TerritorioPosicoes => Set<TerritorioPosicao>();
+    public DbSet<TerritorioResponsavel> TerritorioResponsaveis => Set<TerritorioResponsavel>();
     public DbSet<Equipe> Equipes => Set<Equipe>();
     public DbSet<MembroEquipe> MembrosEquipe => Set<MembroEquipe>();
     public DbSet<Indicador> Indicadores => Set<Indicador>();

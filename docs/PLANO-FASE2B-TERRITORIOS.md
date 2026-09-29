@@ -1,491 +1,511 @@
-# Fase 2b — Motor de Cobertura e Atribuição Territorial
+# Fase 2b — Motor de Cobertura e Atribuição Territorial (plano consolidado)
 
-Revisão arquitetural (28/09/2026). **Nenhum código ou migration antes da aprovação.** Substitui o esboço curto da 2b
-em `PLANO-FASE2-EQUIPES-TERRITORIOS.md`. Base: o pedido de revisão do usuário (47 itens) + auditoria do código atual
-(commit `c75dce3`).
-
----
-
-## A. Diagnóstico
-
-### A.1 O que já existe e será reaproveitado (auditado no código)
-
-| Peça existente | Onde | Como a 2b usa |
-|---|---|---|
-| Catálogo de condições de Pessoas (~70 campos, ids estáveis, "não renomear") | `CatalogoFiltrosPessoas`, `CamposFiltroPessoas` | É a linguagem das regras de cobertura. Nenhum filtro novo. |
-| Tradução das condições para o banco (LINQ parametrizado, índices já pensados) | `FiltrosPessoasSql.Aplicar(IQueryable<Pessoa>, condições, Contexto)` | O motor chama o mesmo método por grupo de condições. **Não muda.** |
-| Painel de filtros (editor de condições na tela) | `PainelFiltrosPessoas` + `PainelFiltrosView` | Editor de cada grupo da regra (reuso como componente). |
-| Vigência início/fim, "nunca apagar, encerrar" | `CarteiraCliente`, `MembroEquipe`, `CoberturaComercial` | Mesmo padrão em atribuições, responsáveis, exceções e posições. |
-| Operação com número legível + itens imutáveis + resultado por cliente | `TransferenciaCarteira` / `TransferenciaCarteiraItem` (`TR-2026-0001`, `[NaoAuditar]`) | Modelo da `OperacaoTerritorial` (`TE-2026-0001`). |
-| Limite de datas no passado | `ParametrosComerciais.DiasRetroativosMaximo` (30) | Mesmo limite para a data de efeito. |
-| Auditoria de negócio (antes/depois, eventos, motivo, operação) | `AgregadoRaiz.RegistrarEvento`, `RegistroAuditoria`, `IMotivoDaOperacao` | Cadastros auditados campo a campo; itens da operação ficam fora (são o próprio registro). |
-| Papel comercial (Vendedor, Representante, Supervisor…) com "quem pode ser" | `TipoCarteira` + `TipoCarteiraClassificacao` | É a **função** do responsável do território. Nada de lista nova de funções. |
-| Equipes com hierarquia e liderança temporal | `Equipe`, `MembroEquipe` (2a-1) | Responsável do território pode ser equipe; "Meus territórios" (2b-2) sai daqui. |
-| Multiempresa: `EmpresaId` nulo = todas as empresas do grupo | carteira, cobertura, exceção comercial, perfis | Mesmo padrão no mapa territorial. |
-| Escopo por registro | `EscopoPessoasSql`, `IEscopoPessoas` | Listas de clientes do território respeitam o alcance de quem consulta. |
-
-### A.2 O que seria perigoso duplicar
-
-1. **Um segundo motor de filtros.** Tudo que o motor territorial precisar de condição vem do catálogo; campo novo nasce lá.
-2. **Uma segunda "carteira".** Território não é quem atende o cliente; a carteira continua sendo a única fonte de
-   "vendedor do cliente" (decisão T4).
-3. **Numeração de documentos.** Hoje o `TR-` usa `MAX(Sequencia)+1`, que depende do índice único para não repetir sob
-   concorrência. Criar outro gerador igual para `TE-` duplicaria o problema (ver T12).
-4. **Uma lista de funções** do responsável: já existe o papel comercial.
-
-### A.3 Achados no código atual que afetam a 2b
-
-| Achado | Impacto | Proposta |
-|---|---|---|
-| O motor de filtros só faz **E** (cada condição é um `Where` a mais). Não há OU nem grupos. | Regras como "MG **ou** Curvelo e Montes Claros" não cabem. | Grupos em forma normal disjuntiva **acima** do motor (T6), sem mexer nele. |
-| Alguns campos do catálogo são **relativos a hoje** (idade, aniversário, documentos vencendo, sem interação, dias relativos) ou dependem de permissão (financeiro, privacidade, colaborador) ou da carteira (vendedor, sem carteira). | Regra com eles muda de resultado sozinha com o tempo, ou dá resultado diferente por quem executa, ou fica circular com a carteira. | Marca `UsavelEmCobertura` no catálogo: só atributos estáveis do cadastro (T6). |
-| `FiltrosPessoasSql` recebe condições já validadas por permissão **de quem consulta**. | A regra precisa dar o mesmo resultado para qualquer usuário. | O motor roda sem escopo e sem permissão de campo; a permissão vale para **configurar** (ver o campo para usá-lo). |
-| Sequência `TR-` por `MAX+1`. | Colisão sob concorrência (hoje resolvida por erro). | Numerador de documentos (T12). |
-
-### A.4 A proposta anterior da 2b-1, item a item
-
-| Item do plano anterior | Classificação | Por quê |
-|---|---|---|
-| Tipo de território como cadastro (G1) | **Manter** | Cadastro `TiposTerritorio` com código, ordem, "do sistema". Só classifica. |
-| Árvore com território acima (G2: vínculo explícito, de cima soma os de baixo) | **Manter** e reforçar | Cliente vinculado a um nó só; agregação navega a árvore. + histórico da posição na árvore (T7). |
-| Regra = condições do catálogo, versão encerra a anterior | **Melhorar** | Grupos OU + grupos de exclusão; versão imutável, com o texto dos critérios congelado. |
-| Simular / Aplicar | **Melhorar** | Viram uma **operação planejada** (rascunho → simulada → aplicada) que empacota todas as mudanças; aplicar re-simula e recusa se a base mudou desde a revisão. |
-| Manual prevalece (G3) | **Substituir** | Por exceções explícitas e datadas: *Fixar* e *Retirar* (+ ação "Mover", que gera as duas). O motor explica por que a regra perdeu. |
-| Reaplicar à mão com aviso de diferença (G4) | **Manter** e generalizar | Vira o painel de **divergências de cobertura** (6 tipos). |
-| Data retroativa até o limite (G5) | **Melhorar** | Também não antes da última operação aplicada no mesmo mapa (não reescrever o passado). |
-| Responsáveis pessoa/equipe com vigência (G6) | **Manter** | Função = papel comercial. |
-| Só clientes (G9) | **Melhorar** | Universo parametrizável por mapa (classificações), padrão Cliente. Prospects/leads usam a mesma chave (Pessoa). |
-| "Cliente em vários territórios" (F6 A) | **Melhorar** | Vários territórios **em mapas diferentes**; dentro de um mapa exclusivo, um só (é isso que torna "conflito" um conceito definido). |
-| Uma permissão `COMERCIAL.TERRITORIOS` | **Substituir** | Quatro permissões (T10). |
-| 2b-2 (Meus territórios, filtro, carteira em data, indicadores) | **Deixar para depois** | Modelo abaixo já tem tudo que elas precisam. |
+> **Situação (29/09/2026, 07h19):** arquitetura aprovada. Decisões **T1 a T20 aprovadas** (opção A), com o complemento
+> obrigatório das **fixações múltiplas** no T3 e a definição de **desfazer operação futura** (T15) como ação de negócio
+> registrada. Autorizada a **2b-1a** (estrutura). A 2b-1b (motor) só começa depois da 2b-1a compilada e testada pelo
+> usuário. Este documento substitui a revisão de 28/09 e a seção R de 29/09; o histórico da discussão está no git
+> (commit `ceffbbb` e seguinte).
 
 ---
 
-## B. Arquitetura proposta
+## 1. Decisões aprovadas
 
-### B.1 Conceitos
+| # | Decisão | O que ficou valendo |
+|---|---|---|
+| T1 | O que define quem compete por um cliente | **Mapa territorial** = dimensão independente de atribuição (seção 2) |
+| T2 | Exceções | Só **Fixar em** e **Retirar de** (+ ação "Mover" = as duas), com vigência, motivo, usuário, data, origem e histórico |
+| T3 | Algoritmo | Seção 4, com o complemento das fixações múltiplas e das fixações inválidas |
+| T4 | Território × carteira | Independentes; transferência de carteira a partir do território fica para depois (S1) |
+| T5 | Planejar × pôr em vigor | Operação `TE-`: rascunho → simulada (revisão) → aplicada; aplicar re-simula e confere a assinatura; tudo ou nada |
+| T6 | Linguagem das regras | Grupos de inclusão (OU entre grupos, E dentro) + grupos de exclusão, sobre o catálogo de filtros, só campos `UsavelEmCobertura` |
+| T7 | Histórico da árvore | `TerritorioPosicoes` com vigência |
+| T8 | Data retroativa | Até `DiasRetroativosMaximo` e nunca antes do efeito da última operação aplicada no mapa; data da operação, data de efeito, usuário e motivo gravados separadamente |
+| T9 | Universo | Classificações por mapa (padrão Cliente) |
+| T10 | Permissões | `TERRITORIOS.VISUALIZAR`, `.CONFIGURAR`, `.PLANEJAR`, `.APLICAR`; planejar e aplicar exigem alcance Tudo |
+| T11 | Transação | Aplicação tudo ou nada |
+| T12 | Numeração | `NumeracoesDocumento`, segura para concorrência (seção 9) |
+| T13 | Entregas | 2b-1a (estrutura) e 2b-1b (motor), separadas |
+| T14 | Território sem uso | Cria, renomeia, move e reorganiza livremente; com uso, nada é apagado nem reescrito (encerra/versiona) |
+| T15 | Desfazer operação futura | Permitido só antes do efeito; é uma ação registrada (seção 8), nunca apaga a operação |
+| T16 | Endereço de referência | Finalidade parametrizável no mapa (padrão Comercial); nunca "Comercial" fixo no motor |
+| T17 | Planejado × publicado | Planejado em `OperacaoTerritorialMudancas`; tabelas de fatos só recebem o que foi aplicado; várias operações em rascunho por mapa |
+| T18 | Mover com uso | Exige operação se o nó **ou qualquer descendente** tem regra ou atribuição |
+| T19 | Migrations | Uma por entrega; a 2b-1a cria só as tabelas da estrutura |
+| T20 | Nome | **Regra do território** (nunca "cobertura", que no Lone são as ausências) em entidades, banco, serviços, telas, documentação e mensagens |
 
-```
-MAPA TERRITORIAL  (a "dimensão": Geografia, Segmentos, Contas estratégicas…)
-│   empresa (nula = grupo todo) · exclusivo? · universo (classificações: Cliente)
-│
-├── TERRITÓRIO (nó da árvore)          ── TIPO (classificação livre)
-│     ├── posição na árvore (pai) com vigência
-│     ├── RESPONSÁVEIS (pessoa ou equipe · função = papel comercial · vigência)
-│     └── COBERTURA versionada (v1, v2, v3 …)
-│            grupos de inclusão (OU entre grupos, E dentro)
-│            grupos de exclusão
-│            prioridade (opcional)
-│
-├── EXCEÇÕES por cliente (Fixar em / Retirar de) com vigência e motivo
-│
-└── OPERAÇÃO TERRITORIAL  TE-2026-0001  (o "pacote de mudanças")
-       rascunho → simulada → aplicada | cancelada
-       contém: versões de cobertura novas, territórios novos/movidos/encerrados, exceções
-       ao aplicar: publica tudo com a data de efeito e grava as ATRIBUIÇÕES
-
-ATRIBUIÇÃO (resultado persistido)
-   cliente × território (× mapa × empresa) · início/fim · origem · versão da regra · exceção · operação
-```
-
-**Por que um "mapa"** (T1): o pedido quer ao mesmo tempo (a) cliente em vários territórios (geográfico **e**
-segmento **e** estratégico) e (b) conflito detectado quando duas regras disputam o mesmo cliente. As duas coisas só
-convivem se existir uma fronteira que diga *quais territórios competem entre si*. O mapa é essa fronteira: dentro de um
-mapa exclusivo o cliente tem um território; entre mapas, não há disputa. É o que os CRMs maduros chamam de *territory
-model* / dimensão.
-
-**Hierarquia ≠ regra** (item 7 do pedido): a árvore só diz onde o nó está e serve para agregar. Quem entra num território é
-só a cobertura dele. A posição na árvore entra **uma única vez** no algoritmo, e de forma explícita: como desempate de
-especificidade (passo 5 do algoritmo), nunca como herança de regra.
-
-### B.2 Onde fica cada parte (camadas atuais)
-
-| Camada | Peça |
-|---|---|
-| `Lone.Domain` | Entidades; `RegrasTerritorio` (árvore sem ciclo, vigências, estados); **`MotorAtribuicao`** puro: recebe candidatos, exceções, árvore e atribuições atuais → devolve resultado por cliente com explicação. 100% testável sem banco. |
-| `Lone.Infrastructure` | `CoberturaTerritorialSql`: para cada grupo, `FiltrosPessoasSql.Aplicar(...)` → ids; une/subtrai no banco; devolve `(TerritórioId, PessoaId)` em lote. Repositórios. |
-| `Lone.Application` | `TerritorioAppService` (cadastro), `OperacaoTerritorialAppService` (planejar, simular, aplicar, cancelar), `DivergenciasTerritoriaisAppService`, `ExplicacaoTerritorialAppService`. |
-| `Lone.Contracts` | DTOs, rotas, permissões. |
-| `Lone.Cliente` / `Lone.App` | Telas (seção G.5). |
+Princípio aprovado para os módulos futuros: **P-T1 a P-T3** (seção 13).
 
 ---
 
-## C. Modelo de dados (migration `Fase2bTerritorios`, só aditiva)
+## 2. Conceitos
 
-Todas as tabelas: `Id` (Guid sequencial), `CriadoEm`, `AtualizadoEm`; agregados com `Versao` (rowversion). Nada é
-apagado: desativa, encerra ou cancela.
+| Conceito | O que é | O que **não** é |
+|---|---|---|
+| **Mapa territorial** | Uma **dimensão independente de atribuição**: define quais territórios disputam um cliente. Dentro de um mapa exclusivo, no máximo um território por cliente; entre mapas diferentes nunca há disputa nem conflito. Tem empresa, universo, exclusividade e finalidade do endereço de referência. | Não é pasta. No domínio é a fronteira do algoritmo: o motor sempre roda **um mapa por vez**. |
+| **Território** | Nó da árvore do mapa: posição (pai), tipo, responsáveis. | Não diz quem entra: quem diz é a regra. A árvore agrega e entra só no desempate por especificidade (passo 5b). |
+| **Regra do território** | O que torna um cliente **candidato**: grupos de inclusão menos grupos de exclusão, mais a prioridade. Versionada (v1, v2…), imutável depois de publicada, critérios congelados em texto. | Não é a atribuição: regra nova não muda cliente nenhum até uma operação ser aplicada. |
+| **Exceção** | Decisão humana datada sobre um cliente: Fixar em T / Retirar de T. | Não altera a regra; prevalece enquanto vigente. |
+| **Atribuição** | Resultado gravado: cliente × território, com período, origem, versão da regra, exceção e operação. | Não é recalculada ao consultar. |
+| **Operação TE-** | Pacote que planeja, simula e aplica o que muda atribuições. | Não cobre cadastro, responsáveis e árvore sem uso (T14/T18). |
 
-| # | Tabela | Finalidade | Campos principais | Chaves / índices / constraints |
+Exemplo: o mesmo cliente está em *Geografia → Curvelo*, *Segmentos → Grandes Açougues* e *Estratégico → Key Account*,
+sem conflito nenhum: são três mapas.
+
+---
+
+## 3. Modelo de dados (13 tabelas)
+
+Todas: `Id` (Guid sequencial), `CriadoEm`, `AtualizadoEm`; agregados com `Versao` (rowversion). Nada é apagado.
+
+| # | Tabela | Entrega | Campos principais | Integridade |
 |---|---|---|---|---|
-| 1 | `TiposTerritorio` | Classificação livre (Geográfico, Segmento, Estratégico…) | Codigo, Nome, Descricao, Ordem, Sistema, Ativo | UQ Codigo; UQ Nome (sem acento/maiúscula, como os outros cadastros) |
-| 2 | `MapasTerritoriais` | Dimensão de cobertura | Codigo, Nome, Descricao, EmpresaId?, Exclusivo, Ativo | UQ Codigo; FK EmpresaId → Pessoas |
-| 3 | `MapaTerritorialClassificacoes` | Universo do mapa (quem pode ser atribuído) | MapaId, PapelId, Ativo | UQ (MapaId, PapelId); mesmo padrão de `TipoCarteiraClassificacao` |
-| 4 | `Territorios` | Nó da árvore | MapaId, Codigo, Nome, TipoId, PaiId? (atual), Descricao, Prioridade?, Situacao (Planejado/Ativo/Encerrado), EncerradoEm?, OperacaoCriacaoId?, OperacaoEncerramentoId? | UQ (MapaId, Codigo); FK PaiId → Territorios (mesmo mapa, conferido no domínio e no serviço); CK Prioridade ≥ 1; IX (MapaId, PaiId) |
-| 5 | `TerritorioPosicoes` | Histórico da posição na árvore | TerritorioId, PaiId?, InicioEm, FimEm?, OperacaoId? | CK FimEm ≥ InicioEm; UQ filtrado (TerritorioId) WHERE FimEm IS NULL; IX (PaiId, InicioEm) |
-| 6 | `TerritorioResponsaveis` | Quem responde pelo território | TerritorioId, PessoaId?, EquipeId?, TipoCarteiraId (função), InicioEm, FimEm?, Ativo, Observacao | CK exatamente um de PessoaId/EquipeId; CK FimEm ≥ InicioEm; IX (PessoaId, FimEm), (EquipeId, FimEm) |
-| 7 | `CoberturasTerritorio` | Versões da regra | TerritorioId, Numero (1,2,3…), Grupos (JSON), Criterios (texto congelado), Prioridade?, InicioEm?, FimEm?, Situacao (Rascunho/Vigente/Encerrada/Descartada), OperacaoId | UQ (TerritorioId, Numero); UQ filtrado (TerritorioId) WHERE Situacao = Vigente AND FimEm IS NULL; CK tamanho do JSON |
-| 8 | `ExcecoesTerritorio` | Fixar / Retirar cliente | PessoaId, MapaId, TerritorioId, Tipo (Fixar/Retirar), InicioEm, FimEm?, Motivo, Situacao (Planejada/Vigente/Encerrada/Cancelada), OperacaoId, OperacaoEncerramentoId? | CK FimEm ≥ InicioEm; IX (PessoaId, MapaId, Situacao); regra "um Fixar vigente por cliente e mapa exclusivo" no domínio + UQ filtrado para o aberto |
-| 9 | `OperacoesTerritoriais` | O documento `TE-` | Ano, Sequencia, MapaId, EfeitoEm, Motivo, Observacao, Situacao (Rascunho/Simulada/Aplicada/Cancelada), SimuladaEm?, AssinaturaSimulacao?, contagens (Analisados, Entram, Saem, Mudam, Permanecem, Conflitos, SemTerritorio, ExcecoesPreservadas), CriadaPor, AplicadaEm?, AplicadaPor?, CanceladaMotivo? | UQ (Ano, Sequencia); IX (MapaId, Situacao, EfeitoEm) |
-| 10 | `OperacaoTerritorialItens` | Resultado aplicado, cliente a cliente (só quem muda + conflitos) | OperacaoId, PessoaId, Resultado (Entra/Sai/Muda/Conflito/SemTerritorio), TerritorioAnteriorId?, TerritorioNovoId?, AtribuicaoEncerradaId?, AtribuicaoNovaId?, Explicacao (JSON: candidatos, exceção, passo que decidiu) | IX (OperacaoId), (PessoaId); `[NaoAuditar]`, gravado uma vez |
-| 11 | `AtribuicoesTerritorio` | **A atribuição efetiva** | PessoaId, TerritorioId, MapaId, EmpresaId?, InicioEm, FimEm?, Origem (Regra/Exceção/Importação/Migração), CoberturaId?, ExcecaoId?, OperacaoId, OperacaoEncerramentoId?, Ativo | CK FimEm ≥ InicioEm; **UQ filtrado (PessoaId, MapaId) WHERE FimEm IS NULL AND Ativo = 1** (mapa exclusivo); IX (TerritorioId, FimEm) INCLUDE (PessoaId), IX (PessoaId, InicioEm) |
-| 12 | `NumeracoesDocumento` | Numerador único do ERP (T12) | Prefixo, Ano, Ultimo | PK (Prefixo, Ano); incremento com bloqueio de linha na mesma transação |
+| 1 | `TiposTerritorio` | **2b-1a** | Codigo, Nome, Descricao, Ordem, Ativo | UQ Codigo; UQ Nome (sem acento/maiúscula). Três de sistema com Id fixo: Geográfico, Segmento, Estratégico |
+| 2 | `MapasTerritoriais` | **2b-1a** | Codigo, Nome, Descricao, EmpresaId?, Exclusivo, FinalidadeEnderecoReferenciaId, Ativo | UQ Codigo; UQ Nome; FK Empresa → Pessoas; FK Finalidade → FinalidadesEndereco. Na 2b-1b: UQ (Id, Exclusivo), UltimaOperacaoId, UltimoEfeitoEm |
+| 3 | `MapaTerritorialClassificacoes` | **2b-1a** | MapaId, PapelId, Ativo | UQ (MapaId, PapelId); FK → Papeis |
+| 4 | `Territorios` | **2b-1a** | MapaId, Codigo, Nome, TipoId, PaiId? (atual), Descricao, Situacao (Ativo/Encerrado), FimEm? | **AK (MapaId, Id)**; **FK composta (MapaId, PaiId) → (MapaId, Id)**; UQ (MapaId, Codigo); UQ filtrado (MapaId, PaiId, Nome) WHERE Situacao = Ativo; CK Situacao/FimEm coerentes |
+| 5 | `TerritorioPosicoes` | **2b-1a** | MapaId, TerritorioId, PaiId?, InicioEm, FimEm?, Ativo | FK composta do território e do pai; CK FimEm ≥ InicioEm; UQ filtrado (TerritorioId) WHERE FimEm IS NULL AND Ativo = 1. Na 2b-1b: OperacaoId, OperacaoEncerramentoId |
+| 6 | `TerritorioResponsaveis` | **2b-1a** | TerritorioId, PessoaId?, EquipeId?, TipoCarteiraId (função), InicioEm, FimEm?, Observacao, Ativo | CK exatamente um de Pessoa/Equipe; CK FimEm ≥ InicioEm; FKs sem cascata; **gatilho `TR_TerritorioResponsaveis_SemSobreposicao`** (mesmo território + função + pessoa ou equipe, ativos, sem períodos cruzados; aprovado em 29/09) |
+| 7 | `RegrasTerritorio` | 2b-1b | TerritorioId, Numero, Grupos (JSON), Criterios (texto congelado), Prioridade?, InicioEm, FimEm?, Ativo, OperacaoId, OperacaoEncerramentoId? | UQ (TerritorioId, Numero); UQ filtrado da versão aberta; CK tamanho do JSON; CK Prioridade ≥ 1 |
+| 8 | `ExcecoesTerritorio` | 2b-1b | PessoaId, MapaId, TerritorioId, Exclusivo (cópia), Tipo, InicioEm, FimEm?, Motivo, Origem, Situacao (Vigente/Encerrada/Anulada), OperacaoId, OperacaoEncerramentoId? | FK composta do território; FK (MapaId, Exclusivo) → Mapas(Id, Exclusivo); UQ filtrado do Fixar aberto por cliente em mapa exclusivo |
+| 9 | `OperacoesTerritoriais` | 2b-1b | Ano, Sequencia, MapaId, EfeitoEm, Motivo, Observacao, Situacao (Rascunho/Simulada/Aplicada/Cancelada/Desfeita), SimuladaEm, AssinaturaSimulacao, AtributosAvaliadosEm, contagens, CriadaPor/Em, AplicadaPor/Em, CanceladaPor/Em/Motivo, DesfeitaPor/Em/Motivo/SolicitadaEm | UQ (Ano, Sequencia); IX (MapaId, Situacao, EfeitoEm) |
+| 10 | `OperacaoTerritorialMudancas` | 2b-1b | OperacaoId, Ordem, Tipo, TerritorioId?, PessoaId?, ExcecaoId?, Dados (JSON de tipo fechado) | FKs reais; IX (OperacaoId) |
+| 11 | `OperacaoTerritorialItens` | 2b-1b | OperacaoId, PessoaId, Resultado, TerritorioAnteriorId?, TerritorioNovoId?, AtribuicaoEncerradaId?, AtribuicaoNovaId?, Explicacao (JSON) | `[NaoAuditar]`, gravado uma vez |
+| 12 | `AtribuicoesTerritorio` | 2b-1b | PessoaId, TerritorioId, MapaId, Exclusivo (cópia), InicioEm, FimEm?, Origem, RegraId?, ExcecaoId?, OperacaoId, OperacaoEncerramentoId?, Ativo | FK composta do território; FK (MapaId, Exclusivo) → Mapas; UQ filtrado (PessoaId, MapaId) WHERE FimEm IS NULL AND Ativo = 1 AND Exclusivo = 1; sem EmpresaId (vem do mapa) |
+| 13 | `NumeracoesDocumento` | 2b-1b | Prefixo, Ano, Ultimo | PK (Prefixo, Ano) |
 
-Observações:
-- **Mapa não exclusivo** (ex.: "Campanhas"): o índice único filtrado da tabela 11 não pode valer para ele. Duas opções
-  no SQL Server: índice filtrado usando a coluna `Exclusivo` copiada na atribuição (`WHERE FimEm IS NULL AND Ativo = 1 AND
-  Exclusivo = 1`). Recomendado: copiar.
-- **Ciclo na árvore**: conferido no domínio (percorre os ancestrais do novo pai) e de novo dentro da transação, com a
-  árvore do mapa lida com bloqueio. O SQL Server não tem constraint de ciclo; um gatilho seria a alternativa (T7).
-- **Grupos (JSON)**: tipo fechado `RegraCobertura { Incluir: List<GrupoCondicoes>, Excluir: List<GrupoCondicoes> }`,
-  cada grupo = `List<CondicaoFiltro>`, como os filtros salvos. Nunca SQL nem fórmula. `Criterios` guarda o texto
-  legível do momento da publicação ("UF = MG e CNAE = 4722-9/01"), porque nomes de etiquetas e campos podem mudar
-  depois e a explicação histórica não pode mudar junto.
-- **Tabelas que *não* criei** e por quê: `RegrasTerritorio` separada de `Coberturas` (um território tem uma cobertura
-  com versões; uma segunda entidade seria só um nível a mais), `TerritorioVersoes` (a árvore versiona pela tabela de
-  posições; o resto do território é cadastro auditado), tabela de simulação (o resultado da simulação é recalculado
-  sob demanda; guardar só a assinatura evita gravar e depois ter que apagar rascunhos).
+Não existem: `TerritorioVersoes` (a árvore versiona por posições), tabela de simulação (recalculada; só a assinatura é
+guardada), tabela de "mover" (é uma mudança da operação), estados de rascunho nas tabelas de fatos (T17).
 
 ---
 
-## D. Algoritmo de atribuição (por mapa, numa data de efeito)
+## 4. Algoritmo de resolução (T3)
 
-Entrada: o mapa, a data `D`, a cobertura que valerá em `D` de cada território (vigente ou a do rascunho da operação), as
-exceções que valerão em `D` e as atribuições atuais. Tudo em lote; o motor do domínio não acessa o banco.
+Entrada, lida em lote (o motor do domínio `MotorAtribuicao` não acessa banco): mapa `M`, data de efeito `D`, árvore de
+`M` em `D`, regra de cada território ativo em `D` (a publicada ou a planejada na operação) com o conjunto de clientes
+que a satisfaz, exceções em `D`, atribuições da véspera.
 
 ```
-1. UNIVERSO      pessoas com uma das classificações do mapa, ativas (situação Ativo/Em análise)
-2. CANDIDATOS    para cada território ATIVO do mapa com cobertura em D:
-                   (Incluir₁ ∪ Incluir₂ ∪ …) − (Excluir₁ ∪ Excluir₂ ∪ …)   ∩ UNIVERSO
-                 → pares (cliente, território, versão da cobertura)            [banco, em lote]
-3. RETIRAR       exceção "Retirar de T" vigente em D → remove T dos candidatos do cliente
-                 (registra: "atende à regra de T, mas foi retirado por exceção X")
-4. FIXAR         exceção "Fixar em T" vigente em D → T é o resultado, qualquer que seja a regra
-                 (registra os candidatos que perderam: "perdeu para a exceção X")
-5. ESPECIFICIDADE (só mapa exclusivo, com 2+ candidatos)
-                 a) prioridade explícita: menor número vence; sem prioridade = depois de todas
-                 b) empate: se um candidato é DESCENDENTE do outro na árvore, o mais profundo vence
-                    (MG × Curvelo, Curvelo abaixo de MG → Curvelo)
-                 c) ainda empatado → CONFLITO (nenhum vence)
-6. CONFLITO      sem vencedor: se a atribuição atual do cliente é um dos empatados, ela é mantida
-                 (estabilidade) e o conflito fica aberto; senão o cliente fica sem território neste mapa.
-                 Nunca "o primeiro da lista".
-7. RESULTADO     por cliente: Entra | Sai | Muda | Permanece | Conflito | SemTerritório,
-                 com a explicação (candidatos, passo que decidiu, exceção, versão)
-8. GRAVAÇÃO      (só na aplicação) encerra na véspera de D quem sai/muda; abre a nova atribuição com
-                 origem, versão e operação; grava os itens da operação
+0. UNIVERSO     cliente fora do universo de M em D → resultado vazio ("fora do universo")
+
+1. CANDIDATOS   C = { T ativo em D | T tem regra em D e o cliente satisfaz a regra de T }
+                (satisfaz = atende a pelo menos um grupo de inclusão e a nenhum grupo de exclusão)
+
+2. RETIRAR      C = C − { T | "Retirar de T" vigente em D }
+
+3. FIXAR        F = fixações vigentes em D para o cliente em M
+                ├─ mapa exclusivo e |F| ≥ 2          → INCONSISTÊNCIA "Conflito de fixação"      FIM
+                ├─ alguma f ∈ F inválida (território  → INCONSISTÊNCIA "Fixação inválida"         FIM
+                │  encerrado ou inexistente em D, de outro mapa, cliente fora do universo,
+                │  ou Fixar e Retirar do mesmo território no mesmo período)
+                ├─ mapa exclusivo e |F| = 1          → vencedor = f; os de C ≠ f: "perdeu para a exceção"  FIM
+                └─ mapa não exclusivo                → resultado = C ∪ F                          FIM
+
+4. MAPA NÃO EXCLUSIVO → resultado = C   FIM        (daqui em diante, só exclusivo)
+   |C| = 0 → sem território   FIM        |C| = 1 → vencedor   FIM
+
+5. DESEMPATE (sobre conjuntos)
+   5a PRIORIDADE      p(T) = prioridade da regra (1 = mais alta; sem = ∞); fica C = { T | p(T) = mín }
+   5b ESPECIFICIDADE  fica C = { T ∈ C | nenhum outro de C está abaixo de T na árvore de D }
+   |C| = 1 → vencedor   FIM
+
+6. CONFLITO (|C| ≥ 2): se a atribuição atual está em C, é mantida ("Permanece em conflito");
+   senão, sem território ("Conflito"). Nunca escolhe entre os empatados.
 ```
 
-Propriedades exigidas no pedido:
-- **Determinístico e reproduzível**: a ordem de avaliação não influencia; mesmos dados + mesma data = mesmo resultado
-  (o teste roda o motor com a entrada embaralhada).
-- **Explicável**: todo resultado carrega o passo que decidiu (3, 4, 5a, 5b, 6) e os candidatos.
-- **Auditável**: o que foi aplicado fica nos itens da operação, com a explicação congelada.
-- Mapa **não exclusivo**: passos 5 e 6 não existem; o cliente fica em todos os candidatos que sobraram.
+**Fixações múltiplas e inválidas (complemento aprovado).** Duas ou mais fixações vigentes do mesmo cliente num mapa
+exclusivo produzem **Conflito de fixação**; uma fixação que aponte para território encerrado, inexistente, de outro
+mapa ou incompatível produz **Fixação inválida**. Em nenhum dos dois casos o sistema escolhe outro território, e **não
+usa** prioridade, especificidade, ordem de cadastro, Id, data de criação ou ordem de consulta. As inconsistências:
+- impedem o planejamento de criá-las (validação ao incluir a mudança na operação);
+- se existirem mesmo assim (dado importado, mudança concorrente), aparecem na simulação e nas divergências com o
+  motivo, as exceções envolvidas e quem as criou;
+- **bloqueiam a aplicação** de qualquer operação do mapa enquanto existirem ("A operação produziria resultado inválido
+  para N clientes: resolva as inconsistências (encerrar ou corrigir as fixações) na própria operação e simule de
+  novo"). A atribuição atual do cliente não é mexida;
+- ficam registradas: a tentativa de aplicação recusada vai para a auditoria da operação, com a lista.
+
+**Por que cada critério vem antes do seguinte**
+
+| Ordem | Critério | Por quê |
+|---|---|---|
+| 0 | Universo | Fronteira do mapa definida por quem o configurou; nem exceção a atravessa. |
+| 1 | Regra | Única fonte de candidatos automáticos; o resto só remove candidatos ou impõe decisão humana. |
+| 2 | Retirar | Afirmação humana negativa: território retirado não concorre a desempate nenhum. |
+| 3 | Fixar | Decisão sobre o indivíduo vale mais que regra sobre o conjunto (mesmo princípio da exceção comercial). |
+| 5a | Prioridade | Declaração **explícita** vem antes de inferência (permite "Key Account ganha de Curvelo"). |
+| 5b | Especificidade | **Inferida da árvore**: filho descreve um recorte do pai; resolve MG × Curvelo sem configurar prioridade. |
+| 6 | Conflito | Empate real: sem informação para decidir. Manter a atual não é escolher: ela já era válida. |
+
+**Recusados como desempate:** quantidade de condições (propriedade da escrita, não do significado), contenção de
+conjuntos calculada pelos dados (um cliente novo mudaria o resultado de outros), nível numérico da árvore (só faz
+sentido no mesmo ramo), ordem de cadastro, Id, código, nome, data de criação e ordem de consulta.
+
+**Explicação** (sai do mesmo cálculo). Cada território do mapa recebe um estado: `Vencedor` (com o passo),
+`RetiradoPorExcecao`, `PerdeuParaExcecao`, `PerdeuPorPrioridade`, `PerdeuPorEspecificidade`, `Empatado`, `NaoAtende`
+(por grupo e, para um cliente, **por condição**: "UF do endereço de referência = SP; a regra pede MG"), `SemRegra`,
+`Inativo`; e o cliente pode ter `ConflitoDeFixacao` ou `FixacaoInvalida`. A tela responde "por que este?" e "por que não
+aquele?". Na aplicação, a explicação fica congelada no item da operação.
+
+**Propriedades e testes:** determinístico (só conjuntos; entrada embaralhada 50 vezes = mesmo resultado e explicação),
+reproduzível (mesma configuração em D + cadastro + atribuições = mesma assinatura), explicável (um teste por estado),
+testável sem banco. Casos: 0/1/2/3 candidatos; prioridade com e sem valor; ancestral × descendente; irmãos; prioridade
+que anula especificidade; Fixar × regra; Retirar que faz cair no próximo; **duas fixações**; **fixação em território
+encerrado**; conflito mantendo e sem a atual; mapa não exclusivo; fora do universo.
+
+**Aviso de configuração:** regra com prioridade num território com descendentes com regra → "MG tem prioridade 2:
+Curvelo e Montes Claros nunca vencerão MG para clientes que atendem às duas regras".
 
 ---
 
-## E. Máquinas de estado
+## 5. Endereço de referência (T16)
 
-```
-TERRITÓRIO     Planejado ──(operação aplicada)──► Ativo ──(operação que encerra)──► Encerrado
-               (criado dentro de uma operação;     (recebe atribuições)            (atribuições encerradas
-                não aparece para ninguém fora dela)                                  na mesma operação)
-
-COBERTURA      Rascunho ──(aplicada)──► Vigente ──(nova versão aplicada)──► Encerrada (fim = véspera)
-               Rascunho ──(operação cancelada)──► Descartada
-
-OPERAÇÃO       Rascunho ◄──(editar)── Simulada
-               Rascunho ──(simular)──► Simulada ──(aplicar: re-simula e confere a assinatura)──► Aplicada
-               Rascunho / Simulada ──(cancelar, com motivo)──► Cancelada
-               (Aplicada nunca volta: corrige-se com outra operação)
-
-ATRIBUIÇÃO     Vigente ──(operação)──► Encerrada (FimEm)       Futura = InicioEm > hoje (mesma linha)
-               Ativo = falso só para lançamento errado de importação/migração (fica no histórico)
-
-EXCEÇÃO        Planejada ──(aplicada)──► Vigente ──(fim ou operação)──► Encerrada
-               Planejada ──(operação cancelada)──► Cancelada
-```
-
-Estados que **não** criei: "Em revisão" e "Aprovado". Hoje o Lone não tem fluxo de aprovação e a separação real pedida
-(configurar ≠ pôr em vigor) já é garantida por Rascunho/Simulada × Aplicada, com permissões diferentes para planejar e
-aplicar. A máquina aceita um estado "Aguardando aprovação" entre Simulada e Aplicada no futuro, sem migração de dados
-(sugestão S4).
+As condições de endereço do catálogo usam qualquer endereço ativo (certo para a lista de Pessoas, errado para
+território). O mapa guarda a **finalidade do endereço de referência** (FK para o cadastro de finalidades; padrão
+Comercial ao criar, escolhida pelo usuário). Nas regras territoriais, as condições de endereço valem só para o endereço
+**marcado como principal dessa finalidade** (`PessoaEnderecoFinalidades.Principal`). Implementação na 2b-1b: parâmetro
+opcional `EnderecoReferencia` no `FiltrosPessoasSql.Contexto` (nulo = comportamento atual; a lista de Pessoas não
+muda). Sem endereço principal na finalidade → não atende às condições de endereço; explicação e divergência dizem por
+quê; não há endereço reserva. O motor avalia o cadastro no momento da simulação/aplicação (o cadastro de Pessoas não é
+versionado); a operação grava `AtributosAvaliadosEm`.
 
 ---
 
-## F. Fluxo de simulação
+## 6. Exceções (T2)
 
-```
-[Operação em rascunho]
-   │  mudanças planejadas: regra nova de "Açougues MG", exceção "Fixar ABC em Grandes Contas", efeito 01/10
-   ▼
-Simular ──► motor (seção D) com as coberturas/exceções do RASCUNHO no lugar das vigentes
-   │
-   ▼
-Resumo                                       Lista (paginada, filtrável, cada linha abre a explicação)
- Analisados 1.250 · Entram 87 · Saem 42       ABC Carnes  Açougues MG → Grandes Contas   passo 4 (exceção)
- Mudam 12 · Permanecem 1.109 · Conflitos 5    Açougue S.J.  — conflito: MG Norte × Curvelo  passo 5c
- Sem território 3 · Exceções preservadas 18
-   │
-   ▼
-Grava na operação: Situação = Simulada, SimuladaEm, contagens e a ASSINATURA (hash dos pares cliente→resultado)
-Não grava atribuição, não mexe na carteira, não gera nenhum efeito comercial.
-```
-
-## G. Fluxo de aplicação
-
-```
-Aplicar (permissão APLICAR, motivo já na operação)
-   │ 1. confere: operação Simulada · efeito dentro do limite · efeito ≥ última operação aplicada no mapa
-   │ 2. re-executa o motor
-   │ 3. assinatura diferente da simulada? ──► recusa: "A base mudou desde a simulação (N clientes).
-   │                                          Simule de novo e revise."  (operação volta a Rascunho)
-   ▼ 4. UMA transação (tudo ou nada):
-        · número TE-2026-0001 (numerador)
-        · territórios Planejados → Ativos; posições novas; encerrados
-        · coberturas: anterior encerrada na véspera, rascunho → Vigente a partir do efeito
-        · exceções Planejadas → Vigentes
-        · atribuições: encerra (FimEm = véspera) as que saem/mudam; abre as novas
-        · itens da operação (só mudanças e conflitos) com a explicação congelada
-        · operação → Aplicada (AplicadaEm, AplicadaPor, contagens finais)
-   ▼
-Resultado na tela = o mesmo resumo, agora com o número do documento.
-Falha em qualquer ponto → rollback completo; a operação continua Simulada.
-```
-
-Diferença consciente em relação à transferência de carteira (que grava cliente a cliente): um realinhamento
-territorial aplicado pela metade deixaria o mapa incoerente (clientes em dois territórios, conflitos falsos). Por isso
-aqui é tudo ou nada (T11).
-
-## H. Fluxo de reaplicação (e divergências)
-
-```
-Painel "Divergências de cobertura" do mapa  (motor rodando HOJE, sem gravar, contra as atribuições atuais)
-   ├─ Fora da regra ............ atribuído, mas a cobertura vigente não o encontra mais
-   ├─ Novo que atende .......... sem atribuição neste mapa e com candidato
-   ├─ Em conflito .............. empate não resolvido (inclui os mantidos por estabilidade)
-   ├─ Sem território ........... no universo e sem candidato
-   ├─ Por exceção .............. atribuído por Fixar (informativo; mostra o fim da exceção)
-   └─ Regra vencida ............ atribuído por uma versão que já foi encerrada e não por outra
-        │
-        ▼ ações (todas criam ou completam uma operação em rascunho, nunca gravam direto)
-        Simular reaplicação · Manter por exceção (Fixar) · Retirar · Mover para outro território
-        │
-        ▼
-     Simular → revisar → Aplicar (seções F e G)
-```
-
-Nada muda sozinho quando o cliente troca de cidade, CNAE, porte ou etiqueta. Na ficha do cliente, aba Comercial, o
-aviso aparece para aquele cliente: "Atribuição desatualizada em Geografia: o cliente não atende mais a MG Norte".
+Campos: cliente, mapa, território, tipo, início, fim?, motivo (obrigatório), origem (*Manual*, *Divergência*,
+*Importação*), operação que criou, operação que encerrou, quem e quando (da operação), auditoria.
+Regras: nascem e terminam antes do fim só por operação; num mapa exclusivo, no máximo um Fixar vigente por cliente
+(domínio + índice); Fixar e Retirar do mesmo território sobrepostos: recusado; Fixar só para cliente do universo e
+território ativo; nunca altera a regra; quando o fim chega nada muda sozinho (divergência "Exceção vencida", com dias
+restantes e aviso antes do fim, padrão de UX de períodos); "Mover de A para B" = Retirar A + Fixar B.
 
 ---
 
-## I. Histórico: como cada pergunta é respondida
+## 7. Máquinas de estado
 
-| Pergunta | Resposta (sem inferência) |
+```
+TERRITÓRIO   Ativo ──(encerrar: sem uso, direto; com uso, por operação)──► Encerrado
+             Encerrado ──(reativar: só sem uso)──► Ativo
+
+REGRA        (publicada pela operação) Vigente ──(nova versão ou encerrar regra)──► Encerrada (fim = véspera)
+             mesma data de efeito substituída por outra operação → Anulada (Ativo = 0)
+
+OPERAÇÃO     Rascunho ◄──(editar)── Simulada
+             Rascunho ──(simular)──► Simulada ──(aplicar: re-simula, confere assinatura e inconsistências)──► Aplicada
+             Rascunho / Simulada ──(cancelar, com motivo)──► Cancelada
+             Aplicada ──(desfazer, só antes do efeito, com motivo)──► Desfeita        (T15)
+
+ATRIBUIÇÃO   Vigente ──(operação)──► Encerrada (FimEm)   ·  futura = InicioEm > hoje  ·  Anulada (Ativo = 0)
+
+EXCEÇÃO      Vigente ──(fim ou operação)──► Encerrada   ·   Anulada (operação desfeita ou mesma data)
+```
+
+---
+
+## 8. Vigência, histórico e T15
+
+- `DateOnly`, período fechado: vigente em D ⇔ `InicioEm ≤ D ≤ (FimEm ?? ∞)`; encerrar = `FimEm = D − 1`.
+- Operação com efeito futuro grava linhas "a partir de".
+- Duas operações no mesmo dia de efeito: a linha aberta pela primeira com início em D é **anulada** (`Ativo = 0`,
+  apontando para a operação que anulou) e fica no histórico.
+- **Desfazer operação futura (T15)** é uma ação de negócio, não uma exclusão: exige permissão APLICAR e motivo; só é
+  aceita enquanto `EfeitoEm > hoje` (depois do efeito, corrige-se com nova operação). Grava na operação: `DesfeitaPor`,
+  `DesfeitaEm` (data e hora), `DesfeitaMotivo`, `DesfazerSolicitadoEm` (data da solicitação), situação anterior
+  (Aplicada) e posterior (Desfeita), mais o evento na auditoria. Efeito: anula as linhas que ela abriu e reabre as que
+  ela fechou com fim futuro. A operação, os itens e a explicação continuam intactos.
+- Árvore: uma linha por período em `TerritorioPosicoes`; "a árvore em D" sai direto dela. Sem uso, mover só corrige a
+  posição aberta (nada dependia dela; a auditoria registra).
+
+---
+
+## 9. Concorrência
+
+1. **Número TE-** (T12): `NumeracoesDocumento`, incremento atômico (`UPDATE … SET Ultimo = Ultimo + 1 OUTPUT
+   inserted.Ultimo`); primeiro do ano por inserção protegida pela PK, repetida uma vez. Número dado **ao criar o
+   rascunho**, em transação curta (operação cancelada guarda o número; buraco aceitável em documento interno).
+2. **Aplicações simultâneas no mesmo mapa**: o primeiro comando da aplicação atualiza o mapa com a versão lida
+   (rowversion); a segunda recebe conflito ("simule de novo").
+3. **Mudanças estruturais da árvore** (criar, mover, mudar "existe desde", encerrar, reativar território) exigem a
+   **versão da árvore que a tela mostrava** e a trocam na mesma transação, na trava própria `MapaTerritorialArvores`
+   (D1 = B, 29/09). Duas mudanças simultâneas que juntas formariam ciclo (A→B e B→A) não passam: a segunda falha no banco
+   e nada dela é gravado; quem decidiu olhando uma árvore velha é avisado. A ficha do mapa tem a versão dela, separada:
+   mexer na árvore não a invalida (desativar/reativar o mapa, sim, troca a versão da árvore). Proteção tripla: regra no
+   domínio + serialização pela trava + gatilho de ciclo/níveis no banco.
+4. **Assinatura da simulação**: hash de (efeito; por cliente: resultado, território, versão da regra, exceção; versões
+   das regras; versão do mapa).
+5. Cliente editado durante a aplicação: vale o que foi lido no início; a mudança aparece na próxima divergência.
+
+---
+
+## 10. Integridade da hierarquia
+
+- Pai no mesmo mapa **garantido pelo banco**: AK `(MapaId, Id)` + FK composta `(MapaId, PaiId)`; o mesmo nas
+  posições, atribuições e exceções (`(MapaId, TerritorioId)`).
+- `MapaId` do território é imutável. Ciclo: domínio (sobe os ancestrais do novo pai) + serialização (seção 9) + gatilho
+  `TR_Territorios_Arvore` (erro 50071), que vale também para gravações feitas direto no banco.
+- Profundidade máxima: 12 níveis (proteção), no domínio e no mesmo gatilho.
+- Posições do mesmo território não se cruzam: índice único (uma aberta) + gatilho `TR_TerritorioPosicoes_SemSobreposicao`
+  (erro 50072). Pai do território = pai da posição aberta: conferido no fim da gravação, na mesma transação (são duas
+  tabelas gravadas em comandos separados; um gatilho veria o passo intermediário).
+- Nome único entre irmãos ativos (domínio + índice filtrado); código único no mapa.
+- Encerrar com descendentes ativos: recusado. Pai encerrado não recebe filhos.
+- Mover/encerrar/reativar com uso na subárvore: só por operação (T18); sem uso: livre (T14).
+
+---
+
+## 11. Comportamentos
+
+| Situação | Comportamento |
 |---|---|
-| Onde este cliente estava há seis meses? | `AtribuicoesTerritorio` com `InicioEm ≤ d ≤ FimEm` (ou aberta), por mapa. |
-| Por que ele está neste território? | A atribuição vigente: origem, versão da cobertura (número + critérios congelados), exceção, operação (número, data de efeito, quem aplicou, motivo). |
-| Por que NÃO foi para aquele? | Hoje: o motor explica o cliente ao vivo (candidatos, exceções, passo que decidiu). No passado: a `Explicacao` do item da operação que o colocou onde está. |
-| Qual regra valia para o território em 15/08? | A versão de `CoberturasTerritorio` com vigência nessa data. |
-| O que era o "Sudeste" em março? | `TerritorioPosicoes` na data → a árvore daquele dia (para indicadores e metas históricas). |
-| Quem era responsável pelo território / pelo cliente em uma data? | `TerritorioResponsaveis` na data; o vendedor continua vindo da carteira na data (tela já existente). |
-| Quem executou, quando e por quê? | A operação (usuário, data/hora, efeito, motivo) + `RegistroAuditoria` dos cadastros. |
-
-Data de efeito, data solicitada e data da operação: a operação guarda `EfeitoEm` (pedida e efetiva são a mesma: o
-sistema não ajusta a data escolhida; se ela não é aceita, recusa) e `AplicadaEm` (quando foi executada).
+| Território sem regra | Nó agregador; recebe só por Fixar; soma os descendentes. |
+| Cliente sem território | Aparece em "Sem território" com o motivo; atribuição anterior só encerra por operação. |
+| Cliente em conflito | Mantém a atual se empatada; senão sem território; resolve-se por prioridade, árvore ou exceção, via operação. |
+| Conflito de fixação / fixação inválida | Inconsistência: nada é escolhido, a atual não muda, a aplicação é bloqueada até resolver. |
+| Regra alterada | Nova versão na operação; anterior termina em D − 1; critérios congelados. |
+| Regra encerrada | Clientes só dela saem na mesma operação (ou ficam por Fixar). |
+| Território encerrado | Por operação e sem descendentes ativos: regra, atribuições, Fixar e responsáveis terminam; clientes reavaliados. |
+| Exceção vencida | Divergência "Exceção vencida"; nada muda sozinho. |
+| Cliente mudou de endereço/CNAE/etiqueta | Divergência + aviso na ficha; nada muda sozinho. |
+| Pessoa desativada | Sai do universo; a próxima operação encerra a atribuição. |
 
 ---
 
-## J. Compatibilidade futura (a pergunta do item 42)
+## 12. Multiempresa
 
-| Módulo futuro | Como usa sem quebrar o modelo |
+`MapasTerritoriais.EmpresaId` (nulo = grupo todo), travado depois do uso. Universo de mapa de empresa: classificação
+**e** conta de cliente válida para a empresa (própria ou padrão). A atribuição não copia a empresa (vem do mapa). A
+cópia de `Exclusivo` é amarrada por FK composta a `Mapas(Id, Exclusivo)`, o que também impede mudar a exclusividade de
+um mapa em uso. A mesma pessoa pode estar em mapas de empresas diferentes sem conflito.
+
+---
+
+## 13. Princípio para Vendas, Oportunidades, Comissões e Metas (aprovado)
+
+- **P-T1** Todo documento comercial grava, no momento do fato, para cada mapa marcado "registrar nos documentos":
+  `AtribuicaoTerritorioId`, `TerritorioId`, código e nome congelados, e o vendedor da carteira na data.
+- **P-T2** Relatório histórico, comissão, meta, indicador, ranking e fechamento leem o documento; nunca recalculam o
+  território pelo cadastro atual (venda de 2026 em MG Norte com João continua assim depois da reorganização de 2027).
+- **P-T3** Período fechado congela o apurado; operação retroativa não altera período fechado (com fechamento, a T8 ganha
+  a trava "não antes do último período fechado").
+
+---
+
+## 14. Permissões
+
+| Permissão | Dá direito a | Entrega |
+|---|---|---|
+| `TERRITORIOS.VISUALIZAR` | Ver tipos, mapas, árvore, responsáveis, histórico (e na 2b-1b: regras, operações, divergências; clientes filtrados pelo alcance) | 2b-1a |
+| `TERRITORIOS.CONFIGURAR` | Tipos, mapas, territórios sem uso (criar, mover, encerrar, reativar) e responsáveis | 2b-1a |
+| `TERRITORIOS.PLANEJAR` | Operações em rascunho e simulação (alcance Tudo) | 2b-1b |
+| `TERRITORIOS.APLICAR` | Aplicar, cancelar e desfazer (alcance Tudo) | 2b-1b |
+
+---
+
+## 15. Performance
+
+Motor por conjunto: uma consulta por grupo de condições devolve ids; união/subtração no banco ou em memória. Gravação
+só das mudanças, em lotes de 1.000 na mesma transação. Se um mapa passar do limite prático (ex.: 300 mil clientes ou
+60 s), aplicação em segundo plano com a mesma lógica (S6).
+
+---
+
+## 16. Entregas
+
+### 2b-1a — Estrutura (autorizada)
+
+- **Migration `Fase2b1Territorios`** (gerada pelo usuário, revisada antes de iniciar a API), só aditiva: tabelas 1 a 6 e
+  os três tipos de sistema.
+- **Domínio:** entidades; `RegrasArvoreTerritorial` (código, nome entre irmãos, pai no mesmo mapa, ciclo, profundidade,
+  pai ativo, uso na subárvore, encerrar/reativar); `RegrasMapaTerritorial` (código, nome, universo, finalidade,
+  empresa; campos travados com uso); `RegrasTipoTerritorio`; `RegrasResponsavelTerritorio` (pessoa **ou** equipe,
+  função = papel comercial, quem pode ser, sobreposição, histórico não reescrito, dentro da vida do território).
+- **Uso operacional:** a interface `IUsoTerritorial` responde "quais territórios têm regra publicada ou atribuição" e "o
+  mapa está em uso". Na 2b-1a as tabelas do motor não existem, então a resposta é sempre "nenhum". A 2b-1b só troca a
+  implementação: nenhuma regra nem tela muda.
+- **Serialização:** mudança estrutural grava o território e atualiza a versão do mapa na mesma gravação, com a versão
+  lida antes da validação (seção 9.3).
+- **Permissões** VISUALIZAR e CONFIGURAR; **API**; **telas**: Tipos de território e Mapas territoriais (Comercial ›
+  Configurações › Territórios) e **Territórios** (Comercial › Territórios: mapa, árvore com busca, ficha com Dados,
+  Responsáveis e Histórico da posição).
+- **Testes:** domínio, aplicação, cliente, modelo EF e banco real (pulados sem `LONE_TESTES_SQLSERVER`), incluindo A→B
+  e B→A simultâneos.
+
+### 2b-1b — Motor (depois da 2b-1a testada)
+
+Tabelas 7 a 13 (migration própria); `UsavelEmCobertura` no catálogo; endereço de referência no `FiltrosPessoasSql`;
+`MotorAtribuicao`; regras e exceções; operação (rascunho, mudanças, simular, aplicar, cancelar, desfazer);
+inconsistências; divergências; explicação; aba Comercial da ficha; permissões PLANEJAR e APLICAR; `IUsoTerritorial`
+real; TR- passando a usar o numerador (entrega própria, sem mudar números emitidos).
+
+### Depois
+
+2b-2 (Meus territórios no escopo, filtro Território em Pessoas, território na carteira em uma data, indicadores) e 2c
+(distribuição e capacidade), com planos próprios.
+
+---
+
+## 17. Sugestões além do pedido
+
+S1 sincronizar carteira pelo território (gera transferência `TR-` em prévia) · S2 território gravado nos documentos
+(virou P-T1) · S3 planejamento anual com efeito futuro · S4 dupla checagem "quem planeja não aplica" · S5 capacidade
+avisando na simulação · S6 processamento em segundo plano · S7 mapa visual por UF/município · S8 atribuição ao salvar o
+cliente (parâmetro do mapa) · S9 operação agendada para o fim das exceções.
+
+---
+
+## 18. Andamento
+
+- 28/09 — revisão arquitetural (T1–T14).
+- 29/09 05h39 — aprovação T1–T14 com ajustes; pedido de fechar o T3.
+- 29/09 — revisão final (T3 exato, T15–T20).
+- 29/09 07h19 — aprovação T3 (com fixações múltiplas) e T15–T20; início da 2b-1a.
+- 29/09 — 2b-1a entregue para compilar e testar (seção 19). Sem commit.
+- 29/09 12h24 — build 0/0; 1523 aprovados; `BancoTerritorios` 8/8 no SQL Server. Teste de telas feito (roteiro completo).
+- 29/09 13h15 — D1 = **B** e auditoria "padrão de ERP maduro" (seção 20). Sem commit.
+
+## 19. Relatório da 2b-1a (entregue em 29/09/2026, sem commit, aguardando compilação e testes do usuário)
+
+**Banco — migrations `Fase2b1Territorios` (aplicada) e `Fase2b1ResponsaveisSemSobreposicao` (o gatilho).** Só aditivas:
+seis tabelas novas e um gatilho; nenhuma coluna de tabela existente muda.
+
+| Tabela | Chaves, índices e restrições |
 |---|---|
-| **Vendas / pedidos** | O pedido grava o território do cliente **no momento da venda** (cópia do `TerritorioId` por mapa). Relatório de venda por território não depende de recalcular o passado. |
-| **Oportunidades** | Mesma cópia na criação; a oportunidade pode herdar o território do cliente ou ser atribuída pelo mesmo motor (a chave é a Pessoa). |
-| **Leads / prospects** | Entram mudando o **universo do mapa** (classificação Prospect). Nenhuma tabela nova para eles. |
-| **Carteiras** | Continuam independentes; "Sincronizar carteira pelo território" pode virar uma ação que gera uma **transferência de carteira** (mecanismo já existente) a partir dos responsáveis (sugestão S1). |
-| **Comissões** | Pagam pelo território gravado na venda + responsáveis na data (vigência) — nada é recalculado. |
-| **Metas** | `NivelParticipante` ganha `Territorio`; o realizado soma os clientes atribuídos ao nó e aos descendentes pela árvore da data (`TerritorioPosicoes`). |
-| **Indicadores** | Clientes por território/responsável/origem, entradas e saídas, permanência média, conflitos: tudo sai de `AtribuicoesTerritorio` + itens das operações. Nenhum dado reconstruído. |
-| **Equipes / "Meus territórios" (2b-2)** | Usuário → Pessoa → (Equipe) → `TerritorioResponsaveis` vigente → territórios → descendentes → atribuições. Entra como mais uma fonte no `RegrasEscopo`, sem mudar tabela. |
-| **Multiempresa** | O mapa tem `EmpresaId` (nulo = grupo todo); a atribuição copia a empresa. Duas empresas podem ter mapas próprios ou compartilhar um. A mesma pessoa pode estar no território X da empresa A e no Y da empresa B sem conflito (mapas diferentes). |
+| `TiposTerritorio` | PK; UQ `Codigo`; UQ `Nome` (Latin1_General_CI_AI); 3 linhas iniciais (Geográfico, Segmento, Estratégico) |
+| `MapasTerritoriais` | PK; UQ `Codigo`; UQ `Nome`; FK `EmpresaId` → Pessoas; FK `FinalidadeEnderecoReferenciaId` → FinalidadesEndereco (obrigatória) |
+| `MapaTerritorialClassificacoes` | PK; UQ (`MapaId`, `PapelId`); FK → Papeis |
+| `Territorios` | PK; **AK (`MapaId`, `Id`)**; **FK composta (`MapaId`, `PaiId`) → (`MapaId`, `Id`)**; FK Mapa, Tipo; UQ (`MapaId`, `Codigo`); UQ filtrado (`MapaId`, `PaiId`, `Nome`) WHERE `Situacao` = 0; CK `Situacao` × `FimEm` |
+| `TerritorioPosicoes` | PK; FK composta (`MapaId`, `TerritorioId`) e (`MapaId`, `PaiId`) → AK; UQ filtrado (`TerritorioId`) WHERE `FimEm` IS NULL AND `Ativo` = 1; CK `FimEm` ≥ `InicioEm`; IX (`MapaId`, `PaiId`, `InicioEm`) |
+| `TerritorioResponsaveis` | PK; FK Pessoa, Equipe, TiposCarteira (função); CK pessoa **ou** equipe; CK período; IX (`PessoaId`, `FimEm`), (`EquipeId`, `FimEm`); gatilho de sobreposição (erro 50070), criado pela migration com `SqlMigracaoTerritorios.CriarProtecao` |
+
+Nada apaga em cascata (Restrict/NoAction em todas as FKs).
+
+**Entidades e regras.** `TipoTerritorio`, `MapaTerritorial` (+ `MapaTerritorialClassificacao`), `Territorio`
+(+ `TerritorioPosicao`, `TerritorioResponsavel`), `SituacaoTerritorio`. Regras no domínio: `RegrasCadastroTerritorial`
+(código estável, textos, tipo), `RegrasMapaTerritorial` (universo, endereço de referência, travas com uso, desativação),
+`RegrasArvoreTerritorial` (pai no mesmo mapa, ciclo direto e indireto, 12 níveis, nome entre irmãos ativos, "existe desde"
+coerente com pai e filhos, uso na subárvore, posições, encerrar e reativar), `RegrasResponsavelTerritorio` (pessoa ou
+equipe, "Quem pode ser" da função, sobreposição, histórico não reescrito, dentro da vida do território).
+
+**Concorrência.** Mudança de estrutura (criar, mover, mudar "existe desde", encerrar, reativar): o primeiro comando da
+transação é `UPDATE MapasTerritoriais SET AtualizadoEm = … WHERE Id = @mapa AND Versao = @lida` (LINQ `ExecuteUpdateAsync`,
+parametrizado), com a versão lida **antes** da conferência. Zero linhas = outra mudança de estrutura gravou no meio →
+nada é gravado ("Outra mudança na árvore deste mapa foi gravada ao mesmo tempo…"). Vir primeiro também evita impasse.
+Renomear, mudar tipo/descrição e responsáveis não serializam pelo mapa.
+
+**Responsáveis (aprovado em 29/09, 08h56).** Três camadas: (1) a regra no domínio (`RegrasResponsavelTerritorio`); (2) o
+**gatilho** `TR_TerritorioResponsaveis_SemSobreposicao`, no padrão do gatilho da carteira, que barra também gravações feitas
+direto no banco — chave: mesmo território + mesma função + mesma pessoa **ou** mesma equipe, só linhas ativas, fim nulo =
+aberto, dia do fim conta; (3) a **trava de versão do território**: toda alteração de um território existente começa, dentro
+da transação, por `UPDATE Territorios … WHERE Id = @id AND Versao = @aberta` (depois da trava do mapa, quando houver,
+sempre nessa ordem). Dois usuários incluindo responsáveis conflitantes na mesma versão: o segundo espera nessa primeira
+linha, é recusado pela versão e não grava nada. Responsáveis alterados passam antes pela interseção do período antes ×
+depois (dois passos, como a carteira), para que o gatilho nunca veja um estado intermediário falsamente sobreposto.
+
+**Telas.** Comercial › **Territórios** (mapa, árvore com recuo, caminho, busca, "Mostrar encerrados"; ficha com Dados,
+Responsáveis e Histórico da posição; "+ Território abaixo deste", Encerrar, Reativar); Comercial › Configurações ›
+Territórios › **Mapas territoriais** e **Tipos de território**. Permissões `TERRITORIOS.VISUALIZAR` e
+`TERRITORIOS.CONFIGURAR` (quem configura também enxerga; quem só visualiza vê a ficha travada).
+
+**Testes novos (52):** domínio 23 (`Dominio/TerritoriosTests`), aplicação 8 (`Aplicacao/TerritorioAppServiceTests`, inclui
+A→B × B→A intercalados), cliente 6 (`Cliente/TerritoriosTelasTests`), modelo EF 7 (`Infraestrutura/ModeloTerritoriosTests`)
+e banco real 8 (`Infraestrutura/BancoTerritoriosTests`: FK composta, posição aberta dupla, CKs, nome entre irmãos,
+A→B × B→A **simultâneos**, gatilho de sobreposição direto no banco sem falso positivo, dois usuários incluindo responsáveis
+conflitantes ao mesmo tempo, rollback completo quando o gatilho barra, e reorganização de períodos sem falso positivo —
+pulados sem `LONE_TESTES_SQLSERVER`). Resultado do usuário antes do gatilho: 1523 aprovados, 0 falhas, 26 ignorados. Ajustados:
+`MenuLateralTests`, `ConfiguracoesViewModelTests` (item de menu e grupo de configuração novos). Revisão independente por
+agente, sem compilar: 2 falhas de teste encontradas e corrigidas; nenhum erro de compilação encontrado.
+
+**Plano × implementado**
+
+| Plano | Implementado | Observação |
+|---|---|---|
+| Tabelas 1 a 6 | Iguais à seção 3 | — |
+| Território `FimEm` | `FimEm` = último dia; encerrar sem uso: hoje é o último dia | responsáveis vigentes terminam hoje; os que nem começaram são anulados |
+| "Existe desde" | Sem coluna nova: é o início da primeira posição | editável só sem uso; não pode ser futuro, nem antes do pai, nem depois dos filhos |
+| Uso operacional | `IUsoTerritorial`, sempre vazio na 2b-1a | a 2b-1b só troca a implementação |
+| Serialização (9.3) | `ExecuteUpdateAsync` como primeiro comando da transação | ver divergência D1 |
+| Permissões | VISUALIZAR e CONFIGURAR | CONFIGURAR também dá leitura (decisão de implementação, sem efeito no banco) |
+| Mapa desativado | Árvore só para consulta; mapa em uso não desativa (regra pronta para a 2b-1b) | — |
+| Largura da lista | `LayoutMestreDetalhe` ganhou largura opcional (a árvore usa 420) | compatível com todas as telas |
+
+**Divergências e pontos para decidir**
+
+- **D1 — resolvida em 29/09 (13h15): opção B**, implementada como descrito na seção 20.
+- Com uso na subárvore, um "existe desde" diferente enviado direto pela API é recusado (não descartado em silêncio).
+- Verificação de 29/09 (08h53), confirmada pelo usuário: `PapelId` do universo = a classificação da pessoa (cadastro de
+  Papéis), como na T9 e no "Quem pode ser" do papel comercial; "Existe desde" = menor início das posições, corrigível só sem
+  uso (T14, auditado), sem histórico artificial.
+- Acrescentado a pedido (29/09, 08h56): gatilho de sobreposição dos responsáveis + trava de versão do território na
+  gravação + testes de banco real. Como a `Fase2b1Territorios` já tinha sido aplicada no banco de desenvolvimento (a API
+  aplica ao iniciar; 0 territórios e 0 responsáveis gravados), ela **não foi reescrita**: o gatilho entrou numa segunda
+  migration, `Fase2b1ResponsaveisSemSobreposicao` (sem operação de esquema; Up = `SqlMigracaoTerritorios.CriarProtecao`,
+  Down = `RemoverProtecao`), no mesmo formato da `CarteiraSemSobreposicao`. Divergência consciente da T19 (uma migration
+  por entrega): a 2b-1a ficou com duas.
+
+## 20. Trava da árvore (D1 = B) e proteções no banco (29/09/2026, sem commit)
+
+Pedido do usuário: "o sistema o mais seguro", no padrão de ERPs maduros — falhar cedo na aplicação, proteger
+definitivamente no banco, conflito sempre explícito, histórico preservado.
+
+**Auditoria (o que já estava no padrão e não mudou):** gatilho dos responsáveis (conjunto, várias linhas, só ativos, fim
+nulo = aberto, dia do fim conta, pessoa × equipe separadas, rollback total, Down só remove o gatilho); reorganização de
+períodos em dois passos; trava de versão do território; dois usuários com responsáveis conflitantes; histórico nunca
+apagado nem reescrito; auditoria existente (usuário, data, motivo, antes/depois) reaproveitada.
+
+**Mudanças:**
+- `MapaTerritorialArvores` (PK `MapaId` → `MapasTerritoriais`, `Versao` rowversion, `AtualizadoEm`; fora da auditoria:
+  controle técnico). Mapa novo nasce com a sua; a migration cria uma para cada mapa existente.
+- API: `GET territorios?mapaId=` devolve `ArvoreTerritorialDto` (versão lida **antes** dos territórios + lista);
+  `TerritorioDto.VersaoArvore` e `AlterarSituacaoTerritorioRequisicao.VersaoArvore` exigidas em mudança de estrutura.
+  Sem a versão: validação; versão velha: conflito, recusado **antes** da conferência e de novo na gravação.
+- Mensagens: árvore velha — "A árvore deste mapa foi alterada por outro usuário (ou em outra janela) enquanto esta tela
+  estava aberta. Nada foi salvo…"; ficha do mapa velha — "O mapa territorial foi alterado por outro usuário enquanto esta
+  tela estava aberta. Nada foi salvo: recarregue os dados antes de salvar."
+- Gatilhos novos (READCOMMITTEDLOCK nas leituras): `TR_Territorios_Arvore` (ciclo e 12 níveis, 50071) e
+  `TR_TerritorioPosicoes_SemSobreposicao` (50072). Recusa do banco vira mensagem própria, nunca erro SQL cru.
+- Conferência final da posição aberta no repositório (erro interno se não conferir; nada é gravado).
+- Reativar recusa território sem posição válida (antes seria erro interno).
+
+**Migration `Fase2b1TravaArvore`** (terceira, porque a segunda já estava aplicada): CreateTable da trava (EF) + no fim do
+Up `PreencherTravasDaArvore`, `CriarProtecaoArvore`, `CriarProtecaoPosicoes`; no começo do Down
+`RemoverProtecoesArvore` (depois o EF retira a tabela). As duas anteriores não mudam.
+
+**Limite consciente:** o gatilho dos responsáveis (migration 2, já aplicada) não tem READCOMMITTEDLOCK. Só importaria com
+READ_COMMITTED_SNAPSHOT ligado **e** duas gravações simultâneas feitas por fora da aplicação; pela aplicação a trava do
+território já serializa. Se um dia o banco ligar RCSI, recriar o gatilho com a dica.
+
+**Testes acrescentados:** domínio 10 casos de sobreposição (Theory de 9 + territórios diferentes); aplicação 2
+(árvore velha recusada antes de conferir, inclusive encerrar; sem versão); modelo 1 (trava e gatilhos); banco real 7
+(várias linhas no mesmo INSERT e UPDATE; ciclo e 13 níveis direto no banco; posições que se cruzam; árvore velha sem gravar
+nada; cadastro do mapa × árvore sem conflito falso e desativação invalidando a árvore vista; mapa novo com trava;
+conferência final; histórico de responsáveis/posições/auditoria depois de trocar e encerrar).
+
+## 21. Auditoria final da 2b-1a (29/09/2026, 17h, sem commit)
+
+- **Achado 1 (bloqueante, corrigido):** a migration `Fase2b1TravaArvore` não existia (modelo com a trava e os gatilhos,
+  snapshot sem). Gerada pelo usuário (`20260929195958`); no Up, depois do CreateTable, `PreencherTravasDaArvore`,
+  `CriarProtecaoArvore`, `CriarProtecaoPosicoes`; no Down, `RemoverProtecoesArvore` antes do DropTable.
+- **Achado 2 (real, corrigido):** o gatilho 50070 sem READCOMMITTEDLOCK deixava duas gravações simultâneas feitas por fora
+  confirmarem sobreposição com READ_COMMITTED_SNAPSHOT ou SNAPSHOT — e o **LoneERP está com RCSI ligado**. Correção na
+  migration `Fase2b1ResponsaveisConcorrencia` (`20260929200500`, sem esquema): `ReforcarProtecaoConcorrencia` (CREATE OR
+  ALTER com a dica); Down = `DesfazerReforcoProtecaoConcorrencia` (texto exato da migration 2). O "limite consciente" da
+  seção 20 deixou de existir.
+- Testes de banco agora rodam no padrão do SQL Server e com RCSI/SNAPSHOT (`BancoTerritoriosTests` e
+  `BancoTerritoriosRcsiTests`), incluindo duas transações simultâneas de verdade; `MigracaoTerritoriosTests` aplica as
+  migrations reais num banco temporário (Up, trava do mapa antigo, gatilhos, Down, Up).
+- Resultado: build 0/0; `dotnet test` 1614/0/0; `BancoTerritorios` 52/0/0; migrations 3/0/0.
+- Pendente de decisão: gatilho da carteira (`TR_CarteiraClientes_SemSobreposicao`) tem a mesma forma de ler (sem a dica).
 
 ---
 
-## K. Regras de negócio (tabela pedida no item 38)
+## Apêndice — diagnóstico do código (28/09, commit `c75dce3`)
 
-| Regra | Comportamento |
-|---|---|
-| Cliente atende uma regra | Candidato único → atribuído com origem Regra, versão e operação. |
-| Cliente atende várias regras | Mapa exclusivo: prioridade → mais profundo na árvore → senão conflito. Mapas diferentes: fica em todos. |
-| Cliente não atende nenhuma | Sem território naquele mapa; aparece em "Sem território". Se tinha atribuição, ela é encerrada **só** quando uma operação for aplicada. |
-| Cliente possui exceção (Fixar) | Vence a regra enquanto vigente; os candidatos perdedores ficam na explicação. |
-| Inclusão manual | É o "Fixar" (num mapa não exclusivo, soma aos outros territórios). |
-| Exclusão manual | É o "Retirar": o território deixa de ser candidato; o cliente cai no próximo candidato ou fica sem. |
-| Override (A → B) | Ação "Mover": cria Retirar de A + Fixar em B na mesma operação, com o mesmo motivo. |
-| Regra muda | Nova versão em rascunho dentro de uma operação; ao aplicar, a anterior encerra na véspera do efeito. |
-| Território muda de pai | Posição nova com vigência a partir do efeito; a anterior encerra. Atribuições não mudam (são do nó). |
-| Responsável muda | Encerra o vínculo atual (fim) e inclui o novo (início). Não passa por operação (não muda atribuição). |
-| Cliente deixa de atender | Divergência "Fora da regra"; nada muda até uma operação ser aplicada. |
-| Regra vencida | Versão encerrada sem substituta → divergência "Regra vencida"; a próxima operação reavalia. |
-| Território encerrado | Só por operação: suas atribuições encerram na véspera do efeito e os clientes são reavaliados no mesmo motor (podem ir para outro nó). |
-| Reaplicação | Sempre: simular → revisar → aplicar. Nunca automática nesta fase. |
-| Simulação | Não grava atribuição, carteira nem efeito comercial; grava só o resumo e a assinatura na operação. |
-| Aplicação | Grava tudo da seção G, em uma transação, com número de documento. |
-| Data retroativa | Até `DiasRetroativosMaximo` e nunca antes do efeito da última operação aplicada no mesmo mapa. |
-| Conflito | Não resolvido nunca escolhe sozinho; mantém a atual se ela é uma das empatadas. Resolve-se com prioridade ou exceção. |
-| Multiempresa | Isolado por mapa (empresa do mapa); agregação do grupo = mapas com empresa nula. |
-| Cliente novo | Fica sem território até a próxima operação (aparece em "Novo que atende"). |
-| Pessoa desativada | Sai do universo; a próxima operação encerra a atribuição (e mostra como "Sai"). |
-
----
-
-## L. Segurança e permissões
-
-| Permissão | Dá direito a |
-|---|---|
-| `TERRITORIOS.VISUALIZAR` | Ver mapas, árvore, responsáveis, regras, operações, divergências e o histórico. Lista de clientes filtrada pelo alcance de quem consulta (escopo 2a). |
-| `TERRITORIOS.CONFIGURAR` | Tipos, mapas (universo, exclusividade) e responsáveis. |
-| `TERRITORIOS.PLANEJAR` | Criar/editar operações em rascunho (territórios novos, mover, encerrar, regras, exceções) e simular. |
-| `TERRITORIOS.APLICAR` | Aplicar e cancelar operações. |
-
-Por que quatro e não dez: simular não tem efeito e faz parte de planejar; exceção e encerramento só existem dentro de
-uma operação (logo, planejar + aplicar já as controlam); histórico faz parte de ver. Na 2b-1, planejar e aplicar exigem
-alcance **Tudo** (a operação mexe no mapa inteiro); restringir ao próprio território fica para a 2b-2.
-
----
-
-## M. Performance
-
-- O motor é por **conjunto**, nunca por cliente: uma consulta por grupo de condições devolve só ids; união e subtração no
-  banco (`UNION`/`EXCEPT` via LINQ) ou em memória (100 mil Guids ≈ 1,6 MB).
-- Estimativa: 100 mil clientes × 200 territórios com 2 grupos cada = ~400 consultas indexadas (os campos do catálogo já
-  usam índices), e a memória guarda só os pares que batem.
-- Gravação: só as mudanças (entram/saem/mudam), em lotes de 1.000 dentro da mesma transação.
-- Simulação paginada na tela; contagens vêm do resultado já calculado.
-- Se um mapa passar do limite prático (ex.: 300 mil clientes ou 60 s), a aplicação vira tarefa em segundo plano com a
-  mesma lógica (sugestão S6). Não é necessário agora.
-
----
-
-## N. Testes (além dos do pedido, item 39)
-
-- **Domínio (motor puro)**: 1, 2 e 3 candidatos; prioridade; profundidade; empate → conflito; conflito mantendo a atual;
-  Fixar × regra; Retirar → cai no próximo; Mover; mapa não exclusivo; entrada embaralhada = mesmo resultado; universo.
-- **Árvore**: criar, mover, ciclo direto e indireto (A→B→C→A), mover para outro mapa (recusado), encerrar com
-  descendentes ativos (recusado), posição histórica em data.
-- **Cobertura**: versão nova encerra a anterior na véspera; vigência em data; grupos OU; grupos de exclusão; campo não
-  permitido em cobertura recusado; critérios congelados.
-- **Operação**: rascunho → simulada → aplicada; aplicar sem simular (recusado); base mudou → recusado; cancelar;
-  retroativo dentro/fora do limite; antes da última operação (recusado); número único sob concorrência; rollback total
-  quando um passo falha.
-- **Permissões**: só visualizar; planejar sem aplicar; aplicar; alcance restrito recusado para planejar.
-- **Integridade** (testes de banco na Infraestrutura): duas atribuições abertas no mesmo mapa exclusivo; responsável
-  com pessoa e equipe; período invertido; duas versões vigentes.
-- **Arquitetura**: nenhuma consulta de pessoas nova fora do `CoberturaTerritorialSql` sem o comentário "Sem escopo:".
-
----
-
-## O. Decisões estruturais para aprovação (recomendação técnica em cada uma)
-
-**T1 — O que define quais territórios competem por um cliente**
-- A: **Mapa territorial** explícito (dimensão), com empresa, universo e "exclusivo". *(recomendada)*
-- B: A raiz de cada árvore é a dimensão (sem entidade nova).
-- C: O tipo do território decide (flag "exclusivo" no tipo).
-- Consequência: B quebra quando uma árvore precisa mudar de dimensão ou ter universo próprio; C amarra comportamento ao
-  tipo, o que o pedido pede para evitar. A custa uma tabela e dá lugar natural para empresa e universo.
-
-**T2 — Exceções**
-- A: Duas primitivas (**Fixar em**, **Retirar de**) + a ação "Mover" que cria as duas. *(recomendada)*
-- B: Três tipos gravados (Inclusão, Exclusão, Override).
-- Consequência: em B, "Override A→B" é exatamente "Retirar A + Fixar B"; guardar três tipos cria dois jeitos de dizer a
-  mesma coisa e o motor teria de tratar combinações. A explicação na tela continua dizendo "Movido de A para B".
-
-**T3 — Algoritmo de resolução**: exceção → prioridade explícita → mais profundo na árvore → conflito (mantém a atual se
-empatada). *(recomendada)*. Alternativa B: sem profundidade (só prioridade; qualquer empate é conflito) — mais simples,
-mas gera conflito em todo caso "MG × Curvelo", que é o caso comum.
-
-**T4 — Território × carteira**
-- A: Independentes nesta fase; sincronização futura por transferência de carteira. *(recomendada)*
-- B: O responsável do território vira automaticamente o vendedor do cliente.
-- Consequência: B cria duas fontes de verdade para "quem atende" e mexe em crédito da venda e metas já em uso.
-
-**T5 — Separar planejar de pôr em vigor**
-- A: Operação como pacote (rascunho → simulada → aplicada), com re-simulação e assinatura na aplicação. *(recomendada)*
-- B: Editar a regra direto e só a atribuição passar por simular/aplicar.
-- Consequência: em B, a regra editada já vale para as divergências e para o painel antes de alguém aplicar — exatamente a
-  mistura que o pedido quer evitar.
-
-**T6 — Linguagem das regras**
-- A: Grupos em forma normal disjuntiva (OU entre grupos, E dentro) + grupos de exclusão, usando `FiltrosPessoasSql` como
-  está, e só campos marcados `UsavelEmCobertura`. *(recomendada)*
-- B: Árvore livre de E/OU aninhados.
-- Consequência: A cobre todos os exemplos do pedido e reaproveita o painel atual como editor de cada grupo; B exige
-  editor novo e é difícil de explicar para quem lê a regra. A pode evoluir para B sem migrar dados (o JSON ganha um nível).
-
-**T7 — Histórico da árvore**
-- A: Tabela de posições com vigência (+ pai atual no território). Ciclo conferido no domínio e na transação. *(recomendada)*
-- B: Só a auditoria guarda a mudança de pai.
-- Consequência: sem A, metas e indicadores "por região em março" teriam de reconstruir a árvore pela auditoria.
-
-**T8 — Data retroativa**: até o limite dos parâmetros **e** não antes da última operação aplicada no mesmo mapa.
-*(recomendada)*. B: só o limite (permite aplicar uma operação "no meio" de outra, reescrevendo o que ela fez).
-
-**T9 — Quem pode ser atribuído**: universo por mapa (classificações), padrão Cliente. *(recomendada)*. B: fixo em Cliente.
-
-**T10 — Permissões**: as quatro da seção L; planejar e aplicar exigem alcance Tudo na 2b-1. *(recomendada)*
-
-**T11 — Transação da aplicação**: tudo ou nada. *(recomendada)*. B: por cliente, como a transferência.
-
-**T12 — Numeração de documentos**
-- A: Tabela `NumeracoesDocumento` (prefixo + ano), usada pelo `TE-`; o `TR-` passa a usá-la numa entrega separada, sem
-  mudar números já emitidos. *(recomendada)*
-- B: Copiar o `MAX+1` da transferência.
-- Consequência: serve a pedidos, notas e oportunidades depois; B espalha o mesmo risco de concorrência.
-
-**T13 — Tamanho das entregas**: a 2b-1 ficou grande. Proposta:
-- **2b-1a — Estrutura**: migration completa; tipos, mapas, territórios, árvore (posições, ciclo), responsáveis; telas de
-  cadastro e árvore; numerador. (Territórios criados aqui nascem Ativos sem cobertura — ou só dentro de operação, ver
-  T14.)
-- **2b-1b — Motor**: coberturas, exceções, operação, simular, aplicar, divergências, explicação do cliente, aba
-  Comercial da ficha.
-- Cada uma testada por você antes da próxima. *(recomendada)*
-
-**T14 — Criar/mover/encerrar território fora de operação**
-- A: Criar e mover livremente enquanto o território **não tem atribuição nem cobertura vigente**; depois disso, só por
-  operação. *(recomendada)*
-- B: Sempre por operação.
-- Consequência: B deixa montar a árvore inicial lento e burocrático; A mantém o controle onde há efeito operacional.
-
----
-
-## P. Telas (2b-1)
-
-1. **Comercial › Territórios**: seletor de mapa; árvore à esquerda (busca, contagem de clientes por nó e total com os
-   descendentes); ficha do território à direita com abas *Dados*, *Responsáveis*, *Regra* (versão vigente + histórico de
-   versões), *Clientes* (paginada, respeita o alcance), *Histórico*.
-2. **Operações territoriais**: lista (número, mapa, efeito, situação, contagens); a operação em rascunho mostra as
-   mudanças planejadas, o botão Simular, o resumo da seção F com filtros por resultado, e Aplicar.
-3. **Divergências**: os seis grupos da seção H com as ações.
-4. **Explicar cliente** (botão na ficha e em cada linha): o quadro do item 47 — território, origem, regra/versão,
-   critérios, operação, quem aplicou; e "por que não foi para X" ao escolher outro território.
-5. **Cadastros**: tipos de território; mapas (universo e exclusividade).
-
----
-
-## Q. Sugestões além do pedido
-
-- **S1 — Sincronizar carteira pelo território** (depois): uma ação que, a partir dos responsáveis vigentes, **monta uma
-  transferência de carteira em prévia**. Reusa o mecanismo `TR-` inteiro e mantém a carteira como fonte única.
-- **S2 — Território gravado nos documentos** (Vendas/Oportunidades): cópia no momento do documento; comissão e
-  indicador nunca dependem do recalculado.
-- **S3 — Planejamento anual**: como a operação aceita efeito futuro, o realinhamento de 01/01 pode ser montado,
-  simulado e revisado em dezembro e aplicado com antecedência; as atribuições futuras aparecem como "a partir de".
-- **S4 — Dupla checagem** (parâmetro do mapa, depois): "quem planeja não aplica", com o estado "Aguardando aprovação".
-- **S5 — Capacidade** (F8 já aprovado): aviso na simulação quando um território/responsável passa do número de clientes
-  configurado.
-- **S6 — Processamento em segundo plano** quando um mapa ficar grande (mesma lógica, sem mudar dados).
-- **S7 — Mapa visual** por UF/município (cobertura e clientes sem território) quando entrarem os indicadores.
-- **S8 — Atribuição ao salvar o cliente** (parâmetro do mapa, depois): o motor já trabalha por conjunto; para um
-  cliente só, é o mesmo cálculo com o universo reduzido a ele.
+- Reaproveitado: catálogo e `FiltrosPessoasSql` (linguagem das regras, sem alteração), painel de filtros (editor de cada
+  grupo), vigência "nunca apagar, encerrar", operação com número e itens imutáveis (modelo da `TR-`),
+  `DiasRetroativosMaximo`, auditoria com eventos e motivo, papel comercial como função do responsável, equipes com
+  hierarquia e liderança temporal, `EmpresaId` nulo = grupo, escopo por registro.
+- Não duplicar: segundo motor de filtros, segunda carteira, gerador `MAX+1`, lista de funções.
+- Achados: o motor de filtros só faz E (grupos OU ficam acima dele); campos relativos a hoje, dependentes de permissão
+  ou da carteira não servem para regra (`UsavelEmCobertura`); `FiltrosPessoasSql` recebe condições já filtradas por
+  permissão (o motor roda sem escopo; a permissão vale para configurar); `TR-` por `MAX+1`; condições de endereço sobre
+  qualquer endereço (T16); "cobertura" já é o nome das ausências (T20).

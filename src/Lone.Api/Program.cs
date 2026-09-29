@@ -45,6 +45,7 @@ app.MapSeguranca();
 app.MapConsultas();
 app.MapCadastros();
 app.MapMetas();
+app.MapTerritorios();
 app.MapMenu();
 
 app.Run();

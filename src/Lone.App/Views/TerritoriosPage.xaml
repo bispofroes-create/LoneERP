@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Comercial › Territórios (Fase 2b-1a): o mapa escolhido, a árvore (com busca) à esquerda e a ficha do território ao lado,
+    com os responsáveis e o histórico da posição. Nada é excluído: território é encerrado.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:t="clr-namespace:Lone.Cliente.ViewModels.Territorios;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.TerritoriosPage"
+             x:DataType="t:TerritoriosViewModel"
+             Title="Territórios">
+
+    <Grid x:Name="Grade" ColumnDefinitions="420,*">
+
+        <!-- ===== Mapa e árvore ===== -->
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <c:CampoEscolha Rotulo="Mapa territorial" Itens="{Binding Mapas}" Selecionado="{Binding Mapa}" IsEnabled="{Binding Livre}" />
+            <Label Grid.Row="1" Text="{Binding TextoMapa}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar território, código ou responsável" />
+                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeConfigurar}"
+                        ToolTipProperties.Text="Território no primeiro nível do mapa (para criar abaixo de outro, abra-o e use &quot;+ Território abaixo deste&quot;)" />
+            </Grid>
+
+            <VerticalStackLayout Grid.Row="3" Spacing="6">
+                <c:CaixaMarcar Texto="Mostrar encerrados" Marcado="{Binding MostrarEncerrados}" />
+                <ContentView IsVisible="{Binding SemFicha}">
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+                </ContentView>
+            </VerticalStackLayout>
+
+            <CollectionView Grid.Row="4" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhum território neste mapa. Clique em Novo (ex.: Brasil ou Sudeste)." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="t:LinhaTerritorio">
+                        <Grid ColumnDefinitions="Auto,18,*" Padding="8,6">
+                            <BoxView WidthRequest="{Binding Recuo}" HeightRequest="1" Color="Transparent" />
+                            <Label Grid.Column="1" Text="{Binding Marcador}" Style="{StaticResource Secundario}" VerticalOptions="Start" Margin="0,1,0,0" />
+                            <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Border Style="{StaticResource Selo}" IsVisible="{Binding Encerrado}">
+                                        <Label Text="Encerrado" Style="{StaticResource SeloTexto}" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator Grid.Row="4" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
+                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
+                             HorizontalOptions="Center" Spacing="6" Padding="24" MaximumWidthRequest="640">
+            <Label Text="Nenhum território aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="A árvore mostra onde cada território fica (Brasil › Sudeste › MG › Curvelo) e serve para somar os de baixo. Quem entra em cada território será decidido pelas regras, com simulação antes de aplicar (próxima etapa). Enquanto um território não tem regras nem clientes, você pode criar, renomear, mover e encerrar à vontade."
+                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Ficha ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+            <ScrollView>
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="820"
+                                     HorizontalOptions="Fill">
+                    <Button Text="‹ Territórios" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                            IsVisible="{Binding ModoCompacto}" />
+                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                    <!-- Dados -->
+                    <Label Text="Dados" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
+                    <FlexLayout Wrap="Wrap" IsEnabled="{Binding Formulario.Editavel}">
+                        <c:Campo Rotulo="Código" Texto="{Binding Formulario.Codigo}" Dica="Ex.: MG_NORTE"
+                                 SomenteLeitura="{Binding Formulario.CodigoSomenteLeitura}" />
+                        <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: MG Norte" />
+                        <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Formulario.Tipos}" Selecionado="{Binding Formulario.Tipo}" />
+                        <c:CampoEscolha Rotulo="Território acima" Itens="{Binding Formulario.Pais}" Selecionado="{Binding Formulario.Pai}"
+                                        IsEnabled="{Binding Formulario.PodeMover}" />
+                        <c:Campo Rotulo="Existe desde" Texto="{Binding Formulario.InicioEm}" Dica="dd/mm/aaaa" Mascara="Data"
+                                 SomenteLeitura="{Binding Formulario.InicioSomenteLeitura}" />
+                        <c:Campo Rotulo="Descrição" Texto="{Binding Formulario.Descricao}" Dica="Opcional" />
+                    </FlexLayout>
+                    <Label Text="O território acima só organiza a árvore (e desempata regras: Curvelo abaixo de MG vence MG). Quem entra em cada território são as regras dele, que chegam na próxima etapa."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <!-- Responsáveis -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+                        <Label Text="Responsáveis" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Adicionar responsável" Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding AdicionarResponsavelCommand}" IsVisible="{Binding Formulario.Editavel}" />
+                    </Grid>
+                    <Label Text="Uma pessoa ou uma equipe, numa função (o papel comercial). O território não muda a carteira dos clientes. Saiu? Informe o fim: quem já começou continua no histórico."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Responsaveis}" Spacing="6" IsEnabled="{Binding Formulario.Editavel}">
+                        <BindableLayout.EmptyView>
+                            <Label Text="Nenhum responsável." Style="{StaticResource Secundario}" Margin="0,8" />
+                        </BindableLayout.EmptyView>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="t:ResponsavelTerritorioFormulario">
+                                <Border Style="{StaticResource CartaoItem}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <FlexLayout Wrap="Wrap">
+                                            <c:CampoEscolha Rotulo="Função" Itens="{Binding Funcoes}" Selecionado="{Binding Funcao}" IsEnabled="{Binding PodeEditarQuem}" />
+                                            <c:CampoEscolha Rotulo="Quem" Itens="{Binding ListaTiposQuem}" Selecionado="{Binding TipoQuem}" IsEnabled="{Binding PodeEditarQuem}" />
+                                            <c:CampoEscolha Rotulo="Pessoa" Itens="{Binding Pessoas}" Selecionado="{Binding Pessoa}"
+                                                            IsVisible="{Binding EhPessoa}" IsEnabled="{Binding PodeEditarQuem}" />
+                                            <c:CampoEscolha Rotulo="Equipe" Itens="{Binding Equipes}" Selecionado="{Binding Equipe}"
+                                                            IsVisible="{Binding EhEquipe}" IsEnabled="{Binding PodeEditarQuem}" />
+                                            <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data"
+                                                     SomenteLeitura="{Binding JaComecou}" />
+                                            <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
+                                            <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" Dica="Opcional" />
+                                        </FlexLayout>
+                                        <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                                IsVisible="{Binding PodeRemover}" VerticalOptions="Start"
+                                                ToolTipProperties.Text="Só para quem ainda não começou (incluído por engano). Quem já começou: informe o fim." />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Histórico da posição -->
+                    <Label Text="Histórico da posição na árvore" Style="{StaticResource Subtitulo}" Margin="0,16,0,0"
+                           IsVisible="{Binding Formulario.TemPosicoes}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Posicoes}" Spacing="2"
+                                         IsVisible="{Binding Formulario.TemPosicoes}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Label Text="{Binding .}" Style="{StaticResource Secundario}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <HorizontalStackLayout Spacing="12" Margin="0,16,0,0">
+                        <Button Text="+ Território abaixo deste" Style="{StaticResource BotaoSecundario}" Command="{Binding NovoAbaixoCommand}"
+                                IsVisible="{Binding PodeCriarAbaixo}" IsEnabled="{Binding Livre}" />
+                        <Button Text="Encerrar território" Style="{StaticResource BotaoSecundario}" Command="{Binding EncerrarCommand}"
+                                IsVisible="{Binding PodeEncerrar}" IsEnabled="{Binding Livre}" />
+                        <Button Text="Reativar território" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
+                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -41,6 +41,7 @@ public static class ConfiguracaoCliente
         services.AddSingleton<ColaboradoresApi>();
         services.AddSingleton<ComercialApi>();
         services.AddSingleton<MetasApi>();
+        services.AddSingleton<TerritoriosApi>();
         services.AddSingleton<MenuUsuarioApi>();
         services.AddSingleton<FluxoDeEntrada>();
 
@@ -80,6 +81,9 @@ public static class ConfiguracaoCliente
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.CarteiraVencendoViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.TransferenciasViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.CarteiraEmDataViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Territorios.TiposTerritorioViewModel>(); // Fase 2b-1a
+        services.AddTransient<Lone.Cliente.ViewModels.Territorios.MapasTerritoriaisViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Territorios.TerritoriosViewModel>();
 
         return services;
     }

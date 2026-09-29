@@ -51,12 +51,14 @@ public class MenuLateralTests
         Assert.Equal("Cadastro de pessoas", cadastro.Descricao); // fora (atalhos, busca, leitor de tela), o nome completo
         Assert.True(cadastro.Corresponde("configuracoes-pessoas"));
         Assert.True(cadastro.Corresponde("papeis"));
-        Assert.Equal(new[] { "coberturas", "carteira-vencendo", "transferencias", "carteira-em-data", "configuracoes-comercial" },
+        Assert.Equal(new[] { "coberturas", "carteira-vencendo", "transferencias", "carteira-em-data", "territorios", "configuracoes-comercial" },
             secoes[1].Itens.Select(i => i.Rota).ToArray());
-        var comercial = secoes[1].Itens[4];
+        var comercial = secoes[1].Itens[5];
         Assert.Equal("Configurações do Comercial", comercial.Descricao);
         Assert.True(comercial.Corresponde("tipos-carteira"));
         Assert.True(comercial.Corresponde("tipos-ausencia"));
+        Assert.True(comercial.Corresponde("mapas-territoriais")); // Fase 2b-1a
+        Assert.True(comercial.Corresponde("tipos-territorio"));
         Assert.Equal(new[] { "grupos-empresariais", "configuracoes-organizacao" }, secoes[2].Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "Painel", "⚙  Configurações" }, secoes[3].Itens.Select(i => i.TextoExibido).ToArray());
         Assert.Equal("Painel de metas", secoes[3].Itens[0].Descricao);

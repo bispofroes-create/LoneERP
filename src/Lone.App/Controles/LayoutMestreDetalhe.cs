@@ -11,18 +11,21 @@ public sealed class LayoutMestreDetalhe
 {
     /// <summary>Abaixo desta largura (em pontos) a tela passa a mostrar um painel de cada vez.</summary>
     private const double LarguraCompacta = 760;
-    private const double LarguraLista = 340;
+    private const double LarguraListaPadrao = 340;
 
     private readonly ContentPage _pagina;
     private readonly Grid _grade;
     private readonly IMestreDetalhe _viewModel;
+    private readonly double _larguraLista;
 
     /// <param name="grade">Grade com duas colunas: 0 = lista, 1 = ficha.</param>
-    public LayoutMestreDetalhe(ContentPage pagina, Grid grade, IMestreDetalhe viewModel)
+    /// <param name="larguraLista">Largura da lista no computador (ex.: a árvore de territórios precisa de mais espaço).</param>
+    public LayoutMestreDetalhe(ContentPage pagina, Grid grade, IMestreDetalhe viewModel, double larguraLista = LarguraListaPadrao)
     {
         _pagina = pagina;
         _grade = grade;
         _viewModel = viewModel;
+        _larguraLista = larguraLista;
 
         pagina.SizeChanged += (_, _) => Aplicar();
         viewModel.PropertyChanged += (_, e) =>
@@ -50,7 +53,7 @@ public sealed class LayoutMestreDetalhe
 
         _grade.ColumnDefinitions[0].Width = compacto
             ? (_viewModel.MostrarLista ? GridLength.Star : new GridLength(0))
-            : new GridLength(LarguraLista);
+            : new GridLength(_larguraLista);
         _grade.ColumnDefinitions[1].Width = compacto && !_viewModel.MostrarFicha ? new GridLength(0) : GridLength.Star;
     }
 }

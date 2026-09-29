@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Mapas territoriais (Fase 2b-1a): cada mapa é uma dimensão independente de atribuição. Nada é excluído: é desativado. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:t="clr-namespace:Lone.Cliente.ViewModels.Territorios;assembly=Lone.Cliente"
+             xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.MapasTerritoriaisPage"
+             x:DataType="t:MapasTerritoriaisViewModel"
+             Title="Mapas territoriais">
+
+    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+
+        <!-- ===== Tabela ===== -->
+        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar mapa" />
+                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
+            </Grid>
+
+            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            </ContentView>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,84,40" Padding="12,0">
+                <Label Text="Mapa" Style="{StaticResource Rotulo}" />
+                <Label Grid.Column="1" Text="Territórios" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
+                <Label Grid.Column="2" Text="Ativo" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
+            </Grid>
+
+            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhum mapa. Clique em Novo (ex.: Geografia)." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="t:LinhaMapaTerritorial">
+                        <Grid ColumnDefinitions="*,84,40" Padding="12,8">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding Territorios}" Style="{StaticResource Secundario}" HorizontalOptions="End" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Ativo}" Style="{StaticResource Secundario}" HorizontalOptions="End" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
+                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
+                             HorizontalOptions="Center" Spacing="6" Padding="24" MaximumWidthRequest="620">
+            <Label Text="Nenhum mapa aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="Um mapa territorial é uma dimensão independente: o mesmo cliente pode estar em Geografia › Curvelo, em Segmentos › Grandes açougues e em Estratégico › Key Account ao mesmo tempo. Dentro de um mapa exclusivo, cada cliente fica em um território só."
+                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Ficha ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+            <ScrollView>
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
+                                     HorizontalOptions="Fill">
+                    <Button Text="‹ Mapas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
+                            IsVisible="{Binding ModoCompacto}" />
+                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+                    <FlexLayout Wrap="Wrap">
+                        <c:Campo Rotulo="Código" Texto="{Binding Formulario.Codigo}" Dica="Ex.: GEOGRAFIA"
+                                 SomenteLeitura="{Binding Formulario.CodigoSomenteLeitura}" />
+                        <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Geografia" />
+                        <c:Campo Rotulo="Descrição" Texto="{Binding Formulario.Descricao}" Dica="Para que serve este mapa" />
+                    </FlexLayout>
+
+                    <Label Text="Como o mapa atribui" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                    <c:CaixaMarcar Texto="Exclusivo: cada cliente fica em um território só neste mapa (empate entre regras vira conflito para você resolver)"
+                                   Marcado="{Binding Formulario.Exclusivo}" IsEnabled="{Binding Formulario.PodeMudarEstrutura}" />
+                    <FlexLayout Wrap="Wrap">
+                        <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Formulario.Empresas}" Selecionado="{Binding Formulario.Empresa}"
+                                        IsEnabled="{Binding Formulario.PodeMudarEstrutura}" />
+                        <c:CampoEscolha Rotulo="Endereço de referência" Itens="{Binding Formulario.Finalidades}" Selecionado="{Binding Formulario.Finalidade}"
+                                        IsEnabled="{Binding Formulario.PodeMudarEstrutura}" />
+                    </FlexLayout>
+                    <Label Text="Endereço de referência: as condições de endereço das regras deste mapa (UF, município, CEP, bairro) olham só o endereço marcado como principal desta finalidade. Assim, um cliente com matriz em MG e entrega em SP não cai nas duas regiões."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <Label Text="Universo: quem pode ser atribuído" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Classificacoes}"
+                                IsEnabled="{Binding Formulario.PodeMudarEstrutura}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="cad:ClassificacaoMarcavel">
+                                <c:CaixaMarcar Texto="{Binding Nome}" Marcado="{Binding Marcado}" Margin="0,0,16,0" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                    <Label Text="Empresa, exclusividade, endereço de referência e universo ficam travados quando o mapa passar a ter regras ou atribuições (mudar depois mudaria clientes sem uma operação territorial)."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                        <Button Text="Desativar mapa" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                        <Button Text="Reativar mapa" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <HorizontalStackLayout Spacing="12">
+                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
+                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

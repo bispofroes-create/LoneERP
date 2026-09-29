@@ -132,6 +132,9 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
             comercial.Add(new ItemMenu("Transferências", "transferencias", descricao: "Transferências de carteira", caminho: nomeComercial));
         if (PodeVerCarteiraEmData(possui))
             comercial.Add(new ItemMenu("Carteira em uma data", "carteira-em-data", descricao: "Como estava a carteira numa data", caminho: nomeComercial));
+        // Motor Comercial, Fase 2b: a árvore de territórios de cada mapa.
+        if (PodeVerTerritorios(possui))
+            comercial.Add(new ItemMenu("Territórios", "territorios", descricao: "Territórios comerciais", caminho: nomeComercial));
         AdicionarConfiguracoes(comercial, ModulosConfiguracao.Comercial, possui);
         if (comercial.Count > 0) secoes.Add(new SecaoMenu(nomeComercial, comercial));
 
@@ -156,6 +159,10 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
             ]));
         return secoes;
     }
+
+    /// <summary>Territórios: quem vê ou quem configura (configurar sem ver a árvore não faz sentido).</summary>
+    public static bool PodeVerTerritorios(Func<string, bool> possui) =>
+        possui(Permissoes.Territorios.Visualizar) || possui(Permissoes.Territorios.Configurar);
 
     /// <summary>"Carteira em uma data": quem vê o módulo Comercial ou transfere carteira.</summary>
     public static bool PodeVerCarteiraEmData(Func<string, bool> possui) =>
@@ -408,6 +415,8 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeVerComercial => _sessao.Possui(Permissoes.Comercial.Visualizar) || _sessao.Possui(Permissoes.Comercial.Coberturas);
     public bool PodeTransferirCarteira => _sessao.Possui(Permissoes.Comercial.Transferir);
     public bool PodeVerCarteiraEmDataMenu => MenuViewModel.PodeVerCarteiraEmData(_sessao.Possui);
+    public bool PodeVerTerritoriosMenu => PodeVerTerritorios(_sessao.Possui);
+    public bool PodeConfigurarTerritorios => _sessao.Possui(Permissoes.Territorios.Configurar);
     public bool PodeVerMetas => _sessao.Possui(Permissoes.Metas.Visualizar);
     public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);
     public bool PodeVerSeguranca => PodeGerenciarUsuarios || PodeGerenciarPerfis;

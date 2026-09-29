@@ -59,6 +59,16 @@ public static class Permissoes
         public const string Transferir = "COMERCIAL.TRANSFERIR";
     }
 
+    /// <summary>
+    /// Territórios (Motor Comercial, Fase 2b). Configurar = tipos, mapas, árvore sem uso e responsáveis. Planejar e aplicar
+    /// operações territoriais entram com o motor (2b-1b).
+    /// </summary>
+    public static class Territorios
+    {
+        public const string Visualizar = "TERRITORIOS.VISUALIZAR";
+        public const string Configurar = "TERRITORIOS.CONFIGURAR";
+    }
+
     public static class Seguranca
     {
         public const string GerenciarUsuarios = "SEGURANCA.USUARIOS";
@@ -97,6 +107,8 @@ public static class Permissoes
         new(Comercial.Visualizar, "Comercial", "Ver ausências, coberturas e a carteira vencendo"),
         new(Comercial.Coberturas, "Comercial", "Cadastrar, encerrar e cancelar ausências e coberturas"),
         new(Comercial.Transferir, "Comercial", "Transferir a carteira de clientes de uma pessoa para outra e ver as transferências"),
+        new(Territorios.Visualizar, "Territórios", "Ver mapas territoriais, a árvore de territórios, os responsáveis e o histórico"),
+        new(Territorios.Configurar, "Territórios", "Criar e alterar tipos de território, mapas, a árvore (sem uso operacional) e os responsáveis"),
         new(Metas.Visualizar, "Metas", "Ver metas, participantes e resultados"),
         new(Metas.Gerenciar, "Metas", "Criar e alterar metas, indicadores e equipes; publicar e iniciar a apuração"),
         new(Metas.LancarRealizado, "Metas", "Lançar e importar o realizado informado das metas"),

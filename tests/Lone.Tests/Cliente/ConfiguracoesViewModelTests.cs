@@ -25,7 +25,7 @@ public class ConfiguracoesViewModelTests
     {
         var rotas = ModulosConfiguracao.Todos.SelectMany(m => ConfiguracoesViewModel.Montar(_ => true, m))
             .SelectMany(g => g.Itens).Select(i => i.Rota).ToList();
-        Assert.Equal(22, rotas.Count); // 21 cadastros + "Trocar senha" (Minha conta)
+        Assert.Equal(24, rotas.Count); // 23 cadastros (2 de territórios, Fase 2b-1a) + "Trocar senha" (Minha conta)
         Assert.Equal(rotas.Count, rotas.Distinct().Count());
     }
 
@@ -42,9 +42,10 @@ public class ConfiguracoesViewModelTests
             Assert.Single(ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Metas)).Itens.Select(i => i.Rota).ToArray());
         // Comercial (Fase 1c): papéis comerciais, condições e perfis saíram de Pessoas.
         var comercial = ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Comercial);
-        Assert.Equal(new[] { "Carteira de clientes", "Condições de venda" }, comercial.Select(g => g.Titulo).ToArray());
+        Assert.Equal(new[] { "Carteira de clientes", "Condições de venda", "Territórios" }, comercial.Select(g => g.Titulo).ToArray());
         Assert.Equal(new[] { "tipos-carteira", "parametros-comerciais", "tipos-ausencia" }, comercial[0].Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "condicoes-pagamento", "perfis-comerciais" }, comercial[1].Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "mapas-territoriais", "tipos-territorio" }, comercial[2].Itens.Select(i => i.Rota).ToArray()); // Fase 2b-1a
         Assert.Equal(ModulosConfiguracao.Comercial, ModulosConfiguracao.DaRota("//configuracoes-comercial"));
     }
 

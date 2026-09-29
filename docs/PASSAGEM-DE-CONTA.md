@@ -43,7 +43,27 @@
 
 ## 2. Onde paramos (comece por aqui)
 
-**Fase 2b — territórios: aguardando aprovação da arquitetura. Nenhum código nem migration.**
+**Fase 2b — territórios: arquitetura aprovada; 2b-1a entregue sem commit, aguardando compilação e testes do usuário.**
+
+> **Atualização 29/09, 17h (auditoria final):** migrations `Fase2b1TravaArvore` (gerada pelo usuário) e
+> `Fase2b1ResponsaveisConcorrencia` (reforço do 50070 com READCOMMITTEDLOCK — o LoneERP tem RCSI ligado) **aplicadas no
+> LoneERP às 17h14 pelo usuário (Update-Database)**; 2 travas para os 2 mapas, 3 gatilhos com a dica, dados íntegros. Build 0/0; 1614 testes, 0 falhas, 0 ignorados; `BancoTerritorios` 52/52 (padrão e RCSI). Plano, seção 21.
+> Falta: aprovação do usuário para o commit (sem push). Carteira (`TR_CarteiraClientes_SemSobreposicao` sem a dica):
+> etapa futura e separada.
+
+> **Atualização 29/09, 13h:** migrations `Fase2b1Territorios` e `Fase2b1ResponsaveisSemSobreposicao` **aplicadas** no
+> LoneERP (a API aplica ao iniciar). Build 0/0, 1523 testes, `BancoTerritorios` 8/8 no SQL Server, roteiro de telas feito.
+> D1 = **B** + auditoria "padrão de ERP maduro": trava própria da árvore, gatilhos de ciclo/níveis e de posições, conferência
+> final — plano, seção 20. Falta: o usuário gerar `Add-Migration Fase2b1TravaArvore` (eu acrescento no Up
+> `PreencherTravasDaArvore`, `CriarProtecaoArvore`, `CriarProtecaoPosicoes` e no Down `RemoverProtecoesArvore`), compilar,
+> testar com `LONE_TESTES_SQLSERVER` e autorizar o commit (sem push).
+
+> **Atualização 29/09, 08h (conta nova):** arquitetura aprovada (T1–T20 = A, com o complemento das fixações múltiplas
+> no T3 e o T15 como ação registrada). O plano foi **consolidado** em `docs/PLANO-FASE2B-TERRITORIOS.md` (seções 1 a 18).
+> A **2b-1a (estrutura)** foi implementada e entregue **sem commit** para o usuário compilar, gerar a migration
+> `Fase2b1Territorios` e testar — relatório na seção 19 do plano (inclui a divergência D1 para ele decidir). Próximo passo:
+> revisar a migration gerada, corrigir o que a compilação/os testes apontarem e, com o "ok", commitar a 2b-1a (se ele
+> autorizar). A 2b-1b só depois disso. O histórico abaixo (itens 1 a 5) é da conta anterior.
 
 1. Primeiro fiz um plano curto (G1–G9). O usuário trouxe uma revisão do ChatGPT (47 itens: "Motor de Cobertura,
    Atribuição e Gestão Territorial") pedindo auditoria antes de código. Fiz a auditoria no código e escrevi

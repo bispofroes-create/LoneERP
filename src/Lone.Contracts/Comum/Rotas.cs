@@ -144,6 +144,19 @@ public static class Rotas
             (pessoaId is { } p ? $"&pessoaId={p}" : string.Empty);
     }
 
+    /// <summary>Territórios (Motor Comercial, Fase 2b): tipos, mapas e a árvore. Nada é excluído: desativa ou encerra.</summary>
+    public static class Territorios
+    {
+        public const string Tipos = Base + "/tipos-territorio";
+        public const string Mapas = Base + "/mapas-territoriais";
+        public const string Grupo = Base + "/territorios";
+        public const string Opcoes = Grupo + "/opcoes";
+        public static string DoMapa(Guid mapaId) => $"{Grupo}?mapaId={mapaId}";
+        public static string PorId(Guid id) => $"{Grupo}/{id}";
+        public static string Encerrar(Guid id) => $"{Grupo}/{id}/encerrar";
+        public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+    }
+
     /// <summary>Tabela CNAE (IBGE): busca para a ficha e atualização pelo administrador.</summary>
     public static class Cnaes
     {

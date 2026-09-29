@@ -72,7 +72,7 @@ public static class ModulosConfiguracao
     public static string Descricao(string modulo) => modulo switch
     {
         Pessoas => "Cadastros de apoio e personalização usados na ficha de pessoas.",
-        Comercial => "Papéis comerciais, ausências, parâmetros, condições de pagamento e perfis usados na carteira e nas vendas.",
+        Comercial => "Papéis comerciais, ausências, parâmetros, condições de pagamento, perfis e territórios usados na carteira e nas vendas.",
         Organizacao => "Estrutura da empresa usada nos vínculos e lotações dos colaboradores.",
         Metas => "Equipes e indicadores usados nas metas.",
         _ => "Configurações que valem para o sistema inteiro."
@@ -151,6 +151,11 @@ public partial class ConfiguracoesViewModel : ViewModelBase
             new ItemConfiguracao("Tipos de ausência", "Férias, folga, licença... usados nas coberturas", "tipos-ausencia")),
         (ModulosConfiguracao.Comercial, "Carteira de clientes", Permissoes.Cadastros.Comercial,
             new ItemConfiguracao("Parâmetros comerciais", "Aviso de fim do vínculo e crédito nas ausências", "parametros-comerciais")),
+        // ---- Comercial, Fase 2b: territórios ----
+        (ModulosConfiguracao.Comercial, "Territórios", Permissoes.Territorios.Configurar,
+            new ItemConfiguracao("Mapas territoriais", "Dimensões independentes: geografia, segmentos, contas estratégicas...", "mapas-territoriais")),
+        (ModulosConfiguracao.Comercial, "Territórios", Permissoes.Territorios.Configurar,
+            new ItemConfiguracao("Tipos de território", "Geográfico, segmento, estratégico... (só classificam)", "tipos-territorio")),
         // ---- Organização ----
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Cargos", "Cargos dos colaboradores", "cargos")),
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Centros de custo", "Árvore de centros de custo", "centros-custo")),

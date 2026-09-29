@@ -4,6 +4,7 @@ using Lone.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Lone.Infrastructure.Persistencia.Migracoes
 {
     [DbContext(typeof(LoneDbContext))]
-    partial class LoneDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929122721_Fase2b1ResponsaveisSemSobreposicao")]
+    partial class Fase2b1ResponsaveisSemSobreposicao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1727,24 +1730,6 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsUnique();
 
                     b.ToTable("MapasTerritoriais", (string)null);
-                });
-
-            modelBuilder.Entity("Lone.Domain.Entidades.MapaTerritorialArvore", b =>
-                {
-                    b.Property<Guid>("MapaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("AtualizadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<byte[]>("Versao")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.HasKey("MapaId");
-
-                    b.ToTable("MapaTerritorialArvores", (string)null);
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.MapaTerritorialClassificacao", b =>
@@ -3525,12 +3510,8 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
                     b.ToTable("Territorios", null, t =>
                         {
-                            t.HasTrigger("TR_Territorios_Arvore");
-
                             t.HasCheckConstraint("CK_Territorios_Situacao", "([Situacao] = 0 AND [FimEm] IS NULL) OR ([Situacao] = 1 AND [FimEm] IS NOT NULL)");
                         });
-
-                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.TerritorioPosicao", b =>
@@ -3575,12 +3556,8 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
                     b.ToTable("TerritorioPosicoes", null, t =>
                         {
-                            t.HasTrigger("TR_TerritorioPosicoes_SemSobreposicao");
-
                             t.HasCheckConstraint("CK_TerritorioPosicoes_Periodo", "[FimEm] IS NULL OR [FimEm] >= [InicioEm]");
                         });
-
-                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.TerritorioResponsavel", b =>
@@ -4987,15 +4964,6 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.HasOne("Lone.Domain.Entidades.FinalidadeEnderecoCadastro", null)
                         .WithMany()
                         .HasForeignKey("FinalidadeEnderecoReferenciaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Lone.Domain.Entidades.MapaTerritorialArvore", b =>
-                {
-                    b.HasOne("Lone.Domain.Entidades.MapaTerritorial", null)
-                        .WithOne()
-                        .HasForeignKey("Lone.Domain.Entidades.MapaTerritorialArvore", "MapaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

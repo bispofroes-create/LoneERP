@@ -358,6 +358,15 @@
     <FlyoutItem Title="Carteira em uma data" Route="carteira-em-data" IsVisible="{Binding PodeVerCarteiraEmDataMenu}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Carteira em uma data" ContentTemplate="{DataTemplate views:CarteiraEmDataPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Territórios" Route="territorios" IsVisible="{Binding PodeVerTerritoriosMenu}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Territórios" ContentTemplate="{DataTemplate views:TerritoriosPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Mapas territoriais" Route="mapas-territoriais" IsVisible="{Binding PodeConfigurarTerritorios}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Mapas territoriais" ContentTemplate="{DataTemplate views:MapasTerritoriaisPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Tipos de território" Route="tipos-territorio" IsVisible="{Binding PodeConfigurarTerritorios}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Tipos de território" ContentTemplate="{DataTemplate views:TiposTerritorioPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Tipos de ausência" Route="tipos-ausencia" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Tipos de ausência" ContentTemplate="{DataTemplate views:TiposAusenciaPage}" />
     </FlyoutItem>
