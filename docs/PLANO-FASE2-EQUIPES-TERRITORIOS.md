@@ -404,3 +404,7 @@ aplicação de cada tela. O teste de arquitetura passa a cobrir também as consu
 - **Testes de aplicação novos:** coberturas do líder (lista, leitura, cancelar e cadastrar fora da equipe), carteira em uma
   data com alcance restrito e metas (`Aplicacao/MetasEscopoTests`: lista, leitura parcial, apuração, situação bloqueada,
   lançamento só dos seus, criação só com participantes do alcance).
+
+### 2b — territórios
+
+Substituído pela revisão arquitetural em `docs/PLANO-FASE2B-TERRITORIOS.md` (28/09/2026), aguardando aprovação.
