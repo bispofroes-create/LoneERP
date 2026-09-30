@@ -1,6 +1,11 @@
 # Fase 2b — Motor de Cobertura e Atribuição Territorial (plano consolidado)
 
-> **Situação (29/09/2026, 07h19):** arquitetura aprovada. Decisões **T1 a T20 aprovadas** (opção A), com o complemento
+> **Situação (30/09/2026, 05h25):** 2b-1a commitada (`af3924c`). **2b-1b implementada e validada, sem commit**:
+> build 0/0, 1704 testes aprovados (SQL Server padrão e RCSI, concorrência, volume de 50.000 clientes), migrations
+> `Fase2b1bNumeracao` e `Fase2b1bMotor` geradas e auditadas, **não aplicadas no LoneERP**. Relatório na seção 22;
+> aguardando a revisão do usuário e a autorização para Update-Database (com a API desligada), testes pós-migração e commit.
+>
+> **Situação anterior (29/09/2026, 07h19):** arquitetura aprovada. Decisões **T1 a T20 aprovadas** (opção A), com o complemento
 > obrigatório das **fixações múltiplas** no T3 e a definição de **desfazer operação futura** (T15) como ação de negócio
 > registrada. Autorizada a **2b-1a** (estrutura). A 2b-1b (motor) só começa depois da 2b-1a compilada e testada pelo
 > usuário. Este documento substitui a revisão de 28/09 e a seção R de 29/09; o histórico da discussão está no git
@@ -330,7 +335,7 @@ só das mudanças, em lotes de 1.000 na mesma transação. Se um mapa passar do 
 - **Testes:** domínio, aplicação, cliente, modelo EF e banco real (pulados sem `LONE_TESTES_SQLSERVER`), incluindo A→B
   e B→A simultâneos.
 
-### 2b-1b — Motor (depois da 2b-1a testada)
+### 2b-1b — Motor (implementada em 29/09; relatório na seção 22)
 
 Tabelas 7 a 13 (migration própria); `UsavelEmCobertura` no catálogo; endereço de referência no `FiltrosPessoasSql`;
 `MotorAtribuicao`; regras e exceções; operação (rascunho, mudanças, simular, aplicar, cancelar, desfazer);
@@ -362,6 +367,10 @@ cliente (parâmetro do mapa) · S9 operação agendada para o fim das exceções
 - 29/09 — 2b-1a entregue para compilar e testar (seção 19). Sem commit.
 - 29/09 12h24 — build 0/0; 1523 aprovados; `BancoTerritorios` 8/8 no SQL Server. Teste de telas feito (roteiro completo).
 - 29/09 13h15 — D1 = **B** e auditoria "padrão de ERP maduro" (seção 20). Sem commit.
+- 29/09 17h — auditoria final da 2b-1a (seção 21); commit `af3924c`.
+- 29/09 — plano da 2b-1b consolidado (DN-01 a DN-15, RT-1, RT-2) e autorizado; implementação.
+- 29/09 23h45 — 2b-1b: build 0/0; 1700 aprovados; limite DN-12 = 50.000 (aviso 10.000) escolhido pelo usuário e provado
+  no teste de volume. Sem Update-Database, sem commit (seção 22).
 
 ## 19. Relatório da 2b-1a (entregue em 29/09/2026, sem commit, aguardando compilação e testes do usuário)
 
@@ -495,6 +504,114 @@ conferência final; histórico de responsáveis/posições/auditoria depois de t
   migrations reais num banco temporário (Up, trava do mapa antigo, gatilhos, Down, Up).
 - Resultado: build 0/0; `dotnet test` 1614/0/0; `BancoTerritorios` 52/0/0; migrations 3/0/0.
 - Pendente de decisão: gatilho da carteira (`TR_CarteiraClientes_SemSobreposicao`) tem a mesma forma de ler (sem a dica).
+
+---
+
+## 22. Relatório da 2b-1b — Operações territoriais (29/09/2026, 23h50, sem commit, migrations não aplicadas)
+
+Implementada conforme o plano consolidado da 2b-1b (artefato "Plano 2b-1b") e as decisões DN-01 a DN-15, RT-1 e RT-2.
+
+### 22.1 Validação
+
+| Etapa | Resultado |
+|---|---|
+| Build da solução | 0 avisos, 0 erros |
+| `dotnet test` (tudo, com `LONE_TESTES_SQLSERVER`) | **1704 aprovados, 0 falhas, 0 ignorados** (30/09, 05h25, depois da revisão de 29/09 23h50; eram 1614 na 2b-1a) |
+| Banco real | `BancoOperacoesTerritoriais*` no padrão do SQL Server **e** com RCSI/SNAPSHOT; aplicações simultâneas de verdade |
+| Volume (DN-12) | 50.000 clientes + 5 mudanças de estrutura numa transação: simular 5,8 s, aplicar 12,9 s (SQL Express do usuário); medição anterior com 10.000: 1,5 s / 2,8 s |
+| Erro no último lote | desfaz os lotes anteriores; nada fica gravado; a operação continua Simulada |
+| Migrations | `MigracaoMotorTerritorialTests`: a partir da 2b-1a com um mapa antigo, Up → modelo sem mudanças pendentes → Down até a Numeracao → Down até a 2b-1a (gatilhos da 2b-1a intactos) → Up sem duplicar |
+
+### 22.2 Migrations (separação aprovada)
+
+- **`20260930004153_Fase2b1bNumeracao`** — só `NumeracoesDocumento` (PK Prefixo+Ano, `CK Ultimo >= 0`). Down: DropTable.
+- **`20260930004950_Fase2b1bMotor`** — 11 tabelas (`ParametrosTerritoriais` com a linha única de 30 dias,
+  `MapaTerritorialMotor`, `RegrasTerritorio`, `ExcecoesTerritorio`, `AtribuicoesTerritorio`, `OperacoesTerritoriais`,
+  `OperacaoTerritorialMudancas`, `OperacaoTerritorialSimulacoes`, `OperacaoTerritorialSimulacaoItens`,
+  `OperacaoTerritorialItens`, `OperacaoTerritorialFechamentos`); colunas novas, todas anuláveis ou com padrão, em tabelas
+  da 2b-1a (`TerritorioPosicoes.OperacaoId/OperacaoMudancaId/OperacaoEncerramentoId/OperacaoAnulacaoId`,
+  `TerritorioResponsaveis.OperacaoEncerramentoId`, `MapasTerritoriais.RegistrarNosDocumentos` = falso — DN-15); índice
+  único `UX_MapasTerritoriais_Id_Exclusivo`; todas as FKs `Restrict`. No fim do Up, por SQL: `PreencherMotores` (uma
+  linha de motor por mapa existente, idempotente), `CriarChavesExclusivo`, gatilhos 50073 (regras: sobreposição e
+  imutabilidade por EXCEPT), 50074 (exceções), 50075 (atribuições) e 50076 (itens imutáveis) — os três primeiros leem com
+  `READCOMMITTEDLOCK`. No começo do Down, `RemoverProtecoesMotor`.
+- Nenhuma migration da 2b-1a foi alterada; nenhuma coluna existente muda de tipo; nenhum dado existente é reescrito
+  (só a linha do motor é acrescentada para cada mapa).
+
+### 22.3 Decisões de implementação (dentro do aprovado; listadas para revisão)
+
+1. **FK de Exclusivo criada por SQL**, não pelo EF: uma chave alternativa `(Id, Exclusivo)` no EF tornaria Exclusivo
+   imutável também em mapas sem uso, o que a 2b-1a permite trocar. Com a FK `(MapaId, Exclusivo)` → índice único, o banco
+   recusa trocar a exclusividade de mapa que já tem exceção ou atribuição.
+2. **12 tabelas físicas** (1 na Numeracao + 11 no Motor). O plano da 2b-1b dizia "onze tabelas novas" porque contava
+   `OperacaoTerritorialSimulacoes` + `OperacaoTerritorialSimulacaoItens` numa linha só; nada além do plano foi criado.
+   A tabela de 13 da seção 3 é a da revisão de 28/09 (antes de DN-02, DN-03 e dos fechamentos) e fica como histórico.
+3. **Versão do motor muda também quando muda campo travado do mapa** (empresa, exclusividade, finalidade do
+   endereço, classificações/universo) e na (des)ativação — não só com a árvore (DN-02 estendida ao que muda o resultado do motor). Nome e
+   descrição não mudam a versão.
+4. **Mudanças de rascunho removidas são apagadas** (não anuladas): rascunho não é fato; a história da operação guarda o
+   evento.
+5. **Operação sem mudanças (revisão de 29/09, 23h50: mantida como no plano da 2b-1b, telas: "criar operação com estas").** Serve para uma coisa só: corrigir
+   divergências que vieram do cadastro (endereço, etiqueta, CNAE mudaram sem operação), que não têm mudança planejada a
+   fazer. Nasce pelo botão **"Criar operação com estas"** da tela Divergências territoriais (rascunho no mapa, efeito na
+   data conferida, motivo pedido na hora; abre na tela de operações). A simulação mostra só divergências e a aplicação as
+   corrige (DN-14). Sem mudanças e sem divergências, não há nada a gravar: a aplicação é recusada com "Nada a aplicar".
+   Numa operação com mudanças, as divergências existentes no mapa são corrigidas junto (a aplicação grava o estado coerente
+   do mapa inteiro na data), separadas na simulação como "divergência" e não como efeito da operação. *O botão faltava na
+   primeira entrega (a tela só orientava em texto); foi feito nesta revisão.*
+6. **Qualquer usuário com PLANEJAR edita qualquer rascunho** (DN-06; a rowversion impede edição às cegas); cancelar segue
+   RT-2 (PLANEJAR só o próprio, APLICAR qualquer um). **Reforço de auditoria (revisão de 29/09):** cada edição (data,
+   motivo, observação, mudança incluída ou retirada, com o texto da mudança) vira evento; quando quem edita não é quem
+   criou — comparado pelo Id do usuário —, o evento diz "João alterou a operação TE-…, criada por Maria: …". A história da
+   operação mostra os eventos e o antes → depois de data, motivo e observação; o cabeçalho destaca "criada por Maria e
+   editada também por João (última edição: João, em …)". Limitação conhecida: a auditoria do Lone guarda o nome de quem
+   gravou, não o Id; o destaque do cabeçalho compara nomes (os eventos comparam Ids). Identidade estável na auditoria está
+   no backlog 1 (projeto de identidade).
+7. **Ficha da Pessoa** mostra só os territórios de hoje (sem "por quê?" nem histórico, que ficam na consulta do território
+   e na operação).
+8. **"Sem endereço" fica fora dos campos de regra**; UF e Município com "nenhum destes" exigem o endereço de referência
+   existente (senão cliente sem endereço entraria por exclusão).
+9. **Assinatura na aplicação**: recalculada com a versão do motor que a simulação assinou — a trava do motor
+   (`UPDATE … WHERE Versao = vista`) prova que a versão é a mesma, mas o próprio UPDATE gera rowversion nova.
+10. **DN-12 (escolha do usuário em 29/09 23h40)**: limite de **50.000 clientes gravados por operação**, aviso a partir de
+    **10.000**, constantes no domínio (`RegrasOperacaoTerritorial.LimiteClientesPorOperacao/AvisoClientesPorOperacao`).
+    Conta entram + saem + mudam + origem atualizada (bloqueados não contam, já impedem). Acima do limite: aviso na tela,
+    Aplicar desligado e recusa antes de travar o mapa, registrada na história, com a mensagem "Esta operação afetará N
+    clientes, ultrapassando o limite de 50.000 clientes afetados por operação. Reduza o escopo da operação ou divida o
+    planejamento em operações menores." O motor não prescreve como dividir (região, segmento, território, classificação,
+    reformular a regra): é decisão de quem planeja (ajuste da revisão de 29/09, 23h50).
+
+### 22.3b Roteiro de telas no LoneERP real (30/09, depois do Update-Database) e ajustes
+
+Conferência pós-migração (só leitura): tudo conforme (seção 22.1). Roteiro feito no app com o mapa "Teste 2b-1b":
+TE-2026-0001 (regra por etiqueta, aplicada), TE-2026-0002 ("Criar operação com estas", sem mudanças, corrigiu a
+divergência), TE-2026-0003 ("Nada a aplicar", cancelada), TE-2026-0004 (história com motivo antes → depois, cancelada),
+TE-2026-0005 (criada pela Edna, editada pelo Rafael: destaque e "Rafael Froés alterou a operação …, criada por Edna",
+cancelada), TE-2026-0006 (tela de filtros, cancelada). Ajustes feitos antes do commit, a pedido do usuário:
+- tela de operações relê a árvore do mapa a cada operação aberta (território criado depois aparece nas listas);
+- listas de escolha (Picker) no Windows abrem com um toque em qualquer ponto do campo, não só na setinha
+  (`Plataforma/AjusteListaEscolha`, para todas as telas);
+- a ficha da operação volta ao topo quando aparece uma mensagem ("Mudança incluída", erros), para a mensagem ficar à
+  vista (`ViewModelBase.MensagemMostrada`; C3 aplicado só nesta tela — o restante do C3 continua anotado).
+
+### 22.4 Fora do escopo (confirmado, não feito)
+
+Correção do gatilho da carteira (READCOMMITTEDLOCK), numeração TR-, empresa em equipes/responsáveis, território novo
+com início futuro, processamento em segundo plano, campos personalizados em regra, dupla aprovação.
+
+### 22.5 Observações
+
+- Pasta vazia `src/Lone.Infrastructure/Persistencia/Migracoclses` (de 28/09, fora do git por estar vazia): pode ser
+  apagada à mão.
+- `_entrega/` não está no `.gitignore` (aparece como não rastreada): o commit deve listar os arquivos explicitamente.
+
+### 22.6 Próximos passos (só com autorização)
+
+1. Revisão deste relatório pelo usuário.
+2. `Update-Database` com a API desligada (aplica `Fase2b1bNumeracao` e `Fase2b1bMotor`); conferência do banco (motor por
+   mapa, parâmetros, gatilhos, FKs).
+3. Testes pós-migração e roteiro de telas (operações, simulação, aplicação, desfazer, divergências, parâmetros, ficha).
+4. Commit (sem push).
 
 ---
 

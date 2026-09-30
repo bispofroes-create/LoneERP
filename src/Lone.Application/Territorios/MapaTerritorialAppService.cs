@@ -77,6 +77,7 @@ public sealed class MapaTerritorialAppService : IMapaTerritorialAppService
             EmpresaId = dto.EmpresaId == Guid.Empty ? null : dto.EmpresaId,
             Exclusivo = dto.Exclusivo,
             FinalidadeEnderecoReferenciaId = dto.FinalidadeEnderecoReferenciaId,
+            RegistrarNosDocumentos = dto.RegistrarNosDocumentos,
             Ativo = anterior?.Ativo ?? true
         };
         dados.Classificacoes = RegrasMapaTerritorial.SincronizarClassificacoes(dados.Id, anterior?.Classificacoes ?? [], dto.Classificacoes ?? []);
@@ -162,6 +163,7 @@ public sealed class MapaTerritorialAppService : IMapaTerritorialAppService
         Empresa = m.EmpresaId is { } e ? empresas.GetValueOrDefault(e) : null, Exclusivo = m.Exclusivo,
         FinalidadeEnderecoReferenciaId = m.FinalidadeEnderecoReferenciaId,
         FinalidadeEnderecoReferencia = finalidades.GetValueOrDefault(m.FinalidadeEnderecoReferenciaId),
-        Classificacoes = [.. m.ClassificacoesAceitas], Ativo = m.Ativo, EmUso = emUso, TerritoriosAtivos = territoriosAtivos
+        Classificacoes = [.. m.ClassificacoesAceitas], Ativo = m.Ativo, EmUso = emUso, TerritoriosAtivos = territoriosAtivos,
+        RegistrarNosDocumentos = m.RegistrarNosDocumentos
     };
 }

@@ -20,6 +20,7 @@ public static class ConfiguracaoCliente
     {
         services.AddSingleton<SessaoCliente>();
         services.AddSingleton<AberturaDePessoa>();
+        services.AddSingleton<AberturaDeOperacaoTerritorial>();
         services.AddSingleton<ConfiguracaoServidor>();
         services.AddSingleton<ClienteApi>();
         services.AddSingleton<ServicoAutenticacao>();
@@ -84,6 +85,9 @@ public static class ConfiguracaoCliente
         services.AddTransient<Lone.Cliente.ViewModels.Territorios.TiposTerritorioViewModel>(); // Fase 2b-1a
         services.AddTransient<Lone.Cliente.ViewModels.Territorios.MapasTerritoriaisViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Territorios.TerritoriosViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Territorios.OperacoesTerritoriaisViewModel>(); // Fase 2b-1b
+        services.AddTransient<Lone.Cliente.ViewModels.Territorios.DivergenciasTerritoriaisViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Territorios.ParametrosTerritoriaisViewModel>();
 
         return services;
     }

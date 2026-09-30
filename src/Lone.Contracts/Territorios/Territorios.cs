@@ -44,6 +44,12 @@ public sealed class MapaTerritorialDto
     /// <summary>Somente leitura: nome da finalidade.</summary>
     public string? FinalidadeEnderecoReferencia { get; set; }
 
+    /// <summary>
+    /// DN-15: o território deste mapa é copiado para os documentos (pedido, venda, comissão...) quando eles existirem. Nesta
+    /// fase só prepara o contrato; não muda nenhum comportamento.
+    /// </summary>
+    public bool RegistrarNosDocumentos { get; set; }
+
     /// <summary>Universo: classificações de pessoa que podem ser atribuídas (as ativas).</summary>
     public List<Guid> Classificacoes { get; set; } = new();
     public bool Ativo { get; set; } = true;

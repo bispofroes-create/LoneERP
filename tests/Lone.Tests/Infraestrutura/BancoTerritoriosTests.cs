@@ -30,14 +30,24 @@ public class BancoTerritorios : IAsyncLifetime
         if (ComVersoesDeLinha) await LigarVersoesDeLinhaAsync(Banco);
     }
 
-    /// <summary>As proteções dos territórios na ordem das migrações (2: responsáveis; 3: árvore e posições; 4: reforço).</summary>
-    public static async Task CriarProtecoesAsync(BancoDeTeste banco, bool comReforcoConcorrencia = true)
+    /// <summary>
+    /// As proteções dos territórios na ordem das migrações (2: responsáveis; 3: árvore e posições; 4: reforço; 2b-1b: motor,
+    /// FKs de Exclusivo e gatilhos 50073–50076).
+    /// </summary>
+    public static async Task CriarProtecoesAsync(BancoDeTeste banco, bool comReforcoConcorrencia = true, bool comMotor = true)
     {
         await using var db = banco.Contexto();
         await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecao);
         await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecaoArvore);
         await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecaoPosicoes);
         if (comReforcoConcorrencia) await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.ReforcarProtecaoConcorrencia);
+        if (!comMotor) return;
+        await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.PreencherMotores);
+        await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarChavesExclusivo);
+        await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecaoRegras);
+        await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecaoExcecoes);
+        await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecaoAtribuicoes);
+        await db.Database.ExecuteSqlRawAsync(SqlMigracaoTerritorios.CriarProtecaoItens);
     }
 
     /// <summary>READ_COMMITTED_SNAPSHOT e SNAPSHOT ligados só no banco temporário (nunca no banco do sistema).</summary>
@@ -103,6 +113,7 @@ public abstract partial class BancoTerritoriosTestesBase
         };
         db.MapasTerritoriais.Add(mapa);
         db.MapaTerritorialArvores.Add(new MapaTerritorialArvore { MapaId = mapa.Id, AtualizadoEm = DateTime.UtcNow });
+        db.MapaTerritorialMotores.Add(new MapaTerritorialMotor { MapaId = mapa.Id, AtualizadoEm = DateTime.UtcNow });
         await db.SaveChangesAsync();
         return mapa;
     }
@@ -133,9 +144,9 @@ public abstract partial class BancoTerritoriosTestesBase
         var geografia = await MapaAsync();
         var segmentos = await MapaAsync();
         var mg = Novo(geografia.Id, "MG");
-        await Repositorio().SalvarAsync(mg, novo: true, await VersaoDaArvoreAsync(geografia.Id), default);
+        await Repositorio().SalvarAsync(mg, novo: true, await VersaoDaArvoreAsync(geografia.Id), null, default);
 
-        var erro = await Recusado(() => Repositorio().SalvarAsync(Novo(segmentos.Id, "Açougues", pai: mg.Id), novo: true, null, default));
+        var erro = await Recusado(() => Repositorio().SalvarAsync(Novo(segmentos.Id, "Açougues", pai: mg.Id), novo: true, null, null, default));
         Assert.Equal(547, erro.Number);
     }
 
@@ -144,7 +155,7 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var mg = Novo(mapa.Id, "MG");
-        await Repositorio().SalvarAsync(mg, novo: true, null, default);
+        await Repositorio().SalvarAsync(mg, novo: true, null, null, default);
 
         await using (var db = Db())
         {
@@ -178,7 +189,7 @@ public abstract partial class BancoTerritoriosTestesBase
         {
             Id = IdSequencial.Novo(), TerritorioId = mg.Id, PessoaId = pessoa.Id, EquipeId = equipe.Id, TipoCarteiraId = funcao.Id, InicioEm = new(2026, 2, 1)
         });
-        var ambos = await Recusado(() => Repositorio().SalvarAsync(mg, novo: false, null, default));
+        var ambos = await Recusado(() => Repositorio().SalvarAsync(mg, novo: false, null, null, default));
         Assert.Equal(547, ambos.Number);
     }
 
@@ -188,13 +199,13 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var bh = Novo(mapa.Id, "BH");
         var curvelo = Novo(mapa.Id, "Curvelo");
-        await Repositorio().SalvarAsync(bh, novo: true, null, default);
-        await Repositorio().SalvarAsync(curvelo, novo: true, null, default);
-        await Repositorio().SalvarAsync(Novo(mapa.Id, "Centro", bh.Id), novo: true, null, default);
-        await Repositorio().SalvarAsync(Renomear(Novo(mapa.Id, "Centro 2", curvelo.Id), "Centro"), novo: true, null, default); // outro pai: pode
+        await Repositorio().SalvarAsync(bh, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(curvelo, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(Novo(mapa.Id, "Centro", bh.Id), novo: true, null, null, default);
+        await Repositorio().SalvarAsync(Renomear(Novo(mapa.Id, "Centro 2", curvelo.Id), "Centro"), novo: true, null, null, default); // outro pai: pode
 
         var repetido = Renomear(Novo(mapa.Id, "Centro 3", bh.Id), "centro"); // maiúscula não conta (collation)
-        var erro = await Assert.ThrowsAsync<Lone.Domain.Validacao.ValidacaoException>(() => Repositorio().SalvarAsync(repetido, novo: true, null, default));
+        var erro = await Assert.ThrowsAsync<Lone.Domain.Validacao.ValidacaoException>(() => Repositorio().SalvarAsync(repetido, novo: true, null, null, default));
         Assert.Contains(erro.Erros, e => e.Contains("mesmo lugar da árvore"));
     }
 
@@ -210,8 +221,8 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var a = Novo(mapa.Id, "A");
         var b = Novo(mapa.Id, "B");
-        await Repositorio().SalvarAsync(a, novo: true, await VersaoDaArvoreAsync(mapa.Id), default);
-        await Repositorio().SalvarAsync(b, novo: true, await VersaoDaArvoreAsync(mapa.Id), default);
+        await Repositorio().SalvarAsync(a, novo: true, await VersaoDaArvoreAsync(mapa.Id), null, default);
+        await Repositorio().SalvarAsync(b, novo: true, await VersaoDaArvoreAsync(mapa.Id), null, default);
 
         // As duas janelas leram a árvore (e a versão dela) antes de qualquer uma gravar; cada mudança, sozinha, é válida.
         var lida = await VersaoDaArvoreAsync(mapa.Id);
@@ -223,8 +234,8 @@ public abstract partial class BancoTerritoriosTestesBase
         bAbaixoDeA.Posicoes.Single().PaiId = a.Id;
 
         var resultados = await Task.WhenAll(
-            Tentar(() => Repositorio().SalvarAsync(aAbaixoDeB, novo: false, lida, default)),
-            Tentar(() => Repositorio().SalvarAsync(bAbaixoDeA, novo: false, lida, default)));
+            Tentar(() => Repositorio().SalvarAsync(aAbaixoDeB, novo: false, lida, null, default)),
+            Tentar(() => Repositorio().SalvarAsync(bAbaixoDeA, novo: false, lida, null, default)));
 
         Assert.Equal(1, resultados.Count(r => r is null)); // exatamente uma gravou
         var conflito = Assert.Single(resultados.OfType<Exception>());
@@ -275,8 +286,8 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var t1 = Novo(mapa.Id, "T1");
         var t2 = Novo(mapa.Id, "T2");
-        await Repositorio().SalvarAsync(t1, novo: true, null, default);
-        await Repositorio().SalvarAsync(t2, novo: true, null, default);
+        await Repositorio().SalvarAsync(t1, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(t2, novo: true, null, null, default);
         var c = await CadastrosAsync();
         await InserirResponsavelAsync(t1.Id, c.P1, null, c.F1, "2026-01-01", "2026-06-30");
 
@@ -308,7 +319,7 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var norte = Novo(mapa.Id, "Norte");
-        await Repositorio().SalvarAsync(norte, novo: true, null, default);
+        await Repositorio().SalvarAsync(norte, novo: true, null, null, default);
         var c = await CadastrosAsync();
 
         // Os dois abriram o território na mesma versão; cada um renomeia e inclui a mesma pessoa na mesma função,
@@ -324,8 +335,8 @@ public abstract partial class BancoTerritoriosTestesBase
         deB.Responsaveis.Add(responsavelB);
 
         var resultados = await Task.WhenAll(
-            Tentar(() => Repositorio().SalvarAsync(deA, novo: false, null, default)),
-            Tentar(() => Repositorio().SalvarAsync(deB, novo: false, null, default)));
+            Tentar(() => Repositorio().SalvarAsync(deA, novo: false, null, null, default)),
+            Tentar(() => Repositorio().SalvarAsync(deB, novo: false, null, null, default)));
 
         Assert.Equal(1, resultados.Count(r => r is null)); // exatamente uma venceu
         var perdedora = Assert.IsType<ConflitoDeEdicaoException>(Assert.Single(resultados.OfType<Exception>()));
@@ -343,16 +354,16 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var sul = Novo(mapa.Id, "Sul");
-        await Repositorio().SalvarAsync(sul, novo: true, null, default);
+        await Repositorio().SalvarAsync(sul, novo: true, null, null, default);
         var c = await CadastrosAsync();
         var aberta = await CopiaAsync(sul.Id);
 
         // Outra janela grava antes (renomeia): a versão aberta ficou velha.
         var outra = await CopiaAsync(sul.Id);
         outra.Nome = "Sul (renomeado)";
-        await Repositorio().SalvarAsync(outra, novo: false, null, default);
+        await Repositorio().SalvarAsync(outra, novo: false, null, null, default);
         aberta.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), TerritorioId = sul.Id, PessoaId = c.P1, TipoCarteiraId = c.F1, InicioEm = new(2026, 1, 1) });
-        await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(aberta, novo: false, null, default));
+        await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(aberta, novo: false, null, null, default));
 
         // Com a versão certa, mas com sobreposição que só o banco vê (gravada por fora): o gatilho barra e NADA fica,
         // nem a mudança de nome que ia junto.
@@ -361,7 +372,7 @@ public abstract partial class BancoTerritoriosTestesBase
         var versaoAntes = atual.Versao;
         atual.Nome = "Sul (não deve ficar)";
         atual.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), TerritorioId = sul.Id, PessoaId = c.P1, TipoCarteiraId = c.F1, InicioEm = new(2026, 5, 1) });
-        var barrada = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(atual, novo: false, null, default));
+        var barrada = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(atual, novo: false, null, null, default));
         Assert.Equal(TerritorioRepositorio.ResponsavelSobreposto, barrada.Message);
 
         await using var db = Db();
@@ -379,14 +390,14 @@ public abstract partial class BancoTerritoriosTestesBase
         var c = await CadastrosAsync();
         leste.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), PessoaId = c.P1, TipoCarteiraId = c.F1, InicioEm = new(2027, 1, 1), FimEm = new(2027, 1, 31) });
         leste.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), PessoaId = c.P1, TipoCarteiraId = c.F1, InicioEm = new(2027, 2, 1) });
-        await Repositorio().SalvarAsync(leste, novo: true, null, default);
+        await Repositorio().SalvarAsync(leste, novo: true, null, null, default);
 
         // O primeiro cresce até 15/02 e o segundo passa a começar em 16/02: o estado final não tem sobreposição, mas gravar o
         // primeiro antes do segundo teria. Os dois passos (interseção antes × depois) evitam o falso positivo.
         var copia = await CopiaAsync(leste.Id);
         copia.Responsaveis.Single(r => r.FimEm is not null).FimEm = new DateOnly(2027, 2, 15);
         copia.Responsaveis.Single(r => r.FimEm is null).InicioEm = new DateOnly(2027, 2, 16);
-        await Repositorio().SalvarAsync(copia, novo: false, null, default);
+        await Repositorio().SalvarAsync(copia, novo: false, null, null, default);
 
         await using var db = Db();
         var periodos = await db.TerritorioResponsaveis.AsNoTracking().Where(r => r.TerritorioId == leste.Id).OrderBy(r => r.InicioEm)
@@ -402,7 +413,7 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var oeste = Novo(mapa.Id, "Oeste");
-        await Repositorio().SalvarAsync(oeste, novo: true, null, default);
+        await Repositorio().SalvarAsync(oeste, novo: true, null, null, default);
         var c = await CadastrosAsync();
         await using var db = Db();
 
@@ -448,7 +459,7 @@ public abstract partial class BancoTerritoriosTestesBase
         for (var i = 1; i <= 12; i++) // 12 níveis: o limite, aceito
         {
             var t = Novo(mapa.Id, $"N{i:00}", pai);
-            await Repositorio().SalvarAsync(t, novo: true, null, default);
+            await Repositorio().SalvarAsync(t, novo: true, null, null, default);
             niveis.Add(t);
             pai = t.Id;
         }
@@ -467,8 +478,8 @@ public abstract partial class BancoTerritoriosTestesBase
             """))).Number);
         var outraRaiz = Novo(mapa.Id, "Outra raiz");
         var filho = Novo(mapa.Id, "Filho da outra", outraRaiz.Id);
-        await Repositorio().SalvarAsync(outraRaiz, novo: true, null, default);
-        await Repositorio().SalvarAsync(filho, novo: true, null, default);
+        await Repositorio().SalvarAsync(outraRaiz, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(filho, novo: true, null, null, default);
         Assert.Equal(50071, (await Recusado(() => db.Database.ExecuteSqlAsync(
             $"UPDATE Territorios SET PaiId = {niveis[10].Id} WHERE Id = {outraRaiz.Id}"))).Number); // 11 + 1 + 1 = 13
 
@@ -485,7 +496,7 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var centro = Novo(mapa.Id, "Centro");
-        await Repositorio().SalvarAsync(centro, novo: true, null, default); // posição aberta desde 01/01/2026
+        await Repositorio().SalvarAsync(centro, novo: true, null, null, default); // posição aberta desde 01/01/2026
         await using var db = Db();
         var aberta = centro.Posicoes.Single().Id;
         await db.Database.ExecuteSqlAsync($"UPDATE TerritorioPosicoes SET FimEm = '2026-06-30' WHERE Id = {aberta}");
@@ -517,10 +528,10 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var vista = await VersaoDaArvoreAsync(mapa.Id); // a tela carregou a árvore
-        await Repositorio().SalvarAsync(Novo(mapa.Id, "Norte"), novo: true, vista, default); // outra janela mudou a árvore
+        await Repositorio().SalvarAsync(Novo(mapa.Id, "Norte"), novo: true, vista, null, default); // outra janela mudou a árvore
 
         var sul = Novo(mapa.Id, "Sul");
-        var conflito = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(sul, novo: true, vista, default));
+        var conflito = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(sul, novo: true, vista, null, default));
 
         Assert.Equal(RegrasArvoreTerritorial.MensagemArvoreAlterada, conflito.Message);
         await using var db = Db();
@@ -535,7 +546,7 @@ public abstract partial class BancoTerritoriosTestesBase
 
         // A ficha do mapa foi aberta; enquanto isso, a árvore mudou. Salvar o cadastro continua valendo (sem aviso falso).
         var ficha = await Mapas().ObterAsync(mapa.Id, default);
-        await Repositorio().SalvarAsync(Novo(mapa.Id, "Leste"), novo: true, await VersaoDaArvoreAsync(mapa.Id), default);
+        await Repositorio().SalvarAsync(Novo(mapa.Id, "Leste"), novo: true, await VersaoDaArvoreAsync(mapa.Id), null, default);
         ficha!.Descricao = "Regiões de venda";
         await Mapas().SalvarAsync(ficha, novo: false, default);
 
@@ -551,7 +562,7 @@ public abstract partial class BancoTerritoriosTestesBase
         ficha3!.Ativo = false;
         await Mapas().SalvarAsync(ficha3, novo: false, default);
         var oeste = Novo(mapa.Id, "Oeste");
-        await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(oeste, novo: true, vista, default));
+        await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(oeste, novo: true, vista, null, default));
 
         // Ficha do mapa velha: mensagem própria, nada gravado.
         ficha!.Descricao = "Não deve ficar";
@@ -572,7 +583,7 @@ public abstract partial class BancoTerritoriosTestesBase
 
         var vista = await VersaoDaArvoreAsync(mapa.Id);
         Assert.NotNull(vista);
-        await Repositorio().SalvarAsync(Novo(mapa.Id, "Primeiro"), novo: true, vista, default);
+        await Repositorio().SalvarAsync(Novo(mapa.Id, "Primeiro"), novo: true, vista, null, default);
     }
 
     // ------------------------------------------------------------------ Conferência final e histórico
@@ -583,14 +594,14 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var a = Novo(mapa.Id, "A");
         var b = Novo(mapa.Id, "B");
-        await Repositorio().SalvarAsync(a, novo: true, null, default);
-        await Repositorio().SalvarAsync(b, novo: true, null, default);
+        await Repositorio().SalvarAsync(a, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(b, novo: true, null, null, default);
 
         // Um caminho que muda o pai sem mexer na posição (o domínio nunca faz isso): a gravação inteira volta.
         var errado = await CopiaAsync(b.Id);
         errado.PaiId = a.Id;
         errado.Nome = "B (não deve ficar)";
-        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => Repositorio().SalvarAsync(errado, novo: false, null, default));
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => Repositorio().SalvarAsync(errado, novo: false, null, null, default));
         Assert.Equal(TerritorioRepositorio.MensagemPosicaoIncoerente, erro.Message);
 
         await using var db = Db();
@@ -607,12 +618,12 @@ public abstract partial class BancoTerritoriosTestesBase
         var c = await CadastrosAsync();
         norte.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), PessoaId = c.P1, TipoCarteiraId = c.F1, InicioEm = new(2026, 1, 1), FimEm = new(2026, 6, 30) });
         norte.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), PessoaId = c.P2, TipoCarteiraId = c.F1, InicioEm = new(2026, 7, 1) });
-        await Repositorio().SalvarAsync(norte, novo: true, null, default);
+        await Repositorio().SalvarAsync(norte, novo: true, null, null, default);
 
         // Encerrar (como o serviço faz): nada é apagado; quem estava termina no último dia.
         var encerrar = await CopiaAsync(norte.Id);
         RegrasArvoreTerritorial.Encerrar(encerrar, new DateOnly(2026, 9, 29));
-        await Repositorio().SalvarAsync(encerrar, novo: false, await VersaoDaArvoreAsync(mapa.Id), default);
+        await Repositorio().SalvarAsync(encerrar, novo: false, await VersaoDaArvoreAsync(mapa.Id), null, default);
 
         await using var db = Db();
         var responsaveis = await db.TerritorioResponsaveis.AsNoTracking().Where(r => r.TerritorioId == norte.Id).ToListAsync();

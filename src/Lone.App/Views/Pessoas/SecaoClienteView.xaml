@@ -60,6 +60,22 @@
             </BindableLayout.ItemTemplate>
         </VerticalStackLayout>
 
+        <!-- Territórios (Fase 2b-1b): o território de hoje em cada mapa, desde quando e por quê (regra e versão, ou exceção). Só leitura. -->
+        <VerticalStackLayout Spacing="4" IsVisible="{Binding MostrarTerritorios}" Margin="0,8,0,0">
+            <Label Text="Territórios" Style="{StaticResource Subtitulo}" />
+            <Label Text="Definidos pelas regras e exceções de cada mapa; mudam só por operação territorial." Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding TerritoriosDoCliente}" Spacing="2">
+                <BindableLayout.EmptyView>
+                    <Label Text="Em nenhum território hoje." Style="{StaticResource Secundario}" />
+                </BindableLayout.EmptyView>
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Label Text="{Binding .}" LineBreakMode="WordWrap" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+
         <!-- Carteira de clientes (Motor Comercial, Fase 1b): quem atende este cliente, por papel comercial, com vigência.
              O vendedor vigente do papel "responsável da conta" vira o vendedor padrão. Em cima, o que vale hoje (e o que
              começa depois, e os novos); embaixo, recolhido, o histórico. Vínculo que já começou não muda: "Trocar". -->

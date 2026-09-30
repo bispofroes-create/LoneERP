@@ -67,6 +67,12 @@ public static class Permissoes
     {
         public const string Visualizar = "TERRITORIOS.VISUALIZAR";
         public const string Configurar = "TERRITORIOS.CONFIGURAR";
+
+        /// <summary>Fase 2b-1b (DN-06): operações territoriais em rascunho e simulação (alcance Tudo).</summary>
+        public const string Planejar = "TERRITORIOS.PLANEJAR";
+
+        /// <summary>Fase 2b-1b (DN-06): aplicar, cancelar e desfazer operações territoriais (alcance Tudo).</summary>
+        public const string Aplicar = "TERRITORIOS.APLICAR";
     }
 
     public static class Seguranca
@@ -109,6 +115,8 @@ public static class Permissoes
         new(Comercial.Transferir, "Comercial", "Transferir a carteira de clientes de uma pessoa para outra e ver as transferências"),
         new(Territorios.Visualizar, "Territórios", "Ver mapas territoriais, a árvore de territórios, os responsáveis e o histórico"),
         new(Territorios.Configurar, "Territórios", "Criar e alterar tipos de território, mapas, a árvore (sem uso operacional) e os responsáveis"),
+        new(Territorios.Planejar, "Territórios", "Planejar e simular operações territoriais (regras, exceções e estrutura com uso); cancelar as próprias"),
+        new(Territorios.Aplicar, "Territórios", "Aplicar, cancelar e desfazer operações territoriais (mudam a atribuição de clientes)"),
         new(Metas.Visualizar, "Metas", "Ver metas, participantes e resultados"),
         new(Metas.Gerenciar, "Metas", "Criar e alterar metas, indicadores e equipes; publicar e iniciar a apuração"),
         new(Metas.LancarRealizado, "Metas", "Lançar e importar o realizado informado das metas"),

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Parâmetros territoriais (Fase 2b-1b, DN-08): até quantos dias no passado uma operação territorial pode ter efeito. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:t="clr-namespace:Lone.Cliente.ViewModels.Territorios;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.ParametrosTerritoriaisPage"
+             x:DataType="t:ParametrosTerritoriaisViewModel"
+             Title="Parâmetros territoriais">
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView>
+            <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760" HorizontalOptions="Fill">
+                <Label Text="Parâmetros territoriais" Style="{StaticResource Titulo}" />
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+                <Label Text="Operações territoriais: datas no passado" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
+                <FlexLayout Wrap="Wrap">
+                    <c:Campo Rotulo="Até quantos dias antes de hoje" Texto="{Binding DiasRetroativos}" Mascara="Numero" Dica="Ex.: 30 (0 = só hoje em diante)" />
+                </FlexLayout>
+                <Label Text="{Binding TextoLimites}" Style="{StaticResource Secundario}" />
+                <Label Text="Vale para a data de efeito de uma operação territorial (regras, exceções e mudanças na árvore com uso). Nunca vale antes da última operação aplicada no mapa, qualquer que seja este número: a linha do tempo do mapa não volta para trás. É separado do parâmetro das coberturas e transferências (Parâmetros comerciais)."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" />
+                <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

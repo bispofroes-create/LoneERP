@@ -128,7 +128,12 @@ public class ModeloTerritoriosTests
                                                    && f.Properties.Single().Name == nameof(MapaTerritorial.FinalidadeEnderecoReferenciaId));
         Assert.False(mapa.FindProperty(nameof(MapaTerritorial.FinalidadeEnderecoReferenciaId))!.IsNullable);
         Assert.True(mapa.FindProperty(nameof(MapaTerritorial.EmpresaId))!.IsNullable);
-        Assert.Equal(2, mapa.GetIndexes().Count(i => i.IsUnique));
+        // Código, nome e, desde a 2b-1b, (Id, Exclusivo): o alvo das FKs de cópia de exceções e atribuições (índice, não
+        // chave alternativa, para a exclusividade continuar mudando nos mapas sem uso).
+        Assert.Equal(3, mapa.GetIndexes().Count(i => i.IsUnique));
+        Assert.Contains(mapa.GetIndexes(), i => i.IsUnique && i.GetDatabaseName() == Lone.Infrastructure.Persistencia.Configuracoes.MapaTerritorialConfiguration.IndiceIdExclusivo
+                                                && Nomes(i.Properties).SequenceEqual(new[] { nameof(MapaTerritorial.Id), nameof(MapaTerritorial.Exclusivo) }));
+        Assert.DoesNotContain(mapa.GetKeys(), k => !k.IsPrimaryKey());
         Assert.Null(mapa.FindProperty("ClassificacoesAceitas"));
 
         var universo = Modelo().FindEntityType(typeof(MapaTerritorialClassificacao))!;

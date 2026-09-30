@@ -34,6 +34,8 @@ public class TipoTerritorioConfiguration : IEntityTypeConfiguration<TipoTerritor
 
 public class MapaTerritorialConfiguration : IEntityTypeConfiguration<MapaTerritorial>
 {
+    public const string IndiceIdExclusivo = "UX_MapasTerritoriais_Id_Exclusivo";
+
     public void Configure(EntityTypeBuilder<MapaTerritorial> b)
     {
         b.ToTable("MapasTerritoriais");
@@ -47,6 +49,11 @@ public class MapaTerritorialConfiguration : IEntityTypeConfiguration<MapaTerrito
         b.HasOne<FinalidadeEnderecoCadastro>().WithMany().HasForeignKey(x => x.FinalidadeEnderecoReferenciaId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Classificacoes).WithOne().HasForeignKey(x => x.MapaId).OnDelete(DeleteBehavior.Restrict);
         b.Ignore(x => x.ClassificacoesAceitas);
+
+        // Fase 2b-1b: alvo das FKs (MapaId, Exclusivo) de exceções e atribuições, criadas pela migration
+        // (SqlMigracaoTerritorios.CriarChavesExclusivo). Índice e não chave alternativa: no EF, a chave alternativa tornaria
+        // Exclusivo imutável até nos mapas sem uso.
+        b.HasIndex(x => new { x.Id, x.Exclusivo }).IsUnique().HasDatabaseName(IndiceIdExclusivo);
     }
 }
 
@@ -140,6 +147,13 @@ public class TerritorioPosicaoConfiguration : IEntityTypeConfiguration<Territori
         b.HasIndex(x => x.TerritorioId).IsUnique().HasFilter("[FimEm] IS NULL AND [Ativo] = 1").HasDatabaseName(IndicePosicaoAberta);
         // "A árvore em D": filhos de um nó por data.
         b.HasIndex(x => new { x.MapaId, x.PaiId, x.InicioEm });
+
+        // Fase 2b-1b: a operação e a mudança que abriram a posição, e as que a encerraram ou anularam (nulas nas posições
+        // gravadas pela 2b-1a, que não passam por operação).
+        b.HasOne<OperacaoTerritorial>().WithMany().HasForeignKey(x => x.OperacaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<OperacaoTerritorialMudanca>().WithMany().HasForeignKey(x => x.OperacaoMudancaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<OperacaoTerritorial>().WithMany().HasForeignKey(x => x.OperacaoEncerramentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<OperacaoTerritorial>().WithMany().HasForeignKey(x => x.OperacaoAnulacaoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -167,5 +181,7 @@ public class TerritorioResponsavelConfiguration : IEntityTypeConfiguration<Terri
         // "De que territórios a pessoa/equipe é responsável" (2b-2: Meus territórios).
         b.HasIndex(x => new { x.PessoaId, x.FimEm });
         b.HasIndex(x => new { x.EquipeId, x.FimEm });
+        // Fase 2b-1b: responsável encerrado como consequência do encerramento do território por operação (DN-09).
+        b.HasOne<OperacaoTerritorial>().WithMany().HasForeignKey(x => x.OperacaoEncerramentoId).OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -220,6 +220,9 @@ public sealed partial class MapaTerritorialEdicao : ObservableObject
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Titulo))] private string _nome = string.Empty;
     [ObservableProperty] private string _descricao = string.Empty;
     [ObservableProperty] private bool _exclusivo = true;
+
+    /// <summary>DN-15: o território deste mapa vai para os documentos futuros (pedido, venda, comissão). Por ora, só o contrato.</summary>
+    [ObservableProperty] private bool _registrarNosDocumentos;
     [ObservableProperty] private Opcao<Guid?>[] _empresas;
     [ObservableProperty] private Opcao<Guid?> _empresa;
     [ObservableProperty] private Opcao<Guid>[] _finalidades;
@@ -247,7 +250,7 @@ public sealed partial class MapaTerritorialEdicao : ObservableObject
         new(m.Id, false, opcoes, m.EmpresaId, m.FinalidadeEnderecoReferenciaId, m.Classificacoes)
         {
             Versao = m.Versao, Ativo = m.Ativo, EmUso = m.EmUso, TerritoriosAtivos = m.TerritoriosAtivos, Codigo = m.Codigo, Nome = m.Nome,
-            Descricao = m.Descricao ?? string.Empty, Exclusivo = m.Exclusivo
+            Descricao = m.Descricao ?? string.Empty, Exclusivo = m.Exclusivo, RegistrarNosDocumentos = m.RegistrarNosDocumentos
         };
 
     public IReadOnlyList<string> ValidarLocalmente()
@@ -263,7 +266,7 @@ public sealed partial class MapaTerritorialEdicao : ObservableObject
     public MapaTerritorialDto ParaDto() => new()
     {
         Id = Id, Versao = Versao, Codigo = Codigo.Trim(), Nome = Nome.Trim(), Descricao = TextoTela.Nulo(Descricao?.Trim()), EmpresaId = Empresa.Valor,
-        Exclusivo = Exclusivo, FinalidadeEnderecoReferenciaId = Finalidade.Valor, Ativo = Ativo,
+        Exclusivo = Exclusivo, FinalidadeEnderecoReferenciaId = Finalidade.Valor, Ativo = Ativo, RegistrarNosDocumentos = RegistrarNosDocumentos,
         Classificacoes = [.. Classificacoes.Where(c => c.Marcado).Select(c => c.Id)]
     };
 }

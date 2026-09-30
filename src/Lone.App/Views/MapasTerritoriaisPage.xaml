@@ -89,6 +89,10 @@
                     </FlexLayout>
                     <Label Text="Endereço de referência: as condições de endereço das regras deste mapa (UF, município, CEP, bairro) olham só o endereço marcado como principal desta finalidade. Assim, um cliente com matriz em MG e entrega em SP não cai nas duas regiões."
                            Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <c:CaixaMarcar Texto="Registrar nos documentos: o território deste mapa acompanha pedidos, vendas e comissões quando eles existirem"
+                                   Marcado="{Binding Formulario.RegistrarNosDocumentos}" />
+                    <Label Text="Cada documento guardará uma cópia do território da data (código, nome e caminho): relatórios e comissões antigos não mudam quando a árvore for reorganizada. Nesta versão, a marcação só prepara isso."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
                     <Label Text="Universo: quem pode ser atribuído" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
                     <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Classificacoes}"

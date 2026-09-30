@@ -155,6 +155,28 @@ public static class Rotas
         public static string PorId(Guid id) => $"{Grupo}/{id}";
         public static string Encerrar(Guid id) => $"{Grupo}/{id}/encerrar";
         public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
+
+        // Fase 2b-1b: o motor (regras, exceções, atribuições e operações TE-).
+        public static string Motor(Guid territorioId) => $"{Grupo}/{territorioId}/motor";
+        public const string Parametros = Base + "/territorios-parametros";
+        public const string Operacoes = Base + "/operacoes-territoriais";
+        public const string OperacoesOpcoes = Operacoes + "/opcoes";
+        public static string OperacoesDoMapa(Guid? mapaId) => mapaId is { } m ? $"{Operacoes}?mapaId={m}" : Operacoes;
+        public static string Operacao(Guid id) => $"{Operacoes}/{id}";
+        public static string OperacaoMudancas(Guid id) => $"{Operacoes}/{id}/mudancas";
+        public static string OperacaoRetirarMudanca(Guid id, Guid mudancaId) => $"{Operacoes}/{id}/mudancas/{mudancaId}/retirar";
+        public static string OperacaoMoverCliente(Guid id) => $"{Operacoes}/{id}/mover-cliente";
+        public static string OperacaoSimular(Guid id) => $"{Operacoes}/{id}/simular";
+        public static string OperacaoSimulacoes(Guid id) => $"{Operacoes}/{id}/simulacoes";
+        public static string OperacaoAplicar(Guid id) => $"{Operacoes}/{id}/aplicar";
+        public static string OperacaoCancelar(Guid id) => $"{Operacoes}/{id}/cancelar";
+        public static string OperacaoDesfazer(Guid id) => $"{Operacoes}/{id}/desfazer";
+        public static string OperacaoItens(Guid id) => $"{Operacoes}/{id}/itens";
+        public static string SimulacaoItens(Guid simulacaoId) => $"{Operacoes}/simulacoes/{simulacaoId}/itens";
+        public static string Divergencias(Guid mapaId) => $"{Operacoes}/divergencias/{mapaId}";
+        public const string DoClienteBase = Base + "/territorios-do-cliente";
+        public static string DoCliente(Guid pessoaId, DateOnly data) =>
+            $"{DoClienteBase}/{pessoaId}?data={data.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}";
     }
 
     /// <summary>Tabela CNAE (IBGE): busca para a ficha e atualização pelo administrador.</summary>

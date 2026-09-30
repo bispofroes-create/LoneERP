@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Comercial › Divergências territoriais (Fase 2b-1b, DN-14): quem o motor colocaria diferente hoje, e por quê; "Criar operação com estas" abre um rascunho TE- sem mudanças que as corrige. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:t="clr-namespace:Lone.Cliente.ViewModels.Territorios;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.DivergenciasTerritoriaisPage"
+             x:DataType="t:DivergenciasTerritoriaisViewModel"
+             Title="Divergências territoriais">
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="1000" HorizontalOptions="Fill">
+            <Label Text="Divergências territoriais" Style="{StaticResource Titulo}" />
+            <Label Text="O cadastro de clientes muda (endereço, etiquetas, CNAE...) sem passar pelas operações. Aqui aparece, por mapa, quem as regras e exceções de hoje colocariam num território diferente do gravado, e por quê. Para corrigir, crie uma operação com estas divergências: ela é simulada e aplicada como qualquer outra."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            <FlexLayout Wrap="Wrap" AlignItems="End">
+                <c:CampoEscolha Rotulo="Mapa territorial" Itens="{Binding Mapas}" Selecionado="{Binding Mapa}" />
+                <Button Text="Conferir" Command="{Binding ConferirCommand}" IsEnabled="{Binding Livre}" Margin="0,0,0,8" />
+            </FlexLayout>
+            <Label Text="{Binding Resumo}" LineBreakMode="WordWrap" />
+            <Button Text="Criar operação com estas" Command="{Binding CriarOperacaoCommand}" IsVisible="{Binding PodeCriarOperacao}"
+                    IsEnabled="{Binding Livre}" HorizontalOptions="Start" />
+            <CollectionView ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}" HeightRequest="480">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="t:LinhaItemTerritorial">
+                        <VerticalStackLayout Padding="8,6">
+                            <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding Mudanca}" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <Button Text="Mostrar mais" Style="{StaticResource BotaoLink}" Command="{Binding MaisCommand}" IsVisible="{Binding TemMais}" HorizontalOptions="Start" />
+            <Border Style="{StaticResource CartaoItem}">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Por quê?" Style="{StaticResource SecaoTitulo}" />
+                    <Label Text="{Binding Selecionado.Titulo}" FontAttributes="Bold" />
+                    <Label Text="{Binding Selecionado.PorQue}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </Border>
+            <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" HorizontalOptions="Start" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

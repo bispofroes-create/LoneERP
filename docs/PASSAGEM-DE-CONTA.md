@@ -1,4 +1,4 @@
-# Lone ERP — passagem para outra conta (29/09/2026, 05h30)
+# Lone ERP — passagem para outra conta (29/09/2026, atualizada às 23h50)
 
 > **Para o assistente da conta nova:** leia este arquivo inteiro antes de qualquer coisa. Depois, nesta ordem:
 > 1. `docs/PLANO-FASE2B-TERRITORIOS.md` — **o trabalho em aberto**: revisão arquitetural da 2b, aguardando aprovação;
@@ -43,7 +43,17 @@
 
 ## 2. Onde paramos (comece por aqui)
 
-**Fase 2b — territórios: arquitetura aprovada; 2b-1a entregue sem commit, aguardando compilação e testes do usuário.**
+**Fase 2b — territórios: 2b-1a commitada (`af3924c`); 2b-1b implementada e validada, sem commit, migrations não
+aplicadas.**
+
+> **Atualização 29/09, 23h50 (2b-1b):** Operações territoriais (regras, exceções, atribuições, operação `TE-` com
+> simular/aplicar/cancelar/desfazer, divergências, parâmetros, ficha da Pessoa) implementadas conforme o plano da 2b-1b
+> (DN-01 a DN-15, RT-1, RT-2). Build 0/0; **1704 testes aprovados** (30/09, 05h25, já com os ajustes da revisão) (SQL Server padrão e RCSI, concorrência, volume de
+> 50.000). Migrations `20260930004153_Fase2b1bNumeracao` e `20260930004950_Fase2b1bMotor` geradas pelo usuário e
+> auditadas; **NÃO aplicadas no LoneERP**. DN-12: limite de 50.000 clientes por operação, aviso a partir de 10.000.
+> Relatório completo: plano, **seção 22**. Próximo passo (só com autorização): Update-Database com a API desligada,
+> testes pós-migração e de telas, commit sem push. Validação: `_entrega/fase2b1b/validar.ps1` (resultados em
+> `_entrega/fase2b1b/resultados/`).
 
 > **Atualização 29/09, 17h (auditoria final):** migrations `Fase2b1TravaArvore` (gerada pelo usuário) e
 > `Fase2b1ResponsaveisConcorrencia` (reforço do 50070 com READCOMMITTEDLOCK — o LoneERP tem RCSI ligado) **aplicadas no
@@ -110,6 +120,11 @@
 - Pontos abertos aceitos pelo usuário: seção 7 do plano da Fase 2 (fim da 2a-3).
 
 ## 4. Anotações do usuário para depois (não agendadas; não implementar sem pedido)
+
+- **Backlog 1 (29/09, depois das etapas atuais, só com autorização):** projeto integrado de Identidade, Segurança,
+  Sessões, Utilização, Privacidade e LGPD — texto completo em `_entrega/backlog/01-identidade-seguranca-sessoes-lgpd.txt`.
+  Começa obrigatoriamente por uma auditoria sem alterar nada (Usuário × Pessoa — `Usuario.PessoaId` já existe desde a
+  2a-1 —, sessões, permissões, privacidade já existente) e segue as 17 etapas do texto, parando a cada decisão nova.
 
 - `docs/PENDENCIAS.md`:
   - **C1** cliente não deve ser obrigado a ter vendedor (virar regra/parâmetro);

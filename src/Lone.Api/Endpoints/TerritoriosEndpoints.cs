@@ -16,6 +16,7 @@ public static class TerritoriosEndpoints
     {
         MapTipos(app);
         MapMapas(app);
+        MapOperacoes(app);
 
         var grupo = app.MapGroup(Rotas.Territorios.Grupo).WithTags("Territórios").RequireAuthorization();
 
@@ -44,7 +45,63 @@ public static class TerritoriosEndpoints
         grupo.MapPost("{id:guid}/reativar", (Guid id, AlterarSituacaoTerritorioRequisicao requisicao, ITerritorioAppService servico, CancellationToken ct) =>
             servico.ReativarAsync(id, requisicao, ct));
 
+        // Fase 2b-1b: a aba "Regras e clientes" da ficha.
+        grupo.MapGet("{id:guid}/motor", (Guid id, IConsultaTerritorialAppService servico, CancellationToken ct) => servico.DoTerritorioAsync(id, ct));
+
         return app;
+    }
+
+    /// <summary>
+    /// Operações territoriais TE- (Fase 2b-1b). Permissões e alcance nos AppServices; conflitos (versão, mapa mudou,
+    /// assinatura diferente) saem como 409 pelo tratamento geral de erros.
+    /// </summary>
+    private static void MapOperacoes(IEndpointRouteBuilder app)
+    {
+        // "Territórios do cliente na data" (contrato dos documentos futuros, seção L).
+        app.MapGet(Rotas.Territorios.DoClienteBase + "/{pessoaId:guid}",
+                (Guid pessoaId, DateOnly data, IConsultaTerritorialAppService servico, CancellationToken ct) => servico.DoClienteAsync(pessoaId, data, ct))
+            .WithTags("Operações territoriais").RequireAuthorization();
+
+        var parametros = app.MapGroup(Rotas.Territorios.Parametros).WithTags("Operações territoriais").RequireAuthorization();
+        parametros.MapGet(string.Empty, (IParametrosTerritoriaisAppService servico, CancellationToken ct) => servico.ObterAsync(ct));
+        parametros.MapPut(string.Empty, (ParametrosTerritoriaisDto dto, IParametrosTerritoriaisAppService servico, CancellationToken ct) =>
+            servico.SalvarAsync(dto, ct));
+
+        var grupo = app.MapGroup(Rotas.Territorios.Operacoes).WithTags("Operações territoriais").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (Guid? mapaId, IOperacaoTerritorialAppService servico, CancellationToken ct) => servico.ListarAsync(mapaId, ct));
+        grupo.MapGet("opcoes", (IOperacaoTerritorialAppService servico, CancellationToken ct) => servico.OpcoesAsync(ct));
+        grupo.MapGet("{id:guid}", async (Guid id, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Esta operação territorial não existe.")));
+        grupo.MapPost(string.Empty, (CriarOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.CriarAsync(requisicao, ct));
+        grupo.MapPut("{id:guid}", (Guid id, AlterarOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.AlterarAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/mudancas", (Guid id, IncluirMudancaTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.IncluirMudancaAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/mudancas/{mudancaId:guid}/retirar",
+            (Guid id, Guid mudancaId, VersaoOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+                servico.RetirarMudancaAsync(id, mudancaId, requisicao, ct));
+        grupo.MapPost("{id:guid}/mover-cliente", (Guid id, MoverClienteTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.MoverClienteAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/simular", (Guid id, VersaoOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.SimularAsync(id, requisicao, ct));
+        grupo.MapGet("{id:guid}/simulacoes", (Guid id, IOperacaoTerritorialAppService servico, CancellationToken ct) => servico.SimulacoesAsync(id, ct));
+        grupo.MapPost("simulacoes/{simulacaoId:guid}/itens",
+            (Guid simulacaoId, FiltroItensOperacaoTerritorialDto filtro, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+                servico.ItensSimulacaoAsync(simulacaoId, filtro, ct));
+        grupo.MapPost("divergencias/{mapaId:guid}", (Guid mapaId, FiltroItensOperacaoTerritorialDto filtro, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.DivergenciasAsync(mapaId, filtro, ct));
+        grupo.MapPost("{id:guid}/itens", (Guid id, FiltroItensOperacaoTerritorialDto filtro, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.ItensAplicadosAsync(id, filtro, ct));
+        grupo.MapPost("{id:guid}/aplicar", (Guid id, AplicarOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.AplicarAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/cancelar", (Guid id, MotivoOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.CancelarAsync(id, requisicao, ct));
+        grupo.MapPost("{id:guid}/desfazer", (Guid id, MotivoOperacaoTerritorialRequisicao requisicao, IOperacaoTerritorialAppService servico, CancellationToken ct) =>
+            servico.DesfazerAsync(id, requisicao, ct));
     }
 
     private static void MapTipos(IEndpointRouteBuilder app)

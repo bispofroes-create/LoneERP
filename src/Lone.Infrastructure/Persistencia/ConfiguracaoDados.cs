@@ -78,6 +78,10 @@ public static class ConfiguracaoDados
         services.AddScoped<Lone.Application.Territorios.IMapaTerritorialRepositorio, MapaTerritorialRepositorio>();
         services.AddScoped<Lone.Application.Territorios.ITerritorioRepositorio, TerritorioRepositorio>();
         services.AddScoped<Lone.Application.Territorios.IUsoTerritorial, UsoTerritorialSql>();
+        services.AddScoped<Lone.Application.Territorios.IOperacaoTerritorialRepositorio, OperacaoTerritorialRepositorio>(); // Fase 2b-1b
+        services.AddScoped<Lone.Application.Territorios.IMotorTerritorialDados, MotorTerritorialDados>();
+        services.AddScoped<Lone.Application.Territorios.IConsultasTerritoriais, ConsultasTerritoriais>();
+        services.AddScoped<Lone.Application.Territorios.IParametrosTerritoriaisRepositorio, ParametrosTerritoriaisRepositorio>();
         services.AddScoped<IEquipeRepositorio, EquipeRepositorio>();
         services.AddScoped<IIndicadorRepositorio, IndicadorRepositorio>();
         services.AddScoped<IMetaRepositorio, MetaRepositorio>();

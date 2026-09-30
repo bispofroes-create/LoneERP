@@ -361,6 +361,15 @@
     <FlyoutItem Title="Territórios" Route="territorios" IsVisible="{Binding PodeVerTerritoriosMenu}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Territórios" ContentTemplate="{DataTemplate views:TerritoriosPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Operações territoriais" Route="operacoes-territoriais" IsVisible="{Binding PodeVerOperacoesTerritoriaisMenu}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Operações territoriais" ContentTemplate="{DataTemplate views:OperacoesTerritoriaisPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Divergências territoriais" Route="divergencias-territoriais" IsVisible="{Binding PodeVerOperacoesTerritoriaisMenu}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Divergências territoriais" ContentTemplate="{DataTemplate views:DivergenciasTerritoriaisPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Parâmetros territoriais" Route="parametros-territoriais" IsVisible="{Binding PodeConfigurarTerritorios}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Parâmetros territoriais" ContentTemplate="{DataTemplate views:ParametrosTerritoriaisPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Mapas territoriais" Route="mapas-territoriais" IsVisible="{Binding PodeConfigurarTerritorios}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Mapas territoriais" ContentTemplate="{DataTemplate views:MapasTerritoriaisPage}" />
     </FlyoutItem>

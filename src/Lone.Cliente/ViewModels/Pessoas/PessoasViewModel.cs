@@ -48,6 +48,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private readonly AnexosApi _anexosApi;
     private readonly ColaboradoresApi _colaboradoresApi;
     private readonly ComercialApi _comercialApi;
+    private readonly TerritoriosApi _territoriosApi;
     private readonly IArquivos _arquivos;
 
     /// <summary>Campos personalizados ativos (lidos ao abrir a tela).</summary>
@@ -79,7 +80,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
                             MunicipiosApi municipios, CamposPersonalizadosApi camposApi, EtiquetasApi etiquetasApi, ProfissoesApi profissoesApi,
                             PapeisApi papeisApi, TiposMeioContatoApi tiposMeioApi, TiposEnderecoApi tiposEnderecoApi,
                             TiposDocumentoApi tiposDocumentoApi, AnexosApi anexosApi, ColaboradoresApi colaboradoresApi, ComercialApi comercialApi,
-                            IArquivos arquivos, IDialogos dialogos)
+                            TerritoriosApi territoriosApi, IArquivos arquivos, IDialogos dialogos)
         : base(dialogos)
     {
         _pessoas = pessoas;
@@ -97,6 +98,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _anexosApi = anexosApi;
         _colaboradoresApi = colaboradoresApi;
         _comercialApi = comercialApi;
+        _territoriosApi = territoriosApi;
         _arquivos = arquivos;
         Previa = new PreviaPessoa(LerParaPreviaAsync, AbrirFichaDaPreviaAsync, () => Linhas);
         Indicadores = new FaixaIndicadores(AlternarIndicador);
@@ -1342,6 +1344,30 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
         Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
+        await CarregarTerritoriosAsync(item.Id);
+    }
+
+    // ---- Territórios do cliente (Fase 2b-1b): por mapa, o território de hoje, desde quando e a origem (só leitura) ----
+
+    public ObservableCollection<string> TerritoriosDoCliente { get; } = new();
+    [ObservableProperty] private bool _mostrarTerritorios;
+
+    private async Task CarregarTerritoriosAsync(Guid pessoaId)
+    {
+        TerritoriosDoCliente.Clear();
+        MostrarTerritorios = Lone.Cliente.ViewModels.MenuViewModel.PodeVerOperacoesTerritoriais(_sessao.Possui);
+        if (!MostrarTerritorios) return;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Now);
+            foreach (var t in (await _territoriosApi.DoClienteAsync(pessoaId, hoje)).Territorios)
+                TerritoriosDoCliente.Add($"{t.Mapa}: {t.Caminho} · desde {TextoTela.Data(t.InicioEm)} · {t.OrigemDescricao}" +
+                                         (t.Operacao is null ? string.Empty : $" ({t.Operacao})"));
+        }
+        catch (Exception)
+        {
+            MostrarTerritorios = false; // a ficha continua sem o bloco (ex.: sem permissão)
+        }
     }
 
     protected override Task NovoItemAsync()

@@ -19,6 +19,7 @@ public static class MauiProgram
 
         // Caixas de marcar compactas (texto logo ao lado da caixa), em todas as telas.
         AjusteCaixaMarcar.Aplicar();
+        AjusteListaEscolha.Aplicar();
 
         // Implementações de plataforma usadas por Lone.Cliente.
         builder.Services.AddSingleton<IArmazenamentoSeguro, ArmazenamentoSeguroMaui>();
@@ -72,6 +73,9 @@ public static class MauiProgram
         builder.Services.AddTransient<TiposTerritorioPage>();
         builder.Services.AddTransient<MapasTerritoriaisPage>();
         builder.Services.AddTransient<TerritoriosPage>();
+        builder.Services.AddTransient<OperacoesTerritoriaisPage>(); // Fase 2b-1b
+        builder.Services.AddTransient<DivergenciasTerritoriaisPage>();
+        builder.Services.AddTransient<ParametrosTerritoriaisPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

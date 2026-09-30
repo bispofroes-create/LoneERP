@@ -183,7 +183,7 @@ public sealed class TerritorioAppService : ITerritorioAppService
         if (erros.Count > 0) throw new ValidacaoException(erros.Distinct().ToList());
 
         RegistrarEventos(dados, anterior, doMapa);
-        await _repositorio.SalvarAsync(dados, anterior is null, estrutural ? dto.VersaoArvore : null, ct);
+        await _repositorio.SalvarAsync(dados, anterior is null, estrutural ? dto.VersaoArvore : null, estrutural ? comUso : null, ct);
         return await ReleAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
     }
 
@@ -212,7 +212,7 @@ public sealed class TerritorioAppService : ITerritorioAppService
         if (encerrar) RegrasArvoreTerritorial.Encerrar(territorio, Hoje);
         else RegrasArvoreTerritorial.Reativar(territorio);
         _motivo.Motivo = RegrasCadastroTerritorial.TextoOpcional(requisicao.Motivo);
-        await _repositorio.SalvarAsync(territorio, novo: false, requisicao.VersaoArvore, ct);
+        await _repositorio.SalvarAsync(territorio, novo: false, requisicao.VersaoArvore, comUso, ct);
         return await ReleAsync(id, ct) ?? throw new ConflitoDeEdicaoException();
     }
 

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Comercial › Operações territoriais (Fase 2b-1b): a lista TE- à esquerda e a operação ao lado, com a trilha
+    Planejar → Simular → Aplicar, as mudanças (regra com o mesmo painel de filtros de Pessoas), a simulação com o "por quê?"
+    de cada cliente, os avisos e a história. Nada é excluído: a operação é cancelada ou desfeita, com motivo.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:t="clr-namespace:Lone.Cliente.ViewModels.Territorios;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:pv="clr-namespace:Lone.App.Views.Pessoas"
+             x:Class="Lone.App.Views.OperacoesTerritoriaisPage"
+             x:DataType="t:OperacoesTerritoriaisViewModel"
+             Title="Operações territoriais">
+
+    <Grid x:Name="Grade" ColumnDefinitions="420,*">
+
+        <!-- ===== Lista ===== -->
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+            <c:CampoEscolha Rotulo="Mapa territorial" Itens="{Binding FiltrosMapa}" Selecionado="{Binding FiltroMapa}" IsEnabled="{Binding Livre}" />
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <SearchBar Text="{Binding Busca}" Placeholder="Buscar número, mapa, motivo ou situação" />
+                <Button Grid.Column="1" Text="Nova" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodePlanejar}"
+                        ToolTipProperties.Text="Nova operação: mapa, data de efeito e motivo; o número TE- nasce ao criar" />
+            </Grid>
+            <Label Grid.Row="2" Text="{Binding TextoParametros}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <ContentView Grid.Row="3" IsVisible="{Binding SemFicha}">
+                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+            </ContentView>
+            <CollectionView Grid.Row="4" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nenhuma operação. Clique em Nova para planejar regras, exceções ou mudanças na árvore com uso." Style="{StaticResource Secundario}" Margin="8,16" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="t:LinhaOperacaoTerritorial">
+                        <VerticalStackLayout Padding="8,6">
+                            <HorizontalStackLayout Spacing="8">
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Border Style="{StaticResource Selo}">
+                                    <Label Text="{Binding Situacao}" Style="{StaticResource SeloTexto}" />
+                                </Border>
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <ActivityIndicator Grid.Row="4" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
+        </Grid>
+
+        <!-- ===== Nenhuma operação aberta ===== -->
+        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center" HorizontalOptions="Center" Spacing="6" Padding="24"
+                             MaximumWidthRequest="640">
+            <Label Text="Nenhuma operação aberta" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
+            <Label Text="Regras, exceções (fixar/retirar cliente) e mudanças na árvore de territórios com uso só mudam por operação: planeje, simule (nada é gravado) e aplique de uma vez, com data de efeito e motivo."
+                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <!-- ===== Operação ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
+            <ScrollView x:Name="RolagemFicha">
+                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="1000" HorizontalOptions="Fill">
+                    <Button Text="‹ Operações" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" IsVisible="{Binding ModoCompacto}" />
+                    <Label Text="{Binding Titulo}" Style="{StaticResource Titulo}" />
+                    <Label Text="{Binding Subtitulo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Trilha}" FontAttributes="Bold" IsVisible="{Binding TemOperacao}" />
+                    <Label Text="{Binding TextoAutoria}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" IsVisible="{Binding EditadaPorOutros}" />
+                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+                    <Label Text="{Binding TextoDesatualizada}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" IsVisible="{Binding Operacao.Desatualizada}" />
+
+                    <!-- Bloqueio pela operação futura (RT-1) -->
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding TemBloqueio}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="{Binding Operacao.BloqueadaPor, StringFormat='Esta operação não pode ser aplicada porque existe a {0} com efeito futuro neste mapa. Para realizar esta correção, primeiro desfaça a {0}.'}"
+                                   LineBreakMode="WordWrap" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{Binding Operacao.BloqueadaPor, StringFormat='Desfazer {0}'}" Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding DesfazerBloqueioCommand}" IsVisible="{Binding Operacao.PodeDesfazerBloqueio}" IsEnabled="{Binding Livre}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Cabeçalho -->
+                    <Label Text="Operação" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
+                    <FlexLayout Wrap="Wrap">
+                        <c:CampoEscolha Rotulo="Mapa territorial" Itens="{Binding MapasNovos}" Selecionado="{Binding MapaNovo}" IsVisible="{Binding EhNova}" />
+                        <c:Campo Rotulo="Data de efeito" Texto="{Binding EfeitoEm}" Dica="dd/mm/aaaa (primeiro dia que vale)" Mascara="Data" />
+                        <c:Campo Rotulo="Motivo" Texto="{Binding Motivo}" Dica="Obrigatório (ex.: reorganização de MG)" />
+                        <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" Dica="Opcional" />
+                    </FlexLayout>
+
+                    <!-- Avisos -->
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Avisos}" Spacing="4" IsVisible="{Binding TemAvisos}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Label Text="{Binding ., StringFormat='⚠ {0}'}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Mudanças -->
+                    <Label Text="Mudanças" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" IsVisible="{Binding TemOperacao}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Mudancas}" Spacing="6" IsVisible="{Binding TemOperacao}">
+                        <BindableLayout.EmptyView>
+                            <Label Text="Nenhuma mudança. Sem mudanças, a aplicação só corrige as divergências que já existiam no mapa." Style="{StaticResource Secundario}" Margin="0,8" />
+                        </BindableLayout.EmptyView>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="t:LinhaMudancaTerritorial">
+                                <Border Style="{StaticResource CartaoItem}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding Criterios}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding TemCriterios}" />
+                                            <Label Text="{Binding Motivo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding TemMotivo}" />
+                                            <Label Text="{Binding BaseVelha}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" IsVisible="{Binding TemBaseVelha}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="Retirar" Style="{StaticResource BotaoLink}" VerticalOptions="Start"
+                                                Command="{Binding RetirarCommand}" IsVisible="{Binding PodeRetirar}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- + Adicionar mudança -->
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding PodeEditar}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="+ Adicionar mudança" Style="{StaticResource SecaoTitulo}" />
+                            <FlexLayout Wrap="Wrap">
+                                <c:CampoEscolha Rotulo="O que mudar" Itens="{x:Static t:OperacoesTerritoriaisViewModel.TiposMudanca}" Selecionado="{Binding TipoMudanca}" />
+                                <c:CampoEscolha Rotulo="{Binding RotuloTerritorio}" Itens="{Binding Territorios}" Selecionado="{Binding Territorio}" />
+                                <c:CampoEscolha Rotulo="Para (território)" Itens="{Binding Territorios}" Selecionado="{Binding Destino}" IsVisible="{Binding MostraDestino}" />
+                                <c:CampoEscolha Rotulo="Novo território acima" Itens="{Binding NovosPais}" Selecionado="{Binding NovoPai}" IsVisible="{Binding MostraNovoPai}" />
+                                <c:CampoEscolha Rotulo="Exceção vigente" Itens="{Binding Excecoes}" Selecionado="{Binding Excecao}" IsVisible="{Binding MostraExcecao}" />
+                                <c:Campo Rotulo="Prioridade" Texto="{Binding Prioridade}" Dica="1 = mais alta; vazio = sem" IsVisible="{Binding MostraRegra}" />
+                            </FlexLayout>
+
+                            <!-- Cliente (Fixar / Retirar / Mover cliente) -->
+                            <VerticalStackLayout Spacing="6" IsVisible="{Binding MostraCliente}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <SearchBar Text="{Binding BuscaCliente}" Placeholder="Buscar cliente (nome, código, CPF ou CNPJ)" SearchCommand="{Binding BuscarClienteCommand}" />
+                                    <Button Grid.Column="1" Text="Buscar" Style="{StaticResource BotaoSecundario}" Command="{Binding BuscarClienteCommand}" IsEnabled="{Binding Livre}" />
+                                </Grid>
+                                <FlexLayout Wrap="Wrap">
+                                    <c:CampoEscolha Rotulo="Cliente" Itens="{Binding Clientes}" Selecionado="{Binding Cliente}" />
+                                    <c:Campo Rotulo="Motivo da exceção" Texto="{Binding MotivoExcecao}" Dica="Obrigatório" />
+                                    <c:Campo Rotulo="Fim (opcional)" Texto="{Binding FimExcecao}" Dica="dd/mm/aaaa ou vazio" Mascara="Data" />
+                                </FlexLayout>
+                            </VerticalStackLayout>
+
+                            <!-- Regra: grupos de inclusão e de exclusão, cada um com o painel de filtros de Pessoas -->
+                            <VerticalStackLayout Spacing="8" IsVisible="{Binding MostraRegra}">
+                                <Label Text="Entra quem atende a pelo menos um grupo de inclusão e a nenhum de exclusão. Endereço = o de referência do mapa. Só os campos aceitos em regra aparecem (sem campos relativos a hoje, da carteira ou personalizados)."
+                                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Grupos}" Spacing="8">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="t:GrupoRegraEdicao">
+                                            <Border Style="{StaticResource CartaoItem}">
+                                                <Grid RowDefinitions="Auto,420">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <Label Text="{Binding Titulo}" FontAttributes="Bold" VerticalOptions="Center" />
+                                                        <Button Grid.Column="1" Text="Remover grupo" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                                                    </Grid>
+                                                    <pv:PainelFiltrosView Grid.Row="1" BindingContext="{Binding Painel}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <HorizontalStackLayout Spacing="12">
+                                    <Button Text="+ Grupo de inclusão" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarGrupoInclusaoCommand}" />
+                                    <Button Text="+ Grupo de exclusão" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarGrupoExclusaoCommand}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+
+                            <Button Text="Incluir na operação" Command="{Binding IncluirMudancaCommand}" IsEnabled="{Binding Livre}" HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Simulação / resultado -->
+                    <Label Text="Simulação" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" IsVisible="{Binding TemOperacao}" />
+                    <Label Text="{Binding TextoSimulacao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding TemOperacao}" />
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding TemSimulacao}">
+                        <FlexLayout Wrap="Wrap">
+                            <c:CampoEscolha Rotulo="Efeito" Itens="{x:Static t:OperacoesTerritoriaisViewModel.FiltrosEfeito}" Selecionado="{Binding FiltroEfeito}" />
+                            <c:Campo Rotulo="Cliente" Texto="{Binding BuscaItens}" Dica="Nome ou código" />
+                        </FlexLayout>
+                        <HorizontalStackLayout Spacing="12">
+                            <c:CaixaMarcar Texto="Só conflitos e inconsistências" Marcado="{Binding SoProblemas}" />
+                            <Button Text="Filtrar" Style="{StaticResource BotaoSecundario}" Command="{Binding FiltrarItensCommand}" IsEnabled="{Binding Livre}" />
+                        </HorizontalStackLayout>
+                        <Label Text="{Binding TextoItens}" Style="{StaticResource Secundario}" />
+                        <CollectionView ItemsSource="{Binding ClientesOperacao}" SelectionMode="Single" SelectedItem="{Binding ItemSelecionado}" HeightRequest="420">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="t:LinhaItemTerritorial">
+                                    <VerticalStackLayout Padding="8,6">
+                                        <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding Mudanca}" LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Button Text="Mostrar mais" Style="{StaticResource BotaoLink}" Command="{Binding MaisItensCommand}" IsVisible="{Binding TemMaisItens}" HorizontalOptions="Start" />
+                        <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding TemItemSelecionado}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Por quê?" Style="{StaticResource SecaoTitulo}" />
+                                <Label Text="{Binding ItemSelecionado.Titulo}" FontAttributes="Bold" />
+                                <Label Text="{Binding ItemSelecionado.PorQue}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <!-- Simulações guardadas (DN-03) e história -->
+                    <Label Text="Simulações guardadas" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" IsVisible="{Binding TemSimulacao}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Simulacoes}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Label Text="{Binding .}" Style="{StaticResource Secundario}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Label Text="História" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" IsVisible="{Binding TemOperacao}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Historico}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
+                <FlexLayout Wrap="Wrap" AlignItems="Center">
+                    <Button Text="{Binding TextoSalvar}" Command="{Binding SalvarCommand}"
+                            IsEnabled="{Binding Livre}" Margin="0,0,12,6" />
+                    <Button Text="Simular" Style="{StaticResource BotaoSecundario}" Command="{Binding SimularCommand}" IsVisible="{Binding PodeSimular}"
+                            IsEnabled="{Binding Livre}" Margin="0,0,12,6" ToolTipProperties.Text="Calcula o mapa inteiro na data de efeito sem gravar nada nos clientes" />
+                    <Button Text="Aplicar" Command="{Binding AplicarCommand}" IsVisible="{Binding PodeAplicar}" IsEnabled="{Binding Livre}" Margin="0,0,12,6" />
+                    <Button Text="Cancelar operação" Style="{StaticResource BotaoSecundario}" Command="{Binding CancelarOperacaoCommand}" IsVisible="{Binding PodeCancelar}"
+                            IsEnabled="{Binding Livre}" Margin="0,0,12,6" />
+                    <Button Text="Desfazer" Style="{StaticResource BotaoPerigo}" Command="{Binding DesfazerCommand}" IsVisible="{Binding PodeDesfazer}"
+                            IsEnabled="{Binding Livre}" Margin="0,0,12,6" ToolTipProperties.Text="Só antes do efeito e só a última operação aplicada do mapa" />
+                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" Margin="0,0,12,6" />
+                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                </FlexLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

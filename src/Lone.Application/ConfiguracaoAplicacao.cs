@@ -81,6 +81,9 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<Territorios.ITipoTerritorioAppService, Territorios.TipoTerritorioAppService>(); // Fase 2b-1a
         services.AddScoped<Territorios.IMapaTerritorialAppService, Territorios.MapaTerritorialAppService>();
         services.AddScoped<Territorios.ITerritorioAppService, Territorios.TerritorioAppService>();
+        services.AddScoped<Territorios.IOperacaoTerritorialAppService, Territorios.OperacaoTerritorialAppService>(); // Fase 2b-1b
+        services.AddScoped<Territorios.IConsultaTerritorialAppService, Territorios.ConsultaTerritorialAppService>();
+        services.AddScoped<Territorios.IParametrosTerritoriaisAppService, Territorios.ParametrosTerritoriaisAppService>();
         services.AddScoped<IEquipeAppService, EquipeAppService>();
         services.AddScoped<IIndicadorAppService, IndicadorAppService>();
         services.AddScoped<IMetaAppService, MetaAppService>();

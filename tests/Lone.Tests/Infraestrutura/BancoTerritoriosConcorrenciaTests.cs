@@ -96,7 +96,7 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var territorio = Novo(mapa.Id, nome);
-        await Repositorio().SalvarAsync(territorio, novo: true, null, default);
+        await Repositorio().SalvarAsync(territorio, novo: true, null, null, default);
         return (territorio, await CadastrosAsync());
     }
 
@@ -161,8 +161,8 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var a = Novo(mapa.Id, "A");
         var b = Novo(mapa.Id, "B");
-        await Repositorio().SalvarAsync(a, novo: true, null, default);
-        await Repositorio().SalvarAsync(b, novo: true, null, default);
+        await Repositorio().SalvarAsync(a, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(b, novo: true, null, null, default);
 
         var (esperou, erro) = await DisputaAsync(
             $"UPDATE Territorios SET PaiId = '{b.Id}' WHERE Id = '{a.Id}'",
@@ -181,7 +181,7 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var centro = Novo(mapa.Id, "Centro");
-        await Repositorio().SalvarAsync(centro, novo: true, null, default); // aberta desde 01/01/2026
+        await Repositorio().SalvarAsync(centro, novo: true, null, null, default); // aberta desde 01/01/2026
         await ExecutarNoBancoAsync($"UPDATE TerritorioPosicoes SET FimEm = '2026-06-30' WHERE TerritorioId = '{centro.Id}'");
 
         var (esperou, erro) = await DisputaAsync(
@@ -202,8 +202,8 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var a = Novo(mapa.Id, "A");
         var b = Novo(mapa.Id, "B");
-        await Repositorio().SalvarAsync(a, novo: true, null, default);
-        await Repositorio().SalvarAsync(b, novo: true, null, default);
+        await Repositorio().SalvarAsync(a, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(b, novo: true, null, null, default);
         await using var db = Db();
 
         // Um UPDATE só que põe A abaixo de B e B abaixo de A: ciclo; recusado e nada muda.
@@ -232,21 +232,23 @@ public abstract partial class BancoTerritoriosTestesBase
     {
         var mapa = await MapaAsync();
         var centro = Novo(mapa.Id, "Centro");
-        await Repositorio().SalvarAsync(centro, novo: true, null, default);
+        await Repositorio().SalvarAsync(centro, novo: true, null, null, default);
         await using var db = Db();
         await db.Database.ExecuteSqlAsync($"UPDATE TerritorioPosicoes SET FimEm = '2026-03-31' WHERE TerritorioId = {centro.Id}");
 
         // Duas linhas novas que se cruzam entre si (encostam em 30/06): recusadas as duas.
-        var cruzadas = await Recusado(() => db.Database.ExecuteSqlRawAsync(
-            InsertPosicao(mapa.Id, centro.Id, "2026-04-01", "2026-06-30") + ",\n" +
-            $"('{Guid.NewGuid()}', '{mapa.Id}', '{centro.Id}', NULL, '2026-06-30', '2026-09-30', 1, SYSUTCDATETIME())"));
+        // O SQL é montado antes (só Guids e datas fixas do próprio teste): um INSERT de várias linhas não cabe no
+        // ExecuteSqlAsync parametrizado, e montá-lo fora da chamada deixa claro que não há entrada externa (EF1003).
+        var sqlCruzadas = InsertPosicao(mapa.Id, centro.Id, "2026-04-01", "2026-06-30") + ",\n" +
+            $"('{Guid.NewGuid()}', '{mapa.Id}', '{centro.Id}', NULL, '2026-06-30', '2026-09-30', 1, SYSUTCDATETIME())";
+        var cruzadas = await Recusado(() => db.Database.ExecuteSqlRawAsync(sqlCruzadas));
         Assert.Equal(50072, cruzadas.Number);
         Assert.Equal(1, await db.TerritorioPosicoes.CountAsync(p => p.TerritorioId == centro.Id));
 
         // Em sequência (01/04–30/06 e 01/07 em diante): aceitas.
-        await db.Database.ExecuteSqlRawAsync(
-            InsertPosicao(mapa.Id, centro.Id, "2026-04-01", "2026-06-30") + ",\n" +
-            $"('{Guid.NewGuid()}', '{mapa.Id}', '{centro.Id}', NULL, '2026-07-01', NULL, 1, SYSUTCDATETIME())");
+        var sqlEmSequencia = InsertPosicao(mapa.Id, centro.Id, "2026-04-01", "2026-06-30") + ",\n" +
+            $"('{Guid.NewGuid()}', '{mapa.Id}', '{centro.Id}', NULL, '2026-07-01', NULL, 1, SYSUTCDATETIME())";
+        await db.Database.ExecuteSqlRawAsync(sqlEmSequencia);
         Assert.Equal(3, await db.TerritorioPosicoes.CountAsync(p => p.TerritorioId == centro.Id));
     }
 
@@ -262,17 +264,17 @@ public abstract partial class BancoTerritoriosTestesBase
         // Criar: muda.
         var norte = Novo(mapa.Id, "Norte");
         var sul = Novo(mapa.Id, "Sul");
-        await Repositorio().SalvarAsync(norte, novo: true, v0, default);
+        await Repositorio().SalvarAsync(norte, novo: true, v0, null, default);
         var v1 = await VersaoDaArvoreAsync(mapa.Id);
         Assert.NotEqual(v0, v1);
-        await Repositorio().SalvarAsync(sul, novo: true, v1, default);
+        await Repositorio().SalvarAsync(sul, novo: true, v1, null, default);
         var v2 = await VersaoDaArvoreAsync(mapa.Id);
 
         // Nome do território e responsáveis: não são estrutura, a versão não muda (sem conflito falso de árvore).
         var ficha = await CopiaAsync(norte.Id);
         ficha.Nome = "Norte (renomeado)";
         ficha.Responsaveis.Add(new TerritorioResponsavel { Id = IdSequencial.Novo(), PessoaId = c.P1, TipoCarteiraId = c.F1, InicioEm = new(2026, 2, 1) });
-        await Repositorio().SalvarAsync(ficha, novo: false, null, default);
+        await Repositorio().SalvarAsync(ficha, novo: false, null, null, default);
         Assert.Equal(v2, await VersaoDaArvoreAsync(mapa.Id));
 
         // Cadastro do mapa (descrição): versão cadastral do mapa, não da árvore.
@@ -285,21 +287,21 @@ public abstract partial class BancoTerritoriosTestesBase
         var mover = await CopiaAsync(sul.Id);
         mover.PaiId = norte.Id;
         mover.Posicoes.Single().PaiId = norte.Id;
-        await Repositorio().SalvarAsync(mover, novo: false, v2, default);
+        await Repositorio().SalvarAsync(mover, novo: false, v2, null, default);
         var v3 = await VersaoDaArvoreAsync(mapa.Id);
         Assert.NotEqual(v2, v3);
 
         // Encerrar: muda.
         var encerrar = await CopiaAsync(sul.Id);
         RegrasArvoreTerritorial.Encerrar(encerrar, new DateOnly(2026, 9, 29));
-        await Repositorio().SalvarAsync(encerrar, novo: false, v3, default);
+        await Repositorio().SalvarAsync(encerrar, novo: false, v3, null, default);
         var v4 = await VersaoDaArvoreAsync(mapa.Id);
         Assert.NotEqual(v3, v4);
 
         // Reativar com a árvore velha: recusado, nada gravado, versão igual. Com a atual: reabre a posição e muda.
         var reativarVelha = await CopiaAsync(sul.Id);
         RegrasArvoreTerritorial.Reativar(reativarVelha);
-        var conflito = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(reativarVelha, novo: false, v3, default));
+        var conflito = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(reativarVelha, novo: false, v3, null, default));
         Assert.Equal(RegrasArvoreTerritorial.MensagemArvoreAlterada, conflito.Message);
         await using (var db = Db())
             Assert.Equal(SituacaoTerritorio.Encerrado, (await db.Territorios.AsNoTracking().SingleAsync(t => t.Id == sul.Id)).Situacao);
@@ -307,7 +309,7 @@ public abstract partial class BancoTerritoriosTestesBase
 
         var reativar = await CopiaAsync(sul.Id);
         RegrasArvoreTerritorial.Reativar(reativar);
-        await Repositorio().SalvarAsync(reativar, novo: false, v4, default);
+        await Repositorio().SalvarAsync(reativar, novo: false, v4, null, default);
         var v5 = await VersaoDaArvoreAsync(mapa.Id);
         Assert.NotEqual(v4, v5);
         await using (var db = Db())
@@ -331,18 +333,18 @@ public abstract partial class BancoTerritoriosTestesBase
         var mapa = await MapaAsync();
         var a = Novo(mapa.Id, "A");
         var b = Novo(mapa.Id, "B");
-        await Repositorio().SalvarAsync(a, novo: true, null, default);
-        await Repositorio().SalvarAsync(b, novo: true, null, default);
+        await Repositorio().SalvarAsync(a, novo: true, null, null, default);
+        await Repositorio().SalvarAsync(b, novo: true, null, null, default);
 
         var vistaPorA = await VersaoDaArvoreAsync(mapa.Id);                                   // A abre a árvore ("versão 10")
-        await Repositorio().SalvarAsync(Novo(mapa.Id, "C"), novo: true, vistaPorA, default); // B muda a árvore ("versão 11")
+        await Repositorio().SalvarAsync(Novo(mapa.Id, "C"), novo: true, vistaPorA, null, default); // B muda a árvore ("versão 11")
 
         var deA = await CopiaAsync(b.Id); // A move B para baixo de A e renomeia, olhando a versão 10
         var versaoDoTerritorio = deA.Versao;
         deA.PaiId = a.Id;
         deA.Posicoes.Single().PaiId = a.Id;
         deA.Nome = "B (não deve ficar)";
-        var conflito = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(deA, novo: false, vistaPorA, default));
+        var conflito = await Assert.ThrowsAsync<ConflitoDeEdicaoException>(() => Repositorio().SalvarAsync(deA, novo: false, vistaPorA, null, default));
 
         Assert.Equal(RegrasArvoreTerritorial.MensagemArvoreAlterada, conflito.Message);
         await using var db = Db();
@@ -366,7 +368,7 @@ public sealed class BancoTerritoriosTests : BancoTerritoriosTestesBase, IClassFi
 /// não espera travas), mais a demonstração de por que o gatilho 50070 precisou do reforço e a transação SNAPSHOT feita por
 /// fora.
 /// </summary>
-public sealed class BancoTerritoriosRcsiTests : BancoTerritoriosTestesBase, IClassFixture<BancoTerritoriosComVersoesDeLinha>
+public sealed partial class BancoTerritoriosRcsiTests : BancoTerritoriosTestesBase, IClassFixture<BancoTerritoriosComVersoesDeLinha>
 {
     public BancoTerritoriosRcsiTests(BancoTerritoriosComVersoesDeLinha fixture) : base(fixture) { }
 

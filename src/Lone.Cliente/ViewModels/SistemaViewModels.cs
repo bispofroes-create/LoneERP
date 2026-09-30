@@ -135,6 +135,14 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         // Motor Comercial, Fase 2b: a árvore de territórios de cada mapa.
         if (PodeVerTerritorios(possui))
             comercial.Add(new ItemMenu("Territórios", "territorios", descricao: "Territórios comerciais", caminho: nomeComercial));
+        // Fase 2b-1b: operações TE- (regras, exceções e estrutura com uso) e divergências do motor.
+        if (PodeVerOperacoesTerritoriais(possui))
+        {
+            comercial.Add(new ItemMenu("Operações territoriais", "operacoes-territoriais", descricao: "Regras, exceções e reorganizações de territórios",
+                caminho: nomeComercial));
+            comercial.Add(new ItemMenu("Divergências territoriais", "divergencias-territoriais", descricao: "Clientes que as regras colocariam em outro território",
+                caminho: nomeComercial));
+        }
         AdicionarConfiguracoes(comercial, ModulosConfiguracao.Comercial, possui);
         if (comercial.Count > 0) secoes.Add(new SecaoMenu(nomeComercial, comercial));
 
@@ -163,6 +171,10 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     /// <summary>Territórios: quem vê ou quem configura (configurar sem ver a árvore não faz sentido).</summary>
     public static bool PodeVerTerritorios(Func<string, bool> possui) =>
         possui(Permissoes.Territorios.Visualizar) || possui(Permissoes.Territorios.Configurar);
+
+    /// <summary>Operações e divergências territoriais: quem vê, configura, planeja ou aplica.</summary>
+    public static bool PodeVerOperacoesTerritoriais(Func<string, bool> possui) =>
+        PodeVerTerritorios(possui) || possui(Permissoes.Territorios.Planejar) || possui(Permissoes.Territorios.Aplicar);
 
     /// <summary>"Carteira em uma data": quem vê o módulo Comercial ou transfere carteira.</summary>
     public static bool PodeVerCarteiraEmData(Func<string, bool> possui) =>
@@ -417,6 +429,7 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeVerCarteiraEmDataMenu => MenuViewModel.PodeVerCarteiraEmData(_sessao.Possui);
     public bool PodeVerTerritoriosMenu => PodeVerTerritorios(_sessao.Possui);
     public bool PodeConfigurarTerritorios => _sessao.Possui(Permissoes.Territorios.Configurar);
+    public bool PodeVerOperacoesTerritoriaisMenu => MenuViewModel.PodeVerOperacoesTerritoriais(_sessao.Possui);
     public bool PodeVerMetas => _sessao.Possui(Permissoes.Metas.Visualizar);
     public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);
     public bool PodeVerSeguranca => PodeGerenciarUsuarios || PodeGerenciarPerfis;

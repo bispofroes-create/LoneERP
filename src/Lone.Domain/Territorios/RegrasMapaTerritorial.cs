@@ -52,6 +52,21 @@ public static class RegrasMapaTerritorial
         return erros;
     }
 
+    /// <summary>
+    /// Os campos que o uso trava (T18) mudaram: empresa, exclusividade, endereço de referência ou universo. Todos, menos a
+    /// empresa, mudam o resultado do motor; a gravação troca a versão do motor e confere o uso de novo dentro da transação.
+    /// </summary>
+    public static bool CamposTravadosMudaram(MapaTerritorial anterior, MapaTerritorial dados) =>
+        anterior.EmpresaId != dados.EmpresaId || anterior.Exclusivo != dados.Exclusivo ||
+        anterior.FinalidadeEnderecoReferenciaId != dados.FinalidadeEnderecoReferenciaId ||
+        !anterior.ClassificacoesAceitas.ToHashSet().SetEquals(dados.ClassificacoesAceitas);
+
+    /// <summary>A conferência da tela passou, mas uma operação territorial foi aplicada no mapa enquanto ela estava aberta.</summary>
+    public const string MensagemPassouATerUso =
+        "Enquanto esta tela estava aberta, o mapa passou a ter regras ou atribuições (uma operação territorial foi aplicada). " +
+        "Nada foi salvo: recarregue os dados. Com uso, empresa, exclusividade, endereço de referência e universo não mudam, e o " +
+        "mapa só é desativado depois de encerradas as regras e atribuições.";
+
     /// <summary>Mapa em uso não é desativado pelo cadastro (as atribuições abertas ficariam sem dono).</summary>
     public static IEnumerable<string> ValidarDesativacao(MapaTerritorial mapa, bool emUso)
     {

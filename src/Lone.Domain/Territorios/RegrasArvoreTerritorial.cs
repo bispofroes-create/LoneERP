@@ -25,6 +25,15 @@ public static class RegrasArvoreTerritorial
         "salvo: recarregue a árvore, confira e refaça a mudança.";
 
     /// <summary>O banco barrou a árvore (ciclo, mais de 12 níveis ou posições que se cruzam): só por dado gravado por fora.</summary>
+    /// <summary>
+    /// Fase 2b-1b (L3): enquanto a tela estava aberta, uma operação territorial foi aplicada no mapa e mudou quais territórios
+    /// têm uso operacional; a mudança de estrutura foi conferida com o uso antigo.
+    /// </summary>
+    public const string MensagemUsoMudou =
+        "Enquanto esta tela estava aberta, uma operação territorial foi aplicada neste mapa e mudou quais territórios têm regras " +
+        "ou clientes. Nada foi salvo: recarregue a árvore e confira a mudança de novo (território com uso só muda de estrutura " +
+        "por operação territorial).";
+
     public const string MensagemArvoreRecusadaPeloBanco =
         "O banco de dados recusou a gravação porque a árvore ficaria inválida (ciclo, mais de 12 níveis ou posições que se " +
         "cruzam). Nada foi salvo: recarregue a árvore e confira; se persistir, avise o suporte.";
@@ -179,6 +188,10 @@ public static class RegrasArvoreTerritorial
         erros.AddRange(ValidarInicio(dados, anterior, doMapa, usoNaSubarvore, hoje));
         return erros.Distinct().ToList();
     }
+
+    /// <summary>A mesma conferência de pai da ficha, para a mudança "Mover território" de uma operação (T18; Fase 2b-1b).</summary>
+    public static IEnumerable<string> ValidarPaiParaOperacao(Territorio dados, IReadOnlyCollection<Territorio> doMapa) =>
+        ValidarPai(dados, doMapa, novo: false);
 
     /// <summary>O pai existe no mesmo mapa, está ativo, não é o próprio nem um de baixo (sem ciclo) e não passa do limite de níveis.</summary>
     private static IEnumerable<string> ValidarPai(Territorio dados, IReadOnlyCollection<Territorio> doMapa, bool novo)

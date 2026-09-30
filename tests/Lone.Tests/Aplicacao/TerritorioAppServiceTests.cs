@@ -308,10 +308,14 @@ public class TerritorioAppServiceTests
         public Task<Territorio?> ObterAsync(Guid id, CancellationToken ct) =>
             Task.FromResult(Gravados.FirstOrDefault(t => t.Id == id) is { } t ? Copia(t) : null);
 
-        public async Task SalvarAsync(Territorio territorio, bool novo, byte[]? versaoArvoreVista, CancellationToken ct)
+        /// <summary>O uso que o serviço conferiu na última gravação (a real o relê dentro da transação).</summary>
+        public IReadOnlySet<Guid>? UltimoUsoConferido { get; private set; }
+
+        public async Task SalvarAsync(Territorio territorio, bool novo, byte[]? versaoArvoreVista, IReadOnlySet<Guid>? usoConferido, CancellationToken ct)
         {
             if (AntesDeGravar is { } antes) await antes();
             UltimaVersaoArvoreExigida = versaoArvoreVista;
+            UltimoUsoConferido = usoConferido;
             if (versaoArvoreVista is not null)
             {
                 if (!VersaoArvore(territorio.MapaId).SequenceEqual(versaoArvoreVista))

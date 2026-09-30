@@ -30,10 +30,17 @@ public abstract partial class ViewModelBase : ObservableObject
     public bool Livre => !Ocupado;
     public bool TemMensagem => Mensagem.Length > 0;
 
+    /// <summary>
+    /// Toda mensagem mostrada, mesmo repetida (a mesma frase duas vezes não muda <see cref="Mensagem"/>): a tela usa para
+    /// levar a vista até onde a mensagem aparece (anotação C3: a mensagem deve estar onde a pessoa está olhando).
+    /// </summary>
+    public event EventHandler? MensagemMostrada;
+
     protected void Mostrar(string texto, TipoMensagem tipo)
     {
         TipoMensagem = tipo;
         Mensagem = texto;
+        if (texto.Length > 0) MensagemMostrada?.Invoke(this, EventArgs.Empty);
     }
 
     protected void LimparMensagem() => Mensagem = string.Empty;

@@ -84,6 +84,89 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.ToTable("AnexosDocumento", (string)null);
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.AtribuicaoTerritorio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ExcecaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Exclusivo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly?>("FimEm")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("InicioEm")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("MapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoAnulacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoEncerramentoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Origem")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RegraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TerritorioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExcecaoId");
+
+                    b.HasIndex("OperacaoAnulacaoId");
+
+                    b.HasIndex("OperacaoEncerramentoId");
+
+                    b.HasIndex("OperacaoId");
+
+                    b.HasIndex("RegraId");
+
+                    b.HasIndex("PessoaId", "MapaId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AtribuicoesTerritorio_AbertaNoExclusivo")
+                        .HasFilter("[FimEm] IS NULL AND [Ativo] = 1 AND [Exclusivo] = 1");
+
+                    b.HasIndex("MapaId", "TerritorioId", "InicioEm");
+
+                    b.HasIndex("PessoaId", "MapaId", "InicioEm");
+
+                    b.ToTable("AtribuicoesTerritorio", null, t =>
+                        {
+                            t.HasTrigger("TR_AtribuicoesTerritorio_SemSobreposicao");
+
+                            t.HasCheckConstraint("CK_AtribuicoesTerritorio_Origem", "([Origem] = 1 AND [RegraId] IS NOT NULL AND [ExcecaoId] IS NULL) OR ([Origem] = 2 AND [ExcecaoId] IS NOT NULL AND [RegraId] IS NULL)");
+
+                            t.HasCheckConstraint("CK_AtribuicoesTerritorio_Periodo", "[FimEm] IS NULL OR [FimEm] >= [InicioEm]");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.Bloqueio", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1097,6 +1180,101 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.ToTable("ExcecoesComerciais", (string)null);
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.ExcecaoTerritorio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Exclusivo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly?>("FimEm")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("InicioEm")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("MapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid?>("OperacaoAnulacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoEncerramentoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoMudancaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Origem")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TerritorioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Tipo")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperacaoAnulacaoId");
+
+                    b.HasIndex("OperacaoEncerramentoId");
+
+                    b.HasIndex("OperacaoId");
+
+                    b.HasIndex("OperacaoMudancaId");
+
+                    b.HasIndex("PessoaId", "MapaId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ExcecoesTerritorio_FixarAbertoNoExclusivo")
+                        .HasFilter("[Tipo] = 1 AND [Exclusivo] = 1 AND [FimEm] IS NULL AND [Ativo] = 1");
+
+                    b.HasIndex("MapaId", "TerritorioId", "InicioEm");
+
+                    b.HasIndex("PessoaId", "MapaId", "InicioEm");
+
+                    b.ToTable("ExcecoesTerritorio", null, t =>
+                        {
+                            t.HasTrigger("TR_ExcecoesTerritorio_SemSobreposicao");
+
+                            t.HasCheckConstraint("CK_ExcecoesTerritorio_Motivo", "LEN([Motivo]) > 0");
+
+                            t.HasCheckConstraint("CK_ExcecoesTerritorio_Origem", "[Origem] IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("CK_ExcecoesTerritorio_Periodo", "[FimEm] IS NULL OR [FimEm] >= [InicioEm]");
+
+                            t.HasCheckConstraint("CK_ExcecoesTerritorio_Tipo", "[Tipo] IN (1, 2)");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.FiltroSalvo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1709,6 +1887,9 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("nvarchar(80)")
                         .UseCollation("Latin1_General_CI_AI");
 
+                    b.Property<bool>("RegistrarNosDocumentos")
+                        .HasColumnType("bit");
+
                     b.Property<byte[]>("Versao")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -1725,6 +1906,10 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("Nome")
                         .IsUnique();
+
+                    b.HasIndex("Id", "Exclusivo")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MapasTerritoriais_Id_Exclusivo");
 
                     b.ToTable("MapasTerritoriais", (string)null);
                 });
@@ -1775,6 +1960,32 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsUnique();
 
                     b.ToTable("MapaTerritorialClassificacoes", (string)null);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.MapaTerritorialMotor", b =>
+                {
+                    b.Property<Guid>("MapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UltimaOperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("UltimoEfeitoEm")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("MapaId");
+
+                    b.HasIndex("UltimaOperacaoId");
+
+                    b.ToTable("MapaTerritorialMotor", (string)null);
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.MeioContato", b =>
@@ -2140,6 +2351,27 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.ToTable("Municipios", (string)null);
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.NumeracaoDocumento", b =>
+                {
+                    b.Property<string>("Prefixo")
+                        .HasMaxLength(10)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Ultimo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Prefixo", "Ano");
+
+                    b.ToTable("NumeracoesDocumento", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NumeracoesDocumento_Ultimo", "[Ultimo] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.OcupacaoCbo", b =>
                 {
                     b.Property<int>("Id")
@@ -2162,6 +2394,442 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("Ativo", "Titulo");
 
                     b.ToTable("OcupacoesCbo", (string)null);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AplicadaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AplicadaPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("AplicadaPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CanceladaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceladaMotivo")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("CanceladaPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CanceladaPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CriadaPor")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CriadaPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DesfeitaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DesfeitaMotivo")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("DesfeitaPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("DesfeitaPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("EfeitoAnteriorDoMapa")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("EfeitoEm")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Entraram")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("MapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Mudaram")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid?>("OperacaoAnteriorDoMapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("OrigemAtualizada")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sairam")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sequencia")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SimulacaoAtualId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Situacao")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AplicadaPorId");
+
+                    b.HasIndex("CanceladaPorId");
+
+                    b.HasIndex("CriadaPorId");
+
+                    b.HasIndex("DesfeitaPorId");
+
+                    b.HasIndex("OperacaoAnteriorDoMapaId");
+
+                    b.HasIndex("SimulacaoAtualId");
+
+                    b.HasIndex("Ano", "Sequencia")
+                        .IsUnique();
+
+                    b.HasIndex("MapaId", "Situacao", "EfeitoEm");
+
+                    b.ToTable("OperacoesTerritoriais", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OperacoesTerritoriais_Motivo", "LEN([Motivo]) > 0");
+
+                            t.HasCheckConstraint("CK_OperacoesTerritoriais_Numero", "[Ano] BETWEEN 2000 AND 9999 AND [Sequencia] >= 1");
+
+                            t.HasCheckConstraint("CK_OperacoesTerritoriais_Situacao", "[Situacao] BETWEEN 0 AND 4");
+
+                            t.HasCheckConstraint("CK_OperacoesTerritoriais_Transicoes", "([Situacao] NOT IN (2, 4) OR ([AplicadaEm] IS NOT NULL AND [AplicadaPor] IS NOT NULL)) AND ([Situacao] <> 3 OR ([CanceladaEm] IS NOT NULL AND [CanceladaPor] IS NOT NULL AND [CanceladaMotivo] IS NOT NULL AND LEN([CanceladaMotivo]) > 0)) AND ([Situacao] <> 4 OR ([DesfeitaEm] IS NOT NULL AND [DesfeitaPor] IS NOT NULL AND [DesfeitaMotivo] IS NOT NULL AND LEN([DesfeitaMotivo]) > 0))");
+                        });
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialFechamento", b =>
+                {
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Tabela")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid>("LinhaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("FimAnterior")
+                        .HasColumnType("date");
+
+                    b.HasKey("OperacaoId", "Tabela", "LinhaId");
+
+                    b.ToTable("OperacaoTerritorialFechamentos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OperacaoTerritorialFechamentos_Tabela", "[Tabela] BETWEEN 1 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AtribuicaoEncerradaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AtribuicaoNovaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("Efeito")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("Explicacao")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Resultado")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid?>("TerritorioAnteriorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TerritorioNovoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtribuicaoEncerradaId");
+
+                    b.HasIndex("AtribuicaoNovaId");
+
+                    b.HasIndex("PessoaId");
+
+                    b.HasIndex("TerritorioAnteriorId");
+
+                    b.HasIndex("TerritorioNovoId");
+
+                    b.HasIndex("OperacaoId", "PessoaId")
+                        .IsUnique();
+
+                    b.ToTable("OperacaoTerritorialItens", null, t =>
+                        {
+                            t.HasTrigger("TR_OperacaoTerritorialItens_Imutavel");
+
+                            t.HasCheckConstraint("CK_OperacaoTerritorialItens_Explicacao", "ISJSON([Explicacao]) = 1");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialMudanca", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Antes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("BaseVersao")
+                        .HasMaxLength(8)
+                        .HasColumnType("binary(8)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Depois")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ExcecaoBaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PosicaoBaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RegraBaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TerritorioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Tipo")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExcecaoBaseId");
+
+                    b.HasIndex("PessoaId");
+
+                    b.HasIndex("PosicaoBaseId");
+
+                    b.HasIndex("RegraBaseId");
+
+                    b.HasIndex("MapaId", "TerritorioId");
+
+                    b.HasIndex("OperacaoId", "MapaId");
+
+                    b.HasIndex("OperacaoId", "Ordem")
+                        .IsUnique();
+
+                    b.ToTable("OperacaoTerritorialMudancas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OperacaoTerritorialMudancas_Json", "ISJSON([Depois]) = 1 AND ([Antes] IS NULL OR ISJSON([Antes]) = 1)");
+
+                            t.HasCheckConstraint("CK_OperacaoTerritorialMudancas_Ordem", "[Ordem] >= 1");
+
+                            t.HasCheckConstraint("CK_OperacaoTerritorialMudancas_Tipo", "[Tipo] BETWEEN 1 AND 8");
+                        });
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialSimulacao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Assinatura")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("AtributosAvaliadosEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DaOperacao")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Divergencias")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("EfeitoEm")
+                        .HasColumnType("date");
+
+                    b.Property<int>("EmConflito")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Entram")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Inconsistencias")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Mudam")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("OrigemAtualizada")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Saem")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SimuladaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SimuladaPor")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("SimuladaPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("VersaoArvore")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("binary(8)")
+                        .IsFixedLength();
+
+                    b.Property<byte[]>("VersaoMotor")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("binary(8)")
+                        .IsFixedLength();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SimuladaPorId");
+
+                    b.HasIndex("OperacaoId", "SimuladaEm");
+
+                    b.ToTable("OperacaoTerritorialSimulacoes", (string)null);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialSimulacaoItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("Efeito")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("Explicacao")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte>("OrigemEfeito")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Resultado")
+                        .HasColumnType("tinyint");
+
+                    b.Property<Guid>("SimulacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TerritorioAtualId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TerritorioPropostoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PessoaId");
+
+                    b.HasIndex("TerritorioAtualId");
+
+                    b.HasIndex("TerritorioPropostoId");
+
+                    b.HasIndex("SimulacaoId", "PessoaId")
+                        .IsUnique();
+
+                    b.ToTable("OperacaoTerritorialSimulacaoItens", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OperacaoTerritorialSimulacaoItens_Explicacao", "ISJSON([Explicacao]) = 1");
+                        });
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.Papel", b =>
@@ -2382,6 +3050,43 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                             CriadoEm = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Utc),
                             DiasEmRisco = 90,
                             DiasInativo = 180
+                        });
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.ParametrosTerritoriais", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DiasRetroativosMaximo")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ParametrosTerritoriais", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ParametrosTerritoriais_DiasRetroativos", "[DiasRetroativosMaximo] BETWEEN 0 AND 365");
+
+                            t.HasCheckConstraint("CK_ParametrosTerritoriais_Unico", "[Id] = '7a9e1c08-0000-0000-0000-000000000001'");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("7a9e1c08-0000-0000-0000-000000000001"),
+                            CriadoEm = new DateTime(2026, 9, 29, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiasRetroativosMaximo = 30
                         });
                 });
 
@@ -3428,6 +4133,100 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.ToTable("Auditoria", (string)null);
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.RegraTerritorio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Criterios")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateOnly?>("FimEm")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Grupos")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly>("InicioEm")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("MapaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("OperacaoAnulacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoEncerramentoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoMudancaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Prioridade")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TerritorioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperacaoAnulacaoId");
+
+                    b.HasIndex("OperacaoEncerramentoId");
+
+                    b.HasIndex("OperacaoId");
+
+                    b.HasIndex("OperacaoMudancaId");
+
+                    b.HasIndex("TerritorioId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RegrasTerritorio_Aberta")
+                        .HasFilter("[FimEm] IS NULL AND [Ativo] = 1");
+
+                    b.HasIndex("TerritorioId", "Numero")
+                        .IsUnique();
+
+                    b.HasIndex("MapaId", "TerritorioId", "InicioEm");
+
+                    b.ToTable("RegrasTerritorio", null, t =>
+                        {
+                            t.HasTrigger("TR_RegrasTerritorio_Protecao");
+
+                            t.HasCheckConstraint("CK_RegrasTerritorio_Grupos", "ISJSON([Grupos]) = 1 AND LEN([Grupos]) <= 20000");
+
+                            t.HasCheckConstraint("CK_RegrasTerritorio_Numero", "[Numero] >= 1");
+
+                            t.HasCheckConstraint("CK_RegrasTerritorio_Periodo", "[FimEm] IS NULL OR [FimEm] >= [InicioEm]");
+
+                            t.HasCheckConstraint("CK_RegrasTerritorio_Prioridade", "[Prioridade] IS NULL OR [Prioridade] >= 1");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.Setor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3556,6 +4355,18 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Property<Guid>("MapaId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("OperacaoAnulacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoEncerramentoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OperacaoMudancaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("PaiId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3563,6 +4374,14 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OperacaoAnulacaoId");
+
+                    b.HasIndex("OperacaoEncerramentoId");
+
+                    b.HasIndex("OperacaoId");
+
+                    b.HasIndex("OperacaoMudancaId");
 
                     b.HasIndex("TerritorioId")
                         .IsUnique()
@@ -3610,6 +4429,9 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<Guid?>("OperacaoEncerramentoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("PessoaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3620,6 +4442,8 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OperacaoEncerramentoId");
 
                     b.HasIndex("TerritorioId");
 
@@ -4646,6 +5470,48 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.AtribuicaoTerritorio", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.ExcecaoTerritorio", null)
+                        .WithMany()
+                        .HasForeignKey("ExcecaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoAnulacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoEncerramentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.RegraTerritorio", null)
+                        .WithMany()
+                        .HasForeignKey("RegraId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("MapaId", "TerritorioId")
+                        .HasPrincipalKey("MapaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.Bloqueio", b =>
                 {
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)
@@ -4919,6 +5785,43 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.ExcecaoTerritorio", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoAnulacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoEncerramentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorialMudanca", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoMudancaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("MapaId", "TerritorioId")
+                        .HasPrincipalKey("MapaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.HistoricoFiscal", b =>
                 {
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)
@@ -5015,6 +5918,20 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.MapaTerritorialMotor", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.MapaTerritorial", null)
+                        .WithOne()
+                        .HasForeignKey("Lone.Domain.Entidades.MapaTerritorialMotor", "MapaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("UltimaOperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.MeioContato", b =>
                 {
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)
@@ -5096,6 +6013,164 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .HasForeignKey("MetaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorial", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("AplicadaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("CanceladaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("CriadaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("DesfeitaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.MapaTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("MapaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoAnteriorDoMapaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorialSimulacao", null)
+                        .WithMany()
+                        .HasForeignKey("SimulacaoAtualId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialFechamento", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialItem", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.AtribuicaoTerritorio", null)
+                        .WithMany()
+                        .HasForeignKey("AtribuicaoEncerradaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.AtribuicaoTerritorio", null)
+                        .WithMany()
+                        .HasForeignKey("AtribuicaoNovaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("TerritorioAnteriorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("TerritorioNovoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialMudanca", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.ExcecaoTerritorio", null)
+                        .WithMany()
+                        .HasForeignKey("ExcecaoBaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.TerritorioPosicao", null)
+                        .WithMany()
+                        .HasForeignKey("PosicaoBaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.RegraTerritorio", null)
+                        .WithMany()
+                        .HasForeignKey("RegraBaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("MapaId", "TerritorioId")
+                        .HasPrincipalKey("MapaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany("Mudancas")
+                        .HasForeignKey("OperacaoId", "MapaId")
+                        .HasPrincipalKey("Id", "MapaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialSimulacao", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("SimuladaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialSimulacaoItem", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorialSimulacao", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("SimulacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("TerritorioAtualId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("TerritorioPropostoId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.PendenciaMunicipio", b =>
@@ -5342,6 +6417,37 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Lone.Domain.Entidades.RegraTerritorio", b =>
+                {
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoAnulacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoEncerramentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorialMudanca", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoMudancaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.Territorio", null)
+                        .WithMany()
+                        .HasForeignKey("MapaId", "TerritorioId")
+                        .HasPrincipalKey("MapaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.Setor", b =>
                 {
                     b.HasOne("Lone.Domain.Entidades.Departamento", null)
@@ -5374,6 +6480,26 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Lone.Domain.Entidades.TerritorioPosicao", b =>
                 {
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoAnulacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoEncerramentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorialMudanca", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoMudancaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Lone.Domain.Entidades.Territorio", null)
                         .WithMany()
                         .HasForeignKey("MapaId", "PaiId")
@@ -5393,6 +6519,11 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.HasOne("Lone.Domain.Entidades.Equipe", null)
                         .WithMany()
                         .HasForeignKey("EquipeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Lone.Domain.Entidades.OperacaoTerritorial", null)
+                        .WithMany()
+                        .HasForeignKey("OperacaoEncerramentoId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Lone.Domain.Entidades.Pessoa", null)
@@ -5569,6 +6700,16 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.Navigation("Itens");
 
                     b.Navigation("Participantes");
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorial", b =>
+                {
+                    b.Navigation("Mudancas");
+                });
+
+            modelBuilder.Entity("Lone.Domain.Entidades.OperacaoTerritorialSimulacao", b =>
+                {
+                    b.Navigation("Itens");
                 });
 
             modelBuilder.Entity("Lone.Domain.Entidades.Perfil", b =>

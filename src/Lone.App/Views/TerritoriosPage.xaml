@@ -63,7 +63,7 @@
         <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
                              HorizontalOptions="Center" Spacing="6" Padding="24" MaximumWidthRequest="640">
             <Label Text="Nenhum território aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="A árvore mostra onde cada território fica (Brasil › Sudeste › MG › Curvelo) e serve para somar os de baixo. Quem entra em cada território será decidido pelas regras, com simulação antes de aplicar (próxima etapa). Enquanto um território não tem regras nem clientes, você pode criar, renomear, mover e encerrar à vontade."
+            <Label Text="A árvore mostra onde cada território fica (Brasil › Sudeste › MG › Curvelo) e serve para somar os de baixo. Quem entra em cada território é decidido pelas regras, planejadas e simuladas em Operações territoriais antes de aplicar. Enquanto um território não tem regras nem clientes, você pode criar, renomear, mover e encerrar à vontade aqui."
                    Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
         </VerticalStackLayout>
 
@@ -92,7 +92,7 @@
                                  SomenteLeitura="{Binding Formulario.InicioSomenteLeitura}" />
                         <c:Campo Rotulo="Descrição" Texto="{Binding Formulario.Descricao}" Dica="Opcional" />
                     </FlexLayout>
-                    <Label Text="O território acima só organiza a árvore (e desempata regras: Curvelo abaixo de MG vence MG). Quem entra em cada território são as regras dele, que chegam na próxima etapa."
+                    <Label Text="O território acima só organiza a árvore (e desempata regras: Curvelo abaixo de MG vence MG). Quem entra em cada território são as regras dele (abaixo), que mudam por operação territorial."
                            Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
                     <!-- Responsáveis -->
@@ -130,6 +130,59 @@
                                 </Border>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- Regras, exceções e clientes (Fase 2b-1b; só leitura: mudam por operação territorial) -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding TemMotor}">
+                        <Label Text="Regra" Style="{StaticResource Subtitulo}" Margin="0,16,0,0" />
+                        <Label Text="Versões da regra deste território. Para mudar: Comercial › Operações territoriais (planejar, simular, aplicar)."
+                               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Regras}" Spacing="6">
+                            <BindableLayout.EmptyView>
+                                <Label Text="Sem regra: ninguém entra aqui por regra (só por fixação)." Style="{StaticResource Secundario}" />
+                            </BindableLayout.EmptyView>
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Border Style="{StaticResource CartaoItem}">
+                                        <Label Text="{Binding .}" LineBreakMode="WordWrap" />
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <Label Text="Exceções" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Excecoes}" Spacing="2">
+                            <BindableLayout.EmptyView>
+                                <Label Text="Nenhuma exceção (fixar ou retirar cliente)." Style="{StaticResource Secundario}" />
+                            </BindableLayout.EmptyView>
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <Label Text="Clientes" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                        <Label Text="{Binding TextoClientes}" Style="{StaticResource Secundario}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Clientes}" Spacing="2">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <Label Text="Operações em aberto com este território" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding OperacoesAbertas}" Spacing="2">
+                            <BindableLayout.EmptyView>
+                                <Label Text="Nenhuma." Style="{StaticResource Secundario}" />
+                            </BindableLayout.EmptyView>
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Label Text="{Binding .}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
 
                     <!-- Histórico da posição -->

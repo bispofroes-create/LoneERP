@@ -443,12 +443,64 @@ public sealed partial class TerritoriosViewModel : CadastroViewModelBase<LinhaTe
 
     partial void OnMostrarEncerradosChanged(bool value) => _ = RecarregarAsync();
 
-    protected override async Task AbrirAsync(LinhaTerritorio item) => Formulario = await ObterAsync(item.Item.Id);
+    protected override async Task AbrirAsync(LinhaTerritorio item)
+    {
+        Formulario = await ObterAsync(item.Item.Id);
+        await CarregarMotorAsync(item.Item.Id);
+    }
+
+    // ---- Fase 2b-1b: regras, exceções e clientes do território (só leitura: mudam por operação territorial) ----
+
+    public ObservableCollection<string> Regras { get; } = new();
+    public ObservableCollection<string> Excecoes { get; } = new();
+    public ObservableCollection<string> Clientes { get; } = new();
+    public ObservableCollection<string> OperacoesAbertas { get; } = new();
+    [ObservableProperty] private string _textoClientes = string.Empty;
+    [ObservableProperty] private bool _temMotor;
+
+    /// <summary>O que está gravado (nunca recalculado): versões da regra, exceções, clientes atribuídos hoje e operações em aberto.</summary>
+    private async Task CarregarMotorAsync(Guid territorioId)
+    {
+        Regras.Clear();
+        Excecoes.Clear();
+        Clientes.Clear();
+        OperacoesAbertas.Clear();
+        TemMotor = false;
+        TerritorioMotorDto motor;
+        try
+        {
+            motor = await _api.MotorDoTerritorioAsync(territorioId);
+        }
+        catch (Exception)
+        {
+            return; // sem as regras, a ficha continua (a árvore e os responsáveis são da 2b-1a)
+        }
+        foreach (var r in motor.Regras)
+            Regras.Add($"v{r.Numero}{(r.Vigente ? " (vigente)" : r.Ativo ? string.Empty : " (anulada)")} · " +
+                       (r.Prioridade is { } p ? $"prioridade {p}" : "sem prioridade") +
+                       $" · de {TextoTela.Data(r.InicioEm)}" + (r.FimEm is { } f ? $" até {TextoTela.Data(f)}" : " em diante") +
+                       (r.Operacao is null ? string.Empty : $" · {r.Operacao}") + Environment.NewLine + r.Criterios +
+                       (r.ComCondicaoRestrita ? " (há condição restrita que você não pode ver)" : string.Empty));
+        foreach (var x in motor.Excecoes)
+            Excecoes.Add($"{(x.Tipo == TipoExcecaoTerritorio.Fixar ? "Fixar" : "Retirar")} {x.Pessoa} · de {TextoTela.Data(x.InicioEm)}" +
+                         (x.FimEm is { } f ? $" até {TextoTela.Data(f)}" : " em diante") + $" · {x.Motivo}" + (x.Operacao is null ? string.Empty : $" · {x.Operacao}") +
+                         (x.Vigente ? string.Empty : x.Ativo ? " (encerrada)" : " (anulada)"));
+        foreach (var c in motor.Clientes)
+            Clientes.Add($"{c.Pessoa} · desde {TextoTela.Data(c.InicioEm)} · {c.OrigemDescricao}" + (c.Operacao is null ? string.Empty : $" · {c.Operacao}"));
+        foreach (var o in motor.OperacoesAbertas)
+            OperacoesAbertas.Add($"{o.Numero} ({o.SituacaoNome}) · efeito {TextoTela.Data(o.EfeitoEm)} · {o.Motivo}");
+        TextoClientes = motor.TotalClientes == 0
+            ? "Nenhum cliente atribuído hoje."
+            : $"{motor.TotalClientes.ToString("N0", TextoTela.Brasil)} cliente(s) atribuído(s) hoje" +
+              (motor.TotalClientes > motor.Clientes.Count ? $" (mostrando {motor.Clientes.Count})." : ".");
+        TemMotor = true;
+    }
 
     protected override Task NovoItemAsync()
     {
         if (Mapa?.Valor is not { } mapaId) throw new ValidacaoException(["Escolha (ou cadastre) um mapa territorial antes."]);
         Formulario = TerritorioEdicao.Criar(mapaId, _opcoes, _doMapa, _paiDoNovo, PodeConfigurar);
+        TemMotor = false; // território novo: ainda sem regra nem clientes
         _paiDoNovo = null;
         return Task.CompletedTask;
     }
@@ -468,7 +520,11 @@ public sealed partial class TerritoriosViewModel : CadastroViewModelBase<LinhaTe
 
     protected override async Task RecarregarFichaAsync()
     {
-        if (Formulario is { Novo: false } f) Formulario = await ObterAsync(f.Id);
+        if (Formulario is { Novo: false } f)
+        {
+            Formulario = await ObterAsync(f.Id);
+            await CarregarMotorAsync(f.Id);
+        }
     }
 
     private async Task<TerritorioEdicao> ObterAsync(Guid id) =>

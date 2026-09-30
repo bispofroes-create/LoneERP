@@ -87,6 +87,13 @@ public class MapaTerritorial : AgregadoRaiz
     [DisplayName("Ativo")]
     public bool Ativo { get; set; } = true;
 
+    /// <summary>
+    /// Os territórios deste mapa são copiados para os documentos comerciais (oportunidade, pedido, venda, comissão, meta...)
+    /// no momento do fato (P-T1, DN-15). Nesta fase só prepara o contrato: nenhum documento existe ainda.
+    /// </summary>
+    [DisplayName("Registrar nos documentos")]
+    public bool RegistrarNosDocumentos { get; set; }
+
     /// <summary>Universo: classificações de pessoa que podem ser atribuídas (decisão T9). Desmarcar desativa; nunca apaga.</summary>
     public List<MapaTerritorialClassificacao> Classificacoes { get; set; } = new();
 
@@ -220,6 +227,18 @@ public class TerritorioPosicao : EntidadeBase, IParteDeAgregado
     [DisplayName("Ativa")]
     public bool Ativo { get; set; } = true;
 
+    /// <summary>Operação territorial que abriu esta posição (nulo = gravada pela ficha, sem uso; 2b-1a).</summary>
+    public Guid? OperacaoId { get; set; }
+
+    /// <summary>A mudança da operação que a abriu.</summary>
+    public Guid? OperacaoMudancaId { get; set; }
+
+    /// <summary>Operação que a encerrou (fim = véspera do efeito).</summary>
+    public Guid? OperacaoEncerramentoId { get; set; }
+
+    /// <summary>Operação que a anulou (desfeita).</summary>
+    public Guid? OperacaoAnulacaoId { get; set; }
+
     string IParteDeAgregado.RaizEntidade => nameof(Territorio);
     Guid IParteDeAgregado.RaizId => TerritorioId;
 
@@ -259,6 +278,12 @@ public class TerritorioResponsavel : EntidadeBase, IParteDeAgregado
 
     [DisplayName("Ativo")]
     public bool Ativo { get; set; } = true;
+
+    /// <summary>
+    /// Operação que encerrou este responsável como consequência do encerramento do território (DN-09: responsável nunca é
+    /// mudança da operação). Nulo = encerrado pela ficha.
+    /// </summary>
+    public Guid? OperacaoEncerramentoId { get; set; }
 
     string IParteDeAgregado.RaizEntidade => nameof(Territorio);
     Guid IParteDeAgregado.RaizId => TerritorioId;

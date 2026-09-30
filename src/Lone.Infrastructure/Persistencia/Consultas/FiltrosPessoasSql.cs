@@ -16,8 +16,14 @@ namespace Lone.Infrastructure.Persistencia.Consultas;
 /// </summary>
 public static class FiltrosPessoasSql
 {
-    /// <summary>O que as condições precisam além da consulta: o banco, o dia de hoje e os parâmetros de relacionamento.</summary>
-    public sealed record Contexto(LoneDbContext Db, DateOnly Hoje, ParametrosRelacionamento Parametros);
+    /// <summary>
+    /// O que as condições precisam além da consulta: o banco, o dia de hoje e os parâmetros de relacionamento.
+    /// <paramref name="EnderecoReferencia"/> (regras territoriais, T16): a finalidade do endereço de referência do mapa. Nulo
+    /// = comportamento de sempre (qualquer endereço ativo; a lista de Pessoas usa assim). Preenchido: UF, Município, Cidade,
+    /// Bairro, CEP e "Sem endereço" olham só o endereço ativo marcado como principal dessa finalidade; quem não tem esse
+    /// endereço não atende a nenhuma condição de endereço (nem a "nenhum destes"): não há endereço reserva.
+    /// </summary>
+    public sealed record Contexto(LoneDbContext Db, DateOnly Hoje, ParametrosRelacionamento Parametros, Guid? EnderecoReferencia = null);
 
     /// <summary>
     /// O nome para exibir do repositório (mesmo corpo e parâmetro), tipado como <c>string?</c> para o filtro de texto, que
@@ -65,7 +71,7 @@ public static class FiltrosPessoasSql
             return q.Where(Ou(Texto<Pessoa>(p => p.DocumentoPrincipal, c), temCnpj));
         },
         [CamposFiltroPessoas.Cidade] = (q, c, x) =>
-            ComAlgum(q, x.Db.PessoaEnderecos.Where(e => e.Ativo).Where(Texto<PessoaEndereco>(e => e.Cidade, c)), e => e.PessoaId),
+            ComAlgum(q, Enderecos(x).Where(Texto<PessoaEndereco>(e => e.Cidade, c)), e => e.PessoaId),
 
         // ---- Fase 3 ----
         [CamposFiltroPessoas.NomeFantasia] = (q, c, x) =>
@@ -143,12 +149,12 @@ public static class FiltrosPessoasSql
             return Nenhum(c) ? SemNenhum(q, com, f => f.PessoaId) : ComAlgum(q, com, f => f.PessoaId);
         },
         [CamposFiltroPessoas.Bairro] = (q, c, x) =>
-            ComAlgum(q, x.Db.PessoaEnderecos.Where(e => e.Ativo).Where(Texto<PessoaEndereco>(e => e.Bairro, c)), e => e.PessoaId),
+            ComAlgum(q, Enderecos(x).Where(Texto<PessoaEndereco>(e => e.Bairro, c)), e => e.PessoaId),
         [CamposFiltroPessoas.Cep] = (q, c, x) =>
-            ComAlgum(q, x.Db.PessoaEnderecos.Where(e => e.Ativo).Where(Texto<PessoaEndereco>(e => e.Cep, c)), e => e.PessoaId),
+            ComAlgum(q, Enderecos(x).Where(Texto<PessoaEndereco>(e => e.Cep, c)), e => e.PessoaId),
         [CamposFiltroPessoas.SemEndereco] = (q, c, x) =>
         {
-            var com = x.Db.PessoaEnderecos.Where(e => e.Ativo && e.Logradouro != "");
+            var com = Enderecos(x).Where(e => e.Logradouro != "");
             return c.Operador == OperadorFiltro.Sim ? SemNenhum(q, com, e => e.PessoaId) : ComAlgum(q, com, e => e.PessoaId);
         },
         [CamposFiltroPessoas.TipoDocumento] = (q, c, x) =>
@@ -300,9 +306,24 @@ public static class FiltrosPessoasSql
 
     // ---------------------------------------------------------------- Endereços
 
+    /// <summary>
+    /// Os endereços que as condições de endereço consideram: os ativos (lista de Pessoas) ou, com endereço de referência
+    /// (regra territorial), só o ativo marcado como principal da finalidade do mapa.
+    /// </summary>
+    private static IQueryable<PessoaEndereco> Enderecos(Contexto x)
+    {
+        if (x.EnderecoReferencia is not { } finalidade) return x.Db.PessoaEnderecos.Where(e => e.Ativo);
+        var principais = x.Db.PessoaEnderecoFinalidades.Where(f => f.Ativo && f.Principal && f.FinalidadeId == finalidade)
+            .Select(f => f.PessoaEnderecoId);
+        return x.Db.PessoaEnderecos.Where(e => e.Ativo && principais.Contains(e.Id));
+    }
+
     private static IQueryable<Pessoa> Uf(IQueryable<Pessoa> q, CondicaoFiltro c, Contexto x)
     {
         var ufs = c.Valores.ToList();
+        // Endereço de referência: "nenhum destes" exige ter o endereço (sem ele, não atende a condição de endereço).
+        if (x.EnderecoReferencia is not null)
+            return ComAlgum(q, Nenhum(c) ? Enderecos(x).Where(e => !ufs.Contains(e.Uf!)) : Enderecos(x).Where(e => ufs.Contains(e.Uf!)), e => e.PessoaId);
         return Nenhum(c)
             ? q.Where(p => !p.Enderecos.Any(e => e.Ativo && ufs.Contains(e.Uf!)))
             : q.Where(p => p.Enderecos.Any(e => e.Ativo && ufs.Contains(e.Uf!)));
@@ -311,6 +332,10 @@ public static class FiltrosPessoasSql
     private static IQueryable<Pessoa> Municipio(IQueryable<Pessoa> q, CondicaoFiltro c, Contexto x)
     {
         List<int?> municipios = [.. c.Valores.Select(v => (int?)int.Parse(v, CultureInfo.InvariantCulture))];
+        if (x.EnderecoReferencia is not null)
+            return ComAlgum(q, Nenhum(c)
+                ? Enderecos(x).Where(e => e.MunicipioId != null && !municipios.Contains(e.MunicipioId))
+                : Enderecos(x).Where(e => municipios.Contains(e.MunicipioId)), e => e.PessoaId);
         return Nenhum(c)
             ? q.Where(p => !p.Enderecos.Any(e => e.Ativo && municipios.Contains(e.MunicipioId)))
             : q.Where(p => p.Enderecos.Any(e => e.Ativo && municipios.Contains(e.MunicipioId)));

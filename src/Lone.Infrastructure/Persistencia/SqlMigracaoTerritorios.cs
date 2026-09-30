@@ -216,4 +216,170 @@ public static class SqlMigracaoTerritorios
     /// </summary>
     public static string DesfazerReforcoProtecaoConcorrencia =>
         CriarProtecao.Replace("EXEC (N'CREATE TRIGGER ", "EXEC (N'CREATE OR ALTER TRIGGER ", StringComparison.Ordinal);
+
+    // ------------------------------------------------------------------ Motor territorial (migração Fase2b1bMotor, Fase 2b-1b)
+    //
+    // Uso na migração Fase2b1bMotor: no fim do Up, nesta ordem, PreencherMotores, CriarChavesExclusivo, CriarProtecaoRegras,
+    // CriarProtecaoExcecoes, CriarProtecaoAtribuicoes e CriarProtecaoItens; no começo do Down, RemoverProtecoesMotor (retira
+    // só o que o Up criou por SQL; as tabelas, colunas e índices são retirados pelo EF). Todo gatilho novo lê com
+    // READCOMMITTEDLOCK (o LoneERP está com READ_COMMITTED_SNAPSHOT: sem a dica, duas gravações simultâneas feitas por fora
+    // não se enxergariam), com a mesma forma de comparar períodos da 2b-1a: fim nulo = em aberto, o dia do fim conta,
+    // anuladas (Ativo = 0) não contam.
+
+    public const string GatilhoRegras = "TR_RegrasTerritorio_Protecao";
+    public const string GatilhoExcecoes = "TR_ExcecoesTerritorio_SemSobreposicao";
+    public const string GatilhoAtribuicoes = "TR_AtribuicoesTerritorio_SemSobreposicao";
+    public const string GatilhoItens = "TR_OperacaoTerritorialItens_Imutavel";
+    public const int ErroRegras = 50073;
+    public const int ErroExcecoes = 50074;
+    public const int ErroAtribuicoes = 50075;
+    public const int ErroItens = 50076;
+
+    public const string ChaveExcecoesExclusivo = "FK_ExcecoesTerritorio_MapasTerritoriais_MapaId_Exclusivo";
+    public const string ChaveAtribuicoesExclusivo = "FK_AtribuicoesTerritorio_MapasTerritoriais_MapaId_Exclusivo";
+
+    /// <summary>
+    /// Uma linha do motor (DN-02) para cada mapa que já existia (os novos nascem com a sua). Só inclui o que falta: rodar de
+    /// novo não duplica nem altera nada.
+    /// </summary>
+    public const string PreencherMotores = """
+        INSERT INTO MapaTerritorialMotor (MapaId, UltimaOperacaoId, UltimoEfeitoEm, AtualizadoEm)
+        SELECT m.Id, NULL, NULL, SYSUTCDATETIME()
+        FROM MapasTerritoriais m
+        WHERE NOT EXISTS (SELECT 1 FROM MapaTerritorialMotor x WHERE x.MapaId = m.Id);
+        """;
+
+    /// <summary>
+    /// A cópia de Exclusivo em exceções e atribuições amarrada ao mapa: FK (MapaId, Exclusivo) → MapasTerritoriais(Id,
+    /// Exclusivo), sobre o índice único UX_MapasTerritoriais_Id_Exclusivo (criado pelo EF). Consequência de propósito: a
+    /// exclusividade de um mapa com exceção ou atribuição gravada não muda mais (o UPDATE do mapa é recusado). Fica fora do
+    /// modelo do EF porque, no EF, uma chave alternativa (Id, Exclusivo) tornaria Exclusivo imutável também nos mapas sem uso
+    /// — e trocar a exclusividade de um mapa ainda sem uso é permitido desde a 2b-1a.
+    /// </summary>
+    public const string CriarChavesExclusivo = """
+        ALTER TABLE ExcecoesTerritorio WITH CHECK ADD CONSTRAINT FK_ExcecoesTerritorio_MapasTerritoriais_MapaId_Exclusivo
+            FOREIGN KEY (MapaId, Exclusivo) REFERENCES MapasTerritoriais (Id, Exclusivo);
+        ALTER TABLE AtribuicoesTerritorio WITH CHECK ADD CONSTRAINT FK_AtribuicoesTerritorio_MapasTerritoriais_MapaId_Exclusivo
+            FOREIGN KEY (MapaId, Exclusivo) REFERENCES MapasTerritoriais (Id, Exclusivo);
+        """;
+
+    /// <summary>
+    /// Regras (50073): (1) duas versões válidas da regra do mesmo território não têm períodos que se cruzam; (2) versão
+    /// publicada é imutável: só fim, anulação (Ativo), operação de encerramento e de anulação, data de alteração e rowversion
+    /// podem mudar. A comparação por EXCEPT trata nulo como valor (Prioridade e mudança podem ser nulas).
+    /// </summary>
+    public const string CriarProtecaoRegras = """
+        SET XACT_ABORT ON;
+        EXEC (N'CREATE TRIGGER TR_RegrasTerritorio_Protecao ON RegrasTerritorio
+        AFTER INSERT, UPDATE AS
+        BEGIN
+            SET NOCOUNT ON;
+            IF EXISTS (SELECT 1 FROM deleted) AND EXISTS (
+                SELECT i.Id, i.MapaId, i.TerritorioId, i.Numero, i.Grupos, i.Criterios, i.Prioridade, i.InicioEm, i.OperacaoId, i.OperacaoMudancaId, i.CriadoEm
+                FROM inserted i
+                EXCEPT
+                SELECT d.Id, d.MapaId, d.TerritorioId, d.Numero, d.Grupos, d.Criterios, d.Prioridade, d.InicioEm, d.OperacaoId, d.OperacaoMudancaId, d.CriadoEm
+                FROM deleted d)
+                THROW 50073, N''Território: uma versão publicada da regra não pode ser alterada (só encerrada ou anulada por operação).'', 1;
+
+            DECLARE @sempre date = DATEFROMPARTS(9999, 12, 31);
+            IF EXISTS (
+                SELECT 1
+                FROM inserted i
+                JOIN RegrasTerritorio r WITH (READCOMMITTEDLOCK)
+                  ON r.TerritorioId = i.TerritorioId
+                 AND r.Id <> i.Id
+                 AND r.Ativo = 1
+                 AND r.InicioEm <= ISNULL(i.FimEm, @sempre)
+                 AND i.InicioEm <= ISNULL(r.FimEm, @sempre)
+                WHERE i.Ativo = 1)
+                THROW 50073, N''Território: duas versões da regra do mesmo território no mesmo período.'', 1;
+        END');
+        """;
+
+    /// <summary>
+    /// Exceções (50074): no mesmo mapa e para o mesmo cliente, com períodos que se cruzam, não podem existir (1) duas
+    /// fixações num mapa exclusivo (o índice único só pega as abertas); (2) Fixar e Retirar do mesmo território; (3) duas
+    /// exceções do mesmo tipo no mesmo território (repetição).
+    /// </summary>
+    public const string CriarProtecaoExcecoes = """
+        SET XACT_ABORT ON;
+        EXEC (N'CREATE TRIGGER TR_ExcecoesTerritorio_SemSobreposicao ON ExcecoesTerritorio
+        AFTER INSERT, UPDATE AS
+        BEGIN
+            SET NOCOUNT ON;
+            DECLARE @sempre date = DATEFROMPARTS(9999, 12, 31);
+            DECLARE @cruzadas TABLE (MesmoTerritorio bit NOT NULL, MesmoTipo bit NOT NULL, Fixar bit NOT NULL, Exclusivo bit NOT NULL);
+            INSERT INTO @cruzadas (MesmoTerritorio, MesmoTipo, Fixar, Exclusivo)
+            SELECT CASE WHEN x.TerritorioId = i.TerritorioId THEN 1 ELSE 0 END,
+                   CASE WHEN x.Tipo = i.Tipo THEN 1 ELSE 0 END,
+                   CASE WHEN x.Tipo = 1 AND i.Tipo = 1 THEN 1 ELSE 0 END,
+                   i.Exclusivo
+            FROM inserted i
+            JOIN ExcecoesTerritorio x WITH (READCOMMITTEDLOCK)
+              ON x.PessoaId = i.PessoaId
+             AND x.MapaId = i.MapaId
+             AND x.Id <> i.Id
+             AND x.Ativo = 1
+             AND x.InicioEm <= ISNULL(i.FimEm, @sempre)
+             AND i.InicioEm <= ISNULL(x.FimEm, @sempre)
+            WHERE i.Ativo = 1;
+
+            IF EXISTS (SELECT 1 FROM @cruzadas WHERE Fixar = 1 AND Exclusivo = 1)
+                THROW 50074, N''Território: o mesmo cliente fixado em dois territórios de um mapa exclusivo no mesmo período.'', 1;
+            IF EXISTS (SELECT 1 FROM @cruzadas WHERE MesmoTerritorio = 1 AND MesmoTipo = 0)
+                THROW 50074, N''Território: o mesmo cliente fixado e retirado do mesmo território no mesmo período.'', 1;
+            IF EXISTS (SELECT 1 FROM @cruzadas WHERE MesmoTerritorio = 1 AND MesmoTipo = 1)
+                THROW 50074, N''Território: a mesma exceção repetida para o mesmo cliente e território no mesmo período.'', 1;
+        END');
+        """;
+
+    /// <summary>
+    /// Atribuições (50075): num mapa exclusivo, um cliente tem no máximo um território por dia; num não exclusivo, o mesmo
+    /// território não aparece duas vezes para o mesmo cliente no mesmo período.
+    /// </summary>
+    public const string CriarProtecaoAtribuicoes = """
+        SET XACT_ABORT ON;
+        EXEC (N'CREATE TRIGGER TR_AtribuicoesTerritorio_SemSobreposicao ON AtribuicoesTerritorio
+        AFTER INSERT, UPDATE AS
+        BEGIN
+            SET NOCOUNT ON;
+            DECLARE @sempre date = DATEFROMPARTS(9999, 12, 31);
+            IF EXISTS (
+                SELECT 1
+                FROM inserted i
+                JOIN AtribuicoesTerritorio a WITH (READCOMMITTEDLOCK)
+                  ON a.PessoaId = i.PessoaId
+                 AND a.MapaId = i.MapaId
+                 AND a.Id <> i.Id
+                 AND a.Ativo = 1
+                 AND (i.Exclusivo = 1 OR a.TerritorioId = i.TerritorioId)
+                 AND a.InicioEm <= ISNULL(i.FimEm, @sempre)
+                 AND i.InicioEm <= ISNULL(a.FimEm, @sempre)
+                WHERE i.Ativo = 1)
+                THROW 50075, N''Território: o mesmo cliente atribuído duas vezes no mesmo período (dois territórios no mapa exclusivo, ou o mesmo território repetido).'', 1;
+        END');
+        """;
+
+    /// <summary>Itens aplicados (50076): gravados uma vez; nenhum UPDATE nem DELETE, venha de onde vier.</summary>
+    public const string CriarProtecaoItens = """
+        SET XACT_ABORT ON;
+        EXEC (N'CREATE TRIGGER TR_OperacaoTerritorialItens_Imutavel ON OperacaoTerritorialItens
+        AFTER UPDATE, DELETE AS
+        BEGIN
+            SET NOCOUNT ON;
+            IF EXISTS (SELECT 1 FROM deleted)
+                THROW 50076, N''Território: o resultado aplicado de uma operação não pode ser alterado nem apagado.'', 1;
+        END');
+        """;
+
+    /// <summary>Down da Fase2b1bMotor: retira só o que o Up criou por SQL (gatilhos e as duas FKs de Exclusivo), antes das tabelas.</summary>
+    public const string RemoverProtecoesMotor = """
+        DROP TRIGGER IF EXISTS TR_OperacaoTerritorialItens_Imutavel;
+        DROP TRIGGER IF EXISTS TR_AtribuicoesTerritorio_SemSobreposicao;
+        DROP TRIGGER IF EXISTS TR_ExcecoesTerritorio_SemSobreposicao;
+        DROP TRIGGER IF EXISTS TR_RegrasTerritorio_Protecao;
+        ALTER TABLE AtribuicoesTerritorio DROP CONSTRAINT IF EXISTS FK_AtribuicoesTerritorio_MapasTerritoriais_MapaId_Exclusivo;
+        ALTER TABLE ExcecoesTerritorio DROP CONSTRAINT IF EXISTS FK_ExcecoesTerritorio_MapasTerritoriais_MapaId_Exclusivo;
+        """;
 }

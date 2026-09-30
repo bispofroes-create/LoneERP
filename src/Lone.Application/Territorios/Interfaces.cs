@@ -47,14 +47,16 @@ public interface ITerritorioRepositorio
     /// (mudança de estrutura: criar, mover, encerrar, reativar, mudar o início), a mesma transação troca a versão da árvore
     /// exigindo que ela ainda seja a que a tela mostrava: se a árvore mudou no meio, nada é gravado e sai conflito de edição
     /// (é o que impede A→B e B→A simultâneos de formarem um ciclo e avisa quem decidiu olhando uma árvore velha).
+    /// Na mesma mudança de estrutura, a versão do motor do mapa também é trocada (DN-02) e, com <paramref name="usoConferido"/>
+    /// (os territórios com uso que a conferência considerou), o uso é relido depois das travas: se mudou, nada é gravado (L3).
     /// </summary>
-    Task SalvarAsync(Territorio territorio, bool novo, byte[]? versaoArvoreVista, CancellationToken ct);
+    Task SalvarAsync(Territorio territorio, bool novo, byte[]? versaoArvoreVista, IReadOnlySet<Guid>? usoConferido, CancellationToken ct);
 }
 
 /// <summary>
 /// Uso operacional dos territórios (decisões T14/T18): território com regra publicada ou com atribuição (vigente ou
 /// histórica) só muda de estrutura por operação territorial, e o mapa em uso trava empresa, exclusividade, universo e
-/// endereço de referência. As regras e as atribuições chegam com o motor (2b-1b); até lá nenhum território tem uso.
+/// endereço de referência. Linhas anuladas não contam (nunca valeram).
 /// </summary>
 public interface IUsoTerritorial
 {
@@ -71,5 +73,16 @@ internal static class AcessoTerritorios
     public static void ExigirLeitura(IAutorizacao autorizacao)
     {
         if (!autorizacao.Possui(Permissoes.Territorios.Configurar)) autorizacao.Exigir(Permissoes.Territorios.Visualizar);
+    }
+
+    /// <summary>
+    /// Leitura do motor (regras, operações, simulações, atribuições): quem visualiza, configura, planeja ou aplica — não faz
+    /// sentido planejar ou aplicar sem ver o que está planejando.
+    /// </summary>
+    public static void ExigirLeituraDoMotor(IAutorizacao autorizacao)
+    {
+        if (!autorizacao.Possui(Permissoes.Territorios.Configurar) && !autorizacao.Possui(Permissoes.Territorios.Planejar) &&
+            !autorizacao.Possui(Permissoes.Territorios.Aplicar))
+            autorizacao.Exigir(Permissoes.Territorios.Visualizar);
     }
 }

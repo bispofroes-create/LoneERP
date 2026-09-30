@@ -156,6 +156,8 @@ public partial class ConfiguracoesViewModel : ViewModelBase
             new ItemConfiguracao("Mapas territoriais", "Dimensões independentes: geografia, segmentos, contas estratégicas...", "mapas-territoriais")),
         (ModulosConfiguracao.Comercial, "Territórios", Permissoes.Territorios.Configurar,
             new ItemConfiguracao("Tipos de território", "Geográfico, segmento, estratégico... (só classificam)", "tipos-territorio")),
+        (ModulosConfiguracao.Comercial, "Territórios", Permissoes.Territorios.Configurar,
+            new ItemConfiguracao("Parâmetros territoriais", "Até quantos dias no passado uma operação territorial pode ter efeito", "parametros-territoriais")),
         // ---- Organização ----
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Cargos", "Cargos dos colaboradores", "cargos")),
         (ModulosConfiguracao.Organizacao, "Estrutura organizacional", Permissoes.Cadastros.EstruturaOrganizacional, new ItemConfiguracao("Centros de custo", "Árvore de centros de custo", "centros-custo")),

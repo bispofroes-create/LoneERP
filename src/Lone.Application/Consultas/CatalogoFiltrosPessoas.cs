@@ -8,6 +8,9 @@ namespace Lone.Application.Consultas;
 /// <summary>
 /// Um campo do catálogo: onde aparece (grupo), como é informado (tipo e operadores), para quem vale (natureza e
 /// permissão) e de onde vêm as escolhas. A condição no banco fica na Infraestrutura (FiltrosPessoasSql), pelo mesmo Id.
+/// <paramref name="UsavelEmRegraTerritorio"/> (DN-07): o campo entra nas regras de território — lista fechada, sem campos
+/// personalizados. <paramref name="PermissaoEmRegraTerritorio"/>: além disso, só quem tem esta permissão inclui o campo numa
+/// regra (quem não tem vê "condição restrita" no lugar do valor).
 /// </summary>
 public sealed record DefinicaoCampoFiltro(
     string Id,
@@ -24,7 +27,9 @@ public sealed record DefinicaoCampoFiltro(
     bool TextoLivre = false,
     bool SomenteDigitos = false,
     int? TamanhoMinimo = null,
-    int? TamanhoMaximo = null);
+    int? TamanhoMaximo = null,
+    bool UsavelEmRegraTerritorio = false,
+    string? PermissaoEmRegraTerritorio = null);
 
 /// <summary>
 /// Catálogo dos campos do filtro de pessoas (Fase 1: os critérios que a consulta avançada já tinha; Fase 3: 1ª versão). Os grupos seguem a
@@ -90,12 +95,12 @@ public static class CatalogoFiltrosPessoas
             [OperadorFiltro.Contem, OperadorFiltro.ComecaCom], Dica: "Só os dígitos importam. Inclui o CNPJ de qualquer estabelecimento.",
             SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 14),
         new(CamposFiltroPessoas.Natureza, "Identificação", "Natureza", TipoCampoFiltro.Lista, Lista,
-            Opcoes: OpcoesDe<NaturezaPessoa>(NomesPessoa.Natureza), ValorValido: EnumValido<NaturezaPessoa>),
+            Opcoes: OpcoesDe<NaturezaPessoa>(NomesPessoa.Natureza), ValorValido: EnumValido<NaturezaPessoa>, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.Papeis, "Identificação", "Papéis", TipoCampoFiltro.Lista,
             [OperadorFiltro.UmDestes, OperadorFiltro.TodosDestes, OperadorFiltro.NenhumDestes],
-            FonteOpcoes: FontePapeis, ValorValido: GuidValido),
+            FonteOpcoes: FontePapeis, ValorValido: GuidValido, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.Etiquetas, "Identificação", "Etiquetas", TipoCampoFiltro.Lista, Lista,
-            FonteOpcoes: FonteEtiquetas, ValorValido: GuidValido),
+            FonteOpcoes: FonteEtiquetas, ValorValido: GuidValido, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.NomeFantasia, "Identificação", "Nome fantasia", TipoCampoFiltro.Texto, Texto, ValeParaNatureza.Juridica,
             Dica: "Qualquer estabelecimento (matriz ou filial)."),
         new(CamposFiltroPessoas.DataNascimento, "Identificação", "Data de nascimento", TipoCampoFiltro.Data, Periodo, ValeParaNatureza.Fisica),
@@ -105,12 +110,12 @@ public static class CatalogoFiltrosPessoas
             Dica: "Pela data de nascimento."),
         new(CamposFiltroPessoas.DataAbertura, "Identificação", "Data de abertura", TipoCampoFiltro.Data, Periodo, ValeParaNatureza.Juridica),
         new(CamposFiltroPessoas.Porte, "Identificação", "Porte", TipoCampoFiltro.Lista, Lista, ValeParaNatureza.Juridica,
-            Dica: "Como veio da Receita.", FonteOpcoes: FontePortes),
+            Dica: "Como veio da Receita.", FonteOpcoes: FontePortes, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.NaturezaJuridica, "Identificação", "Natureza jurídica", TipoCampoFiltro.Lista, Lista,
             ValeParaNatureza.Juridica, FonteOpcoes: FonteNaturezasJuridicas,
-            ValorValido: v => v.Length is > 0 and <= 10 && v.All(char.IsAsciiDigit)),
+            ValorValido: v => v.Length is > 0 and <= 10 && v.All(char.IsAsciiDigit), UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.GrupoEmpresarial, "Identificação", "Grupo empresarial", TipoCampoFiltro.Lista, Lista,
-            ValeParaNatureza.Juridica, FonteOpcoes: FonteGruposEmpresariais, ValorValido: GuidValido),
+            ValeParaNatureza.Juridica, FonteOpcoes: FonteGruposEmpresariais, ValorValido: GuidValido, UsavelEmRegraTerritorio: true),
 
         // ---- Dados pessoais ----
         new(CamposFiltroPessoas.Sexo, "Dados pessoais", "Sexo", TipoCampoFiltro.Lista, Lista, ValeParaNatureza.Fisica,
@@ -155,19 +160,19 @@ public static class CatalogoFiltrosPessoas
         new(CamposFiltroPessoas.Uf, "Endereços", "UF", TipoCampoFiltro.Lista, Lista,
             Dica: "Qualquer endereço ativo.",
             Opcoes: [.. Ufs.Todas.Order(StringComparer.Ordinal).Select(u => new OpcaoFiltroDto(u, u))],
-            ValorValido: v => Ufs.Todas.Contains(v) || v == Ufs.Exterior),
+            ValorValido: v => Ufs.Todas.Contains(v) || v == Ufs.Exterior, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.Municipio, "Endereços", "Município", TipoCampoFiltro.Lista, Lista,
             Dica: "Qualquer endereço ativo.", FonteOpcoes: FonteMunicipios,
-            ValorValido: v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0),
+            ValorValido: v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.MunicipioACorrigir, "Endereços", "Município a corrigir", TipoCampoFiltro.SimNao, SimNao,
             Dica: "Endereço antigo com o município ainda por escolher na tabela do IBGE."),
         new(CamposFiltroPessoas.FinalidadeEndereco, "Endereços", "Tem endereço para", TipoCampoFiltro.Lista, TemTipo,
             Dica: "Entrega, cobrança, fiscal...", FonteOpcoes: FonteFinalidadesEndereco, ValorValido: GuidValido),
         new(CamposFiltroPessoas.Cidade, "Endereços", "Cidade (nome)", TipoCampoFiltro.Texto, Texto,
-            Dica: "Qualquer endereço ativo. Para escolher da tabela do IBGE, use \"Município\"."),
-        new(CamposFiltroPessoas.Bairro, "Endereços", "Bairro", TipoCampoFiltro.Texto, Texto),
+            Dica: "Qualquer endereço ativo. Para escolher da tabela do IBGE, use \"Município\".", UsavelEmRegraTerritorio: true),
+        new(CamposFiltroPessoas.Bairro, "Endereços", "Bairro", TipoCampoFiltro.Texto, Texto, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.Cep, "Endereços", "CEP", TipoCampoFiltro.Texto, [OperadorFiltro.ComecaCom, OperadorFiltro.Igual],
-            Dica: "\"Começa com\" pega uma região (ex.: 35790).", SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 8),
+            Dica: "\"Começa com\" pega uma região (ex.: 35790).", SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 8, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.SemEndereco, "Endereços", "Sem endereço", TipoCampoFiltro.SimNao, SimNao),
 
         // ---- Documentos ----
@@ -182,7 +187,7 @@ public static class CatalogoFiltrosPessoas
             Dica: "Algum documento ativo com a validade no período."),
 
         // ---- Fiscal ----
-        new(CamposFiltroPessoas.ProdutorRural, "Fiscal", "Produtor rural", TipoCampoFiltro.SimNao, SimNao),
+        new(CamposFiltroPessoas.ProdutorRural, "Fiscal", "Produtor rural", TipoCampoFiltro.SimNao, SimNao, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.Regime, "Fiscal", "Regime tributário", TipoCampoFiltro.Lista, Lista, ValeParaNatureza.Juridica,
             Opcoes:
             [
@@ -191,13 +196,13 @@ public static class CatalogoFiltrosPessoas
                 new(nameof(RegimeTributario.RegimeNormal), "Regime normal"),
                 new(nameof(RegimeTributario.NaoInformado), "Não informado")
             ],
-            ValorValido: EnumValido<RegimeTributario>),
+            ValorValido: EnumValido<RegimeTributario>, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.Cnae, "Fiscal", "CNAE (principal ou secundário)", TipoCampoFiltro.Texto,
             [OperadorFiltro.ComecaCom], ValeParaNatureza.Juridica, Dica: "Código ou começo dele (ex.: 47 = comércio varejista).",
-            ValorValido: CnaeValido, SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 7),
+            ValorValido: CnaeValido, SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 7, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.CnaePrincipal, "Fiscal", "CNAE principal", TipoCampoFiltro.Texto,
             [OperadorFiltro.ComecaCom], ValeParaNatureza.Juridica, Dica: "Código ou começo dele (ex.: 4711302 ou 47).",
-            ValorValido: CnaeValido, SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 7),
+            ValorValido: CnaeValido, SomenteDigitos: true, TamanhoMinimo: 1, TamanhoMaximo: 7, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.IndicadorIE, "Fiscal", "Indicador de IE", TipoCampoFiltro.Lista, Lista,
             Opcoes:
             [
@@ -218,9 +223,9 @@ public static class CatalogoFiltrosPessoas
         new(CamposFiltroPessoas.LimiteCredito, "Comercial – Cliente", "Limite de crédito (R$)", TipoCampoFiltro.Numero, Faixa,
             Permissao: PermissaoFinanceiro),
         new(CamposFiltroPessoas.PerfilComercial, "Comercial – Cliente", "Perfil comercial", TipoCampoFiltro.Lista, Lista,
-            FonteOpcoes: FontePerfisComerciais, ValorValido: GuidValido),
+            FonteOpcoes: FontePerfisComerciais, ValorValido: GuidValido, UsavelEmRegraTerritorio: true),
         new(CamposFiltroPessoas.CondicaoCliente, "Comercial – Cliente", "Condição de pagamento", TipoCampoFiltro.Lista, Lista,
-            FonteOpcoes: FonteCondicoesPagamento, ValorValido: GuidValido),
+            FonteOpcoes: FonteCondicoesPagamento, ValorValido: GuidValido, UsavelEmRegraTerritorio: true, PermissaoEmRegraTerritorio: PermissaoFinanceiro),
 
         // ---- Comercial – Fornecedor ----
         new(CamposFiltroPessoas.CondicaoFornecedor, "Comercial – Fornecedor", "Condição de pagamento", TipoCampoFiltro.Lista, Lista,
@@ -299,6 +304,14 @@ public static class CatalogoFiltrosPessoas
     ];
 
     private static readonly Dictionary<string, DefinicaoCampoFiltro> PorId = Campos.ToDictionary(c => c.Id, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Os campos que as regras de território aceitam (DN-07, lista fechada da seção H do plano da 2b-1b). Ficam fora: os
+    /// relativos a hoje (o cliente entraria e sairia sozinho, sem operação), os que dependem da carteira (circular com a
+    /// futura sincronização), dados pessoais sem finalidade territorial (LGPD), texto livre e campos personalizados (mudar a
+    /// definição mudaria em silêncio o significado histórico da regra).
+    /// </summary>
+    public static IReadOnlyList<DefinicaoCampoFiltro> CamposRegraTerritorio { get; } = [.. Campos.Where(c => c.UsavelEmRegraTerritorio)];
 
     public const string GrupoInformacoesAdicionais = "Informações adicionais";
 

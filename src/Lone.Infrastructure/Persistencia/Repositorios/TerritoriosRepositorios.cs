@@ -83,9 +83,12 @@ public class MapaTerritorialRepositorio : ServicoDadosBase, IMapaTerritorialRepo
     }
 
     /// <summary>
-    /// Mapa novo nasce com a sua trava da árvore (mesma transação). Ativar ou desativar troca também a versão da árvore:
-    /// mapa desativado não aceita mudança de estrutura, e uma mudança conferida com o mapa ainda ativo não pode gravar
-    /// depois da desativação. As outras alterações do cadastro não tocam na árvore (e a árvore não toca no cadastro).
+    /// Mapa novo nasce com a sua trava da árvore e a do motor (mesma transação). Ativar ou desativar troca também a versão
+    /// da árvore: mapa desativado não aceita mudança de estrutura, e uma mudança conferida com o mapa ainda ativo não pode
+    /// gravar depois da desativação. As outras alterações do cadastro não tocam na árvore (e a árvore não toca no cadastro).
+    /// Fase 2b-1b (DN-02): ativar/desativar e mudar um campo travado pelo uso (empresa, exclusividade, endereço de
+    /// referência, universo) trocam também a versão do motor, depois da árvore (ordem única de travas), e o uso é relido ali
+    /// dentro: se uma operação foi aplicada no mapa enquanto a tela estava aberta, nada é gravado (L3).
     /// </summary>
     public async Task SalvarAsync(MapaTerritorial mapa, bool novo, CancellationToken ct)
     {
@@ -100,14 +103,25 @@ public class MapaTerritorialRepositorio : ServicoDadosBase, IMapaTerritorialRepo
         {
             db.MapasTerritoriais.Add(mapa);
             db.MapaTerritorialArvores.Add(new MapaTerritorialArvore { MapaId = mapa.Id, AtualizadoEm = DateTime.UtcNow });
+            db.MapaTerritorialMotores.Add(new MapaTerritorialMotor { MapaId = mapa.Id, AtualizadoEm = DateTime.UtcNow });
         }
         else
         {
             var atual = await db.MapasTerritoriais.Include(m => m.Classificacoes).FirstOrDefaultAsync(m => m.Id == mapa.Id, ct)
                         ?? throw new ConflitoDeEdicaoException(RegrasMapaTerritorial.MensagemMapaAlterado);
-            if (atual.Ativo != mapa.Ativo)
+            var mudouAtivo = atual.Ativo != mapa.Ativo;
+            var mudouTravado = RegrasMapaTerritorial.CamposTravadosMudaram(atual, mapa);
+            if (mudouAtivo)
                 await db.MapaTerritorialArvores.Where(a => a.MapaId == mapa.Id)
                     .ExecuteUpdateAsync(x => x.SetProperty(a => a.AtualizadoEm, DateTime.UtcNow), ct);
+            if (mudouAtivo || mudouTravado)
+            {
+                await MotorTerritorialSql.TocarAsync(db, mapa.Id, DateTime.UtcNow, ct);
+                // Relido depois da trava do motor: toda aplicação de operação passa por ela, então o que se lê aqui é o
+                // uso confirmado. A tela só deixa mudar estes campos (e desativar) sem uso.
+                if ((mudouTravado || !mapa.Ativo) && await Consultas.UsoTerritorialSql.MapaEmUsoAsync(db, mapa.Id, ct))
+                    throw new ConflitoDeEdicaoException(RegrasMapaTerritorial.MensagemPassouATerUso);
+            }
             var versaoAberta = mapa.Versao;
             mapa.Versao = atual.Versao;
             mapa.CriadoEm = atual.CriadoEm;
@@ -126,6 +140,13 @@ public class MapaTerritorialRepositorio : ServicoDadosBase, IMapaTerritorialRepo
         catch (ConflitoDeEdicaoException ex) when (ex.Message == ConflitoDeEdicaoException.MensagemPadrao)
         {
             throw new ConflitoDeEdicaoException(RegrasMapaTerritorial.MensagemMapaAlterado, ex);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 547 } sql &&
+                                           (sql.Message.Contains(SqlMigracaoTerritorios.ChaveExcecoesExclusivo, StringComparison.Ordinal) ||
+                                            sql.Message.Contains(SqlMigracaoTerritorios.ChaveAtribuicoesExclusivo, StringComparison.Ordinal)))
+        {
+            // Última barreira (FK (MapaId, Exclusivo), criada pela migration): o mapa tem exceção ou atribuição gravada.
+            throw new ConflitoDeEdicaoException(RegrasMapaTerritorial.MensagemPassouATerUso, ex);
         }
         await transacao.CommitAsync(ct);
     }
@@ -160,7 +181,7 @@ public class TerritorioRepositorio : ServicoDadosBase, ITerritorioRepositorio
         return await db.MapaTerritorialArvores.AsNoTracking().Where(a => a.MapaId == mapaId).Select(a => a.Versao).FirstOrDefaultAsync(ct);
     }
 
-    public async Task SalvarAsync(Territorio territorio, bool novo, byte[]? versaoArvoreVista, CancellationToken ct)
+    public async Task SalvarAsync(Territorio territorio, bool novo, byte[]? versaoArvoreVista, IReadOnlySet<Guid>? usoConferido, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);
         foreach (var p in territorio.Posicoes)
@@ -187,6 +208,16 @@ public class TerritorioRepositorio : ServicoDadosBase, ITerritorioRepositorio
             var afetadas = await db.MapaTerritorialArvores.Where(a => a.MapaId == territorio.MapaId && a.Versao == versaoArvoreVista)
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.AtualizadoEm, agora), ct);
             if (afetadas == 0) throw new ConflitoDeEdicaoException(RegrasArvoreTerritorial.MensagemArvoreAlterada);
+
+            // 1b. (2b-1b, DN-02) A especificidade do motor usa a árvore: toda mudança de estrutura troca a versão do motor e
+            //     deixa desatualizadas as simulações abertas (RT-7). É também a espera por uma aplicação em curso no mapa.
+            await MotorTerritorialSql.TocarAsync(db, territorio.MapaId, agora, ct);
+
+            // 1c. (2b-1b, L3) O uso operacional relido aqui, depois das duas travas: uma operação aplicada enquanto a tela
+            //     estava aberta pode ter dado uso a um território deste ramo, e sem uso é que a mudança foi conferida.
+            if (usoConferido is not null &&
+                !(await Consultas.UsoTerritorialSql.TerritoriosComUsoAsync(db, territorio.MapaId, ct)).SetEquals(usoConferido))
+                throw new ConflitoDeEdicaoException(RegrasArvoreTerritorial.MensagemUsoMudou);
         }
 
         if (novo)
@@ -253,7 +284,7 @@ public class TerritorioRepositorio : ServicoDadosBase, ITerritorioRepositorio
     public const string MensagemPosicaoIncoerente =
         "Inconsistência interna: o território e a sua posição aberta na árvore não conferem. Nada foi gravado.";
 
-    private static async Task ConferirPosicaoAbertaAsync(LoneDbContext db, Guid territorioId, CancellationToken ct)
+    internal static async Task ConferirPosicaoAbertaAsync(LoneDbContext db, Guid territorioId, CancellationToken ct)
     {
         var gravado = await db.Territorios.AsNoTracking().Where(t => t.Id == territorioId)
             .Select(t => new { t.Situacao, t.PaiId }).SingleAsync(ct);
