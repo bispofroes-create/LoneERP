@@ -130,6 +130,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         Filtros.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
         Filtros.Mudou = () =>
         {
+            if (_restaurandoContexto) return; // restauração: uma releitura só, no fim (e a visão não fica "alterada")
             if (!_aplicandoVisao && VisaoAtual is not null) VisaoAlterada = true;
             Indicadores.AtualizarMarcados();
             _ = FiltrosMudaramAsync();
@@ -141,6 +142,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         };
         Grade.Mudou = mudanca =>
         {
+            if (_restaurandoContexto) return;
             if (!_aplicandoVisao && VisaoAtual is not null) VisaoAlterada = true;
             switch (mudanca)
             {
@@ -1942,6 +1944,125 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     /// <summary>Links e Voltar abrem qualquer pessoa pelo Id (a ficha é lida no servidor), mesmo fora da página carregada.</summary>
     protected override PessoaResumo? CriarItemParaAbrir(Guid id) => new() { Id = id };
+
+    // ---- Estado de navegação (piloto completo da preservação de contexto) ----
+
+    /// <summary>Aplicando um estado guardado: o painel e a grade não disparam releituras nem marcam a visão como alterada.</summary>
+    private bool _restaurandoContexto;
+
+    public override EstadoTela CapturarEstado()
+    {
+        var baseEstado = base.CapturarEstado();
+        var ordenacao = Grade.Ordenacao;
+        return new EstadoPessoas
+        {
+            Busca = baseEstado.Busca,
+            Registro = baseEstado.Registro,
+            Rolagens = baseEstado.Rolagens,
+            AbaRapida = _filtroRapido,
+            Condicoes = Filtros.Condicoes().Select(Copiar).ToList(),
+            VisaoId = VisaoAtual?.Id,
+            VisaoAlterada = VisaoAlterada,
+            OrdenacaoColuna = ordenacao?.Coluna,
+            OrdenacaoDirecao = ordenacao?.Direcao ?? DirecaoOrdenacao.Crescente,
+            Pagina = _pagina,
+            PreviaId = Previa.Aberta ? Previa.Linha?.Pessoa.Id : null,
+            Secao = Editando ? SecaoSelecionada?.Secao : null
+        };
+    }
+
+    private static CondicaoFiltro Copiar(CondicaoFiltro c) =>
+        JsonSerializer.Deserialize<CondicaoFiltro>(JsonSerializer.Serialize(c)) ?? c;
+
+    /// <summary>
+    /// Aba, filtros, visão, ordenação, pesquisa e página, nessa ordem. Tolerante: aba que não existe → "Todos"; condição
+    /// inválida → só ela fica de fora (mesma aplicação das visões); visão removida → nenhuma; coluna que não ordena mais →
+    /// ordem padrão; página que deixou de existir → a última (regra da própria listagem). Idempotente: só o que difere.
+    /// </summary>
+    protected override async Task<bool> AplicarContextoDaListaAsync(EstadoTela estado)
+    {
+        if (estado is not EstadoPessoas e) return await base.AplicarContextoDaListaAsync(estado);
+
+        var reler = false;
+        _restaurandoContexto = true;
+        try
+        {
+            // Aba de visão/filtro rápido.
+            var aba = FiltrosRapidos.FirstOrDefault(f => f.Chave == e.AbaRapida) ?? FiltrosRapidos.FirstOrDefault(f => f.Chave == FiltroRapido.Todos);
+            if (aba is not null && aba.Chave != _filtroRapido)
+            {
+                _filtroRapido = aba.Chave;
+                foreach (var f in FiltrosRapidos) f.Selecionado = ReferenceEquals(f, aba);
+                Filtros.DefinirNatureza(aba.Natureza);
+                reler = true;
+            }
+
+            // Filtros do painel. Compara o resultado (não o pedido): uma condição inválida fica de fora sem reler de novo
+            // a cada restauração.
+            var atuais = JsonSerializer.Serialize(Filtros.Condicoes());
+            if (atuais != JsonSerializer.Serialize(e.Condicoes))
+            {
+                Filtros.Limpar();
+                foreach (var condicao in e.Condicoes) Filtros.Aplicar(Copiar(condicao)); // inválida: só ela fica de fora
+                if (JsonSerializer.Serialize(Filtros.Condicoes()) != atuais) reler = true;
+            }
+
+            // Visão marcada (só o rótulo: os filtros dela já vieram acima).
+            if (e.VisaoId is { } visaoId && VisaoAtual?.Id != visaoId)
+            {
+                if (!_visoesCarregadas) await CarregarVisoesAsync();
+                VisaoAtual = _visoes.FirstOrDefault(v => v.Id == visaoId);
+            }
+            else if (e.VisaoId is null && VisaoAtual is not null) VisaoAtual = null;
+            VisaoAlterada = VisaoAtual is not null && e.VisaoAlterada;
+
+            // Ordenação (coluna que não ordena mais → ordem padrão).
+            var coluna = e.OrdenacaoColuna is { } c &&
+                         (Grade.ColunasOrdenaveis().Any(o => o.Id == c) || Grade.Visiveis.Any(v => v.Id == c)) ? c : null;
+            var atual = Grade.Ordenacao;
+            if (coluna != atual?.Coluna || (coluna is not null && e.OrdenacaoDirecao != atual?.Direcao))
+            {
+                Grade.OrdenarPor(coluna, e.OrdenacaoDirecao);
+                reler = true;
+            }
+        }
+        finally
+        {
+            _restaurandoContexto = false;
+        }
+        _filtrosAtrasados?.Cancel();
+        Indicadores.AtualizarMarcados();
+
+        reler |= await base.AplicarContextoDaListaAsync(estado); // pesquisa (volta a página para 1)
+        // Página: a pedida; se ela já foi pedida aqui e deu na última válida, fica nessa (não relê de novo).
+        var pagina = !reler && _paginaRestaurada is { } r && r.Pedida == e.Pagina && r.Obtida == _pagina
+            ? _pagina
+            : Math.Max(1, e.Pagina);
+        if (pagina != _pagina)
+        {
+            _pagina = pagina;
+            reler = true;
+        }
+        else if (reler) _pagina = pagina;
+        return reler;
+    }
+
+    /// <summary>Última página restaurada: a pedida e a que existia (página que deixou de existir → a última válida).</summary>
+    private (int Pedida, int Obtida)? _paginaRestaurada;
+
+    /// <summary>Aba da ficha (inexistente → a padrão) e prévia (pessoa fora da página → sem prévia).</summary>
+    protected override Task RestaurarDetalhesAsync(EstadoTela estado)
+    {
+        if (estado is not EstadoPessoas e) return Task.CompletedTask;
+        _paginaRestaurada = (e.Pagina, _pagina);
+        if (Editando && e.Secao is { } secao && SecaoSelecionada?.Secao != secao &&
+            Secoes.FirstOrDefault(s => s.Secao == secao) is { } opcao)
+            SecaoSelecionada = opcao;
+        if (e.PreviaId is { } id && !(Previa.Aberta && Previa.Linha?.Pessoa.Id == id) &&
+            Linhas.FirstOrDefault(l => l.Pessoa.Id == id) is { } linha)
+            Previa.Mostrar(linha);
+        return Task.CompletedTask;
+    }
 
     /// <summary>Abre o cadastro que já tem o documento (pergunta antes se houver alterações não salvas).</summary>
     [RelayCommand]

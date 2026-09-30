@@ -53,10 +53,20 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
     public static GerenciadorNavegacao Padrao { get; } = new();
 
     private readonly HistoricoNavegacao _historico = new();
+
+    /// <summary>
+    /// Estado atual de cada tela ("como estava quando o usuário saiu dela"), com a instância que foi deixada: só se
+    /// restaura numa tela recriada (a mesma instância já está como estava). Diferente do retrato de cada entrada do
+    /// histórico (<see cref="EntradaNavegacao.Estado"/>), que o ← usa.
+    /// </summary>
+    private readonly Dictionary<string, (WeakReference<IEstadoNavegavel>? Tela, EstadoTela Estado)> _estadoDasTelas =
+        new(StringComparer.Ordinal);
     private readonly List<ReferenciaRegistro> _recentes = [];
     private readonly TimeProvider _relogio;
     private IPlataformaNavegacao? _plataforma;
     private bool _emCurso;
+    private int _operacao;
+    private Restauracao? _restauracao;
     private DateTimeOffset _ultimoVoltar = DateTimeOffset.MinValue;
 
     /// <summary>
@@ -90,17 +100,29 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
     {
         get
         {
-            for (var i = _historico.Entradas.Count - 2; i >= 0; i--)
-                if (RotaPermitida?.Invoke(_historico.Entradas[i].Local.Rota) != false) return _historico.Entradas[i];
+            // Restaurando: o ← interrompe e registra a chegada antes de voltar — a previsão parte do histórico como ficará.
+            var entradas = _restauracao is { } r ? HistoricoPrevisto(r) : _historico.Entradas;
+            for (var i = entradas.Count - 2; i >= 0; i--)
+                if (RotaPermitida?.Invoke(entradas[i].Local.Rota) != false) return entradas[i];
             return null;
         }
+    }
+
+    private IReadOnlyList<EntradaNavegacao> HistoricoPrevisto(Restauracao r)
+    {
+        var copia = _historico.Copia();
+        AplicarChegada(copia, r.Chegada, real: false);
+        return copia.Entradas;
     }
 
     /// <summary>Há um Shell ligado (fora dele — testes de tela, telas de entrada — as telas usam o caminho antigo).</summary>
     public bool Conectado => _plataforma is not null;
 
-    /// <summary>Uma navegação está em andamento (novos pedidos são ignorados: duplo clique não duplica nada).</summary>
-    public bool Navegando => _emCurso;
+    /// <summary>
+    /// Uma troca de tela está em andamento (novos pedidos são ignorados: duplo clique não duplica nada). Enquanto a tela
+    /// nova só restaura o contexto, não conta: o menu e o ← atendem e interrompem a restauração.
+    /// </summary>
+    public bool Navegando => _emCurso && _restauracao is null;
 
     /// <summary>Registros abertos nesta sessão, o mais recente primeiro (só em memória).</summary>
     public IReadOnlyList<ReferenciaRegistro> RegistrosRecentes => _recentes;
@@ -124,10 +146,19 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
 
     public void Limpar()
     {
+        if (_restauracao is { } r)
+        {
+            _restauracao = null;
+            r.Cancelamento.Cancel(); // contexto novo: a restauração do antigo para onde está
+        }
         _historico.Limpar();
         _recentes.Clear();
+        _estadoDasTelas.Clear(); // estado de navegação (inclui pesquisas digitadas) some com o contexto
         Avisar();
     }
+
+    /// <summary>Último estado conhecido da tela (para os testes e diagnósticos; nunca gravado em lugar nenhum).</summary>
+    public EstadoTela? EstadoDaTela(string rota) => _estadoDasTelas.TryGetValue(rota, out var e) ? e.Estado : null;
 
     // ---- O que aconteceu (a plataforma e as telas informam) ----
 
@@ -169,10 +200,14 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
     /// </summary>
     public async Task<bool> VoltarAsync()
     {
-        if (_emCurso || _plataforma is not { } p) return false;
+        if (_plataforma is not { } p) return false;
+        if (_emCurso && _restauracao is null) return false; // troca de tela em andamento (a restauração pode ser interrompida)
         var agora = _relogio.GetUtcNow();
         if (agora - _ultimoVoltar < IntervaloMinimoVoltar) return false; // segundo clique de um duplo clique
         _ultimoVoltar = agora;
+
+        var operacao = ++_operacao;
+        var interrompida = InterromperRestauracao();
 
         // Tela que deixou de ser permitida (permissões mudaram): sai do caminho de volta.
         while (Anterior is { } candidata && RotaPermitida?.Invoke(candidata.Local.Rota) == false)
@@ -184,30 +219,25 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
         }
 
         var indice = _historico.Entradas.Count - 2;
-        var antes = LocalDaTela(p);
+        var chegada = new Chegada(p, OrigemNavegacao.Voltar, SoTela: false, Voltando: true, indice, LocalDaTela(p), alvo.Local.Rota);
         var chegou = false;
         _emCurso = true;
         Avisar();
         try
         {
-            chegou = await ChegarAsync(p, alvo.Local, ajustarRegistro: true);
+            if (!interrompida) GuardarEstadoAoSair(p); // interrompida: o estado dela já ficou guardado (o que ia ser restaurado)
+            // O ← volta ao retrato daquela entrada; sem retrato (entrada deixada sem trocar de tela), ao último da tela.
+            var estado = alvo.Estado as EstadoTela ?? EstadoDaTela(alvo.Local.Rota);
+            chegou = await ChegarAsync(p, alvo.Local, ajustarRegistro: true, estado, chegada, operacao);
         }
         finally
         {
-            _emCurso = false;
-            if (ReferenceEquals(p, _plataforma) && LocalDaTela(p) is { } depois)
+            if (operacao == _operacao) // interrompida por um pedido novo: quem pediu depois já registrou tudo
             {
-                // Chegou à tela de volta, mesmo que o registro não abra mais (ex.: excluído): a entrada de volta vira o
-                // que de fato abriu, em vez de empilhar um passo novo.
-                if (!depois.MesmoQue(antes) && string.Equals(depois.Rota, alvo.Local.Rota, StringComparison.Ordinal))
-                {
-                    _historico.VoltarPara(indice, depois);
-                    LembrarRecente(depois);
-                }
-                else
-                    Registrar(depois, OrigemNavegacao.Voltar);
+                _emCurso = false;
+                AplicarChegada(_historico, chegada, real: true);
+                Avisar();
             }
-            Avisar();
         }
         return chegou;
     }
@@ -216,42 +246,154 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
 
     private async Task<bool> IrAsync(LocalNavegacao destino, OrigemNavegacao origem, bool ajustarRegistro)
     {
-        if (_emCurso || _plataforma is not { } p) return false;
+        if (_plataforma is not { } p) return false;
+        if (_emCurso && !PodeInterromperCom(destino)) return false;
         if (RotaPermitida?.Invoke(destino.Rota) == false) return false;
 
+        var operacao = ++_operacao;
+        var interrompida = InterromperRestauracao();
+        var chegada = new Chegada(p, origem, SoTela: destino.Registro is null);
         _emCurso = true;
         Avisar();
         try
         {
-            return await ChegarAsync(p, destino, ajustarRegistro);
+            if (!interrompida) GuardarEstadoAoSair(p); // interrompida: o estado dela já ficou guardado (o que ia ser restaurado)
+            // Menu e links: a tela volta como o usuário a deixou da última vez (o registro pedido, se houver, prevalece).
+            return await ChegarAsync(p, destino, ajustarRegistro, EstadoDaTela(destino.Rota), chegada, operacao);
         }
         finally
         {
-            _emCurso = false;
-            if (ReferenceEquals(p, _plataforma)) Reconciliar(origem, soTela: destino.Registro is null);
-            Avisar();
+            if (operacao == _operacao) // interrompida por um pedido novo: quem pediu depois já registrou tudo
+            {
+                _emCurso = false;
+                AplicarChegada(_historico, chegada, real: true);
+                Avisar();
+            }
         }
     }
 
-    /// <summary>Troca de tela (se preciso) e ajusta o registro. Para no meio se o Shell foi trocado ou o usuário ficou.</summary>
-    private async Task<bool> ChegarAsync(IPlataformaNavegacao p, LocalNavegacao destino, bool ajustarRegistro)
+    /// <summary>
+    /// Troca de tela (se preciso), restaura o contexto numa tela recriada e ajusta o registro. Para no meio se o Shell foi
+    /// trocado, o usuário ficou ou pediu outro lugar durante a restauração.
+    /// </summary>
+    private async Task<bool> ChegarAsync(IPlataformaNavegacao p, LocalNavegacao destino, bool ajustarRegistro, EstadoTela? estado,
+                                         Chegada chegada, int operacao)
     {
+        var restaurou = false;
         if (!string.Equals(p.RotaAtual, destino.Rota, StringComparison.Ordinal))
         {
             await p.IrParaRotaAsync(destino.Rota);
             if (!ReferenceEquals(p, _plataforma) || !string.Equals(p.RotaAtual, destino.Rota, StringComparison.Ordinal))
                 return false; // outro contexto no meio do caminho, ou o usuário escolheu continuar editando
+
+            // Tela recriada (o Shell recria ao trocar de módulo): volta como estava. Dentro da navegação do motor: nenhum
+            // passo novo no histórico. O registro pedido (← ou link) prevalece sobre o do retrato. Enquanto restaura, o
+            // menu e o ← continuam atendendo: um pedido novo interrompe a restauração (InterromperRestauracao).
+            if (estado is not null && p.TelaAtual is IEstadoNavegavel nova && !MesmaInstanciaDeixada(destino.Rota, nova))
+            {
+                var efetivo = ajustarRegistro ? estado with { Registro = destino.Registro } : estado;
+                var restauracao = new Restauracao(new CancellationTokenSource(), destino.Rota, efetivo, chegada);
+                _restauracao = restauracao;
+                Avisar();
+                try
+                {
+                    await nova.RestaurarEstadoAsync(efetivo, restauracao.Cancelamento.Token);
+                }
+                catch (OperationCanceledException) when (restauracao.Cancelamento.IsCancellationRequested)
+                {
+                    // Interrompida: nada a fazer (quem interrompeu já registrou a chegada e guardou o estado).
+                }
+                finally
+                {
+                    if (ReferenceEquals(_restauracao, restauracao)) _restauracao = null;
+                }
+                if (operacao != _operacao || restauracao.Cancelamento.IsCancellationRequested || !ReferenceEquals(p, _plataforma))
+                    return false;
+                restaurou = true;
+            }
         }
 
         if (!ajustarRegistro) return true;
         if (p.TelaAtual is not { } tela) return destino.Registro is null;
         if (MesmoRegistro(tela.RegistroAberto, destino.Registro)) return true;
+        if (restaurou) return false; // a restauração já tentou (ex.: registro excluído): não insiste nem mostra erro
 
         await tela.IrParaRegistroAsync(destino.Registro);
         return ReferenceEquals(p, _plataforma) && ReferenceEquals(p.TelaAtual, tela) && MesmoRegistro(tela.RegistroAberto, destino.Registro);
     }
 
+    /// <summary>
+    /// Restauração em andamento: a tela já apareceu e está voltando ao estado guardado (primeira carga, releitura, ficha).
+    /// Guarda o que é preciso para interrompê-la e registrar a chegada como a operação faria ao terminar.
+    /// </summary>
+    private sealed record Restauracao(CancellationTokenSource Cancelamento, string Rota, EstadoTela Estado, Chegada Chegada);
+
+    /// <summary>Como uma operação registra no histórico o lugar em que chegou (ao terminar, ou ao ser interrompida).</summary>
+    private sealed record Chegada(IPlataformaNavegacao Plataforma, OrigemNavegacao Origem, bool SoTela, bool Voltando = false,
+                                  int Indice = -1, LocalNavegacao? Antes = null, string? RotaAlvo = null);
+
+    /// <summary>Menu para a própria tela que está restaurando não interrompe (a restauração é justamente ela voltando).</summary>
+    private bool PodeInterromperCom(LocalNavegacao destino) =>
+        _restauracao is { } r && !(destino.Registro is null && string.Equals(destino.Rota, r.Rota, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Um pedido novo chegou durante a restauração: cancela-a (a tela para onde está; leituras em andamento são
+    /// descartadas por ela), registra a chegada àquela tela — navegação real do usuário, um passo como qualquer outro, sem
+    /// a ficha que a restauração ainda ia abrir — e mantém como estado da tela (e retrato da entrada) o que ia ser
+    /// restaurado, nunca a tela pela metade. Libera o motor para o pedido novo.
+    /// </summary>
+    private bool InterromperRestauracao()
+    {
+        if (_restauracao is not { } r) return false;
+        _restauracao = null;
+        r.Cancelamento.Cancel();
+        AplicarChegada(_historico, r.Chegada, real: true);
+        _estadoDasTelas[r.Rota] = (null, r.Estado); // sem instância: voltar a ela restaura de novo, por inteiro
+        if (Atual is { } atual && string.Equals(atual.Local.Rota, r.Rota, StringComparison.Ordinal))
+            _historico.DefinirEstadoDaAtual(r.Estado);
+        _emCurso = false;
+        return true;
+    }
+
+    /// <summary>Registra no histórico (o real, ou uma cópia para prever o ←) onde a operação de fato chegou.</summary>
+    private void AplicarChegada(HistoricoNavegacao historico, Chegada chegada, bool real)
+    {
+        if (!ReferenceEquals(chegada.Plataforma, _plataforma) || LocalDaTela(chegada.Plataforma) is not { } local) return;
+        if (chegada.Voltando)
+        {
+            // Chegou à tela de volta, mesmo que o registro não abra mais (ex.: excluído): a entrada de volta vira o que de
+            // fato abriu, em vez de empilhar um passo novo.
+            if (!local.MesmoQue(chegada.Antes) && string.Equals(local.Rota, chegada.RotaAlvo, StringComparison.Ordinal))
+            {
+                historico.VoltarPara(chegada.Indice, local);
+                if (real) LembrarRecente(local);
+            }
+            else Registrar(local, OrigemNavegacao.Voltar, historico: historico, real: real);
+            return;
+        }
+        Registrar(local, chegada.Origem, chegada.SoTela, historico, real);
+    }
+
     private static bool MesmoRegistro(ReferenciaRegistro? a, ReferenciaRegistro? b) => a is null ? b is null : a.MesmoQue(b);
+
+    /// <summary>
+    /// Saindo de onde está: guarda o estado atual da tela e o retrato da entrada atual do histórico. Uma tela que falha ao
+    /// se descrever não impede a navegação.
+    /// </summary>
+    private void GuardarEstadoAoSair(IPlataformaNavegacao p)
+    {
+        if (p.RotaAtual is not { Length: > 0 } rota || p.TelaAtual is not IEstadoNavegavel tela) return;
+        EstadoTela estado;
+        try { estado = tela.CapturarEstado(); }
+        catch (Exception) { return; }
+        _estadoDasTelas[rota] = (new WeakReference<IEstadoNavegavel>(tela), estado);
+        if (Atual is { } atual && string.Equals(atual.Local.Rota, rota, StringComparison.Ordinal))
+            _historico.DefinirEstadoDaAtual(estado);
+    }
+
+    private bool MesmaInstanciaDeixada(string rota, IEstadoNavegavel tela) =>
+        _estadoDasTelas.TryGetValue(rota, out var guardado) && guardado.Tela is { } referencia && referencia.TryGetTarget(out var deixada) &&
+        ReferenceEquals(deixada, tela);
 
     private static LocalNavegacao? LocalDaTela(IPlataformaNavegacao p) =>
         p.RotaAtual is { Length: > 0 } rota ? new LocalNavegacao(rota, p.TelaAtual?.RegistroAberto) : null;
@@ -261,11 +403,13 @@ public sealed partial class GerenciadorNavegacao : ObservableObject
         if (_plataforma is { } p && LocalDaTela(p) is { } local) Registrar(local, origem, soTela);
     }
 
-    private void Registrar(LocalNavegacao local, OrigemNavegacao origem, bool soTela = false)
+    private void Registrar(LocalNavegacao local, OrigemNavegacao origem, bool soTela = false, HistoricoNavegacao? historico = null,
+                           bool real = true)
     {
         var titulo = TituloDaRota?.Invoke(local.Rota) ?? local.Rota;
-        if (_historico.Registrar(new EntradaNavegacao(local, origem, titulo, _relogio.GetUtcNow(), SoTela: soTela))) Avisar();
-        LembrarRecente(local);
+        var quando = real ? _relogio.GetUtcNow() : default;
+        if ((historico ?? _historico).Registrar(new EntradaNavegacao(local, origem, titulo, quando, SoTela: soTela)) && real) Avisar();
+        if (real) LembrarRecente(local);
     }
 
     private void LembrarRecente(LocalNavegacao local)

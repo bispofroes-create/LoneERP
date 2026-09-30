@@ -395,7 +395,7 @@
                     </Grid>
 
                     <!-- Linhas: a rolagem vertical leva as duas partes juntas; a lateral só a parte das colunas -->
-                    <ScrollView Grid.Row="2" x:Name="RolagemLinhas">
+                    <ScrollView Grid.Row="2" x:Name="RolagemLinhas" c:Rolagem.Preservar="lista">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition x:Name="ColunaNomeLinhas" Width="340" />
@@ -764,7 +764,7 @@
              FICHA (tela cheia): conteúdo rolável e barra de ações fixa embaixo
              ===================================================================================================== -->
         <Grid RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
+            <ScrollView c:Rolagem.Preservar="ficha"> <!-- posição preservada ao voltar (Fase 3 da navegação) -->
                 <!-- Até 1600 de largura: em tela larga, a ficha ocupa mais e o resumo da pessoa fica ao lado. -->
                 <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1600"
                                      HorizontalOptions="Fill">

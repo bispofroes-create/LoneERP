@@ -17,7 +17,7 @@ namespace Lone.Cliente.ViewModels.Cadastros;
 /// sair da tela com alterações pergunta antes; "Descartar" desfaz as alterações (nunca apaga nada do banco).
 /// </summary>
 /// <typeparam name="TItem">Linha da lista (resumo vindo da API).</typeparam>
-public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMestreDetalhe, ITelaNavegavel where TItem : class
+public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMestreDetalhe, IEstadoNavegavel where TItem : class
 {
     private IReadOnlyList<TItem> _todos = [];
     private CancellationTokenSource? _buscaAtrasada;
@@ -179,8 +179,29 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
             "Continuar editando");
     }
 
-    /// <summary>Para a tela (ex.: menu): pode sair desta tela agora?</summary>
-    public Task<bool> PodeSairAsync() => PodePerderAlteracoesAsync();
+    /// <summary>
+    /// Para a tela (ex.: menu): pode sair desta tela agora? Quem aceita perder as alterações as perde de fato: a ficha
+    /// relê o que está gravado (ou fecha, se era nova). Assim o descarte nunca "volta" depois, mesmo que a tela não seja
+    /// recriada.
+    /// </summary>
+    public async Task<bool> PodeSairAsync()
+    {
+        if (!TemAlteracoes) return true;
+        if (!await PodePerderAlteracoesAsync()) return false;
+        await DescartarAoSairAsync();
+        return true;
+    }
+
+    private async Task DescartarAoSairAsync()
+    {
+        if (FichaNova)
+        {
+            FecharSemPerguntar();
+            return;
+        }
+        if (await ExecutarAsync(RecarregarFichaAsync)) MarcarFichaSemAlteracoes();
+        else FecharSemPerguntar(); // sem conseguir reler: fecha (nunca fica o conteúdo descartado)
+    }
 
     protected Task<bool> ConfirmarAsync(string titulo, string mensagem, string aceitar, string cancelar) =>
         _dialogos.ConfirmarAsync(titulo, mensagem, aceitar, cancelar);
@@ -432,6 +453,80 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         DefinirSelecao(item);
         return await AbrirItemAsync(item);
     }
+
+    // ---- Estado de navegação (preservação de contexto: pesquisa, ficha, rolagem; cada tela pode acrescentar) ----
+
+    /// <summary>Posições das rolagens marcadas (<c>Rolagem.Preservar</c>) desta tela.</summary>
+    public MemoriaRolagem Rolagem { get; } = new();
+
+    /// <summary>
+    /// Como a tela está (o motor guarda ao sair — antes de perguntar sobre alterações não salvas). Nunca o conteúdo
+    /// editado: da ficha, só o tipo e o Id (sem o título, que pode trazer um nome digitado e depois descartado).
+    /// </summary>
+    public virtual EstadoTela CapturarEstado() => new()
+    {
+        Busca = Busca,
+        Registro = RegistroAberto is { Novo: false, Id: not null } registro ? registro with { Titulo = string.Empty } : null,
+        Rolagens = Rolagem.Capturar()
+    };
+
+    /// <summary>
+    /// Reaplica o estado numa tela recriada, na ordem aprovada: primeira carga → contexto da lista (uma releitura, se
+    /// preciso) → ficha → detalhes (aba, prévia) → rolagem. Tolerante (registro que não abre mais fica de fora, sem
+    /// mensagem de erro) e idempotente (só muda o que difere). Cancelada (o usuário foi para outro lugar): nenhum passo
+    /// seguinte começa e a lista que ainda estiver sendo lida é descartada ao chegar.
+    /// </summary>
+    public async Task RestaurarEstadoAsync(EstadoTela estado, CancellationToken cancelamento = default)
+    {
+        if (cancelamento.IsCancellationRequested) return;
+        using var descartarLista = cancelamento.Register(() => _versaoLista++); // leitura em andamento: resultado ignorado
+
+        if (!_primeiraCarga.Task.IsCompleted)
+            await Task.WhenAny(_primeiraCarga.Task, Task.Delay(EsperaMaximaCarga, cancelamento));
+        if (cancelamento.IsCancellationRequested) return;
+
+        if (await AplicarContextoDaListaAsync(estado) && !cancelamento.IsCancellationRequested) await RecarregarAsync();
+        if (cancelamento.IsCancellationRequested) return;
+
+        // Registro que já não abriu nesta tela (excluído, sem permissão): não tenta de novo (idempotente, sem nova leitura).
+        if (estado.Registro is { Novo: false, Id: { } id } registro && RegistroAberto?.MesmoQue(registro) != true &&
+            _registroRecusadoNaRestauracao != id)
+        {
+            var mensagemAntes = Mensagem;
+            var abriu = await IrParaRegistroAsync(registro);
+            if (cancelamento.IsCancellationRequested) return;
+            if (abriu) _registroRecusadoNaRestauracao = null;
+            else
+            {
+                _registroRecusadoNaRestauracao = id;
+                if (TipoMensagem == TipoMensagem.Erro && Mensagem != mensagemAntes)
+                    LimparMensagem(); // fica na lista, sem erro de navegação ("o mundo mudou" não é erro)
+            }
+        }
+
+        await RestaurarDetalhesAsync(estado);
+        if (cancelamento.IsCancellationRequested) return;
+        Rolagem.Restaurar(estado.Rolagens);
+    }
+
+    /// <summary>Registro do estado que esta tela já tentou reabrir e não conseguiu.</summary>
+    private Guid? _registroRecusadoNaRestauracao;
+
+    /// <summary>
+    /// Reaplica o contexto da lista (a base: a pesquisa). Verdadeiro se a lista precisa ser relida do servidor — a base
+    /// relê uma vez só, depois de tudo aplicado.
+    /// </summary>
+    protected virtual Task<bool> AplicarContextoDaListaAsync(EstadoTela estado)
+    {
+        if (Busca == estado.Busca) return Task.FromResult(false);
+        Busca = estado.Busca;
+        if (!BuscaNoServidor) return Task.FromResult(false); // pesquisa local já filtrou
+        CancelarBuscaAtrasada(); // a releitura única (quem chama) já leva a pesquisa
+        return Task.FromResult(true);
+    }
+
+    /// <summary>Reaplica o que depende da lista e da ficha já prontas (aba da ficha, prévia). Por padrão, nada.</summary>
+    protected virtual Task RestaurarDetalhesAsync(EstadoTela estado) => Task.CompletedTask;
 
     /// <summary>Como a próxima abertura de ficha é informada ao histórico (<see cref="AbrirPorLinkAsync"/> muda).</summary>
     private OrigemNavegacao _origemRelato = OrigemNavegacao.Lista;

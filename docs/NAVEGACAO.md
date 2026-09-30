@@ -96,7 +96,12 @@ alterações passaram a conversar com um motor único.
 - Correções feitas na validação: espera da primeira carga antes de abrir registro pedido pela navegação; fusão de
   entradas iguais seguidas no histórico; Voltar com menos de 400 ms entre pedidos conta como um (duplo clique).
 - Pendências registradas para fases futuras (não corrigir antes da fase própria):
-  - **Fase 3:** pesquisa, filtro e rolagem se perdem ao trocar de módulo (o Shell recria a tela).
+  - **Fase 3:** pesquisa, filtro e rolagem se perdem ao trocar de módulo (o Shell recria a tela). → implementada
+    (em revisão): ver `docs/NAVEGACAO-FASE3.md`.
+  - **Performance da primeira carga de Pessoas (pendência separada — não é da Fase 3):** a primeira entrada em Pessoas
+    ocupa a thread de interface ~4,6 s (medido sem depurador, em `AntesDeListarAsync`), **também sem restauração
+    nenhuma**; nesse intervalo cliques só chegam ao aplicativo quando ela libera. Não tratar agora: será uma tarefa
+    futura específica de performance da primeira carga de Pessoas.
   - **Validação posterior:** Android em aparelho/emulador (voltar do sistema) quando houver ambiente.
   - Botão lateral "voltar" do mouse: validar à mão (a automação não gera esse botão).
   - "Salvar e sair" no diálogo de alterações não salvas (fase de diálogos).

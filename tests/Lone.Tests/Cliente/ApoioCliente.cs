@@ -94,10 +94,13 @@ internal sealed class NavegacaoGravada : INavegacao
     public int TrocasDeSenhaAbertas { get; private set; }
     public bool Encerrou { get; private set; }
 
+    /// <summary>Segura a abertura da troca de senha (o modal ainda abrindo) até o teste liberar.</summary>
+    public TaskCompletionSource? SegurarTrocaDeSenha { get; set; }
+
     public Task AbrirTrocaDeSenhaAsync()
     {
         TrocasDeSenhaAbertas++;
-        return Task.CompletedTask;
+        return SegurarTrocaDeSenha?.Task ?? Task.CompletedTask;
     }
 
     public Task FecharAsync() => Task.CompletedTask;

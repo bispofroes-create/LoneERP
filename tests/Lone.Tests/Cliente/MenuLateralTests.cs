@@ -347,6 +347,24 @@ public class MenuLateralTests
     }
 
     [Fact]
+    public async Task Tocar_em_outro_item_enquanto_a_tela_anterior_ainda_restaura_tambem_navega()
+    {
+        var (_, menu) = await CriarMenuAsync();
+        var pedidos = new List<string>();
+        var restaurando = new TaskCompletionSource();
+        menu.Navegar = rota => { pedidos.Add(rota); return rota == "metas" ? restaurando.Task : Task.CompletedTask; };
+
+        var primeiro = menu.IrCommand.ExecuteAsync(Item(menu, "metas")); // a tela ainda está voltando ao contexto
+
+        Assert.True(menu.IrCommand.CanExecute(Item(menu, "pessoas"))); // o menu não trava: quem decide é o motor
+        await menu.IrCommand.ExecuteAsync(Item(menu, "pessoas"));
+        restaurando.SetResult();
+        await primeiro;
+
+        Assert.Equal(new[] { "metas", "pessoas" }, pedidos.ToArray());
+    }
+
+    [Fact]
     public async Task Tocar_no_usuario_oferece_trocar_de_usuario_e_sair()
     {
         var ambiente = new AmbienteCliente();
@@ -399,5 +417,30 @@ public class MenuLateralTests
 
         Assert.Equal(1, navegacao.TrocasDeSenhaAbertas);
         Assert.Null(destino);
+    }
+
+    [Fact]
+    public async Task Dois_toques_rapidos_em_Trocar_senha_abrem_um_modal_so()
+    {
+        var ambiente = new AmbienteCliente();
+        await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
+        var abrindo = new TaskCompletionSource();
+        var navegacao = new NavegacaoGravada { SegurarTrocaDeSenha = abrindo }; // o modal ainda está abrindo
+        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, navegacao, new MenuUsuarioApi(ambiente.Api), ambiente.Dialogos);
+        menu.Busca = "senha";
+        var trocarSenha = menu.Resultados[0];
+        Assert.Equal(ModulosConfiguracao.RotaTrocarSenha, trocarSenha.Rota);
+
+        var primeiro = menu.IrCommand.ExecuteAsync(trocarSenha);
+        var segundo = menu.IrCommand.ExecuteAsync(trocarSenha); // duplo toque
+
+        Assert.Equal(1, navegacao.TrocasDeSenhaAbertas);
+        abrindo.SetResult();
+        await Task.WhenAll(primeiro, segundo);
+        Assert.Equal(1, navegacao.TrocasDeSenhaAbertas);
+
+        navegacao.SegurarTrocaDeSenha = null;
+        await menu.IrCommand.ExecuteAsync(trocarSenha); // depois de aberto (e fechado), abre de novo normalmente
+        Assert.Equal(2, navegacao.TrocasDeSenhaAbertas);
     }
 }

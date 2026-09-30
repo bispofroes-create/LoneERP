@@ -230,14 +230,28 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         foreach (var secao in Secoes) secao.ContemAtivo = secao.TemTitulo && secao.Itens.Any(i => i.Ativo);
     }
 
-    [RelayCommand]
+    /// <summary>
+    /// Vai para a tela do item. Cliques seguidos em telas não são bloqueados aqui: quem decide é o motor de navegação
+    /// (ignora durante a troca de tela; durante a restauração de contexto, o pedido novo a interrompe — Fase 3).
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task IrAsync(ItemMenu? item)
     {
         if (item is null) return Task.CompletedTask;
         Busca = string.Empty; // escolheu pela busca: o menu volta ao normal
-        // "Trocar senha" (busca ou favorito) não é tela do Shell: abre por cima da tela atual.
-        if (item.Rota == ModulosConfiguracao.RotaTrocarSenha) return _navegacao.AbrirTrocaDeSenhaAsync();
+        // "Trocar senha" (busca ou favorito) não é tela do Shell: abre por cima da tela atual (modal, uma de cada vez).
+        if (item.Rota == ModulosConfiguracao.RotaTrocarSenha) return AbrirTrocaDeSenhaUmaVezAsync();
         return Navegar is null ? Task.CompletedTask : Navegar(item.Rota);
+    }
+
+    /// <summary>Abertura da troca de senha em andamento (um segundo toque rápido não empilha outro modal).</summary>
+    private Task? _abrindoTrocaDeSenha;
+
+    /// <summary>Modal não é navegação de tela: toque repetido enquanto ele abre é o mesmo pedido.</summary>
+    private Task AbrirTrocaDeSenhaUmaVezAsync()
+    {
+        if (_abrindoTrocaDeSenha is { IsCompleted: false } emAndamento) return emAndamento;
+        return _abrindoTrocaDeSenha = _navegacao.AbrirTrocaDeSenhaAsync();
     }
 
     // ---- Favoritos e recentes (guardados na API, por usuário) ----

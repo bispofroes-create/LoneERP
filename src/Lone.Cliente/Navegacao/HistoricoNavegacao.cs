@@ -82,6 +82,23 @@ public sealed class HistoricoNavegacao
         if (indice > 0 && local.MesmoQue(_entradas[indice - 1].Local)) _entradas.RemoveAt(indice);
     }
 
+    /// <summary>
+    /// Guarda o retrato do estado da tela na entrada atual (o usuário está saindo dela). Só a entrada atual: o retrato de
+    /// uma entrada anterior nunca é sobrescrito por uma navegação posterior.
+    /// </summary>
+    public void DefinirEstadoDaAtual(object estado)
+    {
+        if (_entradas.Count > 0) _entradas[^1] = _entradas[^1] with { Estado = estado };
+    }
+
+    /// <summary>Cópia independente (para prever o efeito de uma chegada sem mexer no histórico real).</summary>
+    public HistoricoNavegacao Copia()
+    {
+        var copia = new HistoricoNavegacao();
+        copia._entradas.AddRange(_entradas);
+        return copia;
+    }
+
     /// <summary>Tira uma entrada que não pode mais ser visitada (ex.: perdeu a permissão da tela).</summary>
     public void Remover(int indice)
     {
