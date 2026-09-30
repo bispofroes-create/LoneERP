@@ -5,6 +5,8 @@ using Lone.Cliente.ViewModels.Seguranca;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Empresas;
 using Lone.Contracts.Seguranca;
+using Lone.Cliente.Mensagens;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Lone.Tests.Cliente;
 
@@ -105,13 +107,15 @@ public class UsuariosViewModelTests
             .Responder(HttpStatusCode.OK, salvo)
             .Responder(HttpStatusCode.OK, Usuarios);
 
+        tela.Mensagens = new ServicoMensagens(new FakeTimeProvider());
         await tela.SalvarCommand.ExecuteAsync(null);
 
         var put = ambiente.Servidor.Recebidas[^2];
         Assert.Equal(HttpMethod.Put, put.Metodo);
         Assert.Equal("/" + Rotas.Usuarios.PorId(formulario.Id), put.Caminho);
         Assert.Contains("\"novaSenha\":\"Senha123\"", put.Corpo);
-        Assert.Equal("Usuário cadastrado.", tela.Mensagem);
+        Assert.Equal("Usuário cadastrado.", Assert.Single(tela.Mensagens.Visiveis).Texto);
+        Assert.False(tela.TemMensagem);
         Assert.False(tela.Formulario!.Novo);
         Assert.Equal(string.Empty, tela.Formulario.NovaSenha);
     }

@@ -122,6 +122,7 @@ public sealed partial class EtiquetasViewModel : CadastroViewModelBase<LinhaEtiq
     }
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Nova ?? true;
 
     protected override async Task RecarregarFichaAsync()

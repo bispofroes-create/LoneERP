@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- Shell do Lone. O menu lateral é desenhado por FlyoutContent (busca, Início, Favoritos, Recentes, módulos que abrem e
      fecham, item ativo destacado, rodapé com a conta); os FlyoutItems abaixo só registram as rotas e as permissões (IsVisible) e não aparecem como lista.
-     No computador o menu fica sempre aberto ao lado; no celular, recolhido (☰). -->
+     No computador o menu fica aberto ao lado (janela com 1008 ou mais de largura; mais estreita, recolhe com ☰ na barra
+     de título); no celular, recolhido (☰). -->
 <Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"

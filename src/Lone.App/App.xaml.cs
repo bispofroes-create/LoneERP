@@ -1,4 +1,5 @@
 using Lone.App.Views;
+using Lone.Cliente.Mensagens;
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.Sessao;
 
@@ -17,6 +18,10 @@ public partial class App : Application
         var sessao = servicos.GetRequiredService<SessaoCliente>();
         sessao.Expirou += (_, mensagem) => IrSeEstiverNoSistema(Tela.Login, mensagem);
         sessao.TrocaDeSenhaExigida += (_, _) => IrSeEstiverNoSistema(Tela.TrocaDeSenhaObrigatoria, null);
+
+        // Leitor de tela: cada toast é anunciado uma vez aqui (não em cada página que tem a camada de mensagens).
+        servicos.GetRequiredService<ServicoMensagens>().Publicada += (_, mensagem) =>
+            MainThread.BeginInvokeOnMainThread(() => SemanticScreenReader.Announce(mensagem.Texto));
     }
 
     /// <summary>Só age com o menu aberto; nas telas de entrada o próprio fluxo já trata o caso.</summary>

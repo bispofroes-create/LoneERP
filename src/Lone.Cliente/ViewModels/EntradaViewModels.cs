@@ -206,7 +206,7 @@ public partial class TrocarSenhaViewModel : ViewModelBase
 
     public string TextoCancelar => Obrigatoria ? "Sair" : Concluida ? "Fechar" : "Cancelar";
 
-    /// <summary>Troca pelo menu já feita: a tela fica aberta mostrando "Senha alterada." até o usuário fechar.</summary>
+    /// <summary>Troca pelo menu já feita: a tela fica aberta, concluída (só "Fechar"), até o usuário fechar; a confirmação "Senha alterada." aparece no toast.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TextoCancelar), nameof(PodeSalvar))]
     [NotifyCanExecuteChangedFor(nameof(SalvarCommand))]

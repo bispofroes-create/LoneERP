@@ -66,6 +66,7 @@ public sealed partial class UsuariosViewModel : CadastroViewModelBase<UsuarioRes
     }
 
     protected override object? DadosDaFicha() => Formulario?.ParaRequisicao();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Novo ?? true;
 
     protected override async Task RecarregarFichaAsync()

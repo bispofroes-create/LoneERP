@@ -1,4 +1,5 @@
 using Lone.Cliente.Api;
+using Lone.Cliente.Mensagens;
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.Sessao;
 using Lone.Cliente.ViewModels;
@@ -19,6 +20,8 @@ public static class ConfiguracaoCliente
     public static IServiceCollection AddLoneCliente(this IServiceCollection services)
     {
         services.AddSingleton<SessaoCliente>();
+        // Mensagens da interface (toast): um só serviço no aplicativo, o mesmo que os ViewModels usam por padrão.
+        services.AddSingleton(ServicoMensagens.Padrao);
         services.AddSingleton<AberturaDePessoa>();
         services.AddSingleton<AberturaDeOperacaoTerritorial>();
         services.AddSingleton<ConfiguracaoServidor>();

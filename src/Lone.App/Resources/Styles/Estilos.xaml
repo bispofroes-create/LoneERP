@@ -6,9 +6,19 @@
                     xmlns:c="clr-namespace:Lone.App.Controles">
 
     <!-- ===== Páginas ===== -->
+    <!-- Modelo de toda página: o conteúdo dela e, por cima, a camada global de mensagens (toasts), fora de qualquer rolagem.
+         O conteúdo continua sendo o da página (ContentPresenter): largura, altura, rolagem e grades não mudam. -->
+    <ControlTemplate x:Key="PaginaComMensagens">
+        <Grid>
+            <ContentPresenter />
+            <c:CamadaMensagens />
+        </Grid>
+    </ControlTemplate>
+
     <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Fundo}, Dark={StaticResource FundoEscuro}}" />
         <Setter Property="Padding" Value="0" />
+        <Setter Property="ControlTemplate" Value="{StaticResource PaginaComMensagens}" />
         <!-- Computador: sem a barra do Shell (cada página tem o próprio cabeçalho). Celular: a barra fica (botão ☰). -->
         <Setter Property="Shell.NavBarIsVisible" Value="{OnIdiom Phone=True, Default=False}" />
     </Style>
@@ -287,6 +297,46 @@
         <Setter Property="FontSize" Value="16" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+    </Style>
+
+    <!-- Botões do toast (camada global de mensagens): sobre fundo escuro nos dois temas. -->
+    <Style x:Key="BotaoToast" TargetType="Button" BasedOn="{StaticResource BotaoBase}">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="BorderColor" Value="Transparent" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="MinimumHeightRequest" Value="36" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="TextColor" Value="{StaticResource ToastAcao}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource ToastRealce}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource ToastRealce}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <Style x:Key="BotaoToastFechar" TargetType="Button" BasedOn="{StaticResource BotaoToast}">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="WidthRequest" Value="36" />
+        <Setter Property="HeightRequest" Value="36" />
+        <Setter Property="MinimumWidthRequest" Value="36" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontAttributes" Value="None" />
+        <Setter Property="TextColor" Value="{StaticResource ToastSecundario}" />
     </Style>
 
     <!-- Selos (situação, papel, tipo): texto pequeno em fundo suave; raio 6. -->

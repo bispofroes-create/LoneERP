@@ -189,6 +189,7 @@ public sealed partial class FinalidadesTratamentoViewModel : CadastroViewModelBa
     }
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Novo ?? true;
 
     protected override async Task RecarregarFichaAsync()

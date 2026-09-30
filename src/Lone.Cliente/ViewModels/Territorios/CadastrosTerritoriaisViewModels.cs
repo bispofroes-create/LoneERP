@@ -118,6 +118,7 @@ public sealed partial class TiposTerritorioViewModel : CadastroViewModelBase<Lin
     }
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Novo ?? true;
 
     protected override async Task RecarregarFichaAsync()
@@ -306,6 +307,7 @@ public sealed partial class MapasTerritoriaisViewModel : CadastroViewModelBase<L
     }
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Novo ?? true;
 
     protected override async Task RecarregarFichaAsync()

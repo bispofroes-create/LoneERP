@@ -5,6 +5,8 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
+using Lone.Cliente.Mensagens;
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.Plataforma;
 using Lone.Cliente.Sessao;
 using Lone.Cliente.ViewModels.Cadastros;
@@ -110,7 +112,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         };
 
         // Buscar outro texto volta para a página 1 (a busca no servidor sai logo depois, com uma pequena espera).
-        // Mensagens: na lista, sucesso vira aviso flutuante que some sozinho; erro e aviso continuam na barra.
+        // Mensagens: sucesso vai para a camada global (toast, ViewModelBase.Mostrar); erro e aviso ficam na barra da lista.
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Busca)) _pagina = 1;
@@ -122,11 +124,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
                 if (Indicadores.Carregados) _indicadoresContadosEm = DateTime.MinValue;
             }
             if (e.PropertyName is nameof(Mensagem) or nameof(TipoMensagem) or nameof(Editando))
-            {
-                OnPropertyChanged(nameof(MostrarAvisoFlutuante));
                 OnPropertyChanged(nameof(MostrarBarraDaLista));
-                if (e.PropertyName == nameof(Mensagem) && MostrarAvisoFlutuante) _ = EsconderAvisoFlutuanteAsync(++_versaoAviso);
-            }
         };
 
         Filtros.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
@@ -1161,25 +1159,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             await Task.Delay(50);
     }
 
-    // ---- Avisos da lista: sucesso flutua embaixo e some sozinho; erro e aviso ficam na barra até a próxima ação ----
+    // ---- Avisos da lista: erro e aviso ficam na barra até a próxima ação. O sucesso, que flutuava embaixo da lista e
+    // sumia sozinho, passou para a camada global de mensagens (toast), a mesma de todas as telas. ----
 
-    /// <summary>Quanto tempo o aviso de sucesso fica na tela.</summary>
-    public TimeSpan TempoAvisoFlutuante { get; set; } = TimeSpan.FromSeconds(4);
-
-    public bool MostrarAvisoFlutuante => SemFicha && TemMensagem && TipoMensagem == TipoMensagem.Sucesso;
-    public bool MostrarBarraDaLista => SemFicha && TemMensagem && TipoMensagem != TipoMensagem.Sucesso;
-
-    private int _versaoAviso;
-
-    /// <summary>Esconde o aviso depois do tempo, se ainda for o mesmo (outro aviso, mesmo com o mesmo texto, recomeça a contagem).</summary>
-    private async Task EsconderAvisoFlutuanteAsync(int versao)
-    {
-        await Task.Delay(TempoAvisoFlutuante);
-        if (MostrarAvisoFlutuante && versao == _versaoAviso) LimparMensagem();
-    }
-
-    [RelayCommand]
-    private void FecharAvisoFlutuante() => LimparMensagem();
+    public bool MostrarBarraDaLista => SemFicha && TemMensagem;
 
     // ---- Configurações de Pessoas: ficam nesta tela (saíram do menu lateral) ----
 
@@ -1381,6 +1364,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private (IncluirRelacionamentoRequisicao Pedido, string Tipo, string Outra)? _relacaoParaNova;
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Nova ?? true;
 
     /// <summary>Volta a ficha ao que está gravado, na mesma aba.</summary>
@@ -1640,6 +1624,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (await ConfirmarSubstituicoesDeVendedorAsync(formulario) is not { } desfazerSubstituicoes) return;
 
         var eraEmpresaDoGrupo = formulario.PapelEmpresaDoGrupo.Existia && !formulario.Nova;
+        var eraNova = formulario.Nova;
         ResultadoSalvarPessoa? resultado = null;
         if (!await ExecutarAsync(async () => resultado = await _pessoas.SalvarAsync(formulario.ParaDto())))
         {
@@ -1650,10 +1635,13 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         MostrarGravada(resultado!.Pessoa);
         MarcarFichaSemAlteracoes();
 
-        Mostrar(resultado.Avisos.Count > 0
-                ? "Salvo, com avisos:" + Environment.NewLine + string.Join(Environment.NewLine, resultado.Avisos)
-                : "Cadastro salvo.",
-            resultado.Avisos.Count > 0 ? TipoMensagem.Aviso : TipoMensagem.Sucesso);
+        // Confirmação com o nome que o cabeçalho da ficha mostra ("Pessoa salva: Bruno"); contexto = a pessoa, para que
+        // duas pessoas salvas em seguida não se juntem num "×2".
+        if (resultado.Avisos.Count > 0)
+            Mostrar("Salvo, com avisos:" + Environment.NewLine + string.Join(Environment.NewLine, resultado.Avisos), TipoMensagem.Aviso);
+        else
+            Mostrar(TextosMensagem.ComNome(eraNova ? "Pessoa criada" : "Pessoa salva", formulario.Titulo), TipoMensagem.Sucesso,
+                acao: null, contexto: $"pessoa:{resultado.Pessoa.Id}");
 
         // Empresas do grupo mudaram: a sessão relê as empresas disponíveis (menu "Trocar empresa").
         if (eraEmpresaDoGrupo || resultado.Pessoa.TemPapel(TipoPapel.EmpresaDoGrupo))
@@ -1929,6 +1917,13 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// </summary>
     public void AbrirPessoa(Guid id) => Selecionado = new PessoaResumo { Id = id };
 
+    /// <summary>Ação "Abrir" do toast de relacionamento: traz Pessoas para a frente (se o usuário já saiu) e abre a ficha.</summary>
+    private async Task AbrirOutraPessoaAsync(Guid id)
+    {
+        AbrirPessoa(id);
+        if (AbrirTela is not null) await AbrirTela(AberturaDePessoa.RotaPessoas);
+    }
+
     /// <summary>Abre o cadastro que já tem o documento (pergunta antes se houver alterações não salvas).</summary>
     [RelayCommand]
     private void AbrirCadastroEmUso()
@@ -2130,7 +2125,12 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (!await ExecutarAsync(async () => incluido = await _pessoas.IncluirRelacionamentoAsync(ficha.Id, r.ParaRequisicao())))
             return;
         r.Incluido(incluido!);
-        Mostrar($"Relacionamento registrado: {incluido!.Tipo} {incluido.OutraPessoaNome}.", TipoMensagem.Sucesso);
+        // Piloto da ação do toast: a próxima ação útil é abrir a ficha da outra pessoa (pergunta antes, como sempre, se
+        // houver alterações não salvas). Funciona mesmo depois de sair de Pessoas: volta para a tela e abre a ficha.
+        var outra = incluido!.OutraPessoaId;
+        Mostrar($"Relacionamento registrado: {incluido.Tipo} {incluido.OutraPessoaNome}.", TipoMensagem.Sucesso,
+            new AcaoMensagem("Abrir", () => AbrirOutraPessoaAsync(outra), $"Abrir a ficha de {incluido.OutraPessoaNome}"),
+            contexto: $"pessoa:{ficha.Id}");
     }
 
     /// <summary>

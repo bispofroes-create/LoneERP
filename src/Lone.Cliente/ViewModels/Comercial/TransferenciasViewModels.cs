@@ -448,6 +448,7 @@ public sealed partial class TransferenciasViewModel : CadastroViewModelBase<Linh
 
     /// <summary>Só o assistente tem o que perder (o resultado é só leitura).</summary>
     protected override object? DadosDaFicha() => Assistente?.ParaRequisicao();
+    protected override object? FichaObservada => Assistente;
 
     protected override bool FichaNova => Assistente is not null;
 

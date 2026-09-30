@@ -8,6 +8,8 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
+using Lone.Cliente.Mensagens;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Lone.Tests.Cliente;
 
@@ -183,6 +185,7 @@ public class AlteracoesPendentesTests
             .Responder(HttpStatusCode.OK, inativa)
             .Responder(HttpStatusCode.OK, new PaginaListaPessoas());
 
+        tela.Mensagens = new ServicoMensagens(new FakeTimeProvider());
         await tela.DesativarCommand.ExecuteAsync(null);
 
         var post = Assert.Single(ambiente.Servidor.Recebidas, r => r.Metodo == HttpMethod.Post);
@@ -191,7 +194,9 @@ public class AlteracoesPendentesTests
         Assert.True(tela.Formulario!.EstaInativo);
         Assert.True(tela.PodeReativar);
         Assert.False(tela.PodeDesativar);
-        Assert.Equal(TipoMensagem.Sucesso, tela.TipoMensagem);
+        var toast = Assert.Single(tela.Mensagens.Visiveis);
+        Assert.Equal(TipoMensagem.Sucesso, toast.Tipo);
+        Assert.StartsWith("Cadastro desativado.", toast.Texto);
     }
 
     [Fact]

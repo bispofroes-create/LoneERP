@@ -33,9 +33,24 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     private TItem? _itemAberto;
     private bool _ajustandoSelecao;
 
+    /// <summary>Acompanha a ficha aberta para o Salvar e o estado reagirem a cada alteração.</summary>
+    private readonly ObservadorFicha _observador;
+
+    /// <summary>Último resultado de <see cref="TemAlteracoes"/> que a tela recebeu.</summary>
+    private bool _alterada;
+    private bool _avaliando;
+
     protected CadastroViewModelBase(IDialogos dialogos)
     {
         _dialogos = dialogos;
+        _observador = new ObservadorFicha(AvaliarAlteracoes);
+        PropertyChanged += (_, e) =>
+        {
+            // Propriedades da própria tela também podem ser parte da ficha (ex.: operações territoriais).
+            if (e.PropertyName is nameof(PodeSalvarAgora) or nameof(PodeDescartar) or nameof(EstadoFicha) or nameof(TemAlteracoes)) return;
+            if (e.PropertyName is nameof(Ocupado) or nameof(Livre)) OnPropertyChanged(nameof(PodeSalvarAgora));
+            AvaliarAlteracoes();
+        };
     }
 
     /// <summary>Linhas visíveis (já filtradas pela busca).</summary>
@@ -99,7 +114,55 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     public bool TemAlteracoes => Editando && Foto() != _fotoGravada;
 
     /// <summary>Chamado depois de abrir, criar, salvar ou descartar: o que está na ficha passa a ser o "gravado".</summary>
-    protected void MarcarFichaSemAlteracoes() => _fotoGravada = Foto();
+    protected void MarcarFichaSemAlteracoes()
+    {
+        _fotoGravada = Foto();
+        _observador.Observar(Editando ? FichaObservada : null);
+        AvaliarAlteracoes();
+    }
+
+    /// <summary>
+    /// O objeto da ficha (normalmente o formulário) que o observador acompanha, em qualquer nível. Nulo: só as propriedades
+    /// da própria tela (quando a ficha é feita delas).
+    /// </summary>
+    protected virtual object? FichaObservada => null;
+
+    /// <summary>
+    /// Salvar habilitado: item novo (salvar mostra o que falta preencher) ou item existente com alteração. Sem alteração,
+    /// não há o que gravar nem o que confirmar (regra de feedback: nada de "Salvo" redundante).
+    /// </summary>
+    public bool PodeSalvarAgora => Livre && Editando && (FichaNova || _alterada);
+
+    /// <summary>Descartar só com o que desfazer (sem alterações, "Fechar" já sai da ficha).</summary>
+    public bool PodeDescartar => Editando && _alterada;
+
+    /// <summary>Estado da ficha na barra de ações (texto, não só a cor do botão: acessível e sem ambiguidade).</summary>
+    public string EstadoFicha => !Editando ? string.Empty
+        : _alterada ? "Alterações não salvas"
+        : FichaNova ? "Novo cadastro, ainda não salvo"
+        : "Sem alterações";
+
+    /// <summary>Compara a ficha com a versão gravada e avisa a tela se o resultado mudou.</summary>
+    private void AvaliarAlteracoes()
+    {
+        if (_avaliando) return;
+        _avaliando = true;
+        try
+        {
+            // Montar a ficha para comparar não pode derrubar a digitação: se falhar num estado intermediário, conta
+            // como alterada (o Salvar fica disponível e a validação da gravação explica o que falta).
+            try { _alterada = TemAlteracoes; }
+            catch (Exception) { _alterada = Editando; }
+            OnPropertyChanged(nameof(PodeSalvarAgora));
+            OnPropertyChanged(nameof(PodeDescartar));
+            OnPropertyChanged(nameof(EstadoFicha));
+            DescartarCommand.NotifyCanExecuteChanged();
+        }
+        finally
+        {
+            _avaliando = false;
+        }
+    }
 
     private string? Foto() => DadosDaFicha() is { } dados ? JsonSerializer.Serialize(dados, dados.GetType(), OpcoesJson.Padrao) : null;
 
@@ -131,7 +194,7 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     /// Descartar = desfazer o que não foi salvo. Item novo: cancela a inclusão e volta à lista. Item existente:
     /// volta aos dados gravados. Sem alterações: só volta à lista. Nunca exclui nada.
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(PodeDescartar))]
     private async Task DescartarAsync()
     {
         if (!Editando) return;
@@ -196,8 +259,10 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         Editando = false;
         _itemAberto = null;
         _fotoGravada = null;
+        _observador.Observar(null); // solta a ficha fechada
         DefinirSelecao(null);
         LimparMensagem();
+        AvaliarAlteracoes();
     }
 
     /// <summary>Muda a linha marcada sem abrir ficha (ex.: voltar a marcação quando o usuário desiste de trocar).</summary>

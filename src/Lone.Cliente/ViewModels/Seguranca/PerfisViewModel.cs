@@ -41,6 +41,7 @@ public sealed partial class PerfisViewModel : CadastroViewModelBase<PerfilResumo
     }
 
     protected override object? DadosDaFicha() => Formulario?.ParaDto();
+    protected override object? FichaObservada => Formulario;
     protected override bool FichaNova => Formulario?.Novo ?? true;
 
     protected override async Task RecarregarFichaAsync()

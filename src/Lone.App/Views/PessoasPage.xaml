@@ -758,25 +758,6 @@
                 </HorizontalStackLayout>
             </Grid>
 
-            <!-- Aviso de sucesso: flutua embaixo, no meio, e some sozinho (não empurra a lista como a barra). -->
-            <Border Grid.Row="4" Grid.RowSpan="2" Grid.ColumnSpan="3" ZIndex="30" IsVisible="{Binding MostrarAvisoFlutuante}"
-                    HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,12" Padding="16,10,8,10"
-                    StrokeThickness="0" StrokeShape="RoundRectangle 10" MaximumWidthRequest="640"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Texto}, Dark={StaticResource SuperficieRealceEscuro}}"
-                    SemanticProperties.Description="{Binding Mensagem}">
-                <Border.Shadow>
-                    <Shadow Brush="Black" Opacity="0.25" Radius="16" Offset="0,6" />
-                </Border.Shadow>
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                    <Label Text="✓" FontSize="16" FontAttributes="Bold" VerticalOptions="Center" TextColor="#7BC596" />
-                    <Label Grid.Column="1" Text="{Binding Mensagem}" FontSize="15" VerticalOptions="Center" LineBreakMode="WordWrap"
-                           TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}" />
-                    <Button Grid.Column="2" Text="✕" Style="{StaticResource BotaoIcone}" FontSize="12" VerticalOptions="Center"
-                            TextColor="{AppThemeBinding Light={StaticResource SobrePrimaria}, Dark={StaticResource TextoEscuro}}"
-                            Command="{Binding FecharAvisoFlutuanteCommand}" ToolTipProperties.Text="Fechar o aviso"
-                            SemanticProperties.Description="Fechar o aviso" />
-                </Grid>
-            </Border>
         </Grid>
 
         <!-- =====================================================================================================
@@ -944,11 +925,13 @@
                         BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                         <HorizontalStackLayout Spacing="8">
-                            <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding Livre}" IsVisible="{Binding PodeSalvar}" />
+                            <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" IsVisible="{Binding PodeSalvar}" />
                             <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
                                     IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
                             <Button Text="Fechar" Style="{StaticResource BotaoTerciario}" Command="{Binding FecharFichaCommand}" />
                             <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                            <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
+                            <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
                         </HorizontalStackLayout>
                         <!-- Motivo (opcional): vai para o histórico junto com o que mudou nesta gravação. -->
                         <Entry Grid.Column="1" Text="{Binding Formulario.MotivoAlteracao}" Placeholder="Motivo da alteração (opcional)"

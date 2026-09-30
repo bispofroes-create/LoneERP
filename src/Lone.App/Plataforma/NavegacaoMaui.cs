@@ -1,4 +1,5 @@
 using Lone.App.Views;
+using Lone.Cliente.Mensagens;
 using Lone.Cliente.Navegacao;
 
 namespace Lone.App.Plataforma;
@@ -30,6 +31,9 @@ public sealed class NavegacaoMaui : INavegacao
             Tela.Sistema => _servicos.GetRequiredService<AppShell>(),
             _ => throw new ArgumentOutOfRangeException(nameof(tela), tela, null)
         };
+        // Outro contexto (entrada, saída, outra empresa): toasts do anterior não seguem — nem as ações deles, que apontam
+        // para telas que deixaram de existir.
+        _servicos.GetRequiredService<ServicoMensagens>().Limpar();
         Janela.Page = pagina;
         // Barra de título com empresa e usuário só dentro do sistema (no Windows); nas telas de entrada, a padrão.
         Janela.TitleBar = pagina is AppShell shell ? shell.BarraDeTitulo : null;

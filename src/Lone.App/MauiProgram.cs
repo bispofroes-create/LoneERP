@@ -20,6 +20,7 @@ public static class MauiProgram
         // Caixas de marcar compactas (texto logo ao lado da caixa), em todas as telas.
         AjusteCaixaMarcar.Aplicar();
         AjusteListaEscolha.Aplicar();
+        AjusteMenuLateral.Aplicar();
 
         // Implementações de plataforma usadas por Lone.Cliente.
         builder.Services.AddSingleton<IArmazenamentoSeguro, ArmazenamentoSeguroMaui>();

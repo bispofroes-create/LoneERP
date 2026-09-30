@@ -38,6 +38,18 @@
     <Color x:Key="InformacaoFundo">#E7F0F8</Color>
     <Color x:Key="InformacaoFundoEscuro">#172A3C</Color>
 
+    <!-- Toast (camada global de mensagens): superfície escura nos dois temas, destacada do conteúdo (mesmo visual do aviso
+         flutuante que a lista de Pessoas já usava). Contraste do texto e da ação acima de 4,5:1. -->
+    <Color x:Key="ToastFundo">#1B2129</Color>
+    <Color x:Key="ToastFundoEscuro">#2A3038</Color>
+    <Color x:Key="ToastBordaEscuro">#3A414B</Color>
+    <Color x:Key="ToastTexto">#FFFFFF</Color>
+    <Color x:Key="ToastTextoEscuro">#E7EAEE</Color>
+    <Color x:Key="ToastSecundario">#A3ACB8</Color>
+    <Color x:Key="ToastIconeSucesso">#7BC596</Color>
+    <Color x:Key="ToastAcao">#8BBBE5</Color>
+    <Color x:Key="ToastRealce">#33FFFFFF</Color>
+
     <!-- ===== Design system (redesenho de Pessoas) ===== -->
     <!-- Ação principal: variações para hover/pressionado. -->
     <Color x:Key="PrimariaHover">#183F63</Color>

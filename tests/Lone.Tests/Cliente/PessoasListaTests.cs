@@ -272,11 +272,14 @@ public class PessoasListaTests
         Assert.Equal(TipoMensagem.Aviso, tela.TipoMensagem);
     }
 
+    /// <summary>
+    /// O sucesso da lista, que flutuava embaixo e sumia sozinho, passou para a camada global (MensagensTests, PessoasMensagensTests);
+    /// erro e aviso continuam na barra da lista.
+    /// </summary>
     [Fact]
-    public async Task Sucesso_na_lista_flutua_e_some_sozinho_e_erro_fica_na_barra()
+    public async Task Erro_na_lista_fica_na_barra()
     {
         var (tela, _) = await AbrirAsync();
-        tela.TempoAvisoFlutuante = TimeSpan.FromMilliseconds(50);
         var linha = new LinhaPessoa(new PessoaResumo { Id = Guid.NewGuid(), Nome = "Ana", Natureza = NaturezaPessoa.Fisica,
             Valores = new() { [CamposFiltroPessoas.Telefone] = "38999887766" } }, "", []);
 
@@ -284,17 +287,7 @@ public class PessoasListaTests
         tela.AbrirEndereco = _ => throw new InvalidOperationException();
         await tela.LigarCommand.ExecuteAsync(linha);
         Assert.True(tela.MostrarBarraDaLista);
-        Assert.False(tela.MostrarAvisoFlutuante);
-
-        // Sucesso (ex.: "Visão removida."): flutua e some sozinho.
-        tela.FecharAvisoFlutuanteCommand.Execute(null);
-        Assert.False(tela.TemMensagem);
-        tela.TipoMensagem = TipoMensagem.Sucesso;
-        tela.Mensagem = "Visão removida.";
-        Assert.True(tela.MostrarAvisoFlutuante);
-        Assert.False(tela.MostrarBarraDaLista);
-        for (var i = 0; i < 40 && tela.TemMensagem; i++) await Task.Delay(25);
-        Assert.False(tela.TemMensagem);
+        Assert.Equal(TipoMensagem.Aviso, tela.TipoMensagem);
     }
 
     [Fact]
