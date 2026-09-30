@@ -338,6 +338,16 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
 
     private ItemMenu? PorRota(string rota) => _catalogo.FirstOrDefault(i => i.Rota == rota);
 
+    // ---- Para o motor de navegação (histórico e Voltar) ----
+
+    /// <summary>A tela pode ser aberta com as permissões atuais (o Voltar pula as que deixaram de poder).</summary>
+    public bool PodeAbrir(string rota) =>
+        rota == ItemMenu.RotaInicio || _catalogo.Any(i => i.Rota == rota || i.Corresponde(rota));
+
+    /// <summary>Nome da tela como o menu mostra na busca (ex.: "Cadastro de pessoas"), para "Voltar para …".</summary>
+    public string? TituloDaRota(string rota) =>
+        (PorRota(rota) ?? _catalogo.FirstOrDefault(i => i.Corresponde(rota)))?.Descricao;
+
     private void AplicarFavoritos()
     {
         foreach (var item in _catalogo) item.Favorito = _favoritos.Contains(item.Rota);

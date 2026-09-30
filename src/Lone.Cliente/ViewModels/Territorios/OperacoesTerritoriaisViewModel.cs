@@ -354,6 +354,10 @@ public sealed partial class OperacoesTerritoriaisViewModel : CadastroViewModelBa
     protected override object? DadosDaFicha() => Operacao is null ? new { MapaNovo?.Valor, EfeitoEm, Motivo, Observacao } : new { Operacao.Id, EfeitoEm, Motivo, Observacao };
     protected override bool FichaNova => Operacao is null;
 
+    /// <summary>Navegação por registros: a linha guarda a operação em Item; a ficha aberta, em Operacao.</summary>
+    protected override Guid? IdDoItem(LinhaOperacaoTerritorial item) => item.Item.Id;
+    protected override Guid? IdDaFicha => Operacao?.Id ?? base.IdDaFicha;
+
     protected override async Task RecarregarFichaAsync()
     {
         if (Operacao is { } o) await CarregarOperacaoAsync(o.Id);

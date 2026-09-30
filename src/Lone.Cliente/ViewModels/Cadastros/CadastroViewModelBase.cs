@@ -3,6 +3,7 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.Plataforma;
 using Lone.Contracts.Comum;
 
@@ -16,7 +17,7 @@ namespace Lone.Cliente.ViewModels.Cadastros;
 /// sair da tela com alterações pergunta antes; "Descartar" desfaz as alterações (nunca apaga nada do banco).
 /// </summary>
 /// <typeparam name="TItem">Linha da lista (resumo vindo da API).</typeparam>
-public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMestreDetalhe where TItem : class
+public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMestreDetalhe, ITelaNavegavel where TItem : class
 {
     private IReadOnlyList<TItem> _todos = [];
     private CancellationTokenSource? _buscaAtrasada;
@@ -119,6 +120,7 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         _fotoGravada = Foto();
         _observador.Observar(Editando ? FichaObservada : null);
         AvaliarAlteracoes();
+        Navegacao.InformarRegistro(this, _origemRelato); // abriu, criou, gravou (o nome pode ter mudado) ou descartou
     }
 
     /// <summary>
@@ -223,12 +225,28 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     [RelayCommand]
     private async Task CarregarAsync()
     {
-        await ExecutarAsync(async () =>
+        try
         {
-            await AntesDeListarAsync();
-            await BuscarListaAsync();
-        });
+            await ExecutarAsync(async () =>
+            {
+                await AntesDeListarAsync();
+                await BuscarListaAsync();
+            });
+        }
+        finally
+        {
+            _primeiraCarga.TrySetResult(); // com ou sem sucesso: quem esperava pode seguir
+        }
     }
+
+    /// <summary>
+    /// Terminou a primeira carga da tela. O Shell recria a tela ao voltar de outro módulo: um registro pedido pela navegação
+    /// (Voltar, link) espera a tela nova carregar antes de abrir — senão a abertura seria recusada por "ocupado".
+    /// </summary>
+    private readonly TaskCompletionSource _primeiraCarga = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Limite da espera pela primeira carga (tela que não carrega sozinha não trava a navegação).</summary>
+    internal static TimeSpan EsperaMaximaCarga { get; set; } = TimeSpan.FromSeconds(15);
 
     /// <summary>Carrega dados de apoio (perfis, empresas...) antes da lista. Por padrão, nada.</summary>
     protected virtual Task AntesDeListarAsync() => Task.CompletedTask;
@@ -263,6 +281,7 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         DefinirSelecao(null);
         LimparMensagem();
         AvaliarAlteracoes();
+        Navegacao.InformarRegistro(this); // de volta à lista
     }
 
     /// <summary>Muda a linha marcada sem abrir ficha (ex.: voltar a marcação quando o usuário desiste de trocar).</summary>
@@ -329,15 +348,16 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     partial void OnSelecionadoChanged(TItem? value)
     {
         if (value is null || _ajustandoSelecao || (Editando && ReferenceEquals(value, _itemAberto))) return;
-        _ = AbrirSelecionadoAsync(value);
+        _ = AbrirItemAsync(value);
     }
 
-    private async Task AbrirSelecionadoAsync(TItem item)
+    /// <summary>Abre a ficha do item (perguntando antes se houver alterações). Verdadeiro se abriu.</summary>
+    private async Task<bool> AbrirItemAsync(TItem item)
     {
         if (!await PodePerderAlteracoesAsync())
         {
             DefinirSelecao(_itemAberto); // continua editando o que estava aberto
-            return;
+            return false;
         }
 
         if (await ExecutarAsync(() => AbrirAsync(item)))
@@ -345,11 +365,86 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
             _itemAberto = item;
             Editando = true;
             MarcarFichaSemAlteracoes();
+            return true;
         }
-        else if (ReferenceEquals(Selecionado, item))
-        {
+        if (ReferenceEquals(Selecionado, item))
             DefinirSelecao(null); // não abriu: desmarca para poder tentar de novo
+        return false;
+    }
+
+    // ---- Navegação global (motor de navegação: histórico, Voltar, links) ----
+
+    /// <summary>Motor de navegação do aplicativo; os testes trocam por um próprio.</summary>
+    public GerenciadorNavegacao Navegacao { get; set; } = GerenciadorNavegacao.Padrao;
+
+    /// <summary>
+    /// Registro aberto na ficha, como a navegação o conhece (tipo, identificação e nome de exibição — nunca documento).
+    /// Nulo = só a lista. Ficha de item novo: identificação nula.
+    /// </summary>
+    public ReferenciaRegistro? RegistroAberto => !Editando ? null
+        : FichaNova ? new ReferenciaRegistro(TipoRegistro, null, "Novo cadastro", Novo: true)
+        : new ReferenciaRegistro(TipoRegistro, IdDaFicha, TituloDaFicha ?? "Registro");
+
+    /// <summary>Tipo do registro nos endereços internos (lone://rota/tipo/id). Por padrão, o nome da tela.</summary>
+    protected virtual string TipoRegistro =>
+        (GetType().Name.EndsWith("ViewModel", StringComparison.Ordinal) ? GetType().Name[..^"ViewModel".Length] : GetType().Name).ToLowerInvariant();
+
+    /// <summary>Identificação do registro aberto: o Id da ficha ou, na falta, o da linha da lista.</summary>
+    protected virtual Guid? IdDaFicha => LeituraDePropriedade.Id(FichaObservada) ?? (_itemAberto is { } item ? IdDoItem(item) : null);
+
+    /// <summary>Identificação de uma linha da lista (por padrão, a propriedade Id). Telas com outra forma sobrescrevem.</summary>
+    protected virtual Guid? IdDoItem(TItem item) => LeituraDePropriedade.Id(item);
+
+    /// <summary>Nome do registro aberto: título ou nome da ficha; na falta, o texto da linha da lista.</summary>
+    protected virtual string? TituloDaFicha =>
+        LeituraDePropriedade.Texto(FichaObservada, "Titulo") ?? LeituraDePropriedade.Texto(FichaObservada, "Nome")
+        ?? (_itemAberto is { } item ? TextoDeBusca(item) : null);
+
+    /// <summary>
+    /// Linha para abrir um registro que não está na lista carregada (ex.: link de outra tela). Nulo = esta tela só abre o
+    /// que está na lista.
+    /// </summary>
+    protected virtual TItem? CriarItemParaAbrir(Guid id) => null;
+
+    /// <summary>A navegação pede um registro (ou a lista, com nulo). Pergunta antes se houver alterações não salvas.</summary>
+    public async Task<bool> IrParaRegistroAsync(ReferenciaRegistro? registro)
+    {
+        if (registro is not null && !_primeiraCarga.Task.IsCompleted)
+            await Task.WhenAny(_primeiraCarga.Task, Task.Delay(EsperaMaximaCarga));
+        if (registro is null)
+        {
+            if (!Editando) return true;
+            await FecharFichaCommand.ExecuteAsync(null);
+            return !Editando;
         }
+        if (registro.Novo)
+        {
+            await NovoCommand.ExecuteAsync(null);
+            return Editando && FichaNova;
+        }
+        if (RegistroAberto?.MesmoQue(registro) == true) return true;
+        if (registro.Id is not { } id) return false; // sem identificação não há como reabrir
+
+        var item = Itens.FirstOrDefault(i => IdDoItem(i) == id)
+                   ?? _todos.FirstOrDefault(i => IdDoItem(i) == id)
+                   ?? CriarItemParaAbrir(id);
+        if (item is null) return false;
+        DefinirSelecao(item);
+        return await AbrirItemAsync(item);
+    }
+
+    /// <summary>Como a próxima abertura de ficha é informada ao histórico (<see cref="AbrirPorLinkAsync"/> muda).</summary>
+    private OrigemNavegacao _origemRelato = OrigemNavegacao.Lista;
+
+    /// <summary>
+    /// Abre o registro pedido por outra tela ("Abrir ficha", pedido pendente retirado ao aparecer): para o histórico, a
+    /// chegada à tela e a ficha são um passo só, e o Voltar leva de volta à tela de origem.
+    /// </summary>
+    public async Task<bool> AbrirPorLinkAsync(ReferenciaRegistro registro)
+    {
+        _origemRelato = OrigemNavegacao.Link;
+        try { return await IrParaRegistroAsync(registro); }
+        finally { _origemRelato = OrigemNavegacao.Lista; }
     }
 
     /// <summary>

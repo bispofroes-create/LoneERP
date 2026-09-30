@@ -1,3 +1,4 @@
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels.Comercial;
 
 namespace Lone.App.Views;
@@ -10,7 +11,7 @@ public partial class CarteiraVencendoPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        _viewModel.AbrirTela = rota => Shell.Current.GoToAsync("//" + rota);
+        _viewModel.AbrirTela = rota => GerenciadorNavegacao.Padrao.IrParaTelaAsync(rota, OrigemNavegacao.Link);
     }
 
     /// <summary>Relê a cada vez que a tela aparece (os dias diminuem e a carteira muda).</summary>

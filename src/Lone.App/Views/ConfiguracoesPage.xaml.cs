@@ -1,3 +1,4 @@
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels;
 
 namespace Lone.App.Views;
@@ -13,7 +14,7 @@ public partial class ConfiguracoesPage : ContentPage
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
         // Cola de interface: a rota é a mesma do item do menu (AppShell.xaml); o Shell pergunta antes de sair de uma ficha alterada.
-        _viewModel.Navegar = rota => Shell.Current.GoToAsync("//" + rota);
+        _viewModel.Navegar = rota => GerenciadorNavegacao.Padrao.IrParaTelaAsync(rota, OrigemNavegacao.Link);
     }
 
     protected override void OnNavigatedTo(NavigatedToEventArgs args)

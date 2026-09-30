@@ -1917,12 +1917,31 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// </summary>
     public void AbrirPessoa(Guid id) => Selecionado = new PessoaResumo { Id = id };
 
-    /// <summary>Ação "Abrir" do toast de relacionamento: traz Pessoas para a frente (se o usuário já saiu) e abre a ficha.</summary>
-    private async Task AbrirOutraPessoaAsync(Guid id)
+    /// <summary>
+    /// Ação "Abrir" do toast de relacionamento: link interno pelo motor de navegação (volta para Pessoas se o usuário já
+    /// saiu, abre a ficha, e o Voltar retorna à pessoa de onde veio). Sem motor ligado (testes), o caminho antigo.
+    /// </summary>
+    private async Task AbrirOutraPessoaAsync(Guid id, string nome)
     {
+        if (Navegacao.Conectado)
+        {
+            await Navegacao.AbrirAsync(new LocalNavegacao(AberturaDePessoa.RotaPessoas, new ReferenciaRegistro(TipoRegistro, id, nome)),
+                OrigemNavegacao.Link);
+            return;
+        }
         AbrirPessoa(id);
         if (AbrirTela is not null) await AbrirTela(AberturaDePessoa.RotaPessoas);
     }
+
+    // ---- Navegação por registros (motor global) ----
+
+    /// <summary>Tipo do registro de pessoa na navegação (endereço interno: lone://pessoas/pessoa/{id}).</summary>
+    public const string TipoPessoa = "pessoa";
+
+    protected override string TipoRegistro => TipoPessoa;
+
+    /// <summary>Links e Voltar abrem qualquer pessoa pelo Id (a ficha é lida no servidor), mesmo fora da página carregada.</summary>
+    protected override PessoaResumo? CriarItemParaAbrir(Guid id) => new() { Id = id };
 
     /// <summary>Abre o cadastro que já tem o documento (pergunta antes se houver alterações não salvas).</summary>
     [RelayCommand]
@@ -2129,7 +2148,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // houver alterações não salvas). Funciona mesmo depois de sair de Pessoas: volta para a tela e abre a ficha.
         var outra = incluido!.OutraPessoaId;
         Mostrar($"Relacionamento registrado: {incluido.Tipo} {incluido.OutraPessoaNome}.", TipoMensagem.Sucesso,
-            new AcaoMensagem("Abrir", () => AbrirOutraPessoaAsync(outra), $"Abrir a ficha de {incluido.OutraPessoaNome}"),
+            new AcaoMensagem("Abrir", () => AbrirOutraPessoaAsync(outra, incluido.OutraPessoaNome), $"Abrir a ficha de {incluido.OutraPessoaNome}"),
             contexto: $"pessoa:{ficha.Id}");
     }
 

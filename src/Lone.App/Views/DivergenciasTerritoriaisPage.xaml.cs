@@ -1,3 +1,4 @@
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels.Territorios;
 
 namespace Lone.App.Views;
@@ -11,7 +12,7 @@ public partial class DivergenciasTerritoriaisPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        viewModel.AbrirTela = rota => Shell.Current.GoToAsync("//" + rota);
+        viewModel.AbrirTela = rota => GerenciadorNavegacao.Padrao.IrParaTelaAsync(rota, OrigemNavegacao.Link);
     }
 
     protected override void OnAppearing()

@@ -21,9 +21,9 @@ public partial class PessoasPage : ContentPage
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
         _viewModel.ModoCompacto = true; // lista OU ficha, nunca lado a lado
-        _viewModel.AbrirConfiguracoesDoModulo = () => Shell.Current.GoToAsync("//" + ModulosConfiguracao.Rota(ModulosConfiguracao.Pessoas));
+        _viewModel.AbrirConfiguracoesDoModulo = () => GerenciadorNavegacao.Padrao.IrParaTelaAsync(ModulosConfiguracao.Rota(ModulosConfiguracao.Pessoas), OrigemNavegacao.Link);
         // Botão "Configurações" da tela (os cadastros de Pessoas saíram do menu lateral).
-        _viewModel.AbrirTela = rota => Shell.Current.GoToAsync("//" + rota);
+        _viewModel.AbrirTela = rota => GerenciadorNavegacao.Padrao.IrParaTelaAsync(rota, OrigemNavegacao.Link);
         // Ações rápidas da linha: discador/Teams ("tel:"), WhatsApp (https://wa.me) e o programa de e-mail ("mailto:").
         // OpenAsync (e não TryOpenAsync): no Android 11+ a consulta "algum aplicativo abre?" responde não sem declarar cada
         // esquema no manifesto; sem aplicativo, OpenAsync lança e a tela avisa.
@@ -114,7 +114,8 @@ public partial class PessoasPage : ContentPage
             _carregado = true;
             await _viewModel.CarregarCommand.ExecuteAsync(null);
         }
-        if (_abertura.Retirar() is { } id) _viewModel.AbrirPessoa(id);
+        // "Abrir ficha" de outra tela: chegar a Pessoas e abrir a ficha é um passo só no histórico (Voltar retorna à origem).
+        if (_abertura.Retirar() is { } id) _ = _viewModel.AbrirPorLinkAsync(new ReferenciaRegistro(PessoasViewModel.TipoPessoa, id, string.Empty));
     }
 
     /// <summary>Botão voltar do Android com a ficha aberta: volta para a lista (pergunta se houver alterações).</summary>

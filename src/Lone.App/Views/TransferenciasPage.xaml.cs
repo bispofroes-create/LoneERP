@@ -1,3 +1,4 @@
+using Lone.Cliente.Navegacao;
 using Lone.App.Controles;
 using Lone.Cliente.ViewModels.Comercial;
 
@@ -14,7 +15,7 @@ public partial class TransferenciasPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        _viewModel.AbrirTela = rota => Shell.Current.GoToAsync("//" + rota);
+        _viewModel.AbrirTela = rota => GerenciadorNavegacao.Padrao.IrParaTelaAsync(rota, OrigemNavegacao.Link);
         _layout = new LayoutMestreDetalhe(this, Grade, viewModel);
     }
 

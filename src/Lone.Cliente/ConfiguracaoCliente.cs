@@ -22,6 +22,8 @@ public static class ConfiguracaoCliente
         services.AddSingleton<SessaoCliente>();
         // Mensagens da interface (toast): um só serviço no aplicativo, o mesmo que os ViewModels usam por padrão.
         services.AddSingleton(ServicoMensagens.Padrao);
+        // Motor global de navegação (histórico, Voltar, links): um só no aplicativo, o mesmo que as telas usam por padrão.
+        services.AddSingleton(GerenciadorNavegacao.Padrao);
         services.AddSingleton<AberturaDePessoa>();
         services.AddSingleton<AberturaDeOperacaoTerritorial>();
         services.AddSingleton<ConfiguracaoServidor>();

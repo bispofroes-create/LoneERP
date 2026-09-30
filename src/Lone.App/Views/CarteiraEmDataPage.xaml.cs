@@ -1,3 +1,4 @@
+using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels.Comercial;
 
 namespace Lone.App.Views;
@@ -9,6 +10,6 @@ public partial class CarteiraEmDataPage : ContentPage
     {
         InitializeComponent();
         BindingContext = viewModel;
-        viewModel.AbrirTela = rota => Shell.Current.GoToAsync("//" + rota);
+        viewModel.AbrirTela = rota => GerenciadorNavegacao.Padrao.IrParaTelaAsync(rota, OrigemNavegacao.Link);
     }
 }
