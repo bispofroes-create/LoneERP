@@ -48,6 +48,71 @@ public class PainelFiltrosTests
         Assert.Equal("Filtros", painel.TextoBotao);
     }
 
+    // ---- Sob demanda (performance da primeira carga de Pessoas, P1): a tela só desenha o que o usuário abriu ----
+
+    [Fact]
+    public void Carregar_nao_entrega_campos_nem_editores_para_desenhar()
+    {
+        var (painel, _) = Montar();
+
+        Assert.All(painel.Grupos, g => Assert.Empty(g.CamposExibidos)); // grupos recolhidos: nenhum campo criado
+        Assert.All(painel.Grupos.SelectMany(g => g.Campos), c => Assert.Empty(c.Editor)); // nenhum editor criado
+    }
+
+    [Fact]
+    public void Grupo_entrega_os_campos_ao_abrir_e_mantem_ao_recolher()
+    {
+        var (painel, _) = Montar();
+        var enderecos = painel.Grupos[0];
+        var avisos = new List<string?>();
+        enderecos.PropertyChanged += (_, e) => avisos.Add(e.PropertyName);
+
+        enderecos.AlternarCommand.Execute(null); // abre
+        Assert.Same(enderecos.Campos, enderecos.CamposExibidos);
+        Assert.Single(avisos, nameof(GrupoFiltroItem.CamposExibidos));
+
+        enderecos.AlternarCommand.Execute(null); // recolhe: só esconde (reabrir não recria)
+        enderecos.AlternarCommand.Execute(null);
+        Assert.Same(enderecos.Campos, enderecos.CamposExibidos);
+        Assert.Single(avisos, nameof(GrupoFiltroItem.CamposExibidos));
+        Assert.All(painel.Grupos.Skip(1), g => Assert.Empty(g.CamposExibidos)); // os outros grupos continuam sem nada
+    }
+
+    [Fact]
+    public void Editor_do_campo_so_existe_depois_de_marcado_e_fica()
+    {
+        var (painel, _) = Montar();
+        var uf = Campo(painel, CamposFiltroPessoas.Uf);
+        Assert.Empty(uf.Editor);
+
+        uf.Marcado = true;
+        Assert.Same(uf, Assert.Single(uf.Editor));
+
+        uf.Marcado = false; // desmarcar só esconde o editor
+        Assert.Same(uf, Assert.Single(uf.Editor));
+        Assert.Empty(Campo(painel, CamposFiltroPessoas.Bairro).Editor);
+    }
+
+    [Fact]
+    public void Filtro_aplicado_sem_abrir_o_painel_filtra_e_vira_chip_igual()
+    {
+        var (painel, _) = Montar();
+
+        // Visão, restauração de contexto ou linha de filtro das colunas: aplicam sem o painel estar aberto.
+        Assert.True(painel.Aplicar(new CondicaoFiltro { Campo = CamposFiltroPessoas.Uf, Operador = OperadorFiltro.UmDestes, Valores = ["MG"] }));
+
+        Assert.False(painel.Aberto);
+        Assert.Equal(["MG"], Assert.Single(painel.Condicoes()).Valores);
+        Assert.Equal("UF: MG", Assert.Single(painel.Chips).Texto);
+        Assert.Equal("Filtros (1)", painel.TextoBotao);
+
+        // Tocar no chip abre o painel no campo: o grupo entrega os campos e o editor já vem com o valor aplicado.
+        painel.Chips[0].AbrirCommand.Execute(null);
+        Assert.True(painel.Aberto);
+        Assert.Contains(Campo(painel, CamposFiltroPessoas.Uf), painel.Grupos[0].CamposExibidos);
+        Assert.True(Assert.Single(Campo(painel, CamposFiltroPessoas.Uf).Editor).Opcoes.Single(o => o.Valor == "MG").Marcado);
+    }
+
     [Fact]
     public void Lista_so_filtra_com_opcao_marcada_e_vira_chip()
     {

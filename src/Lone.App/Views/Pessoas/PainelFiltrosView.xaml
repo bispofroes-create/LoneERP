@@ -41,8 +41,9 @@
                                 <Label Grid.Column="1" Text="{Binding Titulo}" FontAttributes="Bold" VerticalOptions="Center" />
                             </Grid>
 
+                            <!-- Campos criados só quando o grupo é aberto pela primeira vez (CamposExibidos) -->
                             <VerticalStackLayout IsVisible="{Binding Expandido}" Padding="18,0,0,8" Spacing="6"
-                                                 BindableLayout.ItemsSource="{Binding Campos}">
+                                                 BindableLayout.ItemsSource="{Binding CamposExibidos}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="pes:CampoFiltroItem">
                                         <VerticalStackLayout IsVisible="{Binding Visivel}" IsEnabled="{Binding Habilitado}" Spacing="4">
@@ -52,48 +53,54 @@
                                                        VerticalOptions="Center" IsVisible="{Binding TemValePara}" />
                                             </Grid>
 
-                                            <!-- Editor (só com o campo marcado) -->
-                                            <VerticalStackLayout IsVisible="{Binding MostrarEditor}" Padding="28,0,0,4" Spacing="4">
-                                                <Label Text="{Binding Dica}" Style="{StaticResource Secundario}" IsVisible="{Binding TemDica}" />
-                                                <c:CampoEscolha Itens="{Binding Operadores}" Selecionado="{Binding Operador}" Padding="0"
-                                                                IsVisible="{Binding TemVariosOperadores}" />
+                                            <!-- Editor criado só quando o campo é marcado pela primeira vez (Editor) -->
+                                            <VerticalStackLayout IsVisible="{Binding MostrarEditor}" BindableLayout.ItemsSource="{Binding Editor}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="pes:CampoFiltroItem">
+                                                        <VerticalStackLayout Padding="28,0,0,4" Spacing="4">
+                                                            <Label Text="{Binding Dica}" Style="{StaticResource Secundario}" IsVisible="{Binding TemDica}" />
+                                                            <c:CampoEscolha Itens="{Binding Operadores}" Selecionado="{Binding Operador}" Padding="0"
+                                                                            IsVisible="{Binding TemVariosOperadores}" />
 
-                                                <!-- Sim/não -->
-                                                <Button Text="{Binding TextoSimNao}" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
-                                                        Command="{Binding AlternarSimNaoCommand}" IsVisible="{Binding EhSimNao}"
-                                                        ToolTipProperties.Text="Tocar alterna entre Sim e Não" />
+                                                            <!-- Sim/não -->
+                                                            <Button Text="{Binding TextoSimNao}" Style="{StaticResource BotaoSecundario}" HorizontalOptions="Start"
+                                                                    Command="{Binding AlternarSimNaoCommand}" IsVisible="{Binding EhSimNao}"
+                                                                    ToolTipProperties.Text="Tocar alterna entre Sim e Não" />
 
-                                                <!-- Município: UF + nome; cada escolhido entra na lista abaixo -->
-                                                <ContentView IsVisible="{Binding EhMunicipio}">
-                                                    <c:CampoMunicipio Rotulo="Adicionar município" Empilhado="True" BindingContext="{Binding Municipio}" />
-                                                </ContentView>
+                                                            <!-- Município: UF + nome; cada escolhido entra na lista abaixo -->
+                                                            <ContentView IsVisible="{Binding EhMunicipio}">
+                                                                <c:CampoMunicipio Rotulo="Adicionar município" Empilhado="True" BindingContext="{Binding Municipio}" />
+                                                            </ContentView>
 
-                                                <!-- Lista: caixas de marcar -->
-                                                <VerticalStackLayout IsVisible="{Binding EhLista}" BindableLayout.ItemsSource="{Binding Opcoes}">
-                                                    <BindableLayout.ItemTemplate>
-                                                        <DataTemplate x:DataType="pes:OpcaoMarcavel">
-                                                            <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Marcado}" />
-                                                        </DataTemplate>
-                                                    </BindableLayout.ItemTemplate>
-                                                </VerticalStackLayout>
+                                                            <!-- Lista: caixas de marcar -->
+                                                            <VerticalStackLayout IsVisible="{Binding EhLista}" BindableLayout.ItemsSource="{Binding Opcoes}">
+                                                                <BindableLayout.ItemTemplate>
+                                                                    <DataTemplate x:DataType="pes:OpcaoMarcavel">
+                                                                        <c:CaixaMarcar Texto="{Binding Texto}" Marcado="{Binding Marcado}" />
+                                                                    </DataTemplate>
+                                                                </BindableLayout.ItemTemplate>
+                                                            </VerticalStackLayout>
 
-                                                <!-- Texto -->
-                                                <c:Campo Texto="{Binding ValorTexto}" Padding="0" IsVisible="{Binding EhTexto}" />
+                                                            <!-- Texto -->
+                                                            <c:Campo Texto="{Binding ValorTexto}" Padding="0" IsVisible="{Binding EhTexto}" />
 
-                                                <!-- Número (dias, valor, idade): um valor, ou início e fim -->
-                                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding EhNumero}">
-                                                    <c:Campo Rotulo="{Binding RotuloPrimeiroValor}" Texto="{Binding NumeroInicial}" Teclado="Numeric" Padding="0" />
-                                                    <c:Campo Grid.Column="1" Rotulo="Até" Texto="{Binding NumeroFinal}" Teclado="Numeric" Padding="0"
-                                                             IsVisible="{Binding MostrarSegundoValor}" />
-                                                </Grid>
+                                                            <!-- Número (dias, valor, idade): um valor, ou início e fim -->
+                                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding EhNumero}">
+                                                                <c:Campo Rotulo="{Binding RotuloPrimeiroValor}" Texto="{Binding NumeroInicial}" Teclado="Numeric" Padding="0" />
+                                                                <c:Campo Grid.Column="1" Rotulo="Até" Texto="{Binding NumeroFinal}" Teclado="Numeric" Padding="0"
+                                                                         IsVisible="{Binding MostrarSegundoValor}" />
+                                                            </Grid>
 
-                                                <!-- Data: um valor, ou início e fim -->
-                                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding EhData}">
-                                                    <c:Campo Rotulo="{Binding RotuloPrimeiroValor}" Texto="{Binding DataInicial}" Dica="dd/mm/aaaa"
-                                                             Mascara="Data" Padding="0" />
-                                                    <c:Campo Grid.Column="1" Rotulo="Até" Texto="{Binding DataFinal}" Dica="dd/mm/aaaa"
-                                                             Mascara="Data" Padding="0" IsVisible="{Binding MostrarSegundoValor}" />
-                                                </Grid>
+                                                            <!-- Data: um valor, ou início e fim -->
+                                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding EhData}">
+                                                                <c:Campo Rotulo="{Binding RotuloPrimeiroValor}" Texto="{Binding DataInicial}" Dica="dd/mm/aaaa"
+                                                                         Mascara="Data" Padding="0" />
+                                                                <c:Campo Grid.Column="1" Rotulo="Até" Texto="{Binding DataFinal}" Dica="dd/mm/aaaa"
+                                                                         Mascara="Data" Padding="0" IsVisible="{Binding MostrarSegundoValor}" />
+                                                            </Grid>
+                                                        </VerticalStackLayout>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
                                             </VerticalStackLayout>
                                         </VerticalStackLayout>
                                     </DataTemplate>

@@ -726,7 +726,8 @@
                     Style="{StaticResource PainelConteudo}" Padding="16" Margin="{OnIdiom Phone='0', Default='16,0,0,0'}"
                     ZIndex="10" IsVisible="{Binding MostrarFiltros}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <pv:PainelFiltrosView BindingContext="{Binding Filtros}" />
+                <!-- O painel (pesado: um editor por campo do catálogo) só é criado quando abre pela primeira vez -->
+                <ContentView x:Name="HospedeFiltros" />
             </Border>
 
             <!-- Paginação -->

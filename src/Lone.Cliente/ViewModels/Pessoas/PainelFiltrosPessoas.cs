@@ -102,6 +102,14 @@ public sealed partial class CampoFiltroItem : ObservableObject
 
     public bool MostrarEditor => Marcado;
 
+    /// <summary>
+    /// O editor que a tela desenha: nenhum até o campo ser marcado pela primeira vez (campo que ninguém usa não cria
+    /// operador, lista de opções, datas…). Depois de criado, fica (desmarcar só esconde).
+    /// </summary>
+    public IReadOnlyList<CampoFiltroItem> Editor => _editor ?? [];
+
+    private IReadOnlyList<CampoFiltroItem>? _editor;
+
     public IReadOnlyList<Opcao<OperadorFiltro>> Operadores { get; }
 
     [ObservableProperty]
@@ -167,7 +175,16 @@ public sealed partial class CampoFiltroItem : ObservableObject
 
     private bool OperadorPedeValor => Operador.Valor is not (OperadorFiltro.Vazio or OperadorFiltro.NaoVazio);
 
-    partial void OnMarcadoChanged(bool value) => Mudou();
+    partial void OnMarcadoChanged(bool value)
+    {
+        if (value && _editor is null)
+        {
+            _editor = [this];
+            OnPropertyChanged(nameof(Editor));
+        }
+        Mudou();
+    }
+
     partial void OnOperadorChanged(Opcao<OperadorFiltro> value) => Mudou();
     partial void OnValorChanged(string value) => Mudou();
     partial void OnValorFinalChanged(string value) => Mudou();
@@ -336,6 +353,21 @@ public sealed partial class GrupoFiltroItem : ObservableObject
     [ObservableProperty] private bool _visivel = true;
 
     public string Seta => Expandido ? "▾" : "▸";
+
+    /// <summary>
+    /// Os campos que a tela desenha: nenhum até o grupo ser aberto pela primeira vez (grupo recolhido não cria os campos
+    /// nem os editores). Depois, ficam (recolher só esconde).
+    /// </summary>
+    public IReadOnlyList<CampoFiltroItem> CamposExibidos => _camposCriados ? Campos : [];
+
+    private bool _camposCriados;
+
+    partial void OnExpandidoChanged(bool value)
+    {
+        if (!value || _camposCriados) return;
+        _camposCriados = true;
+        OnPropertyChanged(nameof(CamposExibidos));
+    }
 
     /// <summary>"Endereços (2)": quantos campos deste grupo estão filtrando.</summary>
     public string Titulo => Campos.Count(c => c.Marcado) is var n and > 0 ? $"{Nome} ({n})" : Nome;

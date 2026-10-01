@@ -1,6 +1,7 @@
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels;
 using Lone.Cliente.ViewModels.Pessoas;
+using Lone.App.Views.Pessoas;
 
 namespace Lone.App.Views;
 
@@ -36,7 +37,9 @@ public partial class PessoasPage : ContentPage
         // Painel de filtros aberto ao lado ocupa parte da largura: as colunas da tabela se ajustam.
         _viewModel.Filtros.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(PainelFiltrosPessoas.Aberto)) AjustarLarguras();
+            if (e.PropertyName != nameof(PainelFiltrosPessoas.Aberto)) return;
+            MontarPainelFiltros();
+            AjustarLarguras();
         };
         // Cabeçalho (títulos + linha de filtro) acompanha a rolagem lateral das colunas.
         // Nos dois sentidos: o cabeçalho também rola sozinho (arrasto no touch, Shift+roda, Tab num filtro fora da vista).
@@ -61,6 +64,16 @@ public partial class PessoasPage : ContentPage
         {
             if (e.PropertyName == nameof(PreviaPessoa.Visivel)) AjustarColunaPrevia();
         };
+    }
+
+    /// <summary>
+    /// Painel de filtros sob demanda: entrar em Pessoas não monta o painel (fechado, ninguém o vê); a primeira abertura
+    /// monta, e ele fica. Os filtros em si (chips, contagem, condições) vivem no ViewModel e funcionam sem o painel.
+    /// </summary>
+    private void MontarPainelFiltros()
+    {
+        if (HospedeFiltros.Content is not null || !_viewModel.Filtros.Aberto) return;
+        HospedeFiltros.Content = new PainelFiltrosView { BindingContext = _viewModel.Filtros };
     }
 
     private void AjustarColunaPrevia() =>
