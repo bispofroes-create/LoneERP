@@ -12,7 +12,7 @@
                    Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarEnderecosInativos}"
                            IsVisible="{Binding Formulario.TemEnderecosInativos}" VerticalOptions="Center" />
-            <Button Grid.Column="2" Text="Adicionar endereço" Style="{StaticResource BotaoSecundario}"
+            <Button Grid.Column="2" Text="+ Adicionar endereço" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarEnderecoCommand}" />
         </Grid>
 
@@ -40,11 +40,11 @@
                             <Label Text="{Binding Titulo}" FontAttributes="Bold" />
                             <Label Text="{Binding TextoA}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
                             <Label Text="{Binding TextoB}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <Button Text="Consolidar mantendo o 1º" Style="{StaticResource BotaoSecundario}" Command="{Binding ManterPrimeiroCommand}" Margin="0,0,8,4" />
                                 <Button Text="Consolidar mantendo o 2º" Style="{StaticResource BotaoSecundario}" Command="{Binding ManterSegundoCommand}" Margin="0,0,8,4" />
                                 <Button Text="Manter separados" Style="{StaticResource BotaoLink}" Command="{Binding ManterSeparadosCommand}" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
@@ -79,17 +79,17 @@
                             <Border Style="{StaticResource CartaoItem}" Stroke="{StaticResource Aviso}" IsVisible="{Binding TemDuplicidade}">
                                 <VerticalStackLayout Spacing="4">
                                     <Label Text="{Binding TextoDuplicidade}" LineBreakMode="WordWrap" />
-                                    <FlexLayout Wrap="Wrap">
+                                    <c:BlocoCampos>
                                         <Button Text="{Binding TextoBotaoUsarExistente}" Style="{StaticResource BotaoSecundario}" Command="{Binding UsarExistenteCommand}" Margin="0,0,8,4" />
                                         <Button Text="Continuar com outro endereço" Style="{StaticResource BotaoLink}" Command="{Binding ContinuarComOutroCommand}"
                                                 IsVisible="{Binding DuplicidadeIncerta}" />
                                         <Button Text="Cancelar" Style="{StaticResource BotaoLink}" Command="{Binding CancelarNovoCommand}"
                                                 IsVisible="{Binding IgualAInativo}" />
-                                    </FlexLayout>
+                                    </c:BlocoCampos>
                                 </VerticalStackLayout>
                             </Border>
 
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" Dica="Ex.: Depósito da Rua 2" />
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}">
@@ -102,7 +102,7 @@
                                 <c:Campo Rotulo="Complemento" Texto="{Binding Complemento}" />
                                 <c:Campo Rotulo="Bairro" Texto="{Binding Bairro}" />
                                 <c:CaixaMarcar Texto="Endereço no exterior" Marcado="{Binding NoExterior}" VerticalOptions="Center" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
 
                             <!-- Brasil: UF e município da tabela do IBGE (o CEP já preenche). -->
                             <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding TemMunicipioACorrigir}" Stroke="{StaticResource Aviso}">
@@ -110,16 +110,19 @@
                                        Text="{Binding MunicipioACorrigir, StringFormat='Cidade informada antes: {0}. Escolha a UF e o município na lista para corrigir.'}" />
                             </Border>
                             <ContentView IsVisible="{Binding NoBrasil}">
-                                <c:CampoMunicipio Rotulo="Município" BindingContext="{Binding Municipio}"
-                                                  MaximumWidthRequest="640" HorizontalOptions="Start" Margin="0,0,0,8" />
+                                <!-- Mesma largura de um campo de meia linha do bloco (um terço com largura de sobra). -->
+                                <c:BlocoCampos>
+                                    <c:CampoMunicipio Rotulo="Município" BindingContext="{Binding Municipio}"
+                                                      FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Margin="0,0,12,8" />
+                                </c:BlocoCampos>
                             </ContentView>
 
                             <!-- Exterior: cidade e país digitados (fora da tabela do IBGE). -->
-                            <FlexLayout Wrap="Wrap" IsVisible="{Binding NoExterior}">
+                            <c:BlocoCampos IsVisible="{Binding NoExterior}">
                                 <c:Campo Rotulo="Cidade" Texto="{Binding Cidade}" />
                                 <c:Campo Rotulo="País" Texto="{Binding Pais}" />
                                 <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" Mascara="Numero" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
 
                             <!-- Finalidades: cada uma pode ser a principal da pessoa para aquele uso. -->
                             <Label Text="Finalidades" Style="{StaticResource Rotulo}" />
@@ -143,7 +146,7 @@
                                    IsVisible="{Binding SemFinalidades}" />
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding PodeEditarFinalidades}" MaximumWidthRequest="520" HorizontalOptions="Start">
                                 <c:CampoEscolha Rotulo="Adicionar finalidade" Itens="{Binding OpcoesFinalidade}" Selecionado="{Binding FinalidadeEscolhida}" Padding="0" />
-                                <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" VerticalOptions="End"
+                                <Button Grid.Column="1" Text="+ Adicionar" Style="{StaticResource BotaoSecundario}" VerticalOptions="End"
                                         Command="{Binding AdicionarFinalidadeCommand}" />
                             </Grid>
                             <Label Text="{Binding AvisoFinalidade}" IsVisible="{Binding TemAvisoFinalidade}" TextColor="{StaticResource Aviso}"

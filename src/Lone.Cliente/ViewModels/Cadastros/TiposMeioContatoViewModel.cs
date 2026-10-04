@@ -8,6 +8,7 @@ using Lone.Contracts.Contatos;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -98,6 +99,12 @@ public sealed partial class TipoMeioContatoEdicao : ObservableObject
 /// <summary>Tipos de telefone e e-mail (Comercial, Residencial, Pessoal...). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class TiposMeioContatoViewModel : CadastroViewModelBase<LinhaTipoMeioContato>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTipoMeioContato> CriarGradeDaLista() => new(
+        "Tipo de telefone/e-mail", l => l.Id, l => l.Nome, l => l.Categoria,
+        ColunaCadastro<LinhaTipoMeioContato>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaTipoMeioContato>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly TiposMeioContatoApi _api;
 
     public TiposMeioContatoViewModel(TiposMeioContatoApi api, IDialogos dialogos) : base(dialogos)

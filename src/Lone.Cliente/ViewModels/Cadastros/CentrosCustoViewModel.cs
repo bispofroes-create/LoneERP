@@ -8,6 +8,7 @@ using Lone.Contracts.Comum;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -106,6 +107,12 @@ public sealed partial class CentroCustoEdicao : ObservableObject
 /// <summary>Centros de custo (estrutura organizacional). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class CentrosCustoViewModel : CadastroViewModelBase<LinhaCentroCusto>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaCentroCusto> CriarGradeDaLista() => new(
+        "Centro de custo", l => l.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaCentroCusto>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaCentroCusto>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly ColaboradoresApi _api;
     private List<CentroCustoDto> _todos = [];
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Cadastro de etiquetas: tabela à esquerda, ficha ao lado. Etiquetas não são excluídas: são desativadas ou mescladas. -->
+<!-- Cadastro de etiquetas: lista em colunas e ficha em página própria (padrão de tela de cadastro, 03/10/2026). Etiquetas não são excluídas: são desativadas ou mescladas. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
@@ -8,111 +8,47 @@
              x:DataType="cad:EtiquetasViewModel"
              Title="Etiquetas">
 
-    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Etiquetas"
+                         Subtitulo="As etiquetas são marcadas na aba &quot;Relacionamento e LGPD&quot; do cadastro de pessoas e servem de filtro na lista."
+                         TextoNovo="+  Nova etiqueta"
+                         DicaBusca="Pesquisar etiquetas"
+                         TituloVazio="Nenhuma etiqueta cadastrada" />
 
-        <!-- ===== Tabela ===== -->
-        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar etiqueta" />
-                <Button Grid.Column="1" Text="Nova" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
+        <c:FichaCadastro MostrarSalvarENovo="True" IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Etiquetas">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
-            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
+                <c:BlocoCampos>
+                    <c:Campo Rotulo="Nome da etiqueta" Texto="{Binding Formulario.Nome}" Dica="Ex.: Cliente VIP" />
+                    <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Formulario.Descricao}"
+                             Dica="Quando usar esta etiqueta" FlexLayout.Basis="100%" />
+                </c:BlocoCampos>
+                <Label Text="Maiúsculas e acentos não contam: &quot;VIP&quot;, &quot;vip&quot; e &quot;Víp&quot; são a mesma etiqueta."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
-            <Grid Grid.Row="2" ColumnDefinitions="*,80,44" Padding="12,0">
-                <Label Text="Etiqueta" Style="{StaticResource Rotulo}" />
-                <Label Grid.Column="1" Text="Cadastros" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-                <Label Grid.Column="2" Text="Ativa" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-            </Grid>
-
-            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhuma etiqueta. Clique em Nova." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="cad:LinhaEtiqueta">
-                        <Grid ColumnDefinitions="*,80,44" Padding="12,8">
-                            <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Cadastros}" Style="{StaticResource Secundario}"
-                                   HorizontalOptions="End" VerticalOptions="Center" />
-                            <Label Grid.Column="2" Text="{Binding Ativa}" Style="{StaticResource Secundario}"
-                                   HorizontalOptions="End" VerticalOptions="Center" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhuma etiqueta aberta" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="As etiquetas são marcadas na aba &quot;Relacionamento e LGPD&quot; do cadastro de pessoas e servem de filtro na lista."
-                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
-                                     HorizontalOptions="Fill">
-                    <Button Text="‹ Etiquetas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-
-                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
-                    <FlexLayout Wrap="Wrap">
-                        <c:Campo Rotulo="Nome da etiqueta" Texto="{Binding Formulario.Nome}" Dica="Ex.: Cliente VIP" />
-                        <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Formulario.Descricao}"
-                                 Dica="Quando usar esta etiqueta" FlexLayout.Basis="100%" />
-                    </FlexLayout>
-                    <Label Text="Maiúsculas e acentos não contam: &quot;VIP&quot;, &quot;vip&quot; e &quot;Víp&quot; são a mesma etiqueta."
-                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-
-                    <!-- Situação -->
-                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
-                        <Button Text="Desativar etiqueta" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
-                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
-                        <Button Text="Reativar etiqueta" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
-                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
-                    </HorizontalStackLayout>
-
-                    <!-- Mesclar -->
-                    <VerticalStackLayout Spacing="6" Margin="0,16,0,0" IsVisible="{Binding PodeMesclar}">
-                        <Label Text="Mesclar com outra etiqueta" Style="{StaticResource Subtitulo}" />
-                        <Label Text="Para juntar etiquetas repetidas (ex.: &quot;VIP&quot; e &quot;Cliente VIP&quot;): os cadastros desta passam para a escolhida e esta é desativada. A mudança fica no histórico de cada cadastro."
-                               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                        <FlexLayout Wrap="Wrap" AlignItems="End">
-                            <c:CampoEscolha Rotulo="Passar os cadastros para" Itens="{Binding DestinosMesclagem}"
-                                            Selecionado="{Binding DestinoMesclagem}" />
-                            <Button Text="Mesclar" Style="{StaticResource BotaoSecundario}" Command="{Binding MesclarCommand}"
-                                    IsEnabled="{Binding Livre}" Margin="0,0,0,4" />
-                        </FlexLayout>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </ScrollView>
-
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                    <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
-                    <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
+                <!-- Situação -->
+                <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                    <Button Text="Desativar etiqueta" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                            IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Reativar etiqueta" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                            IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
                 </HorizontalStackLayout>
-            </Border>
-        </Grid>
+
+                <!-- Mesclar -->
+                <VerticalStackLayout Spacing="6" Margin="0,16,0,0" IsVisible="{Binding PodeMesclar}">
+                    <Label Text="Mesclar com outra etiqueta" Style="{StaticResource Subtitulo}" />
+                    <Label Text="Para juntar etiquetas repetidas (ex.: &quot;VIP&quot; e &quot;Cliente VIP&quot;): os cadastros desta passam para a escolhida e esta é desativada. A mudança fica no histórico de cada cadastro."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <c:BlocoCampos AlignItems="End">
+                        <c:CampoEscolha Rotulo="Passar os cadastros para" Itens="{Binding DestinosMesclagem}"
+                                        Selecionado="{Binding DestinoMesclagem}" />
+                        <Button Text="Mesclar" Style="{StaticResource BotaoSecundario}" Command="{Binding MesclarCommand}"
+                                IsEnabled="{Binding Livre}" Margin="0,0,0,4" />
+                    </c:BlocoCampos>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

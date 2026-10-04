@@ -6,6 +6,7 @@ using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Etiquetas;
 using Lone.Domain.Comum;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -78,6 +79,12 @@ public sealed partial class EtiquetaEdicao : ObservableObject
 /// </summary>
 public sealed partial class EtiquetasViewModel : CadastroViewModelBase<LinhaEtiqueta>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaEtiqueta> CriarGradeDaLista() => new(
+        "Etiqueta", l => l.Id, l => l.Nome, l => null,
+        ColunaCadastro<LinhaEtiqueta>.Curto("cadastros", "Cadastros", l => l.Cadastros, 130),
+        ColunaCadastro<LinhaEtiqueta>.Situacao(l => l.Ativa == "Sim", feminino: true));
+
     private readonly EtiquetasApi _api;
 
     public EtiquetasViewModel(EtiquetasApi api, IDialogos dialogos) : base(dialogos)

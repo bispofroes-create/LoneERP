@@ -114,6 +114,7 @@ public static class ColunasPessoasSql
             .Select(cadastro => cadastro.Nome)
             .FirstOrDefault()),
         [CamposFiltroPessoas.Cidade] = SoOrdena<string?>(CidadeReferencia),
+        [CamposFiltroPessoas.Uf] = SoOrdena<string?>(UfReferencia),
         [CamposFiltroPessoas.Situacao] = SoOrdenaOpcao<SituacaoPessoa>(CamposFiltroPessoas.Situacao, p => p.Situacao),
 
         // ---- Identificação ----
@@ -224,6 +225,15 @@ public static class ColunasPessoasSql
         .ThenBy(e => e.Ordem)
         .ThenBy(e => e.Id)
         .Select(e => e.Cidade).FirstOrDefault();
+
+    private static Expression<Func<Pessoa, string?>> UfReferencia(Contexto x) => p => p.Enderecos.Where(e => e.Ativo)
+        .OrderBy(e => p.FinalidadesEnderecos
+            .Where(u => u.PessoaEnderecoId == e.Id && u.Principal && u.Ativo)
+            .Join(x.Db.FinalidadesEndereco.Where(f => f.Ativo), u => u.FinalidadeId, f => f.Id, (u, f) => (int?)f.Ordem)
+            .Min() ?? int.MaxValue)
+        .ThenBy(e => e.Ordem)
+        .ThenBy(e => e.Id)
+        .Select(e => e.Uf).FirstOrDefault();
 
     private static Expression<Func<Pessoa, string?>> BairroReferencia(Contexto x) => p => p.Enderecos.Where(e => e.Ativo)
         .OrderBy(e => p.FinalidadesEnderecos

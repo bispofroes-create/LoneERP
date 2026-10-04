@@ -42,7 +42,7 @@
         <Border Style="{StaticResource CartaoItem}" Margin="0,8,0,0">
             <VerticalStackLayout Spacing="4">
                 <Label Text="Conceder consentimento" Style="{StaticResource Rotulo}" />
-                <FlexLayout Wrap="Wrap" AlignItems="End">
+                <c:BlocoCampos AlignItems="End">
                     <c:CampoEscolha Rotulo="Finalidade" Itens="{Binding Formulario.Privacidade.OpcoesFinalidade}"
                                     Selecionado="{Binding Formulario.Privacidade.NovaFinalidade}" />
                     <c:CampoEscolha Rotulo="Canal" Itens="{Binding Formulario.Privacidade.ListaCanais}"
@@ -53,7 +53,7 @@
                     <c:Campo Rotulo="Origem (opcional)" Texto="{Binding Formulario.Privacidade.NovaOrigem}" Dica="Ex.: Balcão, Site" />
                     <Button Text="Conceder" Style="{StaticResource BotaoSecundario}" Command="{Binding Formulario.Privacidade.ConcederCommand}"
                             IsEnabled="{Binding Livre}" Margin="0,0,0,8" />
-                </FlexLayout>
+                </c:BlocoCampos>
                 <Label Text="&quot;Qualquer canal&quot; vale para todos os meios compatíveis; um consentimento de um canal específico prevalece sobre o geral naquele canal."
                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
             </VerticalStackLayout>

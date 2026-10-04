@@ -8,6 +8,7 @@ using Lone.Contracts.Comum;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -78,6 +79,12 @@ public sealed partial class TipoAusenciaEdicao : ObservableObject
 /// <summary>Tipos de ausência (férias, folga, licença...). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class TiposAusenciaViewModel : CadastroViewModelBase<LinhaTipoAusencia>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTipoAusencia> CriarGradeDaLista() => new(
+        "Tipo de ausência", l => l.Id, l => l.Nome, l => null,
+        ColunaCadastro<LinhaTipoAusencia>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaTipoAusencia>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly ComercialApi _api;
 
     public TiposAusenciaViewModel(ComercialApi api, IDialogos dialogos) : base(dialogos)

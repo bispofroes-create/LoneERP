@@ -7,6 +7,7 @@ using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Documentos;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -17,6 +18,13 @@ namespace Lone.Cliente.ViewModels.Cadastros;
 /// </summary>
 public sealed partial class CamposPersonalizadosViewModel : CadastroViewModelBase<LinhaCampoPersonalizado>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaCampoPersonalizado> CriarGradeDaLista() => new(
+        "Campo personalizado", l => l.Id, l => l.Nome, l => l.TipoDocumento,
+        ColunaCadastro<LinhaCampoPersonalizado>.Curto("tipo", "Tipo", l => l.Tipo, 150),
+        ColunaCadastro<LinhaCampoPersonalizado>.Curto("obrigatorio", "Obrigatório", l => l.Obrigatorio, 130),
+        ColunaCadastro<LinhaCampoPersonalizado>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly CamposPersonalizadosApi _api;
     private readonly TiposDocumentoApi _tiposDocumentoApi;
     private List<TipoDocumentoDto> _tiposDocumento = [];

@@ -1,46 +1,94 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Carteira vencendo (Motor Comercial, Fase 1c): vínculos que terminam dentro do aviso configurado (ou do prazo informado). -->
+<!-- Carteira vencendo (Motor Comercial, Fase 1c; refeita em 03/10/2026 no padrão de consulta do Lone; docs/UX-ARQUITETURA.md):
+     cabeçalho; filtros (período, papel, quem atende, empresa, cliente) com Limpar e Filtrar no fim; barra da lista com o
+     contador, os atalhos por faixa e Exportar ▾; lista em colunas ordenável; lista vazia com o próximo passo. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:com="clr-namespace:Lone.Cliente.ViewModels.Comercial;assembly=Lone.Cliente"
+             xmlns:gr="clr-namespace:Lone.Cliente.Grade;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:grade="clr-namespace:Lone.App.Controles.Grade"
              x:Class="Lone.App.Views.CarteiraVencendoPage"
              x:DataType="com:CarteiraVencendoViewModel"
              Title="Carteira vencendo">
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="{OnIdiom Phone='16,16', Default='32,24'}" RowSpacing="10">
-        <VerticalStackLayout>
-            <Label Text="Carteira vencendo" Style="{StaticResource Titulo}" />
-            <Label Text="Vínculos da carteira de clientes que terminam em breve: renove (mude ou limpe o fim na ficha do cliente), troque ou deixe encerrar."
-                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="{OnIdiom Phone='16,16', Default='32,24'}" RowSpacing="16">
+        <VerticalStackLayout Spacing="4">
+            <Label Text="Carteira vencendo" Style="{StaticResource TituloPagina}" />
+            <Label Text="Vínculos de carteira perto do fim: renove, troque ou deixe encerrar (na ficha do cliente)."
+                   Style="{StaticResource SubtituloPagina}" LineBreakMode="WordWrap" />
         </VerticalStackLayout>
-        <HorizontalStackLayout Grid.Row="1" Spacing="12">
-            <c:Campo Rotulo="Nos próximos (dias)" Texto="{Binding Dias}" Mascara="Numero" Dica="vazio = aviso configurado" WidthRequest="220" />
-            <Button Text="Atualizar" Command="{Binding CarregarCommand}" IsEnabled="{Binding Livre}" VerticalOptions="End" />
-            <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-        </HorizontalStackLayout>
-        <VerticalStackLayout Grid.Row="2" Spacing="4">
-            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            <Label Text="{Binding Resumo}" Style="{StaticResource Secundario}" />
-        </VerticalStackLayout>
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="None">
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="com:LinhaVencendo">
-                    <Grid ColumnDefinitions="*,Auto" Padding="12,8">
-                        <VerticalStackLayout VerticalOptions="Center">
-                            <Label Text="{Binding Cliente}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding Quem}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                        </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" HorizontalOptions="End">
-                            <Label Text="{Binding Fim}" HorizontalOptions="End" />
-                            <Label Text="{Binding Faltam}" TextColor="{StaticResource Aviso}" FontAttributes="Bold" HorizontalOptions="End" />
-                            <Button Text="Abrir ficha" Style="{StaticResource BotaoLink}" HorizontalOptions="End"
-                                    IsVisible="{Binding PodeAbrirFicha, Source={RelativeSource AncestorType={x:Type com:CarteiraVencendoViewModel}}, x:DataType=com:CarteiraVencendoViewModel}"
-                                    Command="{Binding AbrirClienteCommand, Source={RelativeSource AncestorType={x:Type com:CarteiraVencendoViewModel}}, x:DataType=com:CarteiraVencendoViewModel}"
-                                    CommandParameter="{Binding .}" />
-                        </VerticalStackLayout>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+
+        <!-- Filtros: a linha fica cheia (largura mínima + peso); Limpar (só com filtro) e Filtrar no fim, alinhados às caixas. -->
+        <c:BlocoCampos Grid.Row="1" AlignItems="End">
+            <c:CampoEscolha Rotulo="Período" Itens="{Binding Periodos}" Selecionado="{Binding Periodo}"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='210'}" />
+            <c:CampoNumero Rotulo="Dias" Texto="{Binding DiasPersonalizados}" Minimo="1" Maximo="365" Passo="5" ValorInicial="120"
+                           IsVisible="{Binding Personalizado}" FlexLayout.Basis="{OnIdiom Phone='100%', Default='130'}" />
+            <c:CampoEscolha Rotulo="Papel" Itens="{Binding Papeis}" Selecionado="{Binding Papel}"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='170'}" c:BlocoCampos.Peso="1" />
+            <c:CampoEscolha Rotulo="Quem atende" Itens="{Binding Pessoas}" Selecionado="{Binding Pessoa}"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='190'}" c:BlocoCampos.Peso="1.3" />
+            <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" IsVisible="{Binding MostrarEmpresa}"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='170'}" c:BlocoCampos.Peso="1" />
+            <c:Campo Rotulo="Cliente" Texto="{Binding BuscaCliente}" Dica="nome contém..."
+                     FlexLayout.Basis="{OnIdiom Phone='100%', Default='190'}" c:BlocoCampos.Peso="1.3" />
+            <HorizontalStackLayout Spacing="8" Padding="0,0,0,8">
+                <Button Text="Limpar" Style="{StaticResource BotaoSecundario}" Command="{Binding LimparFiltroCommand}" IsVisible="{Binding Filtrado}"
+                        ToolTipProperties.Text="Volta papel, quem atende, empresa, cliente e atalho para Todos" />
+                <Button Text="Filtrar" Command="{Binding FiltrarCommand}" IsEnabled="{Binding Livre}" />
+            </HorizontalStackLayout>
+        </c:BlocoCampos>
+
+        <c:BarraMensagem Grid.Row="2" Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+        <!-- Barra da lista: título com o contador e atalhos por faixa à esquerda; Exportar ▾ à direita. Sem resultado, só o
+             título (atalhos com 0 e Exportar somem); atalho que repete o período também some (03/10/2026). -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+            <Label Text="{Binding TituloLista}" Style="{StaticResource SecaoTitulo}" VerticalOptions="Center" />
+            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center" BindableLayout.ItemsSource="{Binding Atalhos}"
+                                   IsVisible="{Binding MostrarAtalhos}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="com:AtalhoFaixa">
+                        <c:AtalhoContagem Texto="{Binding Texto}" Quantidade="{Binding Quantidade}" Selecionado="{Binding Selecionado}" IsVisible="{Binding Visivel}"
+                                          Comando="{Binding SelecionarFaixaCommand, Source={RelativeSource AncestorType={x:Type com:CarteiraVencendoViewModel}}, x:DataType=com:CarteiraVencendoViewModel}"
+                                          Parametro="{Binding .}" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+            <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                <c:BotaoMenu Texto="Exportar ▾" IsVisible="{Binding MostrarExportar}" Dica="Imprimir, salvar em PDF ou abrir no Excel (com o filtro em uso)"
+                             Texto1="Imprimir / PDF" Comando1="{Binding ImprimirCommand}"
+                             Texto2="Excel (CSV)" Comando2="{Binding ExportarCsvCommand}" />
+            </HorizontalStackLayout>
+        </Grid>
+
+        <Border Grid.Row="4" Style="{StaticResource PainelConteudo}" Padding="0">
+            <Grid>
+                <grade:GradeLista Conteudo="{Binding ConteudoLista}"
+                                  ColunaFixa="{Binding GradeDaLista.ColunaFixa}"
+                                  AlturaLinha="{Binding GradeDaLista.AlturaLinha}"
+                                  ComandoTocar="{Binding AbrirLinhaCommand}"
+                                  ComandoPonteiroEntrou="{Binding GradeDaLista.EntrarNaLinhaCommand}"
+                                  ComandoPonteiroSaiu="{Binding GradeDaLista.SairDaLinhaCommand}"
+                                  ComandoOrdenar="{Binding OrdenarColunaCommand}"
+                                  ColunaOrdenada="{Binding ColunaOrdenadaChave}"
+                                  OrdemDecrescente="{Binding OrdemDecrescente}">
+                    <grade:GradeLista.MoldeParteFixa>
+                        <DataTemplate x:DataType="gr:LinhaCadastro">
+                            <Label Text="{Binding Titulo}" Style="{StaticResource TextoTabela}" FontAttributes="Bold" VerticalOptions="Center"
+                                   Padding="16,0,8,0" LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding Titulo}" />
+                        </DataTemplate>
+                    </grade:GradeLista.MoldeParteFixa>
+                </grade:GradeLista>
+                <VerticalStackLayout IsVisible="{Binding ListaVazia}" Spacing="8" Padding="32,48" Margin="0,40,0,0"
+                                     HorizontalOptions="Center" VerticalOptions="Start">
+                    <Label Text="{Binding TituloVazio}" Style="{StaticResource SecaoTitulo}" HorizontalOptions="Center" />
+                    <Label Text="{Binding TextoVazio}" Style="{StaticResource SubtituloPagina}" HorizontalTextAlignment="Center" HorizontalOptions="Center" />
+                    <Button Text="{Binding TextoAcaoVazio}" Style="{StaticResource BotaoSecundario}" Command="{Binding AcaoVazioCommand}"
+                            IsVisible="{Binding MostrarAcaoVazio}" HorizontalOptions="Center" Margin="0,8,0,0" />
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
     </Grid>
 </ContentPage>

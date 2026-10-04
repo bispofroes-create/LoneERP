@@ -3,6 +3,7 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
+using Lone.Cliente.Grade;
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.Plataforma;
 using Lone.Contracts.Comum;
@@ -48,7 +49,8 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         PropertyChanged += (_, e) =>
         {
             // Propriedades da própria tela também podem ser parte da ficha (ex.: operações territoriais).
-            if (e.PropertyName is nameof(PodeSalvarAgora) or nameof(PodeDescartar) or nameof(EstadoFicha) or nameof(TemAlteracoes)) return;
+            if (e.PropertyName is nameof(PodeSalvarAgora) or nameof(PodeDescartar) or nameof(EstadoFicha) or nameof(MostrarEstadoFicha) or nameof(TemAlteracoes)
+                or nameof(ConteudoLista)) return;
             if (e.PropertyName is nameof(Ocupado) or nameof(Livre)) OnPropertyChanged(nameof(PodeSalvarAgora));
             AvaliarAlteracoes();
         };
@@ -81,6 +83,12 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     public bool MostrarVazio => !ModoCompacto && !Editando;
 
     public bool ListaVazia => Itens.Count == 0;
+
+    /// <summary>
+    /// Pode criar registro nesta tela (padrão do botão Novo, 03/10/2026): sem permissão, o "+ Novo" e o Ctrl+N somem
+    /// (a API continua conferindo). Padrão: sim — nas telas cujo acesso já é a permissão de manter o cadastro.
+    /// </summary>
+    public virtual bool PodeCriar => true;
 
     /// <summary>
     /// Falso (padrão): a lista vem inteira e a busca filtra no aparelho. Verdadeiro: cada busca vai ao servidor
@@ -144,6 +152,13 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         : FichaNova ? "Novo cadastro, ainda não salvo"
         : "Sem alterações";
 
+    /// <summary>
+    /// O estado merece aparecer: só com algo a avisar (alterações não salvas ou cadastro novo). Sem alterações a barra não
+    /// diz nada (padrão da barra da ficha, 03/10/2026, docs/UX-ARQUITETURA.md). Telas que ainda mostram sempre o
+    /// <see cref="EstadoFicha"/> continuam iguais.
+    /// </summary>
+    public bool MostrarEstadoFicha => Editando && (_alterada || FichaNova);
+
     /// <summary>Compara a ficha com a versão gravada e avisa a tela se o resultado mudou.</summary>
     private void AvaliarAlteracoes()
     {
@@ -158,6 +173,7 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
             OnPropertyChanged(nameof(PodeSalvarAgora));
             OnPropertyChanged(nameof(PodeDescartar));
             OnPropertyChanged(nameof(EstadoFicha));
+            OnPropertyChanged(nameof(MostrarEstadoFicha));
             DescartarCommand.NotifyCanExecuteChanged();
         }
         finally
@@ -368,6 +384,7 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
 
     partial void OnSelecionadoChanged(TItem? value)
     {
+        MarcarLinhaAberta(value);
         if (value is null || _ajustandoSelecao || (Editando && ReferenceEquals(value, _itemAberto))) return;
         _ = AbrirItemAsync(value);
     }
@@ -570,7 +587,55 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
                                               || TextoDeBusca(i).Contains(termo, StringComparison.CurrentCultureIgnoreCase)))
             Itens.Add(item);
         OnPropertyChanged(nameof(ListaVazia));
+        if (GradeDaLista is { } grade) ConteudoLista = grade.Montar(Itens, Selecionado); // uma troca só, depois de filtrar
         DepoisDeListar();
+    }
+
+    // ---- Lista em colunas (padrão de tela de cadastro, 03/10/2026) ----
+
+    private GradeCadastro<TItem>? _gradeDaLista;
+    private bool _gradeCriada;
+
+    /// <summary>
+    /// Colunas da lista desta tela (padrão de tela de cadastro: título, lista larga em colunas, ficha em página própria).
+    /// Nulo = a tela ainda usa o layout antigo (lista estreita ao lado da ficha).
+    /// </summary>
+    protected virtual GradeCadastro<TItem>? CriarGradeDaLista() => null;
+
+    public GradeCadastro<TItem>? GradeDaLista
+    {
+        get
+        {
+            if (!_gradeCriada)
+            {
+                _gradeCriada = true;
+                _gradeDaLista = CriarGradeDaLista();
+                // Clicou no título de uma coluna: a lista se remonta na nova ordem (a ficha aberta continua marcada).
+                if (_gradeDaLista is { } grade) grade.OrdemMudou += () => ConteudoLista = grade.Montar(Itens, Selecionado);
+            }
+            return _gradeDaLista;
+        }
+    }
+
+    /// <summary>O que a lista em colunas mostra (colunas e linhas juntas).</summary>
+    [ObservableProperty] private ConteudoGrade _conteudoLista = ConteudoGrade.Vazio;
+
+    /// <summary>Tocar numa linha abre a ficha do registro.</summary>
+    [RelayCommand]
+    private void AbrirRegistroDaLinha(ILinhaGrade? linha)
+    {
+        if (linha is LinhaCadastro { Item: TItem item })
+        {
+            if (ReferenceEquals(Selecionado, item) && !Editando) DefinirSelecao(null); // reabrir o mesmo depois de fechar
+            Selecionado = item;
+        }
+    }
+
+    /// <summary>Marca na lista o registro aberto.</summary>
+    private void MarcarLinhaAberta(TItem? aberto)
+    {
+        foreach (var linha in ConteudoLista.Linhas.OfType<LinhaCadastro>())
+            linha.Selecionada = ReferenceEquals(linha.Item, aberto);
     }
 
     /// <summary>Depois que as linhas visíveis mudaram (ex.: resumo da paginação). Por padrão, nada.</summary>

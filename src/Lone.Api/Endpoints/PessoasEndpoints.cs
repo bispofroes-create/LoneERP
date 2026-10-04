@@ -135,9 +135,19 @@ public static class PessoasEndpoints
             (Guid id, Lone.Contracts.Enderecos.ConsolidarEnderecosRequisicao requisicao, IPessoaAppService servico, CancellationToken ct) =>
                 servico.ConsolidarEnderecosAsync(id, requisicao, ct));
 
+        // Histórico com filtro (03/10/2026): entidade (pode repetir), de/ate (instantes UTC, fim exclusivo) e usuario.
         grupo.MapGet("{id:guid}/historico",
-            (Guid id, long? antes, int? limite, IPessoaAppService servico, CancellationToken ct) =>
-                servico.ListarHistoricoAsync(id, antes, limite, ct));
+            (Guid id, long? antes, int? limite, string[]? entidade, DateTimeOffset? de, DateTimeOffset? ate, string? usuario,
+                    IPessoaAppService servico, CancellationToken ct) =>
+                servico.ListarHistoricoAsync(id, antes, limite, ct, new Lone.Contracts.Auditoria.FiltroHistorico
+                {
+                    Entidades = entidade?.Where(e => !string.IsNullOrWhiteSpace(e)).ToList() ?? new(),
+                    DeUtc = de?.UtcDateTime,
+                    AteUtc = ate?.UtcDateTime,
+                    Usuario = usuario
+                }));
+        grupo.MapGet("{id:guid}/historico/opcoes",
+            (Guid id, IPessoaAppService servico, CancellationToken ct) => servico.OpcoesHistoricoAsync(id, ct));
 
         // Anexos de documentos (D7): cada envio é gravado na hora, à parte da ficha. Conteúdo em base64 no JSON
         // (limite por arquivo em "Anexos:TamanhoMaximoMb", padrão 10 MB; o Kestrel aceita até 30 MB por requisição).

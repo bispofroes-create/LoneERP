@@ -61,7 +61,7 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     /// <summary>Início como lista, para a tela desenhar a linha com o mesmo modelo dos itens dos módulos.</summary>
     public IReadOnlyList<ItemMenu> ItensDoTopo => [Inicio];
 
-    /// <summary>Módulos e entradas soltas (Configurações do sistema) visíveis para as permissões atuais.</summary>
+    /// <summary>Módulos visíveis para as permissões atuais.</summary>
     public System.Collections.ObjectModel.ObservableCollection<SecaoMenu> Secoes { get; } = new();
 
     public GrupoAtalhosMenu Favoritos { get; } = new("Favoritos");
@@ -159,12 +159,8 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         AdicionarConfiguracoes(metas, ModulosConfiguracao.Metas, possui);
         if (metas.Count > 0) secoes.Add(new SecaoMenu(nomeMetas, metas));
 
-        if (ConfiguracoesViewModel.AlgumaPermitida(possui, ModulosConfiguracao.Sistema))
-            secoes.Add(new SecaoMenu(null,
-            [
-                new ItemMenu(ModulosConfiguracao.Titulo(ModulosConfiguracao.Sistema), ModulosConfiguracao.Rota(ModulosConfiguracao.Sistema),
-                    configuracao: true, rotasRelacionadas: ConfiguracoesViewModel.RotasDoModulo(ModulosConfiguracao.Sistema))
-            ]));
+        // "Configurações do sistema" saiu do menu lateral (03/10/2026): Minha conta e Administração (usuários e perfis)
+        // ficam no menu do usuário, no canto superior direito, como nos ERPs de referência.
         return secoes;
     }
 
@@ -200,7 +196,8 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         foreach (var modulo in ModulosConfiguracao.Todos)
         {
             // A página de configurações do módulo (quando não está nas seções, como a de Pessoas: fica na tela do módulo).
-            if (ConfiguracoesViewModel.AlgumaPermitida(possui, modulo))
+            // O Sistema não tem mais página: os itens dele (Trocar senha, Usuários, Perfis) ficam no menu do usuário.
+            if (modulo != ModulosConfiguracao.Sistema && ConfiguracoesViewModel.AlgumaPermitida(possui, modulo))
                 itens.Add(new ItemMenu("Configurações", ModulosConfiguracao.Rota(modulo), configuracao: true,
                     descricao: ModulosConfiguracao.Titulo(modulo), caminho: ModulosConfiguracao.Nome(modulo)));
             foreach (var cadastro in ConfiguracoesViewModel.Montar(possui, modulo).SelectMany(g => g.Itens))
@@ -463,7 +460,6 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeVerConfiguracoesComercial => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Comercial);
     public bool PodeVerConfiguracoesOrganizacao => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Organizacao);
     public bool PodeVerConfiguracoesMetas => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Metas);
-    public bool PodeVerConfiguracoesSistema => ConfiguracoesViewModel.AlgumaPermitida(_sessao.Possui, ModulosConfiguracao.Sistema);
 
     /// <summary>Iniciais do usuário para o rodapé do menu (ex.: "Maria Souza" → "MS").</summary>
     public string Iniciais
@@ -483,24 +479,64 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private Task TrocarEmpresaAsync() => _navegacao.IrParaAsync(Tela.EscolherEmpresa);
 
+    public const string OpcaoTrocarSenha = "Trocar senha";
+    public const string OpcaoPerfis = "Perfis de acesso";
+    public const string OpcaoUsuarios = "Usuários";
     public const string OpcaoTrocarUsuario = "Trocar de usuário";
     public const string OpcaoSair = "Sair do Lone";
 
+    /// <summary>Menu do usuário: a seção "Administração" (usuários e perfis) só aparece para quem tem alguma das permissões.</summary>
+    public bool MostrarAdministracao => PodeGerenciarUsuarios || PodeGerenciarPerfis;
+
     /// <summary>
-    /// Toque no usuário (barra de título no Windows; rodapé do menu no celular). "Trocar de usuário" encerra a sessão e
-    /// volta ao login; "Sair do Lone" encerra a sessão e fecha o aplicativo. A troca de senha fica em Configurações do sistema.
+    /// Menu do usuário (03/10/2026). No Windows a barra de título abre um popover com Minha conta (Trocar senha),
+    /// Administração (Perfis de acesso, Usuários — com permissão) e Trocar de usuário / Sair do Lone, e chama os comandos
+    /// abaixo. Sem popover (celular), este comando mostra as mesmas opções numa lista.
     /// </summary>
     [RelayCommand]
     private async Task OpcoesDoUsuarioAsync()
     {
-        var escolha = await _dialogos.EscolherAsync($"{NomeUsuario} ({Login})", "Cancelar", [OpcaoTrocarUsuario, OpcaoSair]);
-        if (escolha is null) return;
+        var opcoes = new List<string> { OpcaoTrocarSenha };
+        if (PodeGerenciarPerfis) opcoes.Add(OpcaoPerfis);
+        if (PodeGerenciarUsuarios) opcoes.Add(OpcaoUsuarios);
+        opcoes.Add(OpcaoTrocarUsuario);
+        opcoes.Add(OpcaoSair);
 
+        var escolha = await _dialogos.EscolherAsync($"{NomeUsuario} ({Login})", "Cancelar", opcoes.ToArray());
+        switch (escolha)
+        {
+            case null: return;
+            case OpcaoTrocarSenha: await TrocarSenhaAsync(); break;
+            case OpcaoPerfis: await AbrirPerfisAsync(); break;
+            case OpcaoUsuarios: await AbrirUsuariosAsync(); break;
+            case OpcaoSair: await SairDoLoneAsync(); break;
+            default: await TrocarDeUsuarioAsync(); break;
+        }
+    }
+
+    [RelayCommand]
+    private Task TrocarSenhaAsync() => AbrirTrocaDeSenhaUmaVezAsync();
+
+    [RelayCommand]
+    private Task AbrirPerfisAsync() => PodeGerenciarPerfis && Navegar is not null ? Navegar("perfis") : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task AbrirUsuariosAsync() => PodeGerenciarUsuarios && Navegar is not null ? Navegar("usuarios") : Task.CompletedTask;
+
+    /// <summary>Encerra a sessão e volta ao login.</summary>
+    [RelayCommand]
+    private async Task TrocarDeUsuarioAsync()
+    {
         await _autenticacao.SairAsync();
-        if (escolha == OpcaoSair)
-            await _navegacao.EncerrarAplicativoAsync();
-        else
-            await _navegacao.IrParaAsync(Tela.Login);
+        await _navegacao.IrParaAsync(Tela.Login);
+    }
+
+    /// <summary>Encerra a sessão e fecha o aplicativo.</summary>
+    [RelayCommand]
+    private async Task SairDoLoneAsync()
+    {
+        await _autenticacao.SairAsync();
+        await _navegacao.EncerrarAplicativoAsync();
     }
 }
 

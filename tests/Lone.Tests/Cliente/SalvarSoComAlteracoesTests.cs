@@ -91,6 +91,40 @@ public class SalvarSoComAlteracoesTests
     }
 
     [Fact]
+    public async Task Barra_da_ficha_so_avisa_e_so_oferece_o_motivo_com_alteracao()
+    {
+        var (tela, _) = await PessoaGravadaAsync();
+        var f = tela.Formulario!;
+
+        // Sem alteração: a barra não diz nada e não oferece motivo (Salvar e Descartar ficam, desligados).
+        Assert.False(tela.MostrarEstadoFicha);
+        Assert.False(tela.MostrarBotaoMotivo);
+        Assert.False(tela.MostrarMotivo);
+
+        f.Nome = "Carlos Souza";
+        Assert.True(tela.MostrarEstadoFicha);
+        Assert.True(tela.MostrarBotaoMotivo); // primeiro o botão
+        Assert.False(tela.MostrarMotivo);
+
+        tela.AbrirMotivoCommand.Execute(null);
+        Assert.False(tela.MostrarBotaoMotivo);
+        Assert.True(tela.MostrarMotivo);
+
+        f.MotivoAlteracao = "desisti";
+        tela.FecharMotivoCommand.Execute(null); // desistiu: fecha e apaga o motivo
+        Assert.False(tela.MotivoAberto);
+        Assert.Equal(string.Empty, f.MotivoAlteracao);
+        Assert.True(tela.MostrarBotaoMotivo); // a alteração do nome continua
+        tela.AbrirMotivoCommand.Execute(null);
+
+        f.Nome = "Carlos"; // desfez: nada a avisar, o motivo volta a ficar fechado
+        Assert.False(tela.MostrarEstadoFicha);
+        Assert.False(tela.MotivoAberto);
+        Assert.False(tela.MostrarMotivo);
+        Assert.False(tela.MostrarBotaoMotivo);
+    }
+
+    [Fact]
     public async Task Ficha_fechada_para_de_ser_acompanhada()
     {
         var (tela, _) = await PessoaGravadaAsync();

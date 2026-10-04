@@ -8,6 +8,7 @@ using Lone.Contracts.Comum;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -84,6 +85,12 @@ public sealed partial class CondicaoPagamentoEdicao : ObservableObject
 /// <summary>Condições de pagamento (cadastro comercial). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class CondicoesPagamentoViewModel : CadastroViewModelBase<LinhaCondicaoPagamento>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaCondicaoPagamento> CriarGradeDaLista() => new(
+        "Condição de pagamento", l => l.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaCondicaoPagamento>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaCondicaoPagamento>.Situacao(l => l.Ativo == "Sim", feminino: true));
+
     private readonly ComercialApi _api;
 
     public CondicoesPagamentoViewModel(ComercialApi api, IDialogos dialogos) : base(dialogos)

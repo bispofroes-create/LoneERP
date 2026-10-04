@@ -11,7 +11,7 @@
         <Grid ColumnDefinitions="*,Auto">
             <Label Text="Vínculos com as empresas do grupo. Mudou cargo, departamento, setor, centro de custo ou gestor? Use &quot;Nova lotação&quot;: o período atual é encerrado e fica no histórico."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
-            <Button Grid.Column="1" Text="Adicionar vínculo" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarVinculoCommand}" />
+            <Button Grid.Column="1" Text="+ Adicionar vínculo" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarVinculoCommand}" />
         </Grid>
         <ActivityIndicator IsRunning="True" IsVisible="{Binding Formulario.AguardandoOpcoesColaborador}"
                            HorizontalOptions="Start" />
@@ -29,7 +29,7 @@
                                 <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
                                         IsVisible="{Binding PodeRemover}" />
                             </Grid>
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" />
                                 <c:Campo Rotulo="Matrícula" Texto="{Binding Matricula}" />
                                 <c:CampoEscolha Rotulo="Tipo de vínculo" Itens="{Binding ListaTipos}" Selecionado="{Binding Tipo}" />
@@ -38,11 +38,11 @@
                                 <c:Campo Rotulo="Desligamento" Texto="{Binding DesligamentoEm}" Dica="vazio = vínculo ativo" Mascara="Data" />
                                 <c:Campo Rotulo="Motivo do desligamento" Texto="{Binding MotivoDesligamento}" IsVisible="{Binding Desligado}" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
 
                             <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
                                 <Label Text="Lotações" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-                                <Button Grid.Column="1" Text="Nova lotação" Style="{StaticResource BotaoSecundario}" Command="{Binding NovaLotacaoCommand}" />
+                                <Button Grid.Column="1" Text="+ Adicionar lotação" Style="{StaticResource BotaoSecundario}" Command="{Binding NovaLotacaoCommand}" />
                             </Grid>
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Lotacoes}" Spacing="6">
                                 <BindableLayout.ItemTemplate>
@@ -55,7 +55,7 @@
                                                             IsVisible="{Binding PodeRemover}" />
                                                 </Grid>
                                                 <Label Text="{Binding ResumoGravado}" Style="{StaticResource Secundario}" />
-                                                <FlexLayout Wrap="Wrap">
+                                                <c:BlocoCampos>
                                                     <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                                     <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
                                                     <c:CampoEscolha Rotulo="Cargo" Itens="{Binding Cargos}" Selecionado="{Binding Cargo}"
@@ -68,7 +68,7 @@
                                                                     IsEnabled="{Binding OpcoesCarregadas}" />
                                                     <c:CampoEscolha Rotulo="Gestor" Itens="{Binding Gestores}" Selecionado="{Binding Gestor}"
                                                                     IsEnabled="{Binding OpcoesCarregadas}" />
-                                                </FlexLayout>
+                                                </c:BlocoCampos>
                                             </VerticalStackLayout>
                                         </Border>
                                     </DataTemplate>

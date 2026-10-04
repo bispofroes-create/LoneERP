@@ -5,12 +5,20 @@ using Lone.Cliente.Plataforma;
 using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
+using Lone.Cliente.ViewModels.Comum;
 
 namespace Lone.Cliente.ViewModels.Seguranca;
 
 /// <summary>Tela de perfis de acesso: lista e ficha com as permissões agrupadas por módulo.</summary>
 public sealed partial class PerfisViewModel : CadastroViewModelBase<PerfilResumo>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<PerfilResumo> CriarGradeDaLista() => new(
+        "Perfil", p => p.Id, p => p.Nome, p => p.Administrador ? "Administrador (acesso a tudo)" : null,
+        ColunaCadastro<PerfilResumo>.Curto("usuarios", "Usuários", p => p.QuantidadeUsuarios.ToString("N0", TextoTela.Brasil), 120),
+        ColunaCadastro<PerfilResumo>.Situacao(p => p.Ativo));
+
     private readonly PerfisApi _api;
     private IReadOnlyList<DefinicaoPermissao> _catalogo = [];
 

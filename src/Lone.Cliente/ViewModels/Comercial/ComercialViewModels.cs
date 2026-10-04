@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
+using Lone.Cliente.Grade;
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.Plataforma;
 using Lone.Cliente.ViewModels.Cadastros;
@@ -11,6 +12,8 @@ using Lone.Contracts.Comercial;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Sessao;
+using Lone.Contracts.Seguranca;
 
 namespace Lone.Cliente.ViewModels.Comercial;
 
@@ -97,75 +100,484 @@ public sealed partial class ParametrosComerciaisViewModel : ViewModelBase
 }
 
 // ======================================================================= Carteira vencendo
-
-/// <summary>Linha de "Carteira vencendo".</summary>
+/// <summary>Linha da Carteira vencendo (03/10/2026: lista em colunas, filtros e exportação, como o histórico de Pessoas).</summary>
 public sealed class LinhaVencendo
 {
     public LinhaVencendo(VinculoVencendoDto v) => Item = v;
 
     public VinculoVencendoDto Item { get; }
     public string Cliente => Item.Cliente;
+    public string Papel => Item.Papel;
+    public string Pessoa => Item.Pessoa;
+    public string Empresa => Item.Empresa ?? "—";
     public string Quem => $"{Item.Papel}: {Item.Pessoa}" + (Item.Empresa is { } e ? $" · {e}" : string.Empty);
+    public string Inicio => TextoTela.Data(Item.InicioEm);
     public string Fim => TextoTela.Data(Item.FimEm);
-    public string Faltam => Item.DiasRestantes switch
+    public string Faltam => CarteiraVencendo.Faltam(Item.DiasRestantes);
+    public string TomFaltam => CarteiraVencendo.Tom(Item.DiasRestantes);
+}
+
+/// <summary>Atalho com contagem na barra da lista ("Hoje 1", "Até 7 dias 3"): tocar filtra pela faixa do prazo.</summary>
+public sealed partial class AtalhoFaixa : ObservableObject
+{
+    public AtalhoFaixa(FaixaVencimento faixa, string texto)
     {
-        0 => "termina hoje",
-        1 => "falta 1 dia",
-        var n => $"faltam {n} dias"
+        Faixa = faixa;
+        Texto = texto;
+    }
+
+    public FaixaVencimento Faixa { get; }
+    public string Texto { get; }
+    [ObservableProperty] private int _quantidade;
+    [ObservableProperty] private bool _selecionado;
+
+    /// <summary>Some quando repete o período ("Até 30 dias" com o período de 30 dias é o mesmo que "Todos").</summary>
+    [ObservableProperty] private bool _visivel = true;
+}
+
+/// <summary>Faixas do prazo restante (atalhos da Carteira vencendo).</summary>
+public enum FaixaVencimento { Todos, Hoje, AteSete, AteTrinta }
+
+/// <summary>Opção do campo Período ("Aviso padrão (30 dias)", "Próximos 60 dias", "Personalizado…").</summary>
+public sealed record PeriodoVencimento(int? Dias, string Texto, bool Personalizado = false)
+{
+    public override string ToString() => Texto;
+}
+
+/// <summary>Regras da Carteira vencendo, sem tela (testadas): período, faixas, filtro, ordem, resumo, cor e CSV.</summary>
+public static class CarteiraVencendo
+{
+    public static readonly Opcao<string?> Todos = new(null, "Todos");
+    public static readonly Opcao<string?> Todas = new(null, "Todas");
+
+    /// <summary>Prazos prontos do campo Período (o aviso configurado vem primeiro, com o número real).</summary>
+    public static readonly int[] PrazosProntos = [7, 15, 30, 60, 90, 180, 365];
+
+    /// <summary>Próximos prazos oferecidos pela lista vazia ("Ampliar para 90 dias").</summary>
+    private static readonly int[] Ampliacoes = [7, 15, 30, 60, 90, 180, 365];
+
+    public static PeriodoVencimento[] Periodos(int? diasDoAviso) =>
+    [
+        new(null, diasDoAviso is { } a ? $"Aviso padrão ({Quantos(a)})" : "Aviso padrão"),
+        .. PrazosProntos.Select(d => new PeriodoVencimento(d, $"Próximos {Quantos(d)}")),
+        new(null, "Personalizado…", Personalizado: true)
+    ];
+
+    /// <summary>"Termina hoje", "Falta 1 dia", "Faltam 12 dias".</summary>
+    public static string Faltam(int dias) => dias switch
+    {
+        <= 0 => "Termina hoje",
+        1 => "Falta 1 dia",
+        _ => $"Faltam {dias.ToString("N0", TextoTela.Brasil)} dias"
     };
+
+    /// <summary>Cor do prazo: até 7 dias vermelho (Erro), até 30 laranja (Aviso), depois cinza.</summary>
+    public static string Tom(int dias) => dias <= 7 ? "Erro" : dias <= 30 ? "Aviso" : "Neutro";
+
+    public static bool NaFaixa(VinculoVencendoDto v, FaixaVencimento faixa) => faixa switch
+    {
+        FaixaVencimento.Hoje => v.DiasRestantes <= 0,
+        FaixaVencimento.AteSete => v.DiasRestantes <= 7,
+        FaixaVencimento.AteTrinta => v.DiasRestantes <= 30,
+        _ => true
+    };
+
+    /// <summary>Opções de um filtro tiradas dos vencimentos encontrados (nunca uma opção que dá lista vazia).</summary>
+    public static Opcao<string?>[] Opcoes(IEnumerable<string?> valores, Opcao<string?> primeira) =>
+    [
+        primeira,
+        .. valores.Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v!).Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Order(StringComparer.CurrentCultureIgnoreCase).Select(v => new Opcao<string?>(v, v))
+    ];
+
+    /// <summary>Os vencimentos que passam no filtro, do fim mais próximo ao mais distante.</summary>
+    public static List<VinculoVencendoDto> Filtrar(IEnumerable<VinculoVencendoDto> todos, string? papel, string? pessoa,
+        string? empresa, string? cliente, FaixaVencimento faixa = FaixaVencimento.Todos)
+    {
+        var busca = (cliente ?? string.Empty).Trim();
+        var comparar = System.Globalization.CultureInfo.GetCultureInfo("pt-BR").CompareInfo;
+        const System.Globalization.CompareOptions semCaixaNemAcento =
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace;
+        return [.. todos
+            .Where(v => papel is null || string.Equals(v.Papel, papel, StringComparison.CurrentCultureIgnoreCase))
+            .Where(v => pessoa is null || string.Equals(v.Pessoa, pessoa, StringComparison.CurrentCultureIgnoreCase))
+            .Where(v => empresa is null || string.Equals(v.Empresa, empresa, StringComparison.CurrentCultureIgnoreCase))
+            .Where(v => busca.Length == 0 || comparar.IndexOf(v.Cliente, busca, semCaixaNemAcento) >= 0)
+            .Where(v => NaFaixa(v, faixa))
+            .OrderBy(v => v.FimEm).ThenBy(v => v.Cliente, StringComparer.CurrentCultureIgnoreCase)];
+    }
+
+    /// <summary>Ordem pela coluna clicada (chave da coluna); sem chave, a ordem padrão (fim mais próximo).</summary>
+    public static List<VinculoVencendoDto> Ordenar(IEnumerable<VinculoVencendoDto> itens, string? chave, bool decrescente)
+    {
+        Func<VinculoVencendoDto, object?> por = chave switch
+        {
+            "titulo" => v => v.Cliente,
+            "papel" => v => v.Papel,
+            "quem" => v => v.Pessoa,
+            "empresa" => v => v.Empresa ?? string.Empty,
+            "inicio" => v => v.InicioEm,
+            _ => v => v.FimEm // fim e faltam andam juntos
+        };
+        var comparador = Comparer<object?>.Create((a, b) => a is string sa && b is string sb
+            ? string.Compare(sa, sb, StringComparison.CurrentCultureIgnoreCase)
+            : Comparer<object?>.Default.Compare(a, b));
+        var ordem = decrescente ? itens.OrderByDescending(por, comparador) : itens.OrderBy(por, comparador);
+        return [.. ordem.ThenBy(v => v.Cliente, StringComparer.CurrentCultureIgnoreCase)];
+    }
+
+    /// <summary>Título da lista com o contador: "Vínculos vencendo (12)".</summary>
+    public static string TituloLista(int quantidade) => $"Vínculos vencendo ({quantidade.ToString("N0", TextoTela.Brasil)})";
+
+    /// <summary>"Período consultado: 03/10/2026 a 02/11/2026".</summary>
+    public static string TextoPeriodo(DateOnly de, DateOnly ate) => $"Período consultado: {TextoTela.Data(de)} a {TextoTela.Data(ate)}";
+
+    /// <summary>Próximo prazo maior que o consultado (nulo se já é o maior).</summary>
+    /// <summary>"Nenhum vínculo termina hoje" / "nos próximos 30 dias".</summary>
+    public static string TituloSemVinculos(int dias) => dias <= 0 ? "Nenhum vínculo termina hoje" : dias == 1 ? "Nenhum vínculo termina até amanhã" : $"Nenhum vínculo termina nos próximos {TextoDias(dias)}";
+
+    /// <summary>"1 dia", "30 dias", "365 dias".</summary>
+    public static string TextoDias(int dias) => dias == 1 ? "1 dia" : $"{dias} dias";
+
+    /// <summary>
+    /// O atalho por faixa acrescenta algo ao período? "Até 7 dias" com período de até 7 dias e "Até 30 dias" com período de
+    /// até 30 dias repetem "Todos" e não aparecem; "Todos" e "Hoje" sempre aparecem.
+    /// </summary>
+    public static bool FaixaUtil(FaixaVencimento faixa, int? dias) => faixa switch
+    {
+        FaixaVencimento.AteSete => dias is null or > 7,
+        FaixaVencimento.AteTrinta => dias is null or > 30,
+        _ => true
+    };
+
+    public static int? ProximoPrazo(int dias) => Ampliacoes.FirstOrDefault(d => d > dias) is var p and > 0 ? p : null;
+
+    /// <summary>"12 vínculos terminam nos próximos 90 dias · 3 nesta semana · 1 hoje" (impressão).</summary>
+    public static string Resumo(IReadOnlyCollection<VinculoVencendoDto> itens, int? dias)
+    {
+        var prazo = dias is { } d ? $"nos próximos {Quantos(d)}" : "no prazo do aviso configurado";
+        if (itens.Count == 0) return $"Nenhum vínculo termina {prazo}";
+        var total = itens.Count == 1 ? $"1 vínculo termina {prazo}" : $"{itens.Count.ToString("N0", TextoTela.Brasil)} vínculos terminam {prazo}";
+        var semana = itens.Count(v => v.DiasRestantes is > 0 and <= 7);
+        var hoje = itens.Count(v => v.DiasRestantes <= 0);
+        return string.Join(" · ", new[] { total, semana > 0 ? $"{semana} nesta semana" : null, hoje > 0 ? $"{hoje} hoje" : null }
+            .Where(x => x is not null));
+    }
+
+    /// <summary>CSV para o Excel (separador ";", como o Excel em português abre direto; texto entre aspas quando precisa).</summary>
+    public static string Csv(IEnumerable<LinhaVencendo> linhas)
+    {
+        static string C(string s) => s.IndexOfAny([';', '"', '\n', '\r']) >= 0 ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
+        var sb = new System.Text.StringBuilder("Cliente;Papel;Quem atende;Empresa;Início;Fim;Faltam (dias)\r\n");
+        foreach (var l in linhas)
+            sb.Append(C(l.Cliente)).Append(';').Append(C(l.Papel)).Append(';').Append(C(l.Pessoa)).Append(';')
+              .Append(C(l.Item.Empresa ?? string.Empty)).Append(';').Append(l.Inicio).Append(';').Append(l.Fim).Append(';')
+              .Append(Math.Max(0, l.Item.DiasRestantes).ToString(TextoTela.Brasil)).Append("\r\n");
+        return sb.ToString();
+    }
+
+    private static string Quantos(int n) => n == 1 ? "1 dia" : $"{n.ToString("N0", TextoTela.Brasil)} dias";
 }
 
 /// <summary>
-/// Vínculos da carteira que terminam dentro da antecedência de aviso (parâmetros do Comercial) ou do prazo escolhido:
-/// para renovar, trocar ou deixar encerrar a tempo.
+/// Carteira vencendo (Motor Comercial, Fase 1c; refeita em 03/10/2026 no padrão de consulta do Lone): período (aviso
+/// padrão, prazos prontos ou personalizado), filtros (papel, quem atende, empresa, cliente), barra da lista com o contador,
+/// atalhos por faixa ("Hoje", "Até 7 dias"...) e Exportar (imprimir/PDF e Excel), lista em colunas ordenável e lista vazia
+/// com o próximo passo. A API devolve os vencimentos do período (no alcance de quem consulta); o resto é aplicado aqui.
 /// </summary>
 public sealed partial class CarteiraVencendoViewModel : ViewModelBase
 {
     private readonly ComercialApi _api;
     private readonly AberturaDePessoa _abertura;
+    private readonly IArquivos _arquivos;
+    private CarteiraVencendoDto? _consulta;
+    private List<VinculoVencendoDto> _filtrados = [];
+    private bool _ajustandoPeriodo;
 
-    public CarteiraVencendoViewModel(ComercialApi api, AberturaDePessoa abertura)
+    public CarteiraVencendoViewModel(ComercialApi api, AberturaDePessoa abertura, IArquivos arquivos)
     {
         _api = api;
         _abertura = abertura;
+        _arquivos = arquivos;
+        _ajustandoPeriodo = true;
+        try { Periodo = Periodos[0]; } // aviso padrão (sem consultar ainda: a tela consulta ao aparecer)
+        finally { _ajustandoPeriodo = false; }
     }
 
-    /// <summary>Navegação para outra tela (a tela liga ao Shell): usada por "Abrir ficha".</summary>
+    /// <summary>Navegação para outra tela (a tela liga ao Shell): usada para abrir a ficha do cliente.</summary>
     public Func<string, Task>? AbrirTela { get; set; }
 
     public bool PodeAbrirFicha => _abertura.Permitida;
 
-    /// <summary>Abre a ficha do cliente (para renovar, trocar ou deixar encerrar o vínculo).</summary>
-    [RelayCommand]
-    private async Task AbrirClienteAsync(LinhaVencendo? linha)
+    /// <summary>Lista em colunas: Cliente · Papel · Quem atende · Empresa · Início · Fim · Faltam.</summary>
+    public GradeCadastro<LinhaVencendo> GradeDaLista { get; } = new(
+        "Cliente", l => l.Item.VinculoId, l => l.Cliente, l => null,
+        ColunaCadastro<LinhaVencendo>.Curto("papel", "Papel", l => l.Papel, 160),
+        ColunaCadastro<LinhaVencendo>.Texto("quem", "Quem atende", l => l.Pessoa),
+        ColunaCadastro<LinhaVencendo>.Texto("empresa", "Empresa", l => l.Empresa, 140),
+        ColunaCadastro<LinhaVencendo>.Curto("inicio", "Início", l => l.Inicio, 120),
+        ColunaCadastro<LinhaVencendo>.Curto("fim", "Fim", l => l.Fim, 120),
+        ColunaCadastro<LinhaVencendo>.Selo("faltam", "Faltam", l => l.Faltam, l => l.TomFaltam, 150));
+
+    [ObservableProperty] private ConteudoGrade _conteudoLista = ConteudoGrade.Vazio;
+
+    // ---- Período ----
+    [ObservableProperty] private PeriodoVencimento[] _periodos = CarteiraVencendo.Periodos(null);
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Personalizado))] private PeriodoVencimento? _periodo;
+
+    /// <summary>Dias do período personalizado (campo com ▲▼).</summary>
+    [ObservableProperty] private string _diasPersonalizados = "120";
+
+    public bool Personalizado => Periodo?.Personalizado == true;
+
+    // ---- Filtros ----
+    [ObservableProperty] private Opcao<string?>[] _papeis = [CarteiraVencendo.Todos];
+    [ObservableProperty] private Opcao<string?>? _papel = CarteiraVencendo.Todos;
+    [ObservableProperty] private Opcao<string?>[] _pessoas = [CarteiraVencendo.Todos];
+    [ObservableProperty] private Opcao<string?>? _pessoa = CarteiraVencendo.Todos;
+    [ObservableProperty] private Opcao<string?>[] _empresas = [CarteiraVencendo.Todas];
+    [ObservableProperty] private Opcao<string?>? _empresa = CarteiraVencendo.Todas;
+    [ObservableProperty] private string _buscaCliente = string.Empty;
+
+    /// <summary>Empresa só aparece com mais de uma nos vencimentos.</summary>
+    public bool MostrarEmpresa => Empresas.Length > 2;
+
+    /// <summary>Há filtro além do período e da faixa (mostra "Limpar").</summary>
+    public bool Filtrado => Papel?.Valor is not null || Pessoa?.Valor is not null || Empresa?.Valor is not null || BuscaCliente.Trim().Length > 0;
+
+    // ---- Barra da lista ----
+    public IReadOnlyList<AtalhoFaixa> Atalhos { get; } =
+    [
+        new(FaixaVencimento.Todos, "Todos") { Selecionado = true },
+        new(FaixaVencimento.Hoje, "Hoje"),
+        new(FaixaVencimento.AteSete, "Até 7 dias"),
+        new(FaixaVencimento.AteTrinta, "Até 30 dias")
+    ];
+
+    private FaixaVencimento _faixa = FaixaVencimento.Todos;
+
+    [ObservableProperty] private string _tituloLista = CarteiraVencendo.TituloLista(0);
+
+    // ---- Ordem (clicar no título da coluna) ----
+    [ObservableProperty] private string? _colunaOrdenadaChave;
+    [ObservableProperty] private bool _ordemDecrescente;
+
+    /// <summary>
+    /// Sem nada para mostrar, os atalhos por faixa (todos com 0) e o Exportar somem: fica só "Vínculos vencendo (0)"
+    /// (menos repetição, 03/10/2026). O período é escolhido num lugar só: o campo Período.
+    /// </summary>
+    [ObservableProperty] private bool _mostrarAtalhos;
+    [ObservableProperty] private bool _mostrarExportar;
+
+    // ---- Lista vazia ----
+    public bool ListaVazia => _filtrados.Count == 0;
+    [ObservableProperty] private string _tituloVazio = "Nenhum vínculo vencendo";
+    [ObservableProperty] private string _textoVazio = string.Empty;
+    [ObservableProperty] private string _textoAcaoVazio = string.Empty;
+    public bool MostrarAcaoVazio => TextoAcaoVazio.Length > 0;
+
+    partial void OnEmpresasChanged(Opcao<string?>[] value) => OnPropertyChanged(nameof(MostrarEmpresa));
+    partial void OnTextoAcaoVazioChanged(string value) => OnPropertyChanged(nameof(MostrarAcaoVazio));
+
+    /// <summary>Escolher um período pronto já consulta; "Personalizado…" espera os dias e o Filtrar.</summary>
+    partial void OnPeriodoChanged(PeriodoVencimento? value)
     {
-        if (linha is null || !PodeAbrirFicha || AbrirTela is null) return;
-        _abertura.Pedir(linha.Item.ClienteId);
-        await AbrirTela(AberturaDePessoa.RotaPessoas);
+        if (_ajustandoPeriodo || value is null || value.Personalizado) return;
+        CarregarCommand.Execute(null);
     }
 
-    public ObservableCollection<LinhaVencendo> Itens { get; } = new();
-    public bool Vazia => Itens.Count == 0;
-
-    /// <summary>Vazio = a antecedência dos parâmetros.</summary>
-    [ObservableProperty] private string _dias = string.Empty;
-    [ObservableProperty] private string _resumo = string.Empty;
-
+    /// <summary>Busca na API com o período escolhido e aplica filtros, faixa e ordem.</summary>
     [RelayCommand]
     private async Task CarregarAsync()
     {
-        if (!TextoTela.TentarInteiro(Dias, out var dias))
+        int? dias = Periodo?.Dias;
+        if (Personalizado)
         {
-            Mostrar("Dias: use um número inteiro (vazio = o aviso configurado).", TipoMensagem.Erro);
+            if (!TextoTela.TentarInteiro(DiasPersonalizados, out var d) || d is not > 0)
+            {
+                Mostrar("Período personalizado: informe os dias (1 a 365).", TipoMensagem.Erro);
+                return;
+            }
+            dias = d;
+        }
+        CarteiraVencendoDto? consulta = null;
+        if (!await ExecutarAsync(async () => consulta = await _api.CarteiraVencendoAsync(dias))) return;
+        _consulta = consulta!;
+        if (_consulta.DoAviso)
+        {
+            // O aviso padrão agora mostra o número real; mantém a escolha atual.
+            var atual = Periodo;
+            _ajustandoPeriodo = true;
+            try
+            {
+                Periodos = CarteiraVencendo.Periodos(_consulta.Dias);
+                Periodo = atual is { Dias: null, Personalizado: false } ? Periodos[0] : Periodos.FirstOrDefault(p => p == atual) ?? atual;
+            }
+            finally { _ajustandoPeriodo = false; }
+        }
+        var todos = _consulta.Vinculos;
+        Papeis = CarteiraVencendo.Opcoes(todos.Select(v => v.Papel), CarteiraVencendo.Todos);
+        Papel = Papeis.FirstOrDefault(o => o.Valor == Papel?.Valor) ?? CarteiraVencendo.Todos;
+        Pessoas = CarteiraVencendo.Opcoes(todos.Select(v => v.Pessoa), CarteiraVencendo.Todos);
+        Pessoa = Pessoas.FirstOrDefault(o => o.Valor == Pessoa?.Valor) ?? CarteiraVencendo.Todos;
+        Empresas = CarteiraVencendo.Opcoes(todos.Select(v => v.Empresa), CarteiraVencendo.Todas);
+        Empresa = Empresas.FirstOrDefault(o => o.Valor == Empresa?.Valor) ?? CarteiraVencendo.Todas;
+        Aplicar();
+    }
+
+    /// <summary>Filtrar: no personalizado, busca de novo; senão filtra o que já veio.</summary>
+    [RelayCommand]
+    private Task FiltrarAsync()
+    {
+        if (Personalizado || _consulta is null) return CarregarAsync();
+        Aplicar();
+        return Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        Papel = CarteiraVencendo.Todos;
+        Pessoa = CarteiraVencendo.Todos;
+        Empresa = CarteiraVencendo.Todas;
+        BuscaCliente = string.Empty;
+        SelecionarFaixa(Atalhos[0]);
+    }
+
+    /// <summary>Atalho da barra da lista: filtra pela faixa do prazo (tocar de novo volta para Todos).</summary>
+    [RelayCommand]
+    private void SelecionarFaixa(AtalhoFaixa? atalho)
+    {
+        if (atalho is null) return;
+        _faixa = atalho.Selecionado && atalho.Faixa != FaixaVencimento.Todos ? FaixaVencimento.Todos : atalho.Faixa;
+        foreach (var a in Atalhos) a.Selecionado = a.Faixa == _faixa;
+        Aplicar();
+    }
+
+    /// <summary>Clicar no título da coluna: ordena por ela; clicar de novo inverte.</summary>
+    [RelayCommand]
+    private void OrdenarColuna(ColunaGradeDef? coluna)
+    {
+        if (coluna is null) return;
+        if (ColunaOrdenadaChave == coluna.Chave) OrdemDecrescente = !OrdemDecrescente;
+        else
+        {
+            ColunaOrdenadaChave = coluna.Chave;
+            OrdemDecrescente = false;
+        }
+        Aplicar();
+    }
+
+    /// <summary>Ação da lista vazia: limpar o filtro, ou consultar o próximo prazo maior ("Ampliar para 90 dias").</summary>
+    [RelayCommand]
+    private void AcaoVazio()
+    {
+        if (_consulta is null) return;
+        if (Filtrado || _faixa != FaixaVencimento.Todos)
+        {
+            LimparFiltro();
             return;
         }
-        List<VinculoVencendoDto>? lista = null;
-        if (!await ExecutarAsync(async () => lista = await _api.CarteiraVencendoAsync(dias))) return;
-        Itens.Clear();
-        foreach (var v in lista!) Itens.Add(new LinhaVencendo(v));
-        Resumo = Itens.Count == 0 ? "Nenhum vínculo termina no prazo." : $"{Itens.Count} vínculo(s) terminam no prazo, do mais próximo ao mais distante.";
-        OnPropertyChanged(nameof(Vazia));
+        if (CarteiraVencendo.ProximoPrazo(_consulta.Dias) is not { } proximo) return;
+        var pronto = Periodos.FirstOrDefault(p => p.Dias == proximo);
+        if (pronto is not null) Periodo = pronto; // consulta sozinho
+        else
+        {
+            _ajustandoPeriodo = true;
+            try { Periodo = Periodos.First(p => p.Personalizado); }
+            finally { _ajustandoPeriodo = false; }
+            DiasPersonalizados = proximo.ToString();
+            CarregarCommand.Execute(null);
+        }
     }
+
+    /// <summary>Exportar › Imprimir / PDF: a lista (com o filtro em uso) no navegador.</summary>
+    [RelayCommand]
+    private async Task ImprimirAsync()
+    {
+        var html = CarteiraVencendoImpressao.Html(DescreverFiltro(), _filtrados.Select(v => new LinhaVencendo(v)).ToList(),
+            CarteiraVencendo.Resumo(_filtrados, _consulta?.Dias), DateTime.Now);
+        await ExecutarAsync(() => _arquivos.AbrirAsync($"carteira-vencendo-{DateTime.Now:yyyyMMdd-HHmm}.html", System.Text.Encoding.UTF8.GetBytes(html)));
+    }
+
+    /// <summary>Exportar › Excel (CSV): abre no Excel (ou no programa padrão de planilhas).</summary>
+    [RelayCommand]
+    private async Task ExportarCsvAsync()
+    {
+        var csv = CarteiraVencendo.Csv(_filtrados.Select(v => new LinhaVencendo(v)));
+        var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(csv)).ToArray(); // BOM: acentos certos no Excel
+        await ExecutarAsync(() => _arquivos.AbrirAsync($"carteira-vencendo-{DateTime.Now:yyyyMMdd-HHmm}.csv", bytes));
+    }
+
+    /// <summary>Tocar numa linha abre a ficha do cliente (para renovar, trocar ou deixar encerrar).</summary>
+    [RelayCommand]
+    private async Task AbrirLinhaAsync(ILinhaGrade? linha)
+    {
+        if (linha is not LinhaCadastro { Item: LinhaVencendo l } || !PodeAbrirFicha || AbrirTela is null) return;
+        _abertura.Pedir(l.Item.ClienteId);
+        await AbrirTela(AberturaDePessoa.RotaPessoas);
+    }
+
+    private void Aplicar()
+    {
+        var todos = _consulta?.Vinculos ?? [];
+        // Contagem dos atalhos: com os filtros, sem a faixa (cada atalho diz quantos teria).
+        var semFaixa = CarteiraVencendo.Filtrar(todos, Papel?.Valor, Pessoa?.Valor, Empresa?.Valor, BuscaCliente);
+        foreach (var a in Atalhos)
+        {
+            a.Quantidade = semFaixa.Count(v => CarteiraVencendo.NaFaixa(v, a.Faixa));
+            a.Visivel = CarteiraVencendo.FaixaUtil(a.Faixa, _consulta?.Dias);
+        }
+        if (!CarteiraVencendo.FaixaUtil(_faixa, _consulta?.Dias)) // a faixa marcada passou a repetir o período
+        {
+            _faixa = FaixaVencimento.Todos;
+            foreach (var a in Atalhos) a.Selecionado = a.Faixa == _faixa;
+        }
+        var filtrados = semFaixa.Where(v => CarteiraVencendo.NaFaixa(v, _faixa));
+        _filtrados = ColunaOrdenadaChave is null ? [.. filtrados] : CarteiraVencendo.Ordenar(filtrados, ColunaOrdenadaChave, OrdemDecrescente);
+        ConteudoLista = GradeDaLista.Montar(_filtrados.Select(v => new LinhaVencendo(v)), aberto: null);
+        TituloLista = CarteiraVencendo.TituloLista(_filtrados.Count);
+        MostrarAtalhos = semFaixa.Count > 0;
+        MostrarExportar = _filtrados.Count > 0;
+        AtualizarVazio(todos.Count);
+        OnPropertyChanged(nameof(ListaVazia));
+        OnPropertyChanged(nameof(Filtrado));
+    }
+
+    /// <summary>
+    /// Lista vazia em uma frase e uma ação (03/10/2026): com filtro, "Limpar filtro"; sem filtro, o período consultado e
+    /// "Ampliar para N dias" (o próximo prazo pronto). Outros períodos: o campo Período.
+    /// </summary>
+    private void AtualizarVazio(int total)
+    {
+        if (_consulta is not { } c)
+        {
+            TituloVazio = "Nenhum vínculo vencendo";
+            TextoVazio = string.Empty;
+            TextoAcaoVazio = string.Empty;
+            return;
+        }
+        if (total > 0 && (Filtrado || _faixa != FaixaVencimento.Todos))
+        {
+            TituloVazio = "Nenhum vínculo com este filtro";
+            TextoVazio = $"Há {total} vínculo(s) no período sem o filtro.";
+            TextoAcaoVazio = "Limpar filtro";
+            return;
+        }
+        TituloVazio = CarteiraVencendo.TituloSemVinculos(c.Dias);
+        TextoVazio = $"{TextoTela.Data(c.De)} a {TextoTela.Data(c.Ate)}";
+        TextoAcaoVazio = CarteiraVencendo.ProximoPrazo(c.Dias) is { } proximo ? $"Ampliar para {CarteiraVencendo.TextoDias(proximo)}" : string.Empty;
+    }
+
+    private string DescreverFiltro() => string.Join(" · ", new[]
+    {
+        _faixa switch { FaixaVencimento.Hoje => "Terminam hoje", FaixaVencimento.AteSete => "Até 7 dias", FaixaVencimento.AteTrinta => "Até 30 dias", _ => null },
+        Papel?.Valor is { } p ? $"Papel: {p}" : null,
+        Pessoa?.Valor is { } q ? $"Quem atende: {q}" : null,
+        Empresa?.Valor is { } e ? $"Empresa: {e}" : null,
+        BuscaCliente.Trim().Length > 0 ? $"Cliente contém \"{BuscaCliente.Trim()}\"" : null,
+        _consulta is { } c ? CarteiraVencendo.TextoPeriodo(c.De, c.Ate) : null
+    }.Where(x => x is not null));
 }
 
 // ======================================================================= Coberturas
@@ -355,7 +767,16 @@ public sealed partial class CoberturasViewModel : CadastroViewModelBase<LinhaCob
     private readonly ComercialApi _api;
     private CoberturaOpcoesDto _opcoes = new();
 
-    public CoberturasViewModel(ComercialApi api, IDialogos dialogos) : base(dialogos) => _api = api;
+    private readonly SessaoCliente _sessao;
+
+    public CoberturasViewModel(ComercialApi api, SessaoCliente sessao, IDialogos dialogos) : base(dialogos)
+    {
+        _api = api;
+        _sessao = sessao;
+    }
+
+    /// <summary>Quem só vê o Comercial não cria cobertura (Comercial.Coberturas).</summary>
+    public override bool PodeCriar => _sessao.Possui(Permissoes.Comercial.Coberturas);
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
 
@@ -367,6 +788,19 @@ public sealed partial class CoberturasViewModel : CadastroViewModelBase<LinhaCob
     partial void OnIncluirEncerradasChanged(bool value) => _ = RecarregarAsync();
 
     protected override string TextoDeBusca(LinhaCobertura item) => item.Titular + " " + item.Detalhe;
+
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026; tela-piloto).</summary>
+    protected override GradeCadastro<LinhaCobertura> CriarGradeDaLista() => new(
+        "Quem se ausenta", l => l.Id, l => l.Titular, l => l.Item.TipoAusencia,
+        ColunaCadastro<LinhaCobertura>.Curto("periodo", "Período", l => TextosCobertura.Periodo(l.Item.InicioEm, l.Item.FimEm), 210),
+        ColunaCadastro<LinhaCobertura>.Texto("quemCobre", "Quem cobre", l => l.Item.QuemCobre),
+        ColunaCadastro<LinhaCobertura>.Curto("clientes", "Clientes", l => l.Clientes, 110),
+        ColunaCadastro<LinhaCobertura>.Selo("situacao", "Situação", l => l.Situacao, l => l.Item.Situacao switch
+        {
+            SituacaoCobertura.Vigente => "Sucesso",
+            SituacaoCobertura.Agendada => "Informacao",
+            _ => "Neutro"
+        }));
 
     protected override async Task AntesDeListarAsync() => _opcoes = await _api.ListarOpcoesCoberturaAsync();
 

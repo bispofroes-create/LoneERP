@@ -1,3 +1,5 @@
+using Lone.App.Controles.Grade;
+using Lone.Cliente.Grade;
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.ViewModels;
 using Lone.Cliente.ViewModels.Pessoas;
@@ -7,8 +9,8 @@ namespace Lone.App.Views;
 
 /// <summary>
 /// Só aparência. Pessoas usa uma tela de cada vez em qualquer largura (lista em tabela → ficha em tela cheia), por isso
-/// fica sempre no "modo compacto" do mestre-detalhe. Na tabela, o nome fica preso à esquerda e as colunas escolhidas rolam
-/// para o lado; o cabeçalho acompanha a rolagem lateral das linhas. Tela estreita (celular): só o nome.
+/// fica sempre no "modo compacto" do mestre-detalhe. A tabela é uma <see cref="GradeLista"/> (P2-B2): o nome preso à
+/// esquerda, as colunas rolando para o lado e as larguras calculadas na própria grade. Tela estreita (celular): só o nome.
 /// </summary>
 public partial class PessoasPage : ContentPage
 {
@@ -41,29 +43,26 @@ public partial class PessoasPage : ContentPage
             MontarPainelFiltros();
             AjustarLarguras();
         };
-        // Cabeçalho (títulos + linha de filtro) acompanha a rolagem lateral das colunas.
-        // Nos dois sentidos: o cabeçalho também rola sozinho (arrasto no touch, Shift+roda, Tab num filtro fora da vista).
-        RolagemColunas.Scrolled += (_, e) =>
-        {
-            if (Eco(ref _alvoColunas, e.ScrollX) || Math.Abs(RolagemCabecalho.ScrollX - e.ScrollX) <= 0.5) return;
-            _alvoCabecalho = e.ScrollX;
-            _ = RolagemCabecalho.ScrollToAsync(e.ScrollX, 0, false);
-        };
-        RolagemCabecalho.Scrolled += (_, e) =>
-        {
-            if (Eco(ref _alvoCabecalho, e.ScrollX) || Math.Abs(RolagemColunas.ScrollX - e.ScrollX) <= 0.5) return;
-            _alvoColunas = e.ScrollX;
-            _ = RolagemColunas.ScrollToAsync(e.ScrollX, 0, false);
-        };
-        _viewModel.Grade.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(GradePessoas.MostrarColunas)) AjustarColunaNome();
-        };
+        // Linha de filtro da tabela: a grade pede o campo de cada coluna pela chave; a tela monta com o filtro da coluna.
+        Tabela.CriarFiltro = CriarFiltroDaColuna;
         // Prévia aberta ou fechada: a coluna dela aparece ou some (o ViewModel já ajustou as colunas da tabela).
+        // "+ Adicionar motivo": o campo abre já com o cursor nele.
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PessoasViewModel.MotivoAberto) && _viewModel.MotivoAberto)
+                Dispatcher.Dispatch(() => CampoMotivo.Focus());
+        };
         _viewModel.Previa.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(PreviaPessoa.Visivel)) AjustarColunaPrevia();
         };
+#if DEBUG
+        // B2Temp: diagnóstico dos campos cortados nas fichas (03/10/2026). Só observa. Remover com o laboratório.
+        LabGradeB2Temp.DiagCampos.Ligar(this, () => _viewModel.Editando);
+        // B2Temp: diagnóstico 3.0 do botão de colunas (P2-B2). Só observa. Remover com o laboratório.
+        LabGradeB2Temp.Diag30.Ligar(this, _viewModel, BotaoColunasB2Temp, Lista,
+            () => _viewModel.Filtros.Aberto && DeviceInfo.Idiom != DeviceIdiom.Phone ? LarguraPainelFiltros : 0);
+#endif
     }
 
     /// <summary>
@@ -79,29 +78,44 @@ public partial class PessoasPage : ContentPage
     private void AjustarColunaPrevia() =>
         ColunaPrevia.Width = new GridLength(_viewModel.Previa.Visivel ? PessoasViewModel.LarguraComPrevia + PessoasViewModel.EspacoPrevia : 0);
 
-    // Posição que o código pediu a cada rolagem: o "Scrolled" que volta dela é só o eco e não é repassado (sem ping-pong,
-    // e sem perder a rolagem do usuário que chegar no meio).
-    private double? _alvoCabecalho;
-    private double? _alvoColunas;
-
-    private static bool Eco(ref double? alvo, double x)
+    /// <summary>
+    /// Campo de filtro de uma coluna da tabela (o mesmo de antes: texto, número ou data num campo digitado; lista numa
+    /// escolha), ligado ao filtro da coluna. Coluna sem filtro: nada (a grade deixa o espaço vazio).
+    /// </summary>
+    private View? CriarFiltroDaColuna(ColunaGradeDef definicao)
     {
-        if (alvo is not { } pedido) return false;
-        if (Math.Abs(pedido - x) > 0.5) return false;
-        alvo = null;
-        return true;
-    }
+        var grade = _viewModel.Grade;
+        var coluna = definicao.Chave == grade.Nome.Id ? grade.Nome : grade.Visiveis.FirstOrDefault(c => c.Id == definicao.Chave);
+        if (coluna?.Filtro is not { } filtro) return null;
 
-    /// <summary>Com colunas, o nome tem largura fixa (presa); sem elas (celular), o nome ocupa a linha toda.</summary>
-    private void AjustarColunaNome()
-    {
-        var comColunas = _viewModel.Grade.MostrarColunas;
-        var largura = comColunas ? new GridLength(GradePessoas.LarguraNome) : GridLength.Star;
-        var resto = comColunas ? GridLength.Star : new GridLength(0);
-        ColunaNomeCabecalho.Width = largura;
-        ColunaNomeLinhas.Width = largura;
-        ColunaRestoCabecalho.Width = resto;
-        ColunaRestoLinhas.Width = resto;
+        View campo;
+        if (coluna.FiltroDigitado)
+        {
+            var texto = new Entry { FontSize = 13, ClearButtonVisibility = ClearButtonVisibility.WhileEditing, Placeholder = filtro.Dica };
+            texto.SetBinding(Entry.TextProperty, new Binding(nameof(FiltroColuna.Texto), BindingMode.TwoWay, source: filtro));
+            campo = texto;
+        }
+        else if (coluna.FiltroEscolha)
+        {
+            var escolha = new Picker { FontSize = 13, ItemsSource = filtro.Escolhas };
+            escolha.SetBinding(Picker.SelectedItemProperty, new Binding(nameof(FiltroColuna.Escolha), BindingMode.TwoWay, source: filtro));
+            campo = escolha;
+        }
+        else return null;
+        SemanticProperties.SetDescription(campo, $"Filtrar {coluna.Nome}");
+        // Moldura única: o campo nativo fica sem a dele (03/10/2026); a borda de fora fica azul enquanto o campo está em uso.
+        Plataforma.CampoSemMoldura.Aplicar(campo);
+
+        var borda = new Border { Content = campo };
+        if (Application.Current?.Resources.TryGetValue("CampoFiltroColuna", out var estilo) == true && estilo is Style s) borda.Style = s;
+        // Valor que não dá para usar (ex.: data inválida): borda de erro, como antes.
+        if (Application.Current?.Resources.TryGetValue("Erro", out var erro) == true && erro is Color corErro)
+        {
+            var invalido = new DataTrigger(typeof(Border)) { Binding = new Binding(nameof(FiltroColuna.Invalido), source: filtro), Value = true };
+            invalido.Setters.Add(new Setter { Property = Border.StrokeProperty, Value = corErro });
+            borda.Triggers.Add(invalido);
+        }
+        return borda;
     }
 
     /// <summary>Largura do painel de filtros aberto ao lado da tabela (340 do painel + 16 de espaço).</summary>

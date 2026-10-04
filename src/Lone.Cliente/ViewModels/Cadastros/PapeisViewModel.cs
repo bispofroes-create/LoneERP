@@ -7,6 +7,7 @@ using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Papeis;
 using Lone.Domain.Comum;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -101,6 +102,12 @@ public sealed partial class PapelEdicao : ObservableObject
 /// </summary>
 public sealed partial class PapeisViewModel : CadastroViewModelBase<LinhaPapel>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaPapel> CriarGradeDaLista() => new(
+        "Papel", l => l.Id, l => l.Nome, l => l.Codigo,
+        ColunaCadastro<LinhaPapel>.Curto("cadastros", "Cadastros", l => l.Cadastros, 130),
+        ColunaCadastro<LinhaPapel>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly PapeisApi _api;
 
     public PapeisViewModel(PapeisApi api, IDialogos dialogos) : base(dialogos)

@@ -292,13 +292,17 @@ public static class Paginacao
     /// <summary>Total de páginas (pelo menos 1).</summary>
     public static int Paginas(int total, int tamanho) => Math.Max(1, (int)Math.Ceiling(total / (double)Math.Max(1, tamanho)));
 
-    /// <summary>"Mostrando 1–50 de 1.248" / "Nenhum registro".</summary>
-    public static string Resumo(int pagina, int tamanho, int total, int naPagina)
+    /// <summary>
+    /// Rodapé da listagem (padrão em docs/UX-ARQUITETURA.md): diz o que está sendo contado e separa o total da página.
+    /// "1.248 pessoas · página 1 de 25"; com uma página só, só "51 pessoas"; "1 pessoa"; vazio: "Nenhum registro".
+    /// </summary>
+    public static string Resumo(int pagina, int tamanho, int total, int naPagina, string singular = "registro", string plural = "registros")
     {
         if (total == 0 || naPagina == 0) return "Nenhum registro";
-        var inicio = (pagina - 1) * tamanho + 1;
-        var fim = inicio + naPagina - 1;
-        return $"Mostrando {inicio.ToString("N0", TextoTela.Brasil)}–{fim.ToString("N0", TextoTela.Brasil)} de {total.ToString("N0", TextoTela.Brasil)}";
+        var quantos = $"{total.ToString("N0", TextoTela.Brasil)} {(total == 1 ? singular : plural)}";
+        var paginas = Paginas(total, tamanho);
+        return paginas <= 1 ? quantos
+            : $"{quantos} · página {pagina.ToString("N0", TextoTela.Brasil)} de {paginas.ToString("N0", TextoTela.Brasil)}";
     }
 
     /// <summary>Janela de páginas: sempre a primeira e a última, e até duas de cada lado da atual ("1 … 4 5 6 7 8 … 25").</summary>

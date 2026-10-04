@@ -12,6 +12,7 @@ using Lone.Domain.Enderecos;
 using Lone.Domain.Enums;
 using Lone.Domain.Papeis;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Territorios;
 
@@ -89,6 +90,12 @@ public sealed partial class TipoTerritorioEdicao : ObservableObject
 /// <summary>Tipos de território (Geográfico, Segmento, Estratégico...): só classificam. Nada é excluído.</summary>
 public sealed partial class TiposTerritorioViewModel : CadastroViewModelBase<LinhaTipoTerritorio>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTipoTerritorio> CriarGradeDaLista() => new(
+        "Tipo de território", l => l.Item.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaTipoTerritorio>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaTipoTerritorio>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly TerritoriosApi _api;
 
     public TiposTerritorioViewModel(TerritoriosApi api, IDialogos dialogos) : base(dialogos)
@@ -275,6 +282,12 @@ public sealed partial class MapaTerritorialEdicao : ObservableObject
 /// <summary>Mapas territoriais: as dimensões independentes de atribuição (Geografia, Segmentos, Contas estratégicas...).</summary>
 public sealed partial class MapasTerritoriaisViewModel : CadastroViewModelBase<LinhaMapaTerritorial>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaMapaTerritorial> CriarGradeDaLista() => new(
+        "Mapa territorial", l => l.Item.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaMapaTerritorial>.Curto("territorios", "Territórios", l => l.Territorios, 130),
+        ColunaCadastro<LinhaMapaTerritorial>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly TerritoriosApi _api;
     private TerritoriosOpcoesDto _opcoes = new();
 

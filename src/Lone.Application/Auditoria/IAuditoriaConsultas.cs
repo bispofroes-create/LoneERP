@@ -9,5 +9,10 @@ public interface IAuditoriaConsultas
     /// Histórico de um agregado (ex.: "Pessoa", id), do mais recente ao mais antigo, em páginas. Datas em UTC.
     /// </summary>
     /// <param name="antesDe">Id do último registro da página anterior (nulo = primeira página).</param>
-    Task<List<RegistroHistorico>> ListarPorRaizAsync(string raizEntidade, Guid raizId, int limite, long? antesDe, CancellationToken ct);
+    /// <param name="filtro">Tipo, período e usuário (nulo = tudo).</param>
+    Task<List<RegistroHistorico>> ListarPorRaizAsync(string raizEntidade, Guid raizId, int limite, long? antesDe, CancellationToken ct,
+        FiltroHistorico? filtro = null);
+
+    /// <summary>Partes do cadastro e usuários que aparecem no histórico do agregado (listas do filtro).</summary>
+    Task<OpcoesHistorico> OpcoesPorRaizAsync(string raizEntidade, Guid raizId, CancellationToken ct);
 }

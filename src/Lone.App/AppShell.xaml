@@ -7,6 +7,7 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
        xmlns:views="clr-namespace:Lone.App.Views"
+       xmlns:plat="clr-namespace:Lone.App.Plataforma"
        x:Class="Lone.App.AppShell"
        x:DataType="vm:MenuViewModel"
        Title="Lone ERP"
@@ -155,7 +156,7 @@
                            TextColor="White" PlaceholderColor="{StaticResource MenuTextoSecundario}"
                            BackgroundColor="{StaticResource MenuItemAtivo}" ClearButtonVisibility="WhileEditing"
                            ReturnType="Search" ReturnCommand="{Binding AbrirPrimeiroResultadoCommand}"
-                           SemanticProperties.Description="Pesquisar no menu" />
+                           plat:CampoSemMoldura.Ligado="True" SemanticProperties.Description="Pesquisar no menu" />
                 </Border>
                 <Label Text="{Binding Aviso}" IsVisible="{Binding TemAviso}" FontSize="12" LineBreakMode="WordWrap"
                        TextColor="{StaticResource MenuTexto}" Margin="4,0" />
@@ -171,7 +172,7 @@
                                TextColor="{StaticResource MenuTextoSecundario}" />
                     </VerticalStackLayout>
 
-                    <!-- Menu: Início · Favoritos · Recentes · módulos (abrem e fecham) · Configurações do sistema -->
+                    <!-- Menu: Início · Favoritos · Recentes · módulos (abrem e fecham). Minha conta e Administração: menu do usuário. -->
                     <VerticalStackLayout IsVisible="{Binding MostrarMenu}" Spacing="2">
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding ItensDoTopo}"
                                              BindableLayout.ItemTemplate="{StaticResource LinhaDoModulo}" />
@@ -246,9 +247,9 @@
                 </Grid>
             </ScrollView>
 
-            <!-- Conta (só fora do Windows, onde não há barra de título): tocar no usuário abre "Trocar de usuário" / "Sair do Lone".
-                 No Windows, empresa e usuário ficam na barra de título (Controles/BarraTituloSistema). Trocar senha:
-                 Configurações do sistema › Minha conta. -->
+            <!-- Conta (só fora do Windows, onde não há barra de título): tocar no usuário abre as opções do menu do usuário
+                 (Trocar senha, Perfis de acesso, Usuários, Trocar de usuário, Sair do Lone). No Windows, empresa e usuário
+                 ficam na barra de título (Controles/BarraTituloSistema), e o menu do usuário abre num popover. -->
             <VerticalStackLayout Grid.Row="3" Padding="20,12,20,20" Spacing="8" IsVisible="{OnPlatform WinUI=False, Default=True}">
                 <BoxView HeightRequest="1" Color="{StaticResource MenuItemAtivo}" Margin="0,0,0,4" />
                 <Grid ColumnDefinitions="32,*,Auto" ColumnSpacing="12" SemanticProperties.Description="{Binding NomeUsuario}">
@@ -390,9 +391,6 @@
         <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
     </FlyoutItem>
     <FlyoutItem Title="Configurações" Route="configuracoes-metas" IsVisible="{Binding PodeVerConfiguracoesMetas}" Shell.FlyoutItemIsVisible="False">
-        <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
-    </FlyoutItem>
-    <FlyoutItem Title="Configurações" Route="configuracoes-sistema" IsVisible="{Binding PodeVerConfiguracoesSistema}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Configurações" ContentTemplate="{DataTemplate views:ConfiguracoesPage}" />
     </FlyoutItem>
 </Shell>

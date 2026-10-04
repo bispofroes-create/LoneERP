@@ -9,6 +9,7 @@ using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -116,6 +117,12 @@ public sealed partial class GrupoEmpresarialEdicao : ObservableObject
 /// </summary>
 public sealed partial class GruposEmpresariaisViewModel : CadastroViewModelBase<LinhaGrupoEmpresarial>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaGrupoEmpresarial> CriarGradeDaLista() => new(
+        "Grupo empresarial", l => l.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaGrupoEmpresarial>.Curto("empresas", "Empresas", l => l.Empresas, 130),
+        ColunaCadastro<LinhaGrupoEmpresarial>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly GruposEmpresariaisApi _api;
 
     public GruposEmpresariaisViewModel(GruposEmpresariaisApi api, IDialogos dialogos) : base(dialogos)

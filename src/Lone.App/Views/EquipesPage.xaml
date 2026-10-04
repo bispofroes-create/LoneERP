@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Equipes das metas: tabela à esquerda, ficha ao lado. Nada é excluído: é desativada. -->
+<!-- Equipes das metas: lista em colunas e ficha em página própria (padrão de tela de cadastro, 03/10/2026). Nada é excluído: é desativada. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:m="clr-namespace:Lone.Cliente.ViewModels.Metas;assembly=Lone.Cliente"
@@ -8,130 +8,65 @@
              x:DataType="m:EquipesViewModel"
              Title="Equipes">
 
-    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Equipes"
+                         Subtitulo="Equipes agrupam colaboradores (ex.: Televendas Sul) e podem ser participantes das metas. Membros têm entrada e saída: quem sai continua no histórico. Uma equipe pode ficar abaixo de outra (ex.: Televendas Sul abaixo de Comercial)."
+                         TextoNovo="+  Nova equipe"
+                         DicaBusca="Pesquisar equipes"
+                         TituloVazio="Nenhuma equipe cadastrada" />
 
-        <!-- ===== Tabela ===== -->
-        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar" />
-                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
+        <c:FichaCadastro MostrarSalvarENovo="True" IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Equipes">
+            <VerticalStackLayout Spacing="10">
+                <c:BlocoCampos>
+                    <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Televendas Sul" />
+                    <c:CampoEscolha Rotulo="Departamento" Itens="{Binding Formulario.Departamentos}" Selecionado="{Binding Formulario.Departamento}" />
+                    <c:CampoEscolha Rotulo="Equipe acima" Itens="{Binding Formulario.EquipesAcima}" Selecionado="{Binding Formulario.EquipeAcima}" />
+                </c:BlocoCampos>
+                <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="Líder hoje: " />
+                            <Span Text="{Binding Formulario.LiderHoje}" FontAttributes="Bold" />
+                            <Span Text=". O líder é o membro com papel Líder (um por vez). Para trocar, informe a saída do líder atual e inclua o novo como Líder a partir do dia seguinte. Quem lidera enxerga a carteira da equipe e das equipes abaixo." />
+                        </FormattedString>
+                    </Label.FormattedText>
+                </Label>
 
-            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
-
-            <Grid Grid.Row="2" ColumnDefinitions="*,72,40" Padding="12,0">
-                <Label Text="Equipe" Style="{StaticResource Rotulo}" />
-                <Label Grid.Column="1" Text="Membros" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-                <Label Grid.Column="2" Text="Ativa" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-            </Grid>
-
-            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhum cadastro. Clique em Novo." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="m:LinhaEquipe">
-                        <Grid ColumnDefinitions="*,72,40" Padding="12,8">
-                            <VerticalStackLayout VerticalOptions="Center">
-                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-                            <Label Grid.Column="1" Text="{Binding Membros}" Style="{StaticResource Secundario}" HorizontalOptions="End" VerticalOptions="Center" />
-                            <Label Grid.Column="2" Text="{Binding Ativo}" Style="{StaticResource Secundario}" HorizontalOptions="End" VerticalOptions="Center" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Equipes agrupam colaboradores (ex.: Televendas Sul) e podem ser participantes das metas. Membros têm entrada e saída: quem sai continua no histórico. Uma equipe pode ficar abaixo de outra (ex.: Televendas Sul abaixo de Comercial)."
-                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
-                                     HorizontalOptions="Fill">
-                    <Button Text="‹ Equipes" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
-                    <FlexLayout Wrap="Wrap">
-                        <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Televendas Sul" />
-                        <c:CampoEscolha Rotulo="Departamento" Itens="{Binding Formulario.Departamentos}" Selecionado="{Binding Formulario.Departamento}" />
-                        <c:CampoEscolha Rotulo="Equipe acima" Itens="{Binding Formulario.EquipesAcima}" Selecionado="{Binding Formulario.EquipeAcima}" />
-                    </FlexLayout>
-                    <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap">
-                        <Label.FormattedText>
-                            <FormattedString>
-                                <Span Text="Líder hoje: " />
-                                <Span Text="{Binding Formulario.LiderHoje}" FontAttributes="Bold" />
-                                <Span Text=". O líder é o membro com papel Líder (um por vez). Para trocar, informe a saída do líder atual e inclua o novo como Líder a partir do dia seguinte. Quem lidera enxerga a carteira da equipe e das equipes abaixo." />
-                            </FormattedString>
-                        </Label.FormattedText>
-                    </Label>
-
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-                        <Label Text="Membros" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-                        <Button Grid.Column="1" Text="Adicionar membro" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarMembroCommand}" />
-                    </Grid>
-                    <Label Text="Saiu da equipe? Informe a saída (o membro continua no histórico e nas metas do período em que participou)."
-                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Membros}" Spacing="6">
-                        <BindableLayout.EmptyView>
-                            <Label Text="Nenhum membro." Style="{StaticResource Secundario}" Margin="0,8" />
-                        </BindableLayout.EmptyView>
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="m:MembroEquipeFormulario">
-                                <Border Style="{StaticResource CartaoItem}">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <FlexLayout Wrap="Wrap">
-                                            <c:CampoEscolha Rotulo="Pessoa" Itens="{Binding Pessoas}" Selecionado="{Binding Pessoa}" IsEnabled="{Binding PodeTrocarPessoa}" />
-                                            <c:CampoEscolha Rotulo="Papel" Itens="{Binding ListaPapeis}" Selecionado="{Binding Papel}" IsEnabled="{Binding PodeTrocarPapel}" />
-                                            <c:Campo Rotulo="Entrada" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
-                                            <c:Campo Rotulo="Saída" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
-                                        </FlexLayout>
-                                        <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
-                                                IsVisible="{Binding PodeRemover}" VerticalOptions="Start" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
-                        <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
-                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
-                        <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
-                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
-                    </HorizontalStackLayout>
+                <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                    <Label Text="Membros" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="+ Adicionar membro" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarMembroCommand}" />
+                </Grid>
+                <Label Text="Saiu da equipe? Informe a saída (o membro continua no histórico e nas metas do período em que participou)."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Membros}" Spacing="6">
+                    <BindableLayout.EmptyView>
+                        <Label Text="Nenhum membro." Style="{StaticResource Secundario}" Margin="0,8" />
+                    </BindableLayout.EmptyView>
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="m:MembroEquipeFormulario">
+                            <Border Style="{StaticResource CartaoItem}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <c:BlocoCampos>
+                                        <c:CampoEscolha Rotulo="Pessoa" Itens="{Binding Pessoas}" Selecionado="{Binding Pessoa}" IsEnabled="{Binding PodeTrocarPessoa}" />
+                                        <c:CampoEscolha Rotulo="Papel" Itens="{Binding ListaPapeis}" Selecionado="{Binding Papel}" IsEnabled="{Binding PodeTrocarPapel}" />
+                                        <c:Campo Rotulo="Entrada" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                        <c:Campo Rotulo="Saída" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
+                                    </c:BlocoCampos>
+                                    <Button Grid.Column="1" Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                            IsVisible="{Binding PodeRemover}" VerticalOptions="Start" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-            </ScrollView>
-
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                    <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
-                    <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
+                <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                    <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                            IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                            IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
                 </HorizontalStackLayout>
-            </Border>
-        </Grid>
+            </VerticalStackLayout>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

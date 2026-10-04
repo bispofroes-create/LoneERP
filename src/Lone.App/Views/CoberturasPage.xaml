@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Ausências e coberturas (Motor Comercial, Fase 1c): lista à esquerda, ficha ao lado. A carteira do titular não muda;
-     a cobertura vale pelas datas e acaba sozinha. Nada é apagado: cancela (antes de começar) ou encerra. -->
+<!-- Ausências e coberturas (Motor Comercial, Fase 1c). A carteira do titular não muda; a cobertura vale pelas datas e acaba
+     sozinha. Nada é apagado: cancela (antes de começar) ou encerra.
+     Padrão de tela de cadastro (03/10/2026, tela-piloto; docs/UX-ARQUITETURA.md): título da página, lista larga em colunas
+     (GradeLista) e a ficha em página própria, com "Voltar" no topo e a barra de ações embaixo. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:com="clr-namespace:Lone.Cliente.ViewModels.Comercial;assembly=Lone.Cliente"
@@ -9,73 +11,43 @@
              x:DataType="com:CoberturasViewModel"
              Title="Ausências e coberturas">
 
-    <Grid x:Name="Grade" ColumnDefinitions="380,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Ausências e coberturas"
+                         Subtitulo="Quando alguém da carteira sai de férias, folga ou licença, outra pessoa (ou uma equipe) atende os clientes dele no período. A carteira não muda e a cobertura acaba sozinha no fim."
+                         TextoNovo="+  Nova cobertura"
+                         DicaBusca="Pesquisar por pessoa, tipo ou quem cobre"
+                         TituloVazio="Nenhuma ausência vigente ou agendada"
+                         TextoVazio="Para ver as antigas, marque &quot;Mostrar encerradas e canceladas&quot;.">
+            <c:ListaCadastro.Filtros>
+                <c:CaixaMarcar Texto="Mostrar encerradas e canceladas" Marcado="{Binding IncluirEncerradas}" />
+            </c:ListaCadastro.Filtros>
+        </c:ListaCadastro>
 
-        <!-- ===== Lista ===== -->
-        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar pessoa" />
-                <Button Grid.Column="1" Text="Nova" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
-            <c:CaixaMarcar Grid.Row="1" Texto="Mostrar encerradas e canceladas" Marcado="{Binding IncluirEncerradas}" />
-            <ContentView Grid.Row="2" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
-            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhuma ausência vigente ou agendada. Clique em Nova." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="com:LinhaCobertura">
-                        <Grid ColumnDefinitions="*,Auto" Padding="12,8">
-                            <VerticalStackLayout VerticalOptions="Center">
-                                <Label Text="{Binding Titular}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                                <Label Text="{Binding Situacao}" Style="{StaticResource Secundario}" HorizontalOptions="End" />
-                                <Label Text="{Binding Clientes}" Style="{StaticResource Secundario}" HorizontalOptions="End" />
-                            </VerticalStackLayout>
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhuma cobertura aberta" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Quando alguém da carteira sai de férias, folga ou licença, outra pessoa (ou uma equipe) atende os clientes dele no período. A carteira não muda e a cobertura acaba sozinha no fim."
-                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="860"
-                                     HorizontalOptions="Fill">
-                    <Button Text="‹ Ausências e coberturas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
+        <c:FichaCadastro IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Ausências e coberturas">
+                <VerticalStackLayout Spacing="10">
                     <Label Text="Ausência" Style="{StaticResource Subtitulo}" />
-                    <FlexLayout Wrap="Wrap">
+                    <c:BlocoCampos>
                         <c:CampoEscolha Rotulo="Quem vai se ausentar" Itens="{Binding Formulario.Pessoas}" Selecionado="{Binding Formulario.Titular}"
                                         IsEnabled="{Binding Formulario.Editavel}" />
                         <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Formulario.Tipos}" Selecionado="{Binding Formulario.Tipo}"
                                         IsEnabled="{Binding Formulario.Editavel}" />
+                    </c:BlocoCampos>
+
+                    <!-- Período: Início, Prazo (dias ou prazo pronto; fora do fim de semana) e Fim — 03/10/2026. -->
+                    <Label Text="Período" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
+                    <c:BlocoCampos AlignItems="Start">
                         <c:Campo Rotulo="Início" Texto="{Binding Formulario.InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" SomenteLeitura="{Binding Formulario.Travado}" />
+                        <c:CampoPrazo Inicio="{Binding Formulario.InicioEm}" Fim="{Binding Formulario.FimEm}" Registro="{Binding Formulario}"
+                                      SomenteLeitura="{Binding Formulario.Cancelada}" />
                         <c:Campo Rotulo="Fim" Texto="{Binding Formulario.FimEm}" Dica="dd/mm/aaaa" Mascara="Data" SomenteLeitura="{Binding Formulario.Cancelada}" />
-                    </FlexLayout>
+                    </c:BlocoCampos>
+                    <!-- Início travado depois que começa (decisão do usuário, 03/10/2026: mantém a regra, como os ERPs). -->
+                    <Label Text="O início não muda depois que a cobertura começa (o que já aconteceu fica no histórico). Para outra data, encerre esta e crie uma nova cobertura."
+                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.Travado}" />
 
                     <Label Text="Quem cobre" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
-                    <FlexLayout Wrap="Wrap">
+                    <c:BlocoCampos>
                         <c:CampoEscolha Rotulo="Cobre" Itens="{Binding Formulario.ListaModos}" Selecionado="{Binding Formulario.PorEquipe}"
                                         IsEnabled="{Binding Formulario.Editavel}" />
                         <c:CampoEscolha Rotulo="Pessoa" Itens="{Binding Formulario.Substitutos}" Selecionado="{Binding Formulario.Substituto}"
@@ -86,16 +58,16 @@
                                         IsEnabled="{Binding Formulario.Editavel}" />
                         <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Formulario.Empresas}" Selecionado="{Binding Formulario.Empresa}"
                                         IsEnabled="{Binding Formulario.Editavel}" />
-                    </FlexLayout>
+                    </c:BlocoCampos>
                     <c:CaixaMarcar Texto="Quem cobre pode ver e atender os clientes do titular no período" Marcado="{Binding Formulario.PermiteAcesso}" />
 
                     <Label Text="Crédito das vendas no período" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
-                    <FlexLayout Wrap="Wrap">
+                    <c:BlocoCampos>
                         <c:CampoEscolha Rotulo="Crédito" Itens="{Binding Formulario.Creditos}" Selecionado="{Binding Formulario.Credito}"
                                         IsEnabled="{Binding Formulario.Editavel}" />
                         <c:Campo Rotulo="Percentual de quem cobre (%)" Texto="{Binding Formulario.PercentualSubstituto}" Teclado="Numeric"
                                  IsVisible="{Binding Formulario.Dividido}" SomenteLeitura="{Binding Formulario.Travado}" />
-                    </FlexLayout>
+                    </c:BlocoCampos>
                     <c:Campo Rotulo="Observação" Texto="{Binding Formulario.Observacao}" />
                     <Label Text="Depois que a cobertura começa, só o fim, a observação e o acesso mudam (o histórico não é reescrito). Cancelar só antes de começar."
                            Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
@@ -107,20 +79,6 @@
                                 IsVisible="{Binding Formulario.PodeCancelar}" IsEnabled="{Binding Livre}" />
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
-            </ScrollView>
-
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                    <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
-                    <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
-                </HorizontalStackLayout>
-            </Border>
-        </Grid>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

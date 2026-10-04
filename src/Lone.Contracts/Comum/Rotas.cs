@@ -51,8 +51,10 @@ public static class Rotas
         public const string OpcoesEstrutura = Grupo + "/estrutura/opcoes";
 
         /// <summary>Próxima página do histórico: registros anteriores ao Id informado.</summary>
-        public static string Historico(Guid id, long? antes, int limite) =>
-            $"{Historico(id)}?limite={limite}" + (antes is { } a ? $"&antes={a}" : string.Empty);
+        public static string Historico(Guid id, long? antes, int limite, Lone.Contracts.Auditoria.FiltroHistorico? filtro = null) =>
+            $"{Historico(id)}?limite={limite}" + (antes is { } a ? $"&antes={a}" : string.Empty) + (filtro?.ParaConsulta() ?? string.Empty);
+        /// <summary>Tipos e usuários que existem no histórico (listas do filtro).</summary>
+        public static string HistoricoOpcoes(Guid id) => $"{Historico(id)}/opcoes";
         public static string Desativar(Guid id) => $"{Grupo}/{id}/desativar";
         public static string Reativar(Guid id) => $"{Grupo}/{id}/reativar";
         /// <summary>Consolidar um endereço duplicado em outro da mesma pessoa (o servidor decide o resultado).</summary>

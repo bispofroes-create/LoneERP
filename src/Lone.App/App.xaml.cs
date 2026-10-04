@@ -40,11 +40,16 @@ public partial class App : Application
     });
 
     /// <summary>A janela abre na tela de carregamento, que decide entre login, primeiro acesso e sistema.</summary>
-    protected override Window CreateWindow(IActivationState? activationState) =>
-        new(_servicos.GetRequiredService<CarregandoPage>())
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        // B2Temp: laboratório da GradeLista (P2-B2, Etapa 2), só com LONE_B2_LAB=1. Remover ao final da etapa.
+        if (Environment.GetEnvironmentVariable("LONE_B2_LAB") == "1")
+            return new Window(new LabGradeB2Temp.LabGradePage()) { Title = "Lone - laboratorio GradeLista (P2-B2)" };
+        return new(_servicos.GetRequiredService<CarregandoPage>())
         {
             Title = "Lone ERP",
             MinimumWidth = 360,
             MinimumHeight = 560
         };
+    }
 }

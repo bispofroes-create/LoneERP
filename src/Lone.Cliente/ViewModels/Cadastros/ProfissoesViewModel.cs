@@ -9,6 +9,7 @@ using Lone.Contracts.Profissoes;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Comum;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -109,6 +110,13 @@ public sealed partial class ProfissaoEdicao : ObservableObject
 /// </summary>
 public sealed partial class ProfissoesViewModel : CadastroViewModelBase<LinhaProfissao>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaProfissao> CriarGradeDaLista() => new(
+        "Profissão", l => l.Id, l => l.Nome, l => null,
+        ColunaCadastro<LinhaProfissao>.Curto("cbo", "CBO", l => l.Cbo, 130),
+        ColunaCadastro<LinhaProfissao>.Curto("cadastros", "Cadastros", l => l.Cadastros, 130),
+        ColunaCadastro<LinhaProfissao>.Situacao(l => l.Ativa == "Sim", feminino: true));
+
     private readonly ProfissoesApi _api;
     private readonly SessaoCliente _sessao;
     private readonly IArquivos _arquivos;

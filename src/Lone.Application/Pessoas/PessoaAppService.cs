@@ -274,11 +274,18 @@ public sealed class PessoaAppService : IPessoaAppService
         return _repositorio.ContarClientesAtivosAsync(ct);
     }
 
-    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid pessoaId, long? antesDe = null, int? limite = null, CancellationToken ct = default)
+    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid pessoaId, long? antesDe = null, int? limite = null, CancellationToken ct = default,
+        FiltroHistorico? filtro = null)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
         return _auditoria.ListarPorRaizAsync(nameof(Pessoa), pessoaId,
-            Math.Clamp(limite ?? PaginaHistorico, 1, LimiteHistorico), antesDe, ct);
+            Math.Clamp(limite ?? PaginaHistorico, 1, LimiteHistorico), antesDe, ct, filtro);
+    }
+
+    public Task<OpcoesHistorico> OpcoesHistoricoAsync(Guid pessoaId, CancellationToken ct = default)
+    {
+        _autorizacao.Exigir(Permissoes.Pessoas.Visualizar);
+        return _auditoria.OpcoesPorRaizAsync(nameof(Pessoa), pessoaId, ct);
     }
 
     public async Task<ResultadoSalvarPessoa> SalvarAsync(PessoaDto dto, CancellationToken ct = default)

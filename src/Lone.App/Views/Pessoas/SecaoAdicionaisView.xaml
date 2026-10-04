@@ -30,7 +30,7 @@
     <VerticalStackLayout Spacing="8">
         <Label Text="Campos criados pelo administrador para este cadastro. Os marcados com * são obrigatórios."
                Style="{StaticResource Secundario}" />
-        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.InformacoesAdicionais}"
+        <c:BlocoCampos BindableLayout.ItemsSource="{Binding Formulario.InformacoesAdicionais}"
                     BindableLayout.ItemTemplateSelector="{StaticResource SeletorModelo}" />
     </VerticalStackLayout>
 </ContentView>

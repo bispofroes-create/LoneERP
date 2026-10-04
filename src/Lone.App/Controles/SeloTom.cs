@@ -1,7 +1,7 @@
 namespace Lone.App.Controles;
 
 /// <summary>
-/// Selo pequeno com texto e tom ("Informacao", "Aviso", "Sucesso", "Grupo" ou "Neutro"), nos temas claro e escuro. O
+/// Selo pequeno com texto e tom ("Informacao", "Aviso", "Erro", "Sucesso", "Grupo" ou "Neutro"), nos temas claro e escuro. O
 /// texto sempre aparece: a cor só ajuda (nunca é a única indicação). Usado nos papéis da lista de pessoas.
 /// </summary>
 public sealed class SeloTom : Border
@@ -43,6 +43,7 @@ public sealed class SeloTom : Border
         {
             "Informacao" => ("InformacaoFundo", "InformacaoFundoEscuro", "Informacao", "PrimariaEscuro"),
             "Aviso" => ("AvisoFundo", "AvisoFundoEscuro", "Aviso", "TextoEscuro"),
+            "Erro" => ("ErroFundo", "ErroFundoEscuro", "Erro", "TextoEscuro"),
             "Sucesso" => ("SucessoFundo", "SucessoFundoEscuro", "Sucesso", "TextoEscuro"),
             "Grupo" => ("GrupoFundo", "GrupoFundoEscuro", "Grupo", "GrupoEscuro"),
             _ => ("SeloNeutroFundo", "SeloNeutroFundoEscuro", "TextoSecundario", "TextoSecundarioEscuro")

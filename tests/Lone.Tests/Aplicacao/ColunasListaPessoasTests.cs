@@ -32,9 +32,22 @@ public class ColunasListaPessoasTests
     {
         var padrao = ColunasListaPessoas.Colunas.Where(c => c.Padrao).ToList();
         Assert.Equal(
-            new[] { CamposFiltroPessoas.Documento, CamposFiltroPessoas.Natureza, CamposFiltroPessoas.Papeis, CamposFiltroPessoas.Cidade, CamposFiltroPessoas.Situacao },
+            new[] { CamposFiltroPessoas.Documento, CamposFiltroPessoas.Natureza, CamposFiltroPessoas.Papeis, CamposFiltroPessoas.Cidade, CamposFiltroPessoas.Uf, CamposFiltroPessoas.Situacao },
             padrao.Select(c => c.Id).ToArray());
         Assert.All(padrao, c => Assert.True(ColunasListaPessoas.VemNaLinha(c.Tipo)));
+    }
+
+    [Fact]
+    public void Cidade_e_uf_sao_colunas_separadas_e_a_uf_filtra_pela_lista_de_estados()
+    {
+        var cidade = ColunasListaPessoas.Obter(CamposFiltroPessoas.Cidade)!;
+        var uf = ColunasListaPessoas.Obter(CamposFiltroPessoas.Uf)!;
+        Assert.Equal("Cidade", cidade.Nome);
+        Assert.Equal(("UF", TipoColunaLista.Uf, CamposFiltroPessoas.Uf), (uf.Nome, uf.Tipo, uf.CampoFiltro));
+        Assert.True(ColunasListaPessoas.VemNaLinha(uf.Tipo)); // sem consulta extra
+        Assert.True(ColunasListaPessoas.Ordenavel(CamposFiltroPessoas.Uf));
+        var ordem = ColunasListaPessoas.Colunas.ToList();
+        Assert.Equal(ordem.IndexOf(cidade) + 1, ordem.IndexOf(uf)); // logo depois da cidade
     }
 
     [Fact]

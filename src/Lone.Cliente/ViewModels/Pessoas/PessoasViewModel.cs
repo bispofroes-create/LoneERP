@@ -102,7 +102,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _comercialApi = comercialApi;
         _territoriosApi = territoriosApi;
         _arquivos = arquivos;
-        Previa = new PreviaPessoa(LerParaPreviaAsync, AbrirFichaDaPreviaAsync, () => Linhas);
+        Previa = new PreviaPessoa(LerParaPreviaAsync, AbrirFichaDaPreviaAsync, () => Linhas,
+            () => ((PaginaAtual - 1) * TamanhoPagina, TotalRegistros));
         Indicadores = new FaixaIndicadores(AlternarIndicador);
         Indicadores.DefinirConsulta(c => Filtros.Condicoes().Any(v => v.Campo == c.Campo && v.Operador == c.Operador));
         // A prévia ao lado ocupa parte da largura: as colunas da lista se ajustam ao que sobra.
@@ -125,6 +126,13 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             }
             if (e.PropertyName is nameof(Mensagem) or nameof(TipoMensagem) or nameof(Editando))
                 OnPropertyChanged(nameof(MostrarBarraDaLista));
+            // Motivo da alteração: só com alteração; salvou ou descartou, volta a ficar fechado.
+            if (e.PropertyName is nameof(PodeDescartar) or nameof(PodeSalvar) or nameof(MotivoAberto))
+            {
+                if (e.PropertyName == nameof(PodeDescartar) && !PodeDescartar) MotivoAberto = false;
+                OnPropertyChanged(nameof(MostrarBotaoMotivo));
+                OnPropertyChanged(nameof(MostrarMotivo));
+            }
         };
 
         Filtros.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
@@ -148,7 +156,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             {
                 case MudancaGrade.Ordenacao: _ = RecarregarDaPrimeiraPaginaAsync(); break;
                 case MudancaGrade.Colunas: _ = RecarregarAsync(); break;
-                default: ReconstruirLinhas(); break;
+                // Aparência: só remonta quando as colunas mudaram (ordem, coluna tirada). Densidade e linha de filtro mudam
+                // só a grade (altura e cabeçalho), sem trocar as linhas — a lista não volta ao topo.
+                default:
+                    if (!ConteudoGrade.Colunas.SequenceEqual(Grade.ColunasGrade)) ReconstruirLinhas();
+                    break;
             }
             AgendarSalvarColunas();
         };
@@ -170,7 +182,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Atalho "Nova profissão" na ficha: só para quem gerencia profissões (a API confere de novo).</summary>
     public bool PodeCriarProfissao => _sessao.Possui(Permissoes.Cadastros.Profissoes);
 
-    public bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
+    public override bool PodeCriar => _sessao.Possui(Permissoes.Pessoas.Criar);
 
     /// <summary>
     /// Faixa acima da lista quando o perfil tem alcance restrito (Fase 2a-2): diz o que a lista está mostrando, para ninguém
@@ -787,7 +799,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private int _paginaAtual = 1;
 
     public int TotalPaginas => Paginacao.Paginas(TotalRegistros, TamanhoPagina);
-    public string ResumoPaginacao => Paginacao.Resumo(PaginaAtual, TamanhoPagina, TotalRegistros, Itens.Count);
+    public string ResumoPaginacao => Paginacao.Resumo(PaginaAtual, TamanhoPagina, TotalRegistros, Itens.Count, "pessoa", "pessoas");
     public bool TemVariasPaginas => TotalPaginas > 1;
     public bool PodeVoltarPagina => PaginaAtual > 1;
     public bool PodeAvancarPagina => PaginaAtual < TotalPaginas;
@@ -853,10 +865,19 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>As linhas da página com as células das colunas escolhidas (a tela mostra estas, não Itens).</summary>
     public ObservableCollection<LinhaPessoa> Linhas { get; } = new();
 
+    /// <summary>
+    /// O que a GradeLista mostra (P2-B2, Etapa 3): colunas e linhas juntas, trocadas de uma vez (um aviso só). Montado
+    /// junto com <see cref="Linhas"/>, das mesmas linhas, enquanto a tela atual ainda usa as pilhas.
+    /// </summary>
+    public global::Lone.Cliente.Grade.ConteudoGrade ConteudoGrade { get; private set; } = global::Lone.Cliente.Grade.ConteudoGrade.Vazio;
+
     private void ReconstruirLinhas()
     {
+        var novas = Itens.Select(Grade.Linha).ToList();
         Linhas.Clear();
-        foreach (var p in Itens) Linhas.Add(Grade.Linha(p));
+        foreach (var linha in novas) Linhas.Add(linha);
+        ConteudoGrade = Grade.Conteudo(novas);
+        OnPropertyChanged(nameof(ConteudoGrade));
         Previa.Sincronizar(Linhas);
     }
 
@@ -1321,6 +1342,27 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Incluir exige "cadastrar"; alterar exige "alterar". A API confere de novo ao gravar.</summary>
     public bool PodeSalvar => Formulario is { EstaArquivado: false } f && _sessao.Possui(f.Nova ? Permissoes.Pessoas.Criar : Permissoes.Pessoas.Editar);
 
+    /// <summary>
+    /// Motivo da alteração (opcional, vai para o histórico): só aparece com alteração, primeiro como o botão
+    /// "+ Adicionar motivo"; o campo abre ao clicar (padrão da barra da ficha, 03/10/2026).
+    /// </summary>
+    [ObservableProperty] private bool _motivoAberto;
+
+    public bool MostrarBotaoMotivo => PodeSalvar && PodeDescartar && !MotivoAberto;
+
+    public bool MostrarMotivo => PodeSalvar && PodeDescartar && MotivoAberto;
+
+    [RelayCommand]
+    private void AbrirMotivo() => MotivoAberto = true;
+
+    /// <summary>Desistiu do motivo: fecha o campo e apaga o que foi digitado.</summary>
+    [RelayCommand]
+    private void FecharMotivo()
+    {
+        if (Formulario is { } f) f.MotivoAlteracao = string.Empty;
+        MotivoAberto = false;
+    }
+
     /// <summary>Desativar/reativar: cadastro já gravado e permissão de inativar (a API confere de novo).</summary>
     public bool PodeDesativar => Formulario is { Existente: true, PodeEscolherSituacao: true } && _sessao.Possui(Permissoes.Pessoas.Inativar);
     public bool PodeReativar => Formulario is { Existente: true, EstaInativo: true } && _sessao.Possui(Permissoes.Pessoas.Inativar);
@@ -1392,6 +1434,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         _historicoDe = null;
         _ultimoDoHistorico = null;
         TemMaisHistorico = false;
+        ReiniciarFiltroHistorico();
         if (newValue is null)
         {
             Resumo.Atualizar(null, IrParaAba);
@@ -1588,7 +1631,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         CarregandoHistorico = true;
         try
         {
-            var registros = await _pessoas.ListarHistoricoAsync(pessoaId, continuar ? _ultimoDoHistorico : null);
+            if (!continuar) _ = CarregarOpcoesHistoricoAsync(pessoaId);
+            var registros = await _pessoas.ListarHistoricoAsync(pessoaId, continuar ? _ultimoDoHistorico : null, filtro: _filtroHistorico);
             if (Formulario?.Id != pessoaId) return; // outra ficha foi aberta enquanto lia
             if (!continuar) Historico.Clear();
             foreach (var r in registros) Historico.Add(HistoricoItem.De(r));

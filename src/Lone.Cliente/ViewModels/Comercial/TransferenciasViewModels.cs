@@ -11,6 +11,7 @@ using Lone.Contracts.Comercial;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Comercial;
 
@@ -404,6 +405,14 @@ public sealed partial class AssistenteTransferencia : ObservableObject
 /// </summary>
 public sealed partial class TransferenciasViewModel : CadastroViewModelBase<LinhaTransferencia>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTransferencia> CriarGradeDaLista() => new(
+        "Transferência", l => l.Id, l => l.Item.Numero, l => l.Item.Origem,
+        ColunaCadastro<LinhaTransferencia>.Curto("efeito", "A partir de", l => TextoTela.Data(l.Item.EfeitoEm), 130),
+        ColunaCadastro<LinhaTransferencia>.Texto("papel", "Papel", l => l.Item.Papel ?? "Todos os papéis", 140),
+        ColunaCadastro<LinhaTransferencia>.Texto("empresa", "Empresa", l => l.Item.Empresa ?? "Todas", 140),
+        ColunaCadastro<LinhaTransferencia>.Texto("resultado", "Resultado", l => l.Resumo, 200));
+
     private readonly ComercialApi _api;
     private readonly AberturaDePessoa _abertura;
     private TransferenciaOpcoesDto? _opcoes;
@@ -605,7 +614,10 @@ public sealed partial class CarteiraEmDataViewModel : ViewModelBase
     // ---- Resultado ----
 
     public ObservableCollection<LinhaVinculoEmData> Linhas { get; } = new();
-    [ObservableProperty] private string _resumo = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(SemConsulta))] private string _resumo = string.Empty;
+
+    /// <summary>Ainda não consultou (o cartão de resultado mostra como começar; 03/10/2026).</summary>
+    public bool SemConsulta => Resumo.Length == 0;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAusencias))] private string _ausencias = string.Empty;
     public bool TemAusencias => Ausencias.Length > 0;
 

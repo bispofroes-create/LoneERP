@@ -3,12 +3,13 @@
      Cada cartão abre a mesma tela de antes. Um cartão por cadastro, agrupados por título (escolha do usuário). -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:c="clr-namespace:Lone.App.Controles"
              xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
              x:Class="Lone.App.Views.ConfiguracoesPage"
              x:DataType="vm:ConfiguracoesViewModel"
              Title="{Binding Titulo}">
     <ScrollView>
-        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="24" MaximumWidthRequest="1200" HorizontalOptions="Fill">
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="24">
             <!-- Cabeçalho da página -->
             <VerticalStackLayout Spacing="4">
                 <Label Text="{Binding Titulo}" Style="{StaticResource TituloPagina}" />
@@ -24,7 +25,7 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Text="{Binding Titulo}" Style="{StaticResource Subtitulo}" />
                             <!-- Cartões lado a lado no computador; um embaixo do outro no celular. -->
-                            <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Itens}">
+                            <c:BlocoCampos BindableLayout.ItemsSource="{Binding Itens}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:ItemConfiguracao">
                                         <Border Style="{StaticResource Cartao}" Margin="0,0,12,12"
@@ -41,7 +42,7 @@
                                         </Border>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
-                            </FlexLayout>
+                            </c:BlocoCampos>
                         </VerticalStackLayout>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>

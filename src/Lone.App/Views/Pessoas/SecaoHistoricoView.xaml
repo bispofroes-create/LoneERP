@@ -6,11 +6,30 @@
              x:Class="Lone.App.Views.Pessoas.SecaoHistoricoView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
-        <Label Text="Quem mudou o quê neste cadastro, do mais recente para o mais antigo." Style="{StaticResource Secundario}" />
+        <!-- Descrição à esquerda; Imprimir / PDF à direita (ação sobre a lista, como no SAP; 03/10/2026). -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <Label Text="Quem mudou o quê neste cadastro, do mais recente para o mais antigo." Style="{StaticResource Secundario}"
+                   VerticalOptions="Center" LineBreakMode="WordWrap" />
+            <Button Grid.Column="1" Text="Imprimir / PDF" Style="{StaticResource BotaoSecundario}" Command="{Binding ImprimirHistoricoCommand}"
+                    ToolTipProperties.Text="Abre o histórico (com o filtro em uso) no navegador para imprimir ou salvar em PDF" />
+        </Grid>
+        <!-- Filtro (03/10/2026): vale para o histórico inteiro (aplicado no servidor). Limpar (só com filtro) e Filtrar no fim
+             da linha, alinhados às caixas, como a barra de filtros do SAP Fiori. -->
+        <c:BlocoCampos AlignItems="End" Margin="0,0,0,8">
+            <c:CampoEscolha Rotulo="Tipo" Itens="{Binding HistoricoTipos}" Selecionado="{Binding HistoricoTipo}" />
+            <c:CampoEscolha Rotulo="Quem alterou" Itens="{Binding HistoricoUsuarios}" Selecionado="{Binding HistoricoUsuario}" />
+            <c:Campo Rotulo="De" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding HistoricoPeriodoDe}" />
+            <c:Campo Rotulo="Até" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding HistoricoPeriodoAte}" />
+            <HorizontalStackLayout Spacing="8" Padding="0,0,0,8">
+                <Button Text="Limpar" Style="{StaticResource BotaoSecundario}" Command="{Binding LimparFiltroHistoricoCommand}"
+                        IsVisible="{Binding HistoricoFiltrado}" ToolTipProperties.Text="Volta o filtro para todo o histórico" />
+                <Button Text="Filtrar" Style="{StaticResource BotaoSecundario}" Command="{Binding FiltrarHistoricoCommand}" />
+            </HorizontalStackLayout>
+        </c:BlocoCampos>
         <ActivityIndicator IsRunning="{Binding CarregandoHistorico}" IsVisible="{Binding CarregandoHistorico}" HorizontalOptions="Start" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Historico}" Spacing="10">
             <BindableLayout.EmptyView>
-                <Label Text="Sem alterações registradas." Style="{StaticResource Secundario}" Margin="0,8" />
+                <Label Text="Nenhum registro (confira o filtro)." Style="{StaticResource Secundario}" Margin="0,8" />
             </BindableLayout.EmptyView>
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:HistoricoItem">

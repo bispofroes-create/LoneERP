@@ -9,178 +9,18 @@
              x:DataType="com:TransferenciasViewModel"
              Title="Transferências">
 
-    <Grid x:Name="Grade" ColumnDefinitions="380,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Transferências"
+                         Subtitulo="Passa os clientes de uma pessoa para outra (ou para várias) a partir de uma data: quem sai fica até a véspera, nada é apagado e cada cliente registra a troca no histórico. Antes de gravar, a prévia mostra cliente a cliente o que vai acontecer."
+                         TextoNovo="+  Nova transferência"
+                         DicaBusca="Pesquisar transferências"
+                         TituloVazio="Nenhuma transferência cadastrada" />
 
-        <!-- ===== Lista ===== -->
-        <Grid RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar número ou pessoa" />
-                <Button Grid.Column="1" Text="Nova" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
-            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
-            <CollectionView Grid.Row="2" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhuma transferência feita. Clique em Nova." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="com:LinhaTransferencia">
-                        <VerticalStackLayout Padding="12,8">
-                            <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding Resumo}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-            <ActivityIndicator Grid.Row="2" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nada aberto (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24" MaximumWidthRequest="620">
-            <Label Text="Transferência de carteira" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Passa os clientes de uma pessoa para outra (ou para várias) a partir de uma data: quem sai fica até a véspera, nada é apagado e cada cliente registra a troca no histórico. Antes de gravar, a prévia mostra cliente a cliente o que vai acontecer."
-                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha: resultado ou assistente ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="960"
-                                     HorizontalOptions="Fill">
-                    <Button Text="‹ Transferências" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
-                    <!-- ===== Resultado de uma transferência ===== -->
-                    <VerticalStackLayout Spacing="6" IsVisible="{Binding MostrarResultado}">
-                        <Label Text="{Binding Resultado.Titulo}" Style="{StaticResource Titulo}" />
-                        <Label Text="{Binding Resultado.Descricao}" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding Resultado.Motivo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding Resultado.Quem}" Style="{StaticResource Secundario}" />
-                        <Label Text="{Binding Resultado.Resumo}" FontAttributes="Bold" Margin="0,8,0,0" LineBreakMode="WordWrap" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Resultado.Linhas}" Spacing="6">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="com:LinhaClienteTransferencia">
-                                    <Border Style="{StaticResource Cartao}" Padding="12,8">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                            <VerticalStackLayout Spacing="2">
-                                                <Label Text="{Binding Cliente}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                                                <Label Text="{Binding Motivo}" IsVisible="{Binding TemMotivo}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
-                                            </VerticalStackLayout>
-                                            <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="2">
-                                                <Label Text="{Binding Situacao}" FontAttributes="Bold" HorizontalOptions="End" />
-                                                <Label Text="{Binding ParaQuem}" Style="{StaticResource Secundario}" HorizontalOptions="End" />
-                                                <Button Text="Abrir ficha" Style="{StaticResource BotaoLink}" HorizontalOptions="End"
-                                                        IsVisible="{Binding PodeAbrirFicha, Source={RelativeSource AncestorType={x:Type com:TransferenciasViewModel}}, x:DataType=com:TransferenciasViewModel}"
-                                                        Command="{Binding AbrirClienteCommand, Source={RelativeSource AncestorType={x:Type com:TransferenciasViewModel}}, x:DataType=com:TransferenciasViewModel}"
-                                                        CommandParameter="{Binding .}" />
-                                            </VerticalStackLayout>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- ===== Assistente ===== -->
-                    <VerticalStackLayout Spacing="10" IsVisible="{Binding MostrarAssistente}">
-                        <Label Text="Nova transferência" Style="{StaticResource Titulo}" />
-                        <Label Text="{Binding Assistente.TituloPasso}" Style="{StaticResource Subtitulo}" />
-
-                        <!-- Passo 1 -->
-                        <VerticalStackLayout Spacing="8" IsVisible="{Binding Assistente.NoPasso1}">
-                            <FlexLayout Wrap="Wrap">
-                                <c:CampoEscolha Rotulo="De quem sai a carteira" Itens="{Binding Assistente.Origens}" Selecionado="{Binding Assistente.Origem}" />
-                                <c:CampoEscolha Rotulo="Papel comercial" Itens="{Binding Assistente.Papeis}" Selecionado="{Binding Assistente.Papel}" />
-                                <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Assistente.Empresas}" Selecionado="{Binding Assistente.Empresa}" />
-                            </FlexLayout>
-                            <Label Text="{Binding Assistente.ClientesDaOrigem}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                        </VerticalStackLayout>
-
-                        <!-- Passo 2 -->
-                        <VerticalStackLayout Spacing="8" IsVisible="{Binding Assistente.NoPasso2}">
-                            <!-- Escolher e depois "+ Incluir": a lista só muda depois do toque no botão (trocar a lista de um
-                                 Picker enquanto ele fecha trava o app no Windows). -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" MaximumWidthRequest="560" HorizontalOptions="Start">
-                                <c:CampoEscolha Rotulo="Para quem vai (um ou mais)" Itens="{Binding Assistente.DestinosDisponiveis}"
-                                                Selecionado="{Binding Assistente.NovoDestino}" />
-                                <Button Grid.Column="1" Text="+ Incluir" VerticalOptions="End" Command="{Binding Assistente.IncluirDestinoCommand}"
-                                        IsEnabled="{Binding Assistente.PodeIncluirDestino, FallbackValue=False}" />
-                            </Grid>
-                            <Label Text="Nenhum destino escolhido." Style="{StaticResource Secundario}" IsVisible="{Binding Assistente.SemDestinos}" />
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Assistente.Destinos}" Spacing="4">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="com:DestinoEscolhido">
-                                        <Grid ColumnDefinitions="*,Auto" Padding="10,2"
-                                              BackgroundColor="{AppThemeBinding Light={StaticResource SeloNeutroFundo}, Dark={StaticResource SeloNeutroFundoEscuro}}">
-                                            <Label Text="{Binding Nome}" VerticalOptions="Center" />
-                                            <Button Grid.Column="1" Text="✕" Style="{StaticResource BotaoLink}" ToolTipProperties.Text="Tirar este destino"
-                                                    Command="{Binding Assistente.TirarDestinoCommand, Source={RelativeSource AncestorType={x:Type com:TransferenciasViewModel}}, x:DataType=com:TransferenciasViewModel}"
-                                                    CommandParameter="{Binding .}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                            <Label Text="{Binding Assistente.TextoDivisao}" Style="{StaticResource Secundario}" IsVisible="{Binding Assistente.VariosDestinos}"
-                                   LineBreakMode="WordWrap" />
-                            <FlexLayout Wrap="Wrap">
-                                <c:Campo Rotulo="A partir de (data de efeito)" Texto="{Binding Assistente.EfeitoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
-                                <c:Campo Rotulo="Motivo (obrigatório)" Texto="{Binding Assistente.Motivo}" Dica="Ex.: desligamento, reorganização da equipe" />
-                                <c:Campo Rotulo="Observação" Texto="{Binding Assistente.Observacao}" />
-                            </FlexLayout>
-                            <Label Text="{Binding Assistente.AjudaEfeito}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                        </VerticalStackLayout>
-
-                        <!-- Passo 3: prévia -->
-                        <VerticalStackLayout Spacing="8" IsVisible="{Binding Assistente.NoPasso3}">
-                            <Border IsVisible="{Binding Assistente.TemAvisos}" StrokeThickness="0" Padding="12,8"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}">
-                                <Label Text="{Binding Assistente.Avisos}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
-                            </Border>
-                            <Label Text="{Binding Assistente.ResumoPrevia}" FontAttributes="Bold" LineBreakMode="WordWrap" />
-                            <Label Text="{Binding Assistente.PorDestino}" Style="{StaticResource Secundario}" IsVisible="{Binding Assistente.TemPorDestino}"
-                                   LineBreakMode="WordWrap" />
-                            <HorizontalStackLayout Spacing="12">
-                                <Button Text="Marcar todos" Style="{StaticResource BotaoLink}" Command="{Binding Assistente.MarcarTodosCommand}" />
-                                <Button Text="Desmarcar todos" Style="{StaticResource BotaoLink}" Command="{Binding Assistente.DesmarcarTodosCommand}" />
-                            </HorizontalStackLayout>
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Assistente.Linhas}" Spacing="6">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="com:LinhaClienteTransferencia">
-                                        <Border Style="{StaticResource Cartao}" Padding="12,8">
-                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                                <c:CaixaMarcar Marcado="{Binding Marcado}" IsVisible="{Binding PodeMarcar}" VerticalOptions="Start"
-                                                               ToolTipProperties.Text="Desmarque para deixar este cliente fora da transferência" />
-                                                <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                                    <Label Text="{Binding Cliente}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                                    <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                                                    <Label Text="{Binding Motivo}" IsVisible="{Binding TemMotivo}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
-                                                </VerticalStackLayout>
-                                                <VerticalStackLayout Grid.Column="2" HorizontalOptions="End" Spacing="2" WidthRequest="240">
-                                                    <Label Text="{Binding Situacao}" FontAttributes="Bold" HorizontalOptions="End" />
-                                                    <Picker ItemsSource="{Binding Destinos}" SelectedItem="{Binding Destino}" IsVisible="{Binding PodeTrocarDestino}"
-                                                            ToolTipProperties.Text="Para quem este cliente vai" />
-                                                </VerticalStackLayout>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </ScrollView>
-
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="‹ Voltar" Style="{StaticResource BotaoSecundario}" Command="{Binding VoltarCommand}"
+        <c:FichaCadastro CaminhoTitulo="" CaminhoSituacao="" IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Transferências">
+            <c:FichaCadastro.AcoesBarra>
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="‹ Anterior" Style="{StaticResource BotaoSecundario}" Command="{Binding VoltarCommand}"
                             IsVisible="{Binding Assistente.PodeVoltar, FallbackValue=False}" IsEnabled="{Binding Livre}" />
                     <Button Text="Avançar ›" Command="{Binding AvancarCommand}" IsEnabled="{Binding Livre}"
                             IsVisible="{Binding Assistente.NoPasso1, FallbackValue=False}" />
@@ -188,10 +28,128 @@
                             IsVisible="{Binding Assistente.NoPasso2, FallbackValue=False}" />
                     <Button Text="{Binding Assistente.TextoTransferir}" Command="{Binding TransferirCommand}"
                             IsVisible="{Binding Assistente.NoPasso3, FallbackValue=False}" IsEnabled="{Binding Assistente.PodeTransferir, FallbackValue=False}" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
-            </Border>
-        </Grid>
+            </c:FichaCadastro.AcoesBarra>
+            <VerticalStackLayout Spacing="10">
+                <!-- ===== Resultado de uma transferência ===== -->
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding MostrarResultado}">
+                    <Label Text="{Binding Resultado.Titulo}" Style="{StaticResource Titulo}" />
+                    <Label Text="{Binding Resultado.Descricao}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Resultado.Motivo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Resultado.Quem}" Style="{StaticResource Secundario}" />
+                    <Label Text="{Binding Resultado.Resumo}" FontAttributes="Bold" Margin="0,8,0,0" LineBreakMode="WordWrap" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Resultado.Linhas}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="com:LinhaClienteTransferencia">
+                                <Border Style="{StaticResource Cartao}" Padding="12,8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Cliente}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding Motivo}" IsVisible="{Binding TemMotivo}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="2">
+                                            <Label Text="{Binding Situacao}" FontAttributes="Bold" HorizontalOptions="End" />
+                                            <Label Text="{Binding ParaQuem}" Style="{StaticResource Secundario}" HorizontalOptions="End" />
+                                            <Button Text="Abrir ficha" Style="{StaticResource BotaoLink}" HorizontalOptions="End"
+                                                    IsVisible="{Binding PodeAbrirFicha, Source={RelativeSource AncestorType={x:Type com:TransferenciasViewModel}}, x:DataType=com:TransferenciasViewModel}"
+                                                    Command="{Binding AbrirClienteCommand, Source={RelativeSource AncestorType={x:Type com:TransferenciasViewModel}}, x:DataType=com:TransferenciasViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- ===== Assistente ===== -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding MostrarAssistente}">
+                    <Label Text="Nova transferência" Style="{StaticResource Titulo}" />
+                    <Label Text="{Binding Assistente.TituloPasso}" Style="{StaticResource Subtitulo}" />
+
+                    <!-- Passo 1 -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding Assistente.NoPasso1}">
+                        <c:BlocoCampos>
+                            <c:CampoEscolha Rotulo="De quem sai a carteira" Itens="{Binding Assistente.Origens}" Selecionado="{Binding Assistente.Origem}" />
+                            <c:CampoEscolha Rotulo="Papel comercial" Itens="{Binding Assistente.Papeis}" Selecionado="{Binding Assistente.Papel}" />
+                            <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Assistente.Empresas}" Selecionado="{Binding Assistente.Empresa}" />
+                        </c:BlocoCampos>
+                        <Label Text="{Binding Assistente.ClientesDaOrigem}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+
+                    <!-- Passo 2 -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding Assistente.NoPasso2}">
+                        <!-- Escolher e depois "+ Incluir": a lista só muda depois do toque no botão (trocar a lista de um
+                             Picker enquanto ele fecha trava o app no Windows). -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" MaximumWidthRequest="560" HorizontalOptions="Start">
+                            <c:CampoEscolha Rotulo="Para quem vai (um ou mais)" Itens="{Binding Assistente.DestinosDisponiveis}"
+                                            Selecionado="{Binding Assistente.NovoDestino}" Padding="0" />
+                            <Button Grid.Column="1" Text="+ Adicionar" VerticalOptions="End" Command="{Binding Assistente.IncluirDestinoCommand}"
+                                    IsEnabled="{Binding Assistente.PodeIncluirDestino, FallbackValue=False}" />
+                        </Grid>
+                        <Label Text="Nenhum destino escolhido." Style="{StaticResource Secundario}" IsVisible="{Binding Assistente.SemDestinos}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Assistente.Destinos}" Spacing="4">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="com:DestinoEscolhido">
+                                    <Grid ColumnDefinitions="*,Auto" Padding="10,2"
+                                          BackgroundColor="{AppThemeBinding Light={StaticResource SeloNeutroFundo}, Dark={StaticResource SeloNeutroFundoEscuro}}">
+                                        <Label Text="{Binding Nome}" VerticalOptions="Center" />
+                                        <Button Grid.Column="1" Text="✕" Style="{StaticResource BotaoLink}" ToolTipProperties.Text="Tirar este destino"
+                                                Command="{Binding Assistente.TirarDestinoCommand, Source={RelativeSource AncestorType={x:Type com:TransferenciasViewModel}}, x:DataType=com:TransferenciasViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="{Binding Assistente.TextoDivisao}" Style="{StaticResource Secundario}" IsVisible="{Binding Assistente.VariosDestinos}"
+                               LineBreakMode="WordWrap" />
+                        <c:BlocoCampos>
+                            <c:Campo Rotulo="A partir de (data de efeito)" Texto="{Binding Assistente.EfeitoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                            <c:Campo Rotulo="Motivo (obrigatório)" Texto="{Binding Assistente.Motivo}" Dica="Ex.: desligamento, reorganização da equipe" />
+                            <c:Campo Rotulo="Observação" Texto="{Binding Assistente.Observacao}" />
+                        </c:BlocoCampos>
+                        <Label Text="{Binding Assistente.AjudaEfeito}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+
+                    <!-- Passo 3: prévia -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding Assistente.NoPasso3}">
+                        <Border IsVisible="{Binding Assistente.TemAvisos}" StrokeThickness="0" Padding="12,8"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource AvisoFundo}, Dark={StaticResource AvisoFundoEscuro}}">
+                            <Label Text="{Binding Assistente.Avisos}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
+                        </Border>
+                        <Label Text="{Binding Assistente.ResumoPrevia}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Assistente.PorDestino}" Style="{StaticResource Secundario}" IsVisible="{Binding Assistente.TemPorDestino}"
+                               LineBreakMode="WordWrap" />
+                        <HorizontalStackLayout Spacing="12">
+                            <Button Text="Marcar todos" Style="{StaticResource BotaoLink}" Command="{Binding Assistente.MarcarTodosCommand}" />
+                            <Button Text="Desmarcar todos" Style="{StaticResource BotaoLink}" Command="{Binding Assistente.DesmarcarTodosCommand}" />
+                        </HorizontalStackLayout>
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Assistente.Linhas}" Spacing="6">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="com:LinhaClienteTransferencia">
+                                    <Border Style="{StaticResource Cartao}" Padding="12,8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                            <c:CaixaMarcar Marcado="{Binding Marcado}" IsVisible="{Binding PodeMarcar}" VerticalOptions="Start"
+                                                           ToolTipProperties.Text="Desmarque para deixar este cliente fora da transferência" />
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                                <Label Text="{Binding Cliente}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding Motivo}" IsVisible="{Binding TemMotivo}" TextColor="{StaticResource Aviso}" LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Grid.Column="2" HorizontalOptions="End" Spacing="2" WidthRequest="240">
+                                                <Label Text="{Binding Situacao}" FontAttributes="Bold" HorizontalOptions="End" />
+                                                <Picker ItemsSource="{Binding Destinos}" SelectedItem="{Binding Destino}" IsVisible="{Binding PodeTrocarDestino}"
+                                                        ToolTipProperties.Text="Para quem este cliente vai" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!-- Lado direito da barra de título (Windows), perto de minimizar/restaurar/fechar: trocar empresa e o usuário logado.
-     Tocar no usuário abre "Trocar de usuário" / "Sair do Lone". No celular estes itens ficam no rodapé do menu. -->
+     Tocar no usuário abre o menu do usuário (Controles/MenuDoUsuario: Minha conta, Administração, Trocar de usuário, Sair). No celular estes itens ficam no rodapé do menu. -->
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:Lone.Cliente.ViewModels;assembly=Lone.Cliente"
@@ -12,12 +12,12 @@
                 BackgroundColor="Transparent" BorderWidth="0" TextColor="{StaticResource MenuTexto}" FontSize="13"
                 FontAttributes="None" Padding="10,4" MinimumHeightRequest="32" HeightRequest="32" VerticalOptions="Center" />
 
-        <!-- Usuário: iniciais, nome e login; o toque abre as opções da sessão. -->
-        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="8,4" BackgroundColor="Transparent"
+        <!-- Usuário: iniciais, nome e login; o toque abre o menu do usuário. -->
+        <Border x:Name="Usuario" StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="8,4" BackgroundColor="Transparent"
                 VerticalOptions="Center" SemanticProperties.Description="{Binding NomeUsuario}"
-                ToolTipProperties.Text="Trocar de usuário ou sair">
+                ToolTipProperties.Text="Minha conta, administração e sair">
             <Border.GestureRecognizers>
-                <TapGestureRecognizer Command="{Binding OpcoesDoUsuarioCommand}" />
+                <TapGestureRecognizer Tapped="Usuario_Tapped" />
             </Border.GestureRecognizers>
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroupList>

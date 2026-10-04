@@ -16,6 +16,7 @@ using Lone.Contracts.Seguranca;
 using Lone.Contracts.Territorios;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Territorios;
 
@@ -38,6 +39,16 @@ public sealed class LinhaOperacaoTerritorial
         Item.Situacao == SituacaoOperacaoTerritorial.Aplicada ? $"{Item.Entraram} entraram, {Item.Sairam} saíram, {Item.Mudaram} mudaram" : $"{Item.QuantidadeMudancas} mudança(s)",
         "por " + (Item.AplicadaPor ?? Item.CriadaPor)
     }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    /// <summary>Colunas da lista (padrão de tela de cadastro, 03/10/2026).</summary>
+    public string Efeito => ExplicacaoTerritorial.DataComDias(Item.EfeitoEm, Hoje);
+    public string Resultado => Item.Situacao == SituacaoOperacaoTerritorial.Aplicada
+        ? $"{Item.Entraram} entraram, {Item.Sairam} saíram, {Item.Mudaram} mudaram"
+        : $"{Item.QuantidadeMudancas} mudança(s)";
+    public string Por => Item.AplicadaPor ?? Item.CriadaPor;
+
+    /// <summary>Ordenação da coluna "Mudanças": aplicada = entraram + saíram + mudaram; senão, as planejadas.</summary>
+    public int TotalMudancas => Item.Situacao == SituacaoOperacaoTerritorial.Aplicada ? Item.Entraram + Item.Sairam + Item.Mudaram : Item.QuantidadeMudancas;
 }
 
 /// <summary>Uma mudança planejada na tela (retirar pelo próprio item).</summary>
@@ -193,6 +204,23 @@ public static class ExplicacaoTerritorial
 /// </summary>
 public sealed partial class OperacoesTerritoriaisViewModel : CadastroViewModelBase<LinhaOperacaoTerritorial>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaOperacaoTerritorial> CriarGradeDaLista() => new(
+        "Operação", l => l.Item.Id, l => l.Item.Numero, l => l.Item.Motivo,
+        ColunaCadastro<LinhaOperacaoTerritorial>.Texto("mapa", "Mapa", l => l.Item.Mapa, 140),
+        ColunaCadastro<LinhaOperacaoTerritorial>.Curto("efeito", "Efeito", l => l.Efeito, 190, ordem: l => l.Item.EfeitoEm),
+        ColunaCadastro<LinhaOperacaoTerritorial>.Texto("resultado", "Mudanças", l => l.Resultado, 180, ordem: l => l.TotalMudancas),
+        ColunaCadastro<LinhaOperacaoTerritorial>.Curto("por", "Por", l => l.Por, 150),
+        ColunaCadastro<LinhaOperacaoTerritorial>.Selo("situacao", "Situação", l => l.Situacao, l => l.Item.Situacao switch
+        {
+            SituacaoOperacaoTerritorial.Aplicada => "Sucesso",
+            SituacaoOperacaoTerritorial.Cancelada => "Neutro",
+            _ => "Aviso"
+        }, 130))
+    {
+        OrdemTitulo = l => l.Item.Numero // TE-9 antes de TE-10 (ordem natural)
+    };
+
     public const int ItensPorPagina = 200;
 
     private readonly TerritoriosApi _api;
@@ -216,6 +244,7 @@ public sealed partial class OperacoesTerritoriaisViewModel : CadastroViewModelBa
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Now);
 
     public bool PodePlanejar => _opcoes.PodePlanejar;
+    public override bool PodeCriar => PodePlanejar;
     public bool PodeAplicarPermissao => _opcoes.PodeAplicar;
 
     // ------------------------------------------------------------------ Lista
@@ -234,6 +263,7 @@ public sealed partial class OperacoesTerritoriaisViewModel : CadastroViewModelBa
         FiltroMapa = FiltrosMapa.FirstOrDefault(m => m.Valor == anterior) ?? FiltrosMapa[0];
         MapasNovos = [.. _opcoes.Mapas.Where(m => m.Ativo).Select(m => new Opcao<Guid?>(m.Id, m.Nome))];
         OnPropertyChanged(nameof(PodePlanejar));
+        OnPropertyChanged(nameof(PodeCriar));
         OnPropertyChanged(nameof(PodeAplicarPermissao));
         OnPropertyChanged(nameof(TextoParametros));
     }

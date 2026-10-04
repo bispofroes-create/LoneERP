@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Cargos: tabela à esquerda, ficha ao lado. Nada é excluído: é desativado. -->
+<!-- Cargos: lista em colunas e ficha em página própria (padrão de tela de cadastro, 03/10/2026). Nada é excluído: é desativado. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
@@ -8,102 +8,34 @@
              x:DataType="cad:CargosViewModel"
              Title="Cargos">
 
-    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Cargos"
+                         Subtitulo="Os cargos são escolhidos nas lotações da aba &quot;Colaborador&quot; do cadastro de pessoas. O código CBO (opcional) liga o cargo à tabela oficial."
+                         TextoNovo="+  Novo cargo"
+                         DicaBusca="Pesquisar cargos"
+                         TituloVazio="Nenhum cargo cadastrado" />
 
-        <!-- ===== Tabela ===== -->
-        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar" />
-                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
+        <c:FichaCadastro MostrarSalvarENovo="True" IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Cargos">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
-            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
+                <c:BlocoCampos>
+                                            <c:Campo Rotulo="Código CBO (opcional)" Texto="{Binding Formulario.CodigoCbo}" Dica="Ex.: 4211-25" />
+                    <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Vendedor interno" />
+                </c:BlocoCampos>
+                <Label Text="{Binding Formulario.Ocupacao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <Label Text="Maiúsculas e acentos não contam no nome."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
-            <Grid Grid.Row="2" ColumnDefinitions="*,72,40" Padding="12,0">
-                <Label Text="Cargo" Style="{StaticResource Rotulo}" />
-                <Label Grid.Column="1" Text="Em uso" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-                <Label Grid.Column="2" Text="Ativo" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-            </Grid>
-
-            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhum cadastro. Clique em Novo." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="cad:LinhaCargo">
-                        <Grid ColumnDefinitions="*,72,40" Padding="12,8">
-                            <VerticalStackLayout VerticalOptions="Center">
-                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-                            <Label Grid.Column="1" Text="{Binding Usos}" Style="{StaticResource Secundario}"
-                                   HorizontalOptions="End" VerticalOptions="Center" />
-                            <Label Grid.Column="2" Text="{Binding Ativo}" Style="{StaticResource Secundario}"
-                                   HorizontalOptions="End" VerticalOptions="Center" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Os cargos são escolhidos nas lotações da aba &quot;Colaborador&quot; do cadastro de pessoas. O código CBO (opcional) liga o cargo à tabela oficial."
-                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
-                                     HorizontalOptions="Fill">
-                    <Button Text="‹ Cargos" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-
-                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
-                    <FlexLayout Wrap="Wrap">
-                                                <c:Campo Rotulo="Código CBO (opcional)" Texto="{Binding Formulario.CodigoCbo}" Dica="Ex.: 4211-25" />
-                        <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Vendedor interno" />
-                    </FlexLayout>
-                    <Label Text="{Binding Formulario.Ocupacao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <Label Text="Maiúsculas e acentos não contam no nome."
-                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-
-                    <!-- Situação -->
-                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
-                        <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
-                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
-                        <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
-                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
-                    </HorizontalStackLayout>
-
-                </VerticalStackLayout>
-            </ScrollView>
-
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                    <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
-                    <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
+                <!-- Situação -->
+                <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                    <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                            IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                            IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
                 </HorizontalStackLayout>
-            </Border>
-        </Grid>
+            </VerticalStackLayout>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

@@ -10,6 +10,7 @@ using Lone.Contracts.Metas;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Metas;
 
@@ -151,6 +152,11 @@ public sealed partial class IndicadorEdicao : ObservableObject
 /// <summary>Indicadores das metas. Nada é excluído: desativar esconde das metas novas.</summary>
 public sealed partial class IndicadoresViewModel : CadastroViewModelBase<LinhaIndicador>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaIndicador> CriarGradeDaLista() => new(
+        "Indicador", l => l.Item.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaIndicador>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly MetasApi _api;
 
     public IndicadoresViewModel(MetasApi api, IDialogos dialogos) : base(dialogos)
@@ -410,6 +416,12 @@ public sealed partial class EquipeEdicao : ObservableObject
 /// <summary>Equipes das metas (nível entre departamento e colaborador). Nada é excluído.</summary>
 public sealed partial class EquipesViewModel : CadastroViewModelBase<LinhaEquipe>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaEquipe> CriarGradeDaLista() => new(
+        "Equipe", l => l.Item.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaEquipe>.Curto("membros", "Membros", l => l.Membros, 130),
+        ColunaCadastro<LinhaEquipe>.Situacao(l => l.Ativo == "Sim", feminino: true));
+
     private readonly MetasApi _api;
     private MetaOpcoesDto _opcoes = new();
     private IReadOnlyList<EquipeDto> _equipes = [];

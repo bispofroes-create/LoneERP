@@ -213,6 +213,10 @@ public sealed partial class PessoaFormulario : ObservableObject
     public ObservableCollection<SocioDto> Socios { get; } = new();
     public bool TemSocios => Socios.Count > 0;
 
+    /// <summary>Prévia, "Ver todos os N" e busca da lista de sócios (listas longas de empresas grandes).</summary>
+    public QuadroSocios QuadroSocios => _quadroSocios ??= new QuadroSocios(Socios);
+    private QuadroSocios? _quadroSocios;
+
     // ---- Relacionamento ----
 
     [ObservableProperty] private string _origemCadastro = OpcoesPessoa.Origens[0];

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Cliente.Api;
+using Lone.Cliente.ViewModels.Comum;
 using Lone.Domain.Validacao;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
@@ -19,17 +20,19 @@ public sealed partial class PreviaPessoa : ObservableObject
     private readonly Func<Guid, CancellationToken, Task<PessoaFormulario>> _ler;
     private readonly Func<Guid, SecaoPessoa?, Task> _abrirFicha;
     private readonly Func<IReadOnlyList<LinhaPessoa>> _linhas;
+    private readonly Func<(int Deslocamento, int Total)>? _naLista;
     private CancellationTokenSource? _leitura;
 
     /// <param name="ler">Lê a pessoa como a ficha lê (mesma permissão e mesmos dados).</param>
     /// <param name="abrirFicha">Abre a ficha da pessoa, opcionalmente já numa aba (item do resumo).</param>
     /// <param name="linhas">Linhas da página atual (anterior/próxima).</param>
     public PreviaPessoa(Func<Guid, CancellationToken, Task<PessoaFormulario>> ler, Func<Guid, SecaoPessoa?, Task> abrirFicha,
-                        Func<IReadOnlyList<LinhaPessoa>> linhas)
+                        Func<IReadOnlyList<LinhaPessoa>> linhas, Func<(int Deslocamento, int Total)>? naLista = null)
     {
         _ler = ler;
         _abrirFicha = abrirFicha;
         _linhas = linhas;
+        _naLista = naLista;
     }
 
     /// <summary>O mesmo resumo da ficha (as fontes são as mesmas: um módulo novo aparece nos dois lugares).</summary>
@@ -97,8 +100,20 @@ public sealed partial class PreviaPessoa : ObservableObject
         ? string.Empty
         : string.Join(" · ", new[] { $"Cód. {p.CodigoFormatado}", p.DocumentoFormatado, p.Local }.Where(t => t.Length > 0));
 
-    /// <summary>"3 de 50" (posição na página atual).</summary>
-    public string Posicao => Indice() is { } i && i >= 0 ? $"{i + 1} de {_linhas().Count}" : string.Empty;
+    /// <summary>
+    /// "8 de 51": a posição na lista toda (quantos vêm antes da página + a posição nela; total da consulta). Sem essa
+    /// informação, conta dentro da página. Anterior/próxima continuam andando dentro da página.
+    /// </summary>
+    public string Posicao
+    {
+        get
+        {
+            if (Indice() is not { } i || i < 0) return string.Empty;
+            var (antes, total) = _naLista?.Invoke() ?? (0, _linhas().Count);
+            if (total < antes + i + 1) total = antes + _linhas().Count; // total ainda não lido: não mostra "8 de 3"
+            return $"{(antes + i + 1).ToString("N0", TextoTela.Brasil)} de {total.ToString("N0", TextoTela.Brasil)}";
+        }
+    }
     public bool TemAnterior => Indice() > 0;
     public bool TemProxima => Indice() is { } i && i >= 0 && i < _linhas().Count - 1;
 

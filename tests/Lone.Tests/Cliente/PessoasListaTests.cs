@@ -33,8 +33,13 @@ public class PessoasListaTests
     [Fact]
     public void Paginacao_resumo_e_janela_de_paginas()
     {
-        Assert.Equal("Mostrando 1–50 de 1.248", Paginacao.Resumo(1, 50, 1248, 50));
-        Assert.Equal("Mostrando 1.201–1.248 de 1.248", Paginacao.Resumo(25, 50, 1248, 48));
+        // Diz o que conta e separa o total da página; uma página só: só o total.
+        Assert.Equal("1.248 pessoas · página 1 de 25", Paginacao.Resumo(1, 50, 1248, 50, "pessoa", "pessoas"));
+        Assert.Equal("1.248 pessoas · página 25 de 25", Paginacao.Resumo(25, 50, 1248, 48, "pessoa", "pessoas"));
+        Assert.Equal("51 pessoas · página 2 de 2", Paginacao.Resumo(2, 50, 51, 1, "pessoa", "pessoas"));
+        Assert.Equal("3 pessoas", Paginacao.Resumo(1, 50, 3, 3, "pessoa", "pessoas"));
+        Assert.Equal("1 pessoa", Paginacao.Resumo(1, 50, 1, 1, "pessoa", "pessoas"));
+        Assert.Equal("10 registros", Paginacao.Resumo(1, 50, 10, 10));
         Assert.Equal("Nenhum registro", Paginacao.Resumo(1, 50, 0, 0));
         Assert.Equal(25, Paginacao.Paginas(1248, 50));
         Assert.Equal(1, Paginacao.Paginas(0, 50));
@@ -51,7 +56,7 @@ public class PessoasListaTests
         var (tela, ambiente) = await AbrirAsync();
         Assert.Equal("/" + Rotas.Pessoas.Pagina, ambiente.Servidor.Recebidas.Last().Caminho);
         Assert.Equal(1, tela.TotalRegistros);
-        Assert.Equal("Mostrando 1–1 de 1", tela.ResumoPaginacao);
+        Assert.Equal("1 pessoa", tela.ResumoPaginacao);
         Assert.False(tela.TemVariasPaginas);
         Assert.False(tela.MostrarEstadoVazio);
 
@@ -59,12 +64,12 @@ public class PessoasListaTests
         await tela.EscolherFiltroRapidoCommand.ExecuteAsync(tela.FiltrosRapidos.Single(f => f.Chave == FiltroRapido.Fisicas));
         Assert.Equal(3, tela.TotalPaginas);
         Assert.True(tela.PodeAvancarPagina);
-        Assert.Equal("Mostrando 1–50 de 120", tela.ResumoPaginacao);
+        Assert.Equal("120 pessoas · página 1 de 3", tela.ResumoPaginacao);
 
         ambiente.Servidor.Responder(HttpStatusCode.OK, Pagina(total: 120, pagina: 2, quantos: 50));
         await tela.ProximaPaginaCommand.ExecuteAsync(null);
         Assert.Equal(2, tela.PaginaAtual);
-        Assert.Equal("Mostrando 51–100 de 120", tela.ResumoPaginacao);
+        Assert.Equal("120 pessoas · página 2 de 3", tela.ResumoPaginacao);
         Assert.True(tela.PodeVoltarPagina);
     }
 
@@ -190,7 +195,7 @@ public class PessoasListaTests
         tela.DefinirLarguraDaLista(1400);
         Assert.True(tela.Grade.MostrarColunas);
         var linha = Assert.Single(tela.Linhas);
-        Assert.Equal(5, linha.Celulas.Count); // sem catálogo de colunas: as de sempre
+        Assert.Equal(6, linha.Celulas.Count); // sem catálogo de colunas: as de sempre (cidade e UF separadas)
         Assert.StartsWith("Cód.", linha.Subtitulo);
 
         tela.DefinirLarguraDaLista(500);

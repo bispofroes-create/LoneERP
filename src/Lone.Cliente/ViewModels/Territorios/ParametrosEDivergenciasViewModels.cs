@@ -79,8 +79,12 @@ public sealed partial class DivergenciasTerritoriaisViewModel : ViewModelBase
     [ObservableProperty] private Opcao<Guid?>[] _mapas = [];
     [ObservableProperty] private Opcao<Guid?>? _mapa;
     [ObservableProperty] private string _resumo = "Escolha o mapa e clique em Conferir.";
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemMais), nameof(PodeCriarOperacao))] private int _total;
-    [ObservableProperty] private LinhaItemTerritorial? _selecionado;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemMais), nameof(PodeCriarOperacao), nameof(TemItens))] private int _total;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemSelecionado))] private LinhaItemTerritorial? _selecionado;
+
+    /// <summary>A lista e o "Por quê?" só aparecem com divergências / com uma escolhida (03/10/2026).</summary>
+    public bool TemItens => Total > 0;
+    public bool TemSelecionado => Selecionado is not null;
     public ObservableCollection<LinhaItemTerritorial> Itens { get; } = new();
     public bool TemMais => Itens.Count < Total;
 

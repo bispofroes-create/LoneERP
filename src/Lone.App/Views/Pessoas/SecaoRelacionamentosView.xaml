@@ -39,12 +39,12 @@
         </VerticalStackLayout>
 
         <!-- Novo relacionamento: tipo (com o sentido), a outra pessoa (busca no servidor), início e observações. -->
-        <Label Text="Novo relacionamento" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
-        <FlexLayout Wrap="Wrap" AlignItems="End">
+        <Label Text="Adicionar relacionamento" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+        <c:BlocoCampos AlignItems="End">
             <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Formulario.Relacionamentos.Tipos}"
                             Selecionado="{Binding Formulario.Relacionamentos.NovoTipo}" />
             <c:Campo Rotulo="Início (opcional)" Texto="{Binding Formulario.Relacionamentos.NovoInicio}" Dica="dd/mm/aaaa" Mascara="Data" />
-        </FlexLayout>
+        </c:BlocoCampos>
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MaximumWidthRequest="640" HorizontalOptions="Start">
             <SearchBar Text="{Binding Formulario.Relacionamentos.BuscaPessoa}" Placeholder="Outra pessoa: nome, código, CPF ou CNPJ"
                        SearchCommand="{Binding Formulario.Relacionamentos.BuscarPessoaCommand}" />
@@ -64,8 +64,9 @@
         </CollectionView>
         <Label Text="{Binding Formulario.Relacionamentos.TextoPessoaEscolhida}" FontAttributes="Bold" LineBreakMode="WordWrap"
                IsVisible="{Binding Formulario.Relacionamentos.TemPessoaEscolhida}" />
-        <c:Campo Rotulo="Observações (opcional)" Texto="{Binding Formulario.Relacionamentos.NovasObservacoes}" MaximumWidthRequest="640"
-                 HorizontalOptions="Start" />
+        <c:BlocoCampos>
+            <c:Campo Rotulo="Observações (opcional)" Texto="{Binding Formulario.Relacionamentos.NovasObservacoes}" />
+        </c:BlocoCampos>
         <HorizontalStackLayout Spacing="8">
             <Button Text="Registrar relacionamento" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding Formulario.Relacionamentos.IncluirCommand}" IsEnabled="{Binding Livre}" />

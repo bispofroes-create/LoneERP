@@ -9,13 +9,13 @@
              Title="Parâmetros territoriais">
     <Grid RowDefinitions="*,Auto">
         <ScrollView>
-            <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760" HorizontalOptions="Fill">
-                <Label Text="Parâmetros territoriais" Style="{StaticResource Titulo}" />
+            <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10">
+                <Label Text="Parâmetros territoriais" Style="{StaticResource TituloPagina}" />
                 <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
                 <Label Text="Operações territoriais: datas no passado" Style="{StaticResource Subtitulo}" Margin="0,8,0,0" />
-                <FlexLayout Wrap="Wrap">
+                <c:BlocoCampos>
                     <c:Campo Rotulo="Até quantos dias antes de hoje" Texto="{Binding DiasRetroativos}" Mascara="Numero" Dica="Ex.: 30 (0 = só hoje em diante)" />
-                </FlexLayout>
+                </c:BlocoCampos>
                 <Label Text="{Binding TextoLimites}" Style="{StaticResource Secundario}" />
                 <Label Text="Vale para a data de efeito de uma operação territorial (regras, exceções e mudanças na árvore com uso). Nunca vale antes da última operação aplicada no mapa, qualquer que seja este número: a linha do tempo do mapa não volta para trás. É separado do parâmetro das coberturas e transferências (Parâmetros comerciais)."
                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />

@@ -28,7 +28,7 @@
         <!-- Telefones -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
             <Label Text="Telefones" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar telefone" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarTelefoneCommand}" />
+            <Button Grid.Column="1" Text="+ Adicionar telefone" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarTelefoneCommand}" />
         </Grid>
         <Label Text="Nenhum telefone." Style="{StaticResource Secundario}" Margin="0,4,0,8" IsVisible="{Binding Formulario.SemTelefones}" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">
@@ -38,7 +38,7 @@
                         <VerticalStackLayout>
                             <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
-                            <FlexLayout Wrap="Wrap" AlignItems="End">
+                            <c:BlocoCampos AlignItems="End">
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding TiposTelefone}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Número" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
                                 <c:Campo Rotulo="Ramal" Texto="{Binding Ramal}" Mascara="Numero" IsVisible="{Binding EhFixo}" />
@@ -53,7 +53,7 @@
                                         IsVisible="{Binding Ativo}" />
                                 <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
                                         IsVisible="{Binding Inativo}" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
@@ -63,7 +63,7 @@
         <!-- E-mails -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,12,0,0">
             <Label Text="E-mails" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar e-mail" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarEmailCommand}" />
+            <Button Grid.Column="1" Text="+ Adicionar e-mail" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarEmailCommand}" />
         </Grid>
         <Label Text="Nenhum e-mail." Style="{StaticResource Secundario}" Margin="0,4,0,8" IsVisible="{Binding Formulario.SemEmails}" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">
@@ -73,7 +73,7 @@
                         <VerticalStackLayout>
                             <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
-                            <FlexLayout Wrap="Wrap" AlignItems="End">
+                            <c:BlocoCampos AlignItems="End">
                                 <c:Campo Rotulo="E-mail" Texto="{Binding Valor}" Teclado="Email" />
                                 <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
                                                 IsVisible="{Binding TemClassificacao}" />
@@ -88,7 +88,7 @@
                                         IsVisible="{Binding Ativo}" />
                                 <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
                                         IsVisible="{Binding Inativo}" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
@@ -98,7 +98,7 @@
         <!-- Pessoas de contato -->
         <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
             <Label Text="Pessoas de contato" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarContatoCommand}" />
+            <Button Grid.Column="1" Text="+ Adicionar contato" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarContatoCommand}" />
         </Grid>
         <Label Text="Pessoas sem cadastro próprio (ex.: a recepcionista, o comprador). Se a pessoa já tem cadastro no Lone, ligue os dois cadastros na aba &quot;Relacionamentos&quot;."
                Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
@@ -110,7 +110,7 @@
                 <DataTemplate x:DataType="pes:ContatoFormulario">
                     <Border Style="{StaticResource CartaoItem}">
                         <VerticalStackLayout>
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:Campo Rotulo="Nome" Texto="{Binding Nome}" />
                                 <c:Campo Rotulo="Cargo" Texto="{Binding Cargo}" />
                                 <c:Campo Rotulo="Departamento" Texto="{Binding Departamento}" />
@@ -120,7 +120,7 @@
                                 <c:CaixaMarcar Texto="O celular tem WhatsApp" Marcado="{Binding CelularWhatsApp}" />
                                 <c:CaixaMarcar Texto="Contato principal" Marcado="{Binding Principal}" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                             <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
                         </VerticalStackLayout>
                     </Border>

@@ -1,7 +1,8 @@
 # Arquitetura de UX do Lone (redesenho do módulo Pessoas, 26/09/2026)
 
-Decisão: **cada módulo tem as suas telas e as suas configurações**; a página "Configurações do sistema" fica só com o que é
-transversal. O menu lateral é organizado por módulo, em **dois níveis** (padrão dos ERPs maduros: Protheus, Dynamics 365,
+Decisão: **cada módulo tem as suas telas e as suas configurações**; o que é transversal (Minha conta, Usuários, Perfis
+de acesso) fica no **menu do usuário**, no canto superior direito (03/10/2026; antes era a página "Configurações do
+sistema" no menu lateral). O menu lateral é organizado por módulo, em **dois níveis** (padrão dos ERPs maduros: Protheus, Dynamics 365,
 Bling/Omie): tocar no nome do módulo abre e fecha as telas dele.
 
 ```
@@ -13,7 +14,6 @@ RECENTES   ›            (as 5 últimas telas abertas)
      Cadastro · Consulta avançada · ⚙ Configurações
 › Organização           (Grupos empresariais · ⚙ Configurações)
 › Metas                 (Painel · ⚙ Configurações)
-  ⚙ Configurações do sistema
 (futuro) Vendas / Compras / Estoque / Financeiro / Fiscal — cada um com "⚙ Configurações"
 ```
 
@@ -146,7 +146,28 @@ sistema inteiro.
   - onde a regra é automática, a tela mostra a data ajustada e o porquê ("vence 02/11 → 03/11, feriado de Finados").
 - **Banco:** o calendário de feriados e a regra por contexto **precisam de migration** (aprovação do usuário). O calendário e os dias corridos, sem ajuste, não precisam.
 
-**Decisões a confirmar na implementação:**
+**Decisões do usuário (03/10/2026):**
+- Aprovado o plano inteiro, na ordem: (1) `CampoData` com o calendário — feito no próprio `Campo` com `Mascara="Data"`,
+  então vale para todos os campos de data das fichas de uma vez; (2) o campo **Prazo** entre Início e Fim; (3) o cadastro
+  **Prazos de período**.
+- **Prazo:** escolher um prazo cadastrado (30, 60, 180 dias…) ou digitar os dias à mão; contagem inclusiva.
+- **Cadastro "Prazos de período":** tabela nova (migration autorizada; o Update-Database fica com o usuário), uma lista
+  só para o sistema inteiro, pré-carregada com 7, 15, 30, 60, 90, 180 dias e 1 ano.
+- **Fim não cai em fim de semana (pedido novo):** junto do período, a opção "Não terminar em fim de semana". Ligada, se o
+  Fim calculado cair num sábado ou domingo, vai para a segunda-feira seguinte e a tela informa quantos dias foram somados
+  ("+2 dias: o fim cairia no sábado 31/10, foi para segunda 02/11"). Feriados entram depois, com o calendário de
+  feriados (item 3 abaixo).
+
+**Feito (03/10/2026):**
+- Parte 1: calendário no `Campo` com `Mascara="Data"` (`Calendario`, `Popover`), em todas as fichas.
+- Parte 2: `c:CampoPrazo` entre Início e Fim (conta em `CalculoPrazo`, testada): digitar os dias ou escolher no ▾
+  (7, 15, 30, 60, 90, 180 dias, 1 ano pelo calendário); "Não terminar em fim de semana" leva o Fim para a segunda e
+  avisa "+2 dias: o fim cairia no sábado 31/10 e foi para segunda 02/11."; mudar o Fim recalcula os dias; o Início move
+  o Fim só depois de o prazo ser escolhido no campo (abrir ou trocar de registro não muda nada — `Registro`). A opção
+  do fim de semana não é gravada. Tela-piloto: Ausências e coberturas.
+- A lista do ▾ vem de `CalculoPrazo.Padrao` até a parte 3 (cadastro "Prazos de período", com tabela).
+
+**Decisões que ainda estavam em aberto:**
 - contagem inclusiva, "30 dias = até 27/10" *(recomendado, igual ao Lone hoje)*;
 - os atalhos de digitação;
 - se o calendário de feriados entra agora ou junto com o financeiro, que é onde o ajuste é obrigatório;
@@ -161,12 +182,16 @@ sistema inteiro.
 
 - **Windows:** empresa e usuário ficam à direita da barra de título, junto de minimizar/restaurar/fechar
   (`Controles/BarraTituloSistema` como `TrailingContent` do `TitleBar`; instalada por `NavegacaoMaui` só enquanto o
-  sistema está aberto). "⇄ Trocar empresa" aparece com mais de uma empresa. Tocar no usuário abre **Trocar de usuário**
-  (encerra a sessão e volta ao login) / **Sair do Lone** (encerra a sessão e fecha o app).
-- **Celular:** sem barra de título — os mesmos itens ficam no rodapé do menu.
-- **Trocar senha:** Configurações do sistema › **Minha conta** (grupo de todos os usuários; por isso Configurações do
-  sistema aparece para qualquer um; Usuários e Perfis continuam com as permissões deles). Rota especial
-  `ModulosConfiguracao.RotaTrocarSenha` (abre por cima, não é tela do Shell; vale também na busca e nos favoritos).
+  sistema está aberto). "⇄ Trocar empresa" aparece com mais de uma empresa.
+- **Menu do usuário (03/10/2026; referência: menu do usuário do SAP Fiori, Dynamics e Office):** tocar no usuário abre
+  um popover (`Controles/MenuDoUsuario`): cabeçalho (nome, login · empresa) · **Minha conta** (🔑 Trocar senha) ·
+  **Administração** (🛡 Perfis de acesso, 👥 Usuários — a seção só aparece com alguma das permissões) · ⇄ Trocar de
+  usuário (encerra a sessão e volta ao login) · ⏻ Sair do Lone (encerra a sessão e fecha o app).
+  "Configurações do sistema" saiu do menu lateral e a página deixou de existir. Parâmetros gerais do sistema, quando
+  existirem, entram em Administração.
+- **Celular:** sem barra de título nem popover — tocar no usuário, no rodapé do menu, mostra as mesmas opções numa lista.
+- **Trocar senha:** rota especial `ModulosConfiguracao.RotaTrocarSenha` (abre por cima, não é tela do Shell). Trocar
+  senha, Usuários e Perfis continuam na busca do menu e nos favoritos (caminho "Menu do usuário").
 
 ## Design system
 
@@ -178,11 +203,182 @@ sistema inteiro.
 - Ícones: só caracteres de texto (⚙ ⋯ ‹ › ← +) — o app não tem fonte de ícones; trocar por uma fonte (ex.: Fluent/Material)
   é um passo futuro, sem mexer no layout.
 
+## Padrão: cartões lado a lado começam na mesma altura (pedido do usuário, 03/10/2026)
+
+- Quando um cartão lateral (prévia, resumo, painel) fica ao lado do cartão principal da tela, **o topo dos dois fica
+  alinhado**. O que fica acima do cartão principal e é só dele (abas, cartão recolhido, avisos, barra da tabela) **não**
+  empurra o lateral para cima: o lateral começa junto com o cartão principal.
+- Como fazer: uma `Grid` com `ColumnDefinitions="*,Auto"` e `RowDefinitions="Auto,Auto"`. Na linha 0, coluna 0, fica o que
+  vem acima do cartão principal. Na linha 1 ficam o cartão principal (coluna 0) e o lateral (coluna 1,
+  `VerticalOptions="Start"`). Não compensar com margem fixa: a altura do que fica em cima muda (avisos, abas, densidade).
+- Exemplos: lista de Pessoas (tabela + prévia) e ficha de Pessoas (conteúdo da aba + resumo da pessoa).
+- Vale para **todas as telas novas** com cartão lateral.
+
+## Padrão: largura das colunas nas listagens (decisão do usuário, 03/10/2026)
+
+- **A coluna principal** (a que identifica o registro: nome / razão social, descrição) é a que **mais cresce** com o
+  espaço livre (peso 3) e a primeira a encolher quando entram mais colunas, até a mínima dela (Pessoas: 260). Passou da
+  mínima, a tabela rola para o lado.
+- **Texto livre** (cidade, papéis, e-mail, bairro, nome fantasia, observação) cresce com peso 1, a partir da mínima.
+- **Dado curto** (código, CPF/CNPJ, tipo, situação, UF, datas, números, valores, telefone, CEP, opções) tem **largura fixa** e
+  nunca cresce: esticar só cria espaço vazio dentro da célula.
+- A sobra nunca vira área vazia: com poucas colunas, a coluna principal fica larga (decisão P1, opção A).
+- Onde fica: a regra de cada tela em código (Pessoas: `GradePessoas.Definicao`); o cálculo é da `CalculadoraLarguras`.
+
+## Padrão: rodapé das listagens e posição do registro (decisão do usuário, 03/10/2026)
+
+- O rodapé **diz o que está contando** e separa o total da página: "51 pessoas · página 1 de 2". Com uma página só,
+  apenas "51 pessoas" (e os botões de página somem). Um registro: "1 pessoa". Com filtro, conta o que o filtro mostra.
+  Nunca "Mostrando 1–50 de 51" (parecia "51 páginas").
+- A **posição de um registro** aparece onde ele está aberto (prévia, ficha): "8 de 51", na lista toda, e não dentro da
+  página.
+- Onde fica: `Paginacao.Resumo` (com a palavra da tela: "pessoa"/"pessoas") e `PreviaPessoa.Posicao`.
+
+## Padrão: campo dentro de borda do Lone tem uma moldura só (pedido do usuário, 03/10/2026)
+
+- Campo (texto, escolha ou pesquisa) desenhado dentro de uma borda do Lone mostra **só a borda do Lone**: o controle do
+  Windows fica sem moldura, sem fundo e sem a linha de foco própria. Antes aparecia uma segunda moldura por dentro
+  (parecia defeito).
+- Com o campo em uso, a borda do Lone fica na **cor primária**. Valor inválido continua em vermelho.
+- Como fazer: `plat:CampoSemMoldura.Ligado="True"` no campo (XAML) ou `CampoSemMoldura.Aplicar(campo)` (código), em
+  `Lone.App/Plataforma`. Campo sem borda do Lone (formulários) continua com o visual do Windows.
+- Aplicado em: linha de filtro da grade, pesquisa de Pessoas, busca de colunas, busca de campos do painel de filtros,
+  pesquisa do menu.
+
+## Padrão: barra de ações da ficha (decisão do usuário, 03/10/2026; referência: rodapé do SAP Fiori)
+
+- **Estado à esquerda, só quando há o que avisar:** "● Alterações não salvas" (ponto na cor de aviso) ou "Novo cadastro,
+  ainda não salvo". Sem alterações, não aparece texto ("Sem alterações" seria ruído).
+- **Ações à direita, sempre no mesmo lugar:** **Salvar** (destaque) e **Descartar**, nessa ordem (padrão do SAP e do
+  Windows). Sem alteração ficam desligados, não somem: o usuário sabe onde estão e a tela não pula.
+- **Fechar não fica na barra:** sai pelo "Voltar" do topo. Sem alterações fecha direto, sem aviso; com alterações
+  pergunta antes.
+- **Motivo da alteração (opcional):** só com alteração, primeiro como o botão "+ Adicionar motivo"; ao clicar, o campo
+  abre ao lado (moldura única, cursor no campo). Salvou ou descartou, volta a ficar fechado. Se um dia algum campo
+  **exigir** motivo, o padrão é perguntar numa janela na hora de salvar, só nesse caso.
+- **Depois de salvar:** a confirmação aparece no aviso que some sozinho ("Pessoa salva: Nome").
+- Aplicado em: ficha de Pessoas. As demais fichas passam a seguir quando forem revistas.
+
+## Padrão: blocos de campos e altura dos campos (decisão do usuário, 03/10/2026)
+
+- Campos das fichas ficam em `c:BlocoCampos` (Lone.App/Controles), não em `FlexLayout`: o FlexLayout do MAUI repartia a
+  altura do bloco igualmente entre as linhas e cortava os campos mais altos. Cada linha tem a altura do seu campo mais
+  alto. **Grade do Lone** (decisão do usuário, 03/10/2026, referência SAP Fiori): 1 coluna até 600 de largura, 2 colunas
+  até 1300, 3 colunas daí em diante. O campo ocupa **1 coluna** (`FlexLayout.Basis` 50%), **2 colunas**
+  (`c:BlocoCampos.Colunas="2"`) ou a **linha inteira** (`FlexLayout.Basis` 100%); sem base = largura natural (só para
+  itens que não são campos). `AlignItems` alinha os campos de uma linha. Listas de selos/etiquetas e barras de botões
+  continuam em `FlexLayout`.
+- Regras da grade a aplicar tela a tela (aprovadas em 03/10/2026; análise em `_entrega/p2-b2/ANALISE-PROPORCAO-FORMULARIOS.md`):
+  texto livre longo ocupa a linha inteira; campo + botão (CEP + Buscar) ocupa 1 coluna; botões de ação de uma seção numa
+  linha própria ou no cabeçalho da seção, nunca no lugar de um campo; largura máxima do conteúdo só em três medidas
+  (`LarguraFichaCompleta` 1600, `LarguraFichaSimples` 1000, `LarguraPainel` 360, em `Estilos.xaml`); 12 entre colunas,
+  8 entre linhas de campos, 24 entre seções.
+- Caixa de texto e lista de escolha têm a mesma altura (44) e letra (15): lado a lado ficam iguais.
+- **Altura única de 44 em tudo o que se preenche ou aciona** (decisão de 03/10/2026; referência: densidade "cozy" do SAP
+  Fiori, 44 px, que nunca mistura densidades na mesma página): caixa de texto, lista de escolha, pesquisa (da lista e
+  `c:CampoPesquisa`) e botões. Na linha de pesquisa e filtros, tudo alinha pela base (os campos com rótulo em cima ficam
+  com a caixa na mesma linha da pesquisa) e a caixa de marcar fica centrada nos 44.
+- Pesquisa dentro de formulário ou de filtros (ex.: Cliente + Buscar) é um `c:CampoPesquisa` com rótulo, numa coluna
+  da grade de campos — nunca uma barra solta com a largura da página.
+- **Botão ao lado de campo fica alinhado à caixa** (03/10/2026): os campos trazem do estilo o espaço da grade (12 à
+  direita, 8 embaixo); ao lado de um botão ou da pesquisa, esse espaço sai do campo (`Padding="0"`) e fica no contêiner
+  (campo + botão = um `Grid *,Auto` com o espaço da grade, como CNPJ + Consultar e Mapa + Conferir). Na linha de
+  pesquisa da lista, a `ListaCadastro` faz isso sozinha com os filtros.
+- Campo sozinho também fica num `c:BlocoCampos` (meia linha, alinhado à esquerda): com `HorizontalOptions="Start"` ele
+  encolhe ao tamanho do texto e com `Fill` + largura máxima o MAUI o centraliza.
+
+## Padrão: tela de cadastro (decisão do usuário, 03/10/2026, opção A; referência: List Report + Object Page do SAP Fiori)
+
+- Substitui o layout antigo "lista estreita + ficha ao lado". Tela-piloto: Ausências e coberturas; o usuário aprovou e
+  pediu o padrão em todas as telas (03/10/2026): as 27 telas que usavam `LayoutMestreDetalhe` foram migradas e o controle
+  foi removido.
+- **Peças comuns** (`Lone.App/Controles`): `c:ListaCadastro` (título, subtítulo, "+ Novo ...", pesquisa, `Filtros` ao lado
+  da pesquisa, `Aviso` abaixo dela, mensagem, `GradeLista` e estado vazio) e `c:FichaCadastro` (Voltar, título, situação,
+  mensagem, o formulário como conteúdo, e a `BarraFicha`). Ficha com ações próprias troca Salvar/Descartar por
+  `AcoesBarra` (Metas, Operações territoriais, Transferências). Lista em árvore (Territórios): `GradeCadastro.Recuo` e
+  `Marcador`. Situação de cadastro auxiliar: `ColunaCadastro.Situacao` (selo Ativo/Inativo).
+- **Páginas de consulta e de configuração** (Carteira vencendo, Carteira em uma data, Divergências, Configurações,
+  Parâmetros): sem largura máxima centralizada; ocupam a página com a mesma margem dos dois lados.
+- **Lista (página inteira):** título e subtítulo da página; ação principal ("+ Nova ...") à direita do título; pesquisa
+  com moldura única e filtros simples na linha de baixo; a lista numa `GradeLista` dentro de um painel, com a parte fixa
+  (título e subtítulo do registro) e colunas pela regra de largura das listagens; estado vazio com explicação e ação.
+- **Ficha (página própria):** "← Voltar para ..." no topo, título e situação, o formulário num painel com a grade de
+  campos ocupando a largura da página, com a mesma margem dos dois lados, como Pessoas (a grade chega a 3 colunas e não sobra área vazia; 03/10/2026) e a barra de ações da ficha (`c:BarraFicha`) embaixo.
+- Código: o ViewModel da tela informa as colunas em `CriarGradeDaLista()` (`GradeCadastro<T>`, `ColunaCadastro<T>`); a base
+  (`CadastroViewModelBase`) monta o conteúdo da lista ao filtrar, marca o registro aberto e abre a ficha pelo toque
+  (`AbrirRegistroDaLinhaCommand`).
+
+## Padrão: ordenar a lista pelo título da coluna (pedido do usuário, 03/10/2026)
+
+- Em todas as telas de cadastro (`ListaCadastro` + `GradeCadastro`), como em Pessoas: clicar no título da coluna
+  ordena **crescente (▲)**, de novo **decrescente (▼)**, e de novo volta à **ordem padrão** (a do servidor). A dica do
+  título diz o que o próximo clique faz.
+- Textos em ordem natural ("TE-9" antes de "TE-10"), sem diferenciar maiúsculas nem acentos; datas e números pelo valor
+  (a coluna informa `ordem:`; ex.: Efeito ordena pela data, Mudanças pelo total); vazios sempre por último. Empates
+  mantêm a ordem padrão. A busca e a ficha aberta continuam valendo depois de ordenar.
+- Listas em árvore (Territórios) não ordenam: a hierarquia é a ordem.
+
+## Padrão: texto que não cabe (pedido do usuário, 03/10/2026; referência: SAP Fiori)
+
+- **Listas, tabelas e colunas de nomes** (uma linha por item): o texto termina em **"…"** e aparece **inteiro ao passar o
+  mouse** (dica). Nunca cortar no meio da letra. A `GradeLista` já faz isso em todas as células.
+- **Texto com partes** (nome em negrito + qualificação): rótulos separados, cada um com "…" — no Windows, o texto com
+  partes (`FormattedText`) corta sem as reticências.
+- **Formulários:** o rótulo do campo e os textos de ajuda quebram linha (não cortam); o valor digitado rola dentro do
+  campo. A dica do campo (placeholder) é curta e cabe no campo — não leva informação essencial.
+
+## Padrão: botão Novo e "Adicionar" (decisão do usuário, 03/10/2026; análise em _entrega/p2-b2/ANALISE-BOTAO-NOVO.md)
+
+- **Novo da página:** canto superior direito, "+ Novo ⟨objeto⟩" / "+ Nova ⟨objeto⟩", principal (como Salesforce e
+  Oracle; no SAP fica na barra da tabela, que aqui é o mesmo lugar). **Um só por tela:** a lista vazia não repete o
+  botão; mostra o título e a orientação "Use "+ Nova transferência", no alto da página, para incluir a primeira."
+  (decisão de 03/10/2026).
+- **Permissão:** sem permissão de criar, o "+ Novo" some (`PodeCriar` da `CadastroViewModelBase`; Pessoas = Criar,
+  Metas = Gerenciar, Coberturas = Comercial.Coberturas, Territórios = Configurar, Operações = Planejar). A API continua
+  conferindo.
+- **Ctrl+N** = Novo na tela de cadastro aberta (dica no botão: "Novo cargo (Ctrl+N)"); pergunta antes se houver
+  alterações não salvas.
+- **Dentro da ficha:** "+ Adicionar ⟨item⟩", botão secundário no cabeçalho da seção, à direita. "+ Novo/Nova" só quando
+  cria um cadastro que existe sozinho (ex.: "+ Nova etiqueta", "+ Novo território abaixo deste").
+- **"Salvar e novo"** na barra da ficha dos cadastros auxiliares (`MostrarSalvarENovo`): salva e, se salvou, abre uma
+  ficha nova.
+
+## Padrão: filtros de consulta e Imprimir (decisão do usuário, 03/10/2026; referência: barra de filtros do SAP Fiori)
+
+- Filtros numa linha da grade de campos; no fim da linha, alinhados às caixas: **Limpar** (secundário, só aparece com
+  filtro) e **Filtrar** (principal na página; secundário dentro de uma ficha, onde o principal é Salvar). Nunca
+  "Limpar filtro" solto entre botões.
+- Linha de filtros cheia e equilibrada: cada filtro tem uma largura mínima (`FlexLayout.Basis` fixa) e um peso
+  (`c:BlocoCampos.Peso`); fechada a linha, a sobra é dividida pelos pesos (os campos de texto e de escolha esticam; o
+  número e os botões não).
+- Número com setas: `c:CampoNumero` (▲▼ dentro do campo e teclas ↑ ↓; digitar continua valendo; mínimo, máximo, passo).
+- **Imprimir / PDF** fica na barra da lista (à direita, acima dela), com o resumo à esquerda: é ação sobre a lista,
+  não sobre o filtro.
+- Aplicado em: Carteira vencendo (filtros por prazo, papel, quem atende, empresa e cliente; prazo em selo: até 7 dias
+  vermelho, até 30 laranja) e Histórico de Pessoas.
+
+## Padrão: tela de consulta do Lone (decisão do usuário, 03/10/2026; referência: List Report do SAP Fiori)
+
+1. **Cabeçalho:** título e descrição curta.
+2. **Filtros:** numa linha cheia (largura mínima + peso), Limpar (só com filtro) e Filtrar no fim. Período com
+   "Aviso padrão (N dias)", prazos prontos e "Personalizado…" (aparece o número com ▲▼).
+3. **Barra da lista:** título com o contador ("Vínculos vencendo (12)"), atalhos com contagem por faixa
+   (`c:AtalhoContagem`: "Todos 12 · Hoje 1 · Até 7 dias 3"; tocar filtra) e, à direita, **Exportar ▾** (`c:BotaoMenu`:
+   Imprimir / PDF, Excel (CSV); novas saídas entram no menu, sem mais botões).
+4. **Lista em colunas** ordenável (clicar no título; de novo inverte); tocar na linha abre o registro.
+5. **Lista vazia num lugar só, numa frase e uma ação** ("Nenhum vínculo termina nos próximos 30 dias" · "03/10/2026 a
+   02/11/2026" · [Ampliar para 60 dias], ou "Limpar filtro" com filtro). O período é escolhido **só no campo Período**.
+   Sem resultado, os atalhos com 0 e o Exportar somem (fica o título com o contador); atalho que repete o período
+   ("Até 30 dias" com período de 30) também some. Nada de mensagem repetida fora da lista.
+6. Sem cartões de indicador por enquanto (os atalhos com contagem fazem esse papel). Depois: escolher colunas,
+   agrupar, salvar visualização.
+- Aplicado em: Carteira vencendo (a API devolve também os dias e o período consultado: `CarteiraVencendoDto`).
+
 ## Pessoas
 
 - Lista em tela cheia: cabeçalho ("Pessoas" + "+ Nova pessoa" + ⚙), pesquisa + "Filtros" (painel com papel, etiqueta,
   incluir inativos, município a corrigir, limpar), atalhos (Todos · PF · PJ · Clientes · Fornecedores · Ativos · Inativos),
-  tabela com colunas próprias (Nome/Razão social · CPF/CNPJ · Tipo · Papéis · Cidade/UF · Situação · ⋯), paginação de 50
+  tabela com colunas próprias (Nome/Razão social · CPF/CNPJ · Tipo · Papéis · Cidade · UF · Situação · ⋯), paginação de 50
   ("Mostrando 1–50 de 1.248", ‹ 1 … 4 5 6 … 25 ›), estado vazio e carregamento discreto no cabeçalho da tabela.
 - Colunas por largura: some Cidade (< 1100), Papéis (< 940), Tipo (< 720) e Documento (< 600, vai para baixo do nome).
 - "Todos" = cadastros em uso (ativos e em análise), como sempre: inativos continuam fora da busca padrão (regra 5.4).

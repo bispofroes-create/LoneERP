@@ -11,6 +11,7 @@ using Lone.Contracts.Territorios;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Territorios;
 
@@ -347,6 +348,18 @@ public sealed partial class TerritorioEdicao : ObservableObject
 /// </summary>
 public sealed partial class TerritoriosViewModel : CadastroViewModelBase<LinhaTerritorio>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTerritorio> CriarGradeDaLista() => new(
+        "Território", l => l.Item.Id, l => l.Nome, l => l.Item.Codigo,
+        ColunaCadastro<LinhaTerritorio>.Curto("tipo", "Tipo", l => l.Item.Tipo, 160),
+        ColunaCadastro<LinhaTerritorio>.Texto("responsaveis", "Responsáveis hoje", l => l.Item.ResponsaveisHoje),
+        ColunaCadastro<LinhaTerritorio>.Curto("abaixo", "Abaixo", l => l.Abaixo > 0 ? l.Abaixo.ToString("N0", TextoTela.Brasil) : "—", 100),
+        ColunaCadastro<LinhaTerritorio>.Selo("situacao", "Situação", l => l.Encerrado ? "Encerrado" : "Em vigor", l => l.Encerrado ? "Neutro" : "Sucesso", 130))
+    {
+        Recuo = l => l.Recuo,
+        Marcador = l => l.Marcador
+    };
+
     private readonly TerritoriosApi _api;
     private readonly SessaoCliente _sessao;
     private TerritoriosOpcoesDto _opcoes = new();
@@ -365,6 +378,7 @@ public sealed partial class TerritoriosViewModel : CadastroViewModelBase<LinhaTe
 
     /// <summary>Criar, alterar, encerrar e reativar: só com TERRITORIOS.CONFIGURAR (quem só visualiza consulta).</summary>
     public bool PodeConfigurar => _sessao.Possui(Permissoes.Territorios.Configurar);
+    public override bool PodeCriar => PodeConfigurar;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PodeEncerrar), nameof(PodeReativar), nameof(PodeCriarAbaixo), nameof(PodeSalvar))]

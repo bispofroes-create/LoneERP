@@ -10,68 +10,22 @@
              x:DataType="seg:UsuariosViewModel"
              Title="Usuários">
 
-    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Usuários"
+                         Subtitulo="Quem acessa o Lone: login, perfis (por empresa), a pessoa do cadastro ligada ao usuário e a senha inicial."
+                         TextoNovo="+  Novo usuário"
+                         DicaBusca="Pesquisar por nome ou login"
+                         TituloVazio="Nenhum usuário encontrado" />
 
-        <!-- ===== Lista ===== -->
-        <Grid RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="12" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar por nome ou login" />
-                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
-
-            <!-- A barra controla a própria visibilidade (some sem mensagem); o contêiner a esconde com a ficha aberta. -->
-            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
-
-            <CollectionView Grid.Row="2" ItemsSource="{Binding Itens}" SelectionMode="Single"
-                            SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhum usuário encontrado." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="dto:UsuarioResumo">
-                        <VerticalStackLayout Padding="12,10" Spacing="2">
-                            <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <ActivityIndicator Grid.Row="2" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhum usuário aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Escolha um usuário na lista ou clique em Novo." Style="{StaticResource Secundario}" HorizontalOptions="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha ===== -->
-        <ScrollView Grid.Column="1" IsVisible="{Binding MostrarFicha}">
-            <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="8" MaximumWidthRequest="760"
-                                 HorizontalOptions="Fill">
-
-                <Button Text="‹ Usuários" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                        IsVisible="{Binding ModoCompacto}" />
-                <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
+        <c:FichaCadastro IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Usuários" CaminhoSituacao="">
+            <VerticalStackLayout Spacing="8">
                 <!-- Dados -->
-                <Label Text="Nome" Style="{StaticResource Rotulo}" />
-                <Entry Text="{Binding Formulario.Nome}" SemanticProperties.Description="Nome" />
-
-                <Label Text="Login" Style="{StaticResource Rotulo}" />
-                <Entry Text="{Binding Formulario.Login}" Keyboard="Plain" IsSpellCheckEnabled="False"
-                       IsTextPredictionEnabled="False" SemanticProperties.Description="Login" />
-
-                <Label Text="E-mail (opcional)" Style="{StaticResource Rotulo}" />
-                <Entry Text="{Binding Formulario.Email}" Keyboard="Email" SemanticProperties.Description="E-mail" />
+                <c:BlocoCampos>
+                    <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" />
+                    <c:Campo Rotulo="Login" Texto="{Binding Formulario.Login}" />
+                    <c:Campo Rotulo="E-mail (opcional)" Texto="{Binding Formulario.Email}" Mascara="Email" />
+                </c:BlocoCampos>
 
                 <c:CaixaMarcar Texto="Ativo (pode entrar no sistema)" Marcado="{Binding Formulario.Ativo}" Margin="0,8,0,0" />
                 <c:CaixaMarcar Texto="Trocar a senha no próximo acesso" Marcado="{Binding Formulario.DeveTrocarSenha}" />
@@ -94,12 +48,9 @@
                     <Button Grid.Column="1" Text="Tirar" Style="{StaticResource BotaoLink}" Command="{Binding Formulario.TirarPessoaCommand}"
                             IsVisible="{Binding Formulario.TemPessoa}" ToolTipProperties.Text="Desfaz a ligação (vale ao salvar)" />
                 </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MaximumWidthRequest="640" HorizontalOptions="Fill">
-                    <SearchBar Text="{Binding Formulario.BuscaPessoa}" Placeholder="Buscar pessoa: nome, código, CPF ou CNPJ"
-                               SearchCommand="{Binding BuscarPessoaCommand}" />
-                    <Button Grid.Column="1" Text="Buscar" Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding BuscarPessoaCommand}" IsEnabled="{Binding Livre}" />
-                </Grid>
+                <c:BlocoCampos>
+                    <c:CampoPesquisa Rotulo="Buscar pessoa" Texto="{Binding Formulario.BuscaPessoa}" Dica="Nome, código, CPF ou CNPJ" Comando="{Binding BuscarPessoaCommand}" />
+                </c:BlocoCampos>
                 <CollectionView ItemsSource="{Binding Formulario.ResultadosPessoa}" SelectionMode="Single"
                                 SelectedItem="{Binding Formulario.PessoaEscolhida}" MaximumHeightRequest="200">
                     <CollectionView.ItemTemplate>
@@ -138,7 +89,7 @@
                     <Picker Title="Empresa" ItemsSource="{Binding EmpresasDisponiveis}" SelectedItem="{Binding EmpresaParaAdicionar}"
                             WidthRequest="{OnIdiom Phone=-1, Default=240}" Margin="0,0,8,8"
                             FlexLayout.Basis="{OnIdiom Phone='100%', Default='auto'}" />
-                    <Button Text="Adicionar perfil" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,8"
+                    <Button Text="+ Adicionar perfil" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,8"
                             Command="{Binding AdicionarPerfilCommand}" />
                 </FlexLayout>
 
@@ -150,18 +101,7 @@
                 <Entry Text="{Binding Formulario.Confirmacao}" IsPassword="True" SemanticProperties.Description="Confirmação da senha" />
                 <Label Text="Pelo menos 8 caracteres, com letras e números. Com a senha definida aqui, o usuário cria a dele no próximo acesso, e as sessões abertas dele são encerradas."
                        Style="{StaticResource Secundario}" />
-
-                <!-- Ações -->
-                <HorizontalStackLayout Spacing="12" Margin="0,20,0,24">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                    <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
-                    <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
-                </HorizontalStackLayout>
             </VerticalStackLayout>
-        </ScrollView>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

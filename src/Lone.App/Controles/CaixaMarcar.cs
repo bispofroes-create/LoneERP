@@ -17,6 +17,12 @@ public sealed class CaixaMarcar : ContentView
         nameof(Texto), typeof(string), typeof(CaixaMarcar), string.Empty,
         propertyChanged: (b, _, n) => ((CaixaMarcar)b)._texto.Text = (string)n);
 
+    /// <summary>Conteúdo embaixo do texto, alinhado com ele (ex.: o resumo do Prazo; 03/10/2026).</summary>
+    public static readonly BindableProperty DetalheProperty = BindableProperty.Create(
+        nameof(Detalhe), typeof(View), typeof(CaixaMarcar), null,
+        propertyChanged: (b, _, n) => { var c = (CaixaMarcar)b; c._detalhe.Content = (View?)n; c._detalhe.IsVisible = n is not null; });
+
+    private readonly ContentView _detalhe = new() { IsVisible = false };
     private readonly CheckBox _caixa = new() { VerticalOptions = LayoutOptions.Center };
     private readonly Label _texto = new() { VerticalOptions = LayoutOptions.Center, LineBreakMode = LineBreakMode.WordWrap };
 
@@ -28,15 +34,20 @@ public sealed class CaixaMarcar : ContentView
         toque.Tapped += (_, _) => { if (IsEnabled) Marcado = !Marcado; };
         _texto.GestureRecognizers.Add(toque);
 
-        Content = new Grid
+        var grade = new Grid
         {
             ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
+            RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto) },
             ColumnSpacing = EspacoTexto,
-            Children = { _caixa, _texto }
+            Children = { _caixa, _texto, _detalhe }
         };
         Grid.SetColumn(_texto, 1);
+        Grid.SetColumn(_detalhe, 1);
+        Grid.SetRow(_detalhe, 1);
+        Content = grade;
     }
 
     public bool Marcado { get => (bool)GetValue(MarcadoProperty); set => SetValue(MarcadoProperty, value); }
     public string Texto { get => (string)GetValue(TextoProperty); set => SetValue(TextoProperty, value); }
+    public View? Detalhe { get => (View?)GetValue(DetalheProperty); set => SetValue(DetalheProperty, value); }
 }

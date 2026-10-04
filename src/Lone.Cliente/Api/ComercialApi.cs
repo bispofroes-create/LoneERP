@@ -55,8 +55,8 @@ public sealed class ComercialApi
     public Task<CoberturaDto> CancelarCoberturaAsync(Guid id, byte[]? versao, string motivo, CancellationToken ct = default) =>
         _api.PostAsync<CoberturaDto>(Rotas.Comercial.CancelarCobertura(id), new CancelarCoberturaRequisicao { Versao = versao, Motivo = motivo }, ct: ct);
 
-    public Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(int? dias, CancellationToken ct = default) =>
-        _api.GetAsync<List<VinculoVencendoDto>>(dias is { } d ? $"{Rotas.Comercial.CarteiraVencendo}?dias={d}" : Rotas.Comercial.CarteiraVencendo, ct);
+    public Task<CarteiraVencendoDto> CarteiraVencendoAsync(int? dias, CancellationToken ct = default) =>
+        _api.GetAsync<CarteiraVencendoDto>(dias is { } d ? $"{Rotas.Comercial.CarteiraVencendo}?dias={d}" : Rotas.Comercial.CarteiraVencendo, ct);
 
     // ---- Motor Comercial, Fase 1d ----
 

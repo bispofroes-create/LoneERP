@@ -31,7 +31,10 @@ public enum TipoColunaLista
     Natureza = 22,
     Papeis = 23,
     Situacao = 24,
-    Cidade = 25
+    Cidade = 25,
+
+    /// <summary>Sigla do estado do endereço de referência (o mesmo da cidade).</summary>
+    Uf = 26
 }
 
 public enum DirecaoOrdenacao

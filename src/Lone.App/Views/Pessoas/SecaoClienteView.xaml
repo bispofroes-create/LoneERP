@@ -9,7 +9,7 @@
         <Label Text="Cliente" Style="{StaticResource Subtitulo}" />
         <Label Text="Condições de venda que valem para todas as empresas do grupo. Mudar crédito exige a permissão &quot;Alterar limite de crédito&quot;."
                Style="{StaticResource Secundario}" />
-        <FlexLayout Wrap="Wrap">
+        <c:BlocoCampos>
             <c:Campo Rotulo="Limite de crédito (R$)" Texto="{Binding Formulario.ContaCliente.LimiteCredito}" Dica="Vazio = sem limite" />
             <c:Campo Rotulo="Dias máximos de atraso" Texto="{Binding Formulario.ContaCliente.DiasMaximoAtraso}" Teclado="Numeric" />
             <c:Campo Rotulo="Desconto máximo (%)" Texto="{Binding Formulario.ContaCliente.DescontoMaximo}" />
@@ -20,7 +20,7 @@
             <c:CaixaMarcar Texto="Vender acima do limite só com aprovação" Marcado="{Binding Formulario.ContaCliente.ExigeAprovacaoAcimaLimite}"
                            FlexLayout.Basis="100%" />
             <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaCliente.Observacoes}" FlexLayout.Basis="100%" />
-        </FlexLayout>
+        </c:BlocoCampos>
         <!-- Texto antigo da condição: guardado, só leitura (igual ao fornecedor). -->
         <Label Text="{Binding Formulario.ContaCliente.TextoCondicaoAnterior}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
                IsVisible="{Binding Formulario.ContaCliente.TemCondicaoAnterior}" />
@@ -31,7 +31,7 @@
         <!-- Exceções comerciais: sobrescrevem só o que for informado, durante o período. Gravadas não são apagadas. -->
         <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
             <Label Text="Exceções comerciais" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar exceção" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarExcecaoCommand}" />
+            <Button Grid.Column="1" Text="+ Adicionar exceção" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarExcecaoCommand}" />
         </Grid>
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Excecoes}" Spacing="6">
             <BindableLayout.EmptyView>
@@ -41,7 +41,7 @@
                 <DataTemplate x:DataType="pes:ExcecaoComercialFormulario">
                     <Border Style="{StaticResource CartaoItem}">
                         <VerticalStackLayout>
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" />
                                 <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = sem fim" Mascara="Data" />
@@ -51,7 +51,7 @@
                                 <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Condicoes}" Selecionado="{Binding Condicao}" />
                                 <c:CampoEscolha Rotulo="Aprovação acima do limite" Itens="{Binding ListaSimNao}" Selecionado="{Binding ExigeAprovacao}" />
                                 <c:Campo Rotulo="Motivo" Texto="{Binding Motivo}" FlexLayout.Basis="100%" Dica="Ex.: campanha de março" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                             <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" IsVisible="{Binding PodeRemover}"
                                     HorizontalOptions="Start" />
                         </VerticalStackLayout>
@@ -85,7 +85,7 @@
                 <Label Text="Um vínculo por papel comercial. Para mudar quem atende a partir de uma data, use &quot;Trocar&quot; no vínculo: o atual fica no histórico."
                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
             </VerticalStackLayout>
-            <Button Grid.Column="1" Text="Adicionar papel" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarCarteiraCommand}"
+            <Button Grid.Column="1" Text="+ Adicionar papel" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarCarteiraCommand}"
                     VerticalOptions="Start" ToolTipProperties.Text="Inclui alguém em outro papel (ex.: Representante, Supervisor)" />
         </Grid>
         <Label Text="Ninguém atende este cliente hoje." Style="{StaticResource Secundario}" IsVisible="{Binding Formulario.SemCarteiraAtual}" />
@@ -112,17 +112,19 @@
                             <Label Text="{Binding AvisoCobertura}" IsVisible="{Binding TemCobertura}" Style="{StaticResource Secundario}"
                                    FontAttributes="Italic" LineBreakMode="WordWrap" />
                             <Label Text="{Binding TextoTroca}" Style="{StaticResource Secundario}" IsVisible="{Binding EhTroca}" LineBreakMode="WordWrap" />
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Papel" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" IsEnabled="{Binding Editavel}" />
                                 <c:CampoEscolha Rotulo="{Binding RotuloPessoa}" Itens="{Binding Vendedores}" Selecionado="{Binding Vendedor}" IsEnabled="{Binding Editavel}" />
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" IsEnabled="{Binding Editavel}" />
                                 <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" SomenteLeitura="{Binding Travado}" />
                                 <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = sem fim" Mascara="Data" />
+                                <Label Text="O início não muda depois que o vínculo começa (o histórico fica). Para outra data, encerre este vínculo e inclua um novo."
+                                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" FlexLayout.Basis="100%" IsVisible="{Binding Travado}" />
                                 <c:Campo Rotulo="Crédito (%)" Texto="{Binding PercentualCredito}" Dica="{Binding DicaCredito}"
                                          Teclado="Numeric" IsVisible="{Binding RecebeCredito}" SomenteLeitura="{Binding Travado}" />
                                 <c:CaixaMarcar Texto="Exclusivo (ninguém mais do mesmo papel no período)" Marcado="{Binding Exclusivo}" IsEnabled="{Binding Editavel}" />
                                 <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" FlexLayout.Basis="100%" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                             <HorizontalStackLayout Spacing="16">
                                 <Button Text="Trocar" Style="{StaticResource BotaoLink}" Command="{Binding TrocarCommand}" IsVisible="{Binding PodeTrocar}"
                                         ToolTipProperties.Text="Outra pessoa (ou outro crédito) a partir de uma data: este fica até a véspera, no histórico" />
@@ -145,16 +147,18 @@
                     <Border Style="{StaticResource CartaoItem}" Opacity="0.85">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="{Binding Situacao}" Style="{StaticResource Rotulo}" />
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Papel" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" IsEnabled="{Binding Editavel}" />
                                 <c:CampoEscolha Rotulo="{Binding RotuloPessoa}" Itens="{Binding Vendedores}" Selecionado="{Binding Vendedor}" IsEnabled="{Binding Editavel}" />
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" IsEnabled="{Binding Editavel}" />
                                 <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Mascara="Data" SomenteLeitura="{Binding Travado}" />
                                 <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = sem fim" Mascara="Data" />
+                                <Label Text="O início não muda depois que o vínculo começa (o histórico fica). Para outra data, encerre este vínculo e inclua um novo."
+                                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" FlexLayout.Basis="100%" IsVisible="{Binding Travado}" />
                                 <c:Campo Rotulo="Crédito (%)" Texto="{Binding PercentualCredito}" IsVisible="{Binding RecebeCredito}" SomenteLeitura="{Binding Travado}" />
                                 <c:CaixaMarcar Texto="Ativo (desmarcado = lançado por engano)" Marcado="{Binding Ativo}" />
                                 <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" FlexLayout.Basis="100%" />
-                            </FlexLayout>
+                            </c:BlocoCampos>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>

@@ -11,6 +11,7 @@ using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -175,6 +176,12 @@ public sealed partial class TipoCarteiraEdicao : ObservableObject
 /// <summary>Papéis comerciais (tipos de carteira). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class TiposCarteiraViewModel : CadastroViewModelBase<LinhaTipoCarteira>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTipoCarteira> CriarGradeDaLista() => new(
+        "Papel comercial", l => l.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaTipoCarteira>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaTipoCarteira>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly ComercialApi _api;
     private readonly PapeisApi _papeis;
 

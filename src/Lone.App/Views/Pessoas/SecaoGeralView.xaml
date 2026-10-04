@@ -14,7 +14,7 @@
         <Label Text="{Binding Formulario.AvisoRelacionarAoCriar}" IsVisible="{Binding Formulario.TemRelacionarAoCriar}"
                FontAttributes="Bold" LineBreakMode="WordWrap" />
         <Label Text="Dados principais" Style="{StaticResource SecaoTitulo}" />
-        <FlexLayout Wrap="Wrap">
+        <c:BlocoCampos>
             <c:CampoEscolha Rotulo="Natureza" Itens="{Binding Formulario.Naturezas}" Selecionado="{Binding Formulario.NaturezaNaTela}" />
             <!-- O documento vem logo depois da natureza: na PJ, o CNPJ consulta a Receita e preenche o resto da ficha
                  (cadastro novo: sozinho ao completar o CNPJ). PF: CPF; estrangeiro: identificação. -->
@@ -56,20 +56,20 @@
             <!-- Ajuda fixa (a dica do campo some ao digitar). A regra é a de NomePessoa.ParaExibir. -->
             <Label Text="{Binding Formulario.AjudaNomeExibicao}" Style="{StaticResource Secundario}"
                    FlexLayout.Basis="100%" Margin="0,2,12,8" />
-        </FlexLayout>
+        </c:BlocoCampos>
 
         <!-- Pessoa jurídica: identidade da empresa (raiz do CNPJ), preenchida pela consulta à Receita. -->
         <VerticalStackLayout IsVisible="{Binding Formulario.EhJuridica}" Spacing="6">
             <BoxView Style="{StaticResource Separador}" />
             <Label Text="Empresa" Style="{StaticResource SecaoTitulo}" />
-            <FlexLayout Wrap="Wrap">
+            <c:BlocoCampos>
                 <c:Campo Rotulo="Data de abertura" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.DataAbertura}" />
                 <c:Campo Rotulo="Porte" Texto="{Binding Formulario.Porte}" />
                 <c:Campo Rotulo="Capital social (R$)" Texto="{Binding Formulario.CapitalSocial}" />
                 <!-- Da tabela de natureza jurídica (busca por código ou nome); grava o código. -->
                 <c:CampoLista Rotulo="Natureza jurídica" BindingContext="{Binding Formulario.Principal.NaturezaJuridicaLista}"
                               FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,8" />
-            </FlexLayout>
+            </c:BlocoCampos>
 
             <!-- Grupo empresarial (opcional): reúne esta empresa com outras independentes (CNPJs de outra raiz).
                  Não é matriz/filial. Mudar exige a permissão de estrutura empresarial. As opções são lidas quando esta aba abre. -->
@@ -78,24 +78,34 @@
                             MaximumWidthRequest="520" HorizontalOptions="Start" />
             <Label Text="Empresas independentes (outro CNPJ) nunca são filiais: cada uma é um cadastro próprio. Para vê-las juntas, use um grupo empresarial (menu &quot;Grupos empresariais&quot;). Matriz e filiais ficam na aba &quot;Fiscal e estabelecimentos&quot;; vínculos com sócios e administradores cadastrados no Lone, na aba &quot;Relacionamentos&quot;."
                    Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-            <!-- Sócios da Receita (lidos na consulta do CNPJ; só leitura). -->
-            <VerticalStackLayout IsVisible="{Binding Formulario.TemSocios}" Spacing="4">
-                <Label Text="Sócios e administradores (Receita Federal)" Style="{StaticResource Rotulo}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Socios}" Spacing="2">
+            <!-- Sócios da Receita (lidos na consulta do CNPJ; só leitura). Listas longas (03/10/2026): total no título, os
+                 primeiros 6 e "Ver todos os N ▾" / "Recolher ▴"; com mais de 20, busca; duas ou três colunas na tela larga. -->
+            <VerticalStackLayout IsVisible="{Binding TemSocios}" Spacing="6" BindingContext="{Binding Formulario.QuadroSocios, x:DataType=pes:PessoasViewModel}"
+                                 x:DataType="pes:QuadroSocios">
+                <Label Text="{Binding Titulo}" Style="{StaticResource Rotulo}" />
+                <!-- Filtra enquanto digita (a lista já está na tela; não há o que buscar no servidor). -->
+                <c:Campo IsVisible="{Binding MostrarBusca}" Texto="{Binding Busca}" Dica="Buscar por nome ou qualificação"
+                         WidthRequest="{OnIdiom Phone=-1, Default=420}" HorizontalOptions="{OnIdiom Phone=Fill, Default=Start}" Padding="0" />
+                <!-- BlocoCampos (grade do Lone: 1 coluna até 600, 2 até 1300, 3 daí em diante) mede cada sócio com a largura da
+                     coluna, e o "…" aparece; o FlexLayout media sem limite e o texto saía cortado sem as reticências. -->
+                <c:BlocoCampos BindableLayout.ItemsSource="{Binding Visiveis}" AlignItems="Start">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="dto:SocioDto">
-                            <Label LineBreakMode="WordWrap">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="{Binding Nome}" FontAttributes="Bold" />
-                                        <Span Text=" · " />
-                                        <Span Text="{Binding Qualificacao}" />
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
+                            <!-- Texto que não cabe termina em "…" e aparece inteiro ao passar o mouse (padrão do Lone, como no
+                                 SAP Fiori). Nome e qualificação em rótulos separados: texto com partes (negrito + normal) no
+                                 Windows corta sem as reticências. -->
+                            <Grid ColumnDefinitions="Auto,*" Margin="0,1,16,1" FlexLayout.Basis="50%">
+                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation"
+                                       ToolTipProperties.Text="{Binding Nome}" />
+                                <Label Grid.Column="1" Text="{Binding Qualificacao, StringFormat=' · {0}'}" LineBreakMode="TailTruncation"
+                                       ToolTipProperties.Text="{Binding Qualificacao}" />
+                            </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                </c:BlocoCampos>
+                <Label Text="Nenhum sócio encontrado." IsVisible="{Binding SemResultado}" Style="{StaticResource Secundario}" />
+                <Button Text="{Binding TextoBotao}" Command="{Binding AlternarCommand}" IsVisible="{Binding MostrarBotao}"
+                        Style="{StaticResource BotaoLink}" HorizontalOptions="Start" Padding="0" />
             </VerticalStackLayout>
         </VerticalStackLayout>
 
@@ -158,7 +168,7 @@
                Style="{StaticResource Secundario}" />
 
         <!-- Cartões: duas colunas no computador, uma no celular. Estado com texto e marca (● / ○), não só cor. -->
-        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.PapeisFicha.NaFicha}">
+        <c:BlocoCampos BindableLayout.ItemsSource="{Binding Formulario.PapeisFicha.NaFicha}">
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:PapelOpcao">
                     <ContentView FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,12">
@@ -206,7 +216,7 @@
                     </ContentView>
                 </DataTemplate>
             </BindableLayout.ItemTemplate>
-        </FlexLayout>
+        </c:BlocoCampos>
 
         <!-- ===== ETIQUETAS: classificação livre, sem período. Só as atribuídas, como chips; "×" tira ao salvar
              (a auditoria registra). As outras ficam em "Adicionar etiqueta". ===== -->
@@ -225,7 +235,7 @@
             <VerticalStackLayout Spacing="8">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <SearchBar Text="{Binding Formulario.Etiquetas.Busca}" Placeholder="Pesquisar etiqueta" />
-                    <Button Grid.Column="1" Text="Nova etiqueta" Style="{StaticResource BotaoTerciario}"
+                    <Button Grid.Column="1" Text="+ Nova etiqueta" Style="{StaticResource BotaoTerciario}"
                             Command="{Binding NovaEtiquetaCommand}" IsVisible="{Binding PodeCriarEtiqueta}" IsEnabled="{Binding Livre}" />
                 </Grid>
                 <!-- Tocar numa etiqueta atribui; o painel fica aberto para escolher outras. -->

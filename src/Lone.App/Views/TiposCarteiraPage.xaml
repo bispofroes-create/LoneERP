@@ -9,129 +9,61 @@
              x:DataType="cad:TiposCarteiraViewModel"
              Title="Papéis comerciais">
 
-    <Grid x:Name="Grade" ColumnDefinitions="340,*">
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Papéis comerciais"
+                         Subtitulo="Papéis de quem atende o cliente na carteira (vendedor, representante, supervisor...), cada um com a sua política: quantos ao mesmo tempo, crédito da venda e metas. Um só papel é o responsável da conta: o vendedor vigente dele é o vendedor padrão do cliente."
+                         TextoNovo="+  Novo papel comercial"
+                         DicaBusca="Pesquisar papéis comerciais"
+                         TituloVazio="Nenhum papel comercial cadastrado" />
 
-        <!-- ===== Tabela ===== -->
-        <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16" RowSpacing="10" IsVisible="{Binding MostrarLista}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Text="{Binding Busca}" Placeholder="Buscar" />
-                <Button Grid.Column="1" Text="Novo" Command="{Binding NovoCommand}" IsEnabled="{Binding Livre}" />
-            </Grid>
+        <c:FichaCadastro MostrarSalvarENovo="True" IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Papéis comerciais">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
-            <ContentView Grid.Row="1" IsVisible="{Binding SemFicha}">
-                <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            </ContentView>
+                <c:BlocoCampos>
+                    <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Televendas" />
+                    <c:Campo Rotulo="Ordem" Texto="{Binding Formulario.Ordem}" Mascara="Numero" />
+                </c:BlocoCampos>
+                <Label Text="Maiúsculas e acentos não contam no nome."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
-            <Grid Grid.Row="2" ColumnDefinitions="*,72,40" Padding="12,0">
-                <Label Text="Papel comercial" Style="{StaticResource Rotulo}" />
-                <Label Grid.Column="1" Text="Em uso" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-                <Label Grid.Column="2" Text="Ativo" Style="{StaticResource Rotulo}" HorizontalOptions="End" />
-            </Grid>
+                <!-- Política do papel (Motor Comercial, Fase 1) -->
+                <Label Text="Política do papel" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
+                <c:BlocoCampos>
+                    <c:Campo Rotulo="Quantos ao mesmo tempo" Texto="{Binding Formulario.LimitePorVez}" Mascara="Numero"
+                             Dica="vazio = sem limite" />
+                    <c:CampoEscolha Rotulo="Crédito da venda" Itens="{Binding Formulario.Creditos}" Selecionado="{Binding Formulario.Credito}" />
+                    <c:Campo Rotulo="Percentual padrão (%)" Texto="{Binding Formulario.PercentualPadrao}" Teclado="Numeric"
+                             Dica="vazio = sem padrão" IsVisible="{Binding Formulario.RecebeCredito}" />
+                </c:BlocoCampos>
+                <!-- Quem pode ser: classificações de pessoa aceitas (Motor Comercial, Fase 1b). -->
+                <Label Text="Quem pode ser" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
+                <Label Text="Só pessoas com uma destas classificações (ativa) aparecem para este papel na carteira do cliente. Ex.: Supervisor = Funcionário."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Classificacoes}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="cad:ClassificacaoMarcavel">
+                            <c:CaixaMarcar Texto="{Binding Nome}" Marcado="{Binding Marcado}" Margin="0,0,16,0" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
 
-            <CollectionView Grid.Row="3" ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}">
-                <CollectionView.EmptyView>
-                    <Label Text="Nenhum cadastro. Clique em Novo." Style="{StaticResource Secundario}" Margin="8,16" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="cad:LinhaTipoCarteira">
-                        <Grid ColumnDefinitions="*,72,40" Padding="12,8">
-                            <VerticalStackLayout VerticalOptions="Center">
-                                <Label Text="{Binding Nome}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-                            <Label Grid.Column="1" Text="{Binding Usos}" Style="{StaticResource Secundario}"
-                                   HorizontalOptions="End" VerticalOptions="Center" />
-                            <Label Grid.Column="2" Text="{Binding Ativo}" Style="{StaticResource Secundario}"
-                                   HorizontalOptions="End" VerticalOptions="Center" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+                <c:CaixaMarcar Texto="Responsável da conta (o vendedor vigente deste papel vira o vendedor padrão do cliente; sempre um por vez)"
+                               Marcado="{Binding Formulario.ResponsavelDaConta}" />
+                <c:CaixaMarcar Texto="Conta para metas (os clientes deste papel entram no realizado das metas do vendedor)"
+                               Marcado="{Binding Formulario.ContaParaMetas}" />
+                <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
+                       Text="Um por vez: incluir outro vendedor deste papel no cliente encerra o anterior na véspera (com confirmação). Receita: os vínculos de receita vigentes dividem os 100% da venda (um só fica com 100%). Sobreposição: crédito extra, como o de um supervisor. Baixar o limite só é aceito se nenhum cliente ficar acima dele." />
 
-            <ActivityIndicator Grid.Row="3" IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}"
-                               VerticalOptions="Start" HorizontalOptions="Center" Margin="0,24" />
-        </Grid>
-
-        <!-- ===== Nenhuma ficha aberta (só no computador) ===== -->
-        <VerticalStackLayout Grid.Column="1" IsVisible="{Binding MostrarVazio}" VerticalOptions="Center"
-                             HorizontalOptions="Center" Spacing="6" Padding="24">
-            <Label Text="Nenhum cadastro aberto" Style="{StaticResource Subtitulo}" HorizontalOptions="Center" />
-            <Label Text="Papéis de quem atende o cliente na carteira (vendedor, representante, supervisor...), cada um com a sua política: quantos ao mesmo tempo, crédito da venda e metas. Um só papel é o responsável da conta: o vendedor vigente dele é o vendedor padrão do cliente."
-                   Style="{StaticResource Secundario}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-
-        <!-- ===== Ficha ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView>
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10" MaximumWidthRequest="760"
-                                     HorizontalOptions="Fill">
-                    <Button Text="‹ Papéis comerciais" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
-                            IsVisible="{Binding ModoCompacto}" />
-                    <Label Text="{Binding Formulario.Titulo}" Style="{StaticResource Titulo}" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding Formulario.SituacaoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-
-                    <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-
-                    <FlexLayout Wrap="Wrap">
-                        <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Televendas" />
-                        <c:Campo Rotulo="Ordem" Texto="{Binding Formulario.Ordem}" Mascara="Numero" />
-                    </FlexLayout>
-                    <Label Text="Maiúsculas e acentos não contam no nome."
-                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-
-                    <!-- Política do papel (Motor Comercial, Fase 1) -->
-                    <Label Text="Política do papel" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
-                    <FlexLayout Wrap="Wrap">
-                        <c:Campo Rotulo="Quantos ao mesmo tempo" Texto="{Binding Formulario.LimitePorVez}" Mascara="Numero"
-                                 Dica="vazio = sem limite" />
-                        <c:CampoEscolha Rotulo="Crédito da venda" Itens="{Binding Formulario.Creditos}" Selecionado="{Binding Formulario.Credito}" />
-                        <c:Campo Rotulo="Percentual padrão (%)" Texto="{Binding Formulario.PercentualPadrao}" Teclado="Numeric"
-                                 Dica="vazio = sem padrão" IsVisible="{Binding Formulario.RecebeCredito}" />
-                    </FlexLayout>
-                    <!-- Quem pode ser: classificações de pessoa aceitas (Motor Comercial, Fase 1b). -->
-                    <Label Text="Quem pode ser" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
-                    <Label Text="Só pessoas com uma destas classificações (ativa) aparecem para este papel na carteira do cliente. Ex.: Supervisor = Funcionário."
-                           Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Formulario.Classificacoes}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="cad:ClassificacaoMarcavel">
-                                <c:CaixaMarcar Texto="{Binding Nome}" Marcado="{Binding Marcado}" Margin="0,0,16,0" />
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </FlexLayout>
-
-                    <c:CaixaMarcar Texto="Responsável da conta (o vendedor vigente deste papel vira o vendedor padrão do cliente; sempre um por vez)"
-                                   Marcado="{Binding Formulario.ResponsavelDaConta}" />
-                    <c:CaixaMarcar Texto="Conta para metas (os clientes deste papel entram no realizado das metas do vendedor)"
-                                   Marcado="{Binding Formulario.ContaParaMetas}" />
-                    <Label Style="{StaticResource Secundario}" LineBreakMode="WordWrap"
-                           Text="Um por vez: incluir outro vendedor deste papel no cliente encerra o anterior na véspera (com confirmação). Receita: os vínculos de receita vigentes dividem os 100% da venda (um só fica com 100%). Sobreposição: crédito extra, como o de um supervisor. Baixar o limite só é aceito se nenhum cliente ficar acima dele." />
-
-                    <!-- Situação -->
-                    <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
-                        <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
-                                IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
-                        <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
-                                IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
-                    </HorizontalStackLayout>
-
-                </VerticalStackLayout>
-            </ScrollView>
-
-            <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,10', Default='32,12'}"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">
-                <HorizontalStackLayout Spacing="12">
-                    <Button Text="Salvar" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvarAgora}" />
-                    <Button Text="Descartar" Style="{StaticResource BotaoSecundario}" Command="{Binding DescartarCommand}"
-                            IsEnabled="{Binding Livre}" ToolTipProperties.Text="Desfaz as alterações não salvas (não exclui nada)" />
-                    <Button Text="Fechar" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}" />
-                    <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
-                    <!-- Estado da ficha: "Sem alterações" / "Alterações não salvas" (o Salvar só habilita com o que gravar). -->
-                    <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center" SemanticProperties.Description="{Binding EstadoFicha}" />
+                <!-- Situação -->
+                <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                    <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                            IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                            IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
                 </HorizontalStackLayout>
-            </Border>
-        </Grid>
+            </VerticalStackLayout>
+        </c:FichaCadastro>
     </Grid>
 </ContentPage>

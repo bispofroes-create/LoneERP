@@ -36,7 +36,7 @@
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarDocumentosInativos}"
                            IsVisible="{Binding Formulario.TemDocumentosInativos}" VerticalOptions="Center" />
-            <Button Grid.Column="2" Text="Adicionar documento" Style="{StaticResource BotaoSecundario}"
+            <Button Grid.Column="2" Text="+ Adicionar documento" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarDocumentoCommand}" />
         </Grid>
         <Label Text="{Binding Formulario.AvisoDocumentos}" TextColor="{StaticResource Aviso}" FontAttributes="Bold"
@@ -53,7 +53,7 @@
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <Label Text="{Binding AvisoValidade}" TextColor="{StaticResource Aviso}" FontAttributes="Bold"
                                    IsVisible="{Binding TemAvisoValidade}" />
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
                                 <!-- Só nos documentos pessoais (RG, CNH, passaporte...) ou quando já preenchidos. -->
@@ -62,8 +62,8 @@
                                 <c:Campo Rotulo="Emitido em" Texto="{Binding EmitidoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
-                            </FlexLayout>
-                            <FlexLayout Wrap="Wrap" IsVisible="{Binding TemCamposPersonalizados}"
+                            </c:BlocoCampos>
+                            <c:BlocoCampos IsVisible="{Binding TemCamposPersonalizados}"
                                         BindableLayout.ItemsSource="{Binding CamposPersonalizados}"
                                         BindableLayout.ItemTemplateSelector="{StaticResource SeletorModelo}" />
                             <!-- Anexos: enviados e removidos na hora (não dependem do Salvar da ficha). -->

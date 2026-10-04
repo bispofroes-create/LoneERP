@@ -107,8 +107,15 @@ public partial class AppShell : Shell
         if (Window is not { } janela) return;
         _janela = janela;
         janela.SizeChanged += JanelaMudouDeTamanho;
-        _atalhos = Plataforma.AtalhosNavegacao.Ligar(janela, _navegacao.VoltarAsync);
+        _atalhos = Plataforma.AtalhosNavegacao.Ligar(janela, _navegacao.VoltarAsync, NovoNaTelaAberta);
         AjustarMenu();
+    }
+
+    /// <summary>Ctrl+N: "+ Novo" da tela de cadastro aberta, se ela permite criar e está livre.</summary>
+    private static void NovoNaTelaAberta()
+    {
+        if (Current?.CurrentPage?.BindingContext is not Lone.Cliente.ViewModels.Cadastros.IMestreDetalhe tela) return;
+        if (tela.PodeCriar && tela.Livre && tela.NovoCommand.CanExecute(null)) tela.NovoCommand.Execute(null);
     }
 
     private void SoltarJanela()

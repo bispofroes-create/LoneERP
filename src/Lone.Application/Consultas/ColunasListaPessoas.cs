@@ -48,7 +48,8 @@ public static class ColunasListaPessoas
         new(CamposFiltroPessoas.Email, "Telefones e e-mails", "E-mail principal", TipoColunaLista.Texto, 240, CampoFiltro: CamposFiltroPessoas.Email),
 
         // ---- Endereços ----
-        new(CamposFiltroPessoas.Cidade, "Endereços", "Cidade / UF", TipoColunaLista.Cidade, 200, true, CamposFiltroPessoas.Cidade),
+        new(CamposFiltroPessoas.Cidade, "Endereços", "Cidade", TipoColunaLista.Cidade, 200, true, CamposFiltroPessoas.Cidade),
+        new(CamposFiltroPessoas.Uf, "Endereços", "UF", TipoColunaLista.Uf, 80, true, CamposFiltroPessoas.Uf),
         new(CamposFiltroPessoas.Bairro, "Endereços", "Bairro", TipoColunaLista.Texto, 160, CampoFiltro: CamposFiltroPessoas.Bairro),
         new(CamposFiltroPessoas.Cep, "Endereços", "CEP", TipoColunaLista.Cep, 110, CampoFiltro: CamposFiltroPessoas.Cep),
 

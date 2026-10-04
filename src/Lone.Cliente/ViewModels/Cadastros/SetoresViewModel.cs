@@ -8,6 +8,7 @@ using Lone.Contracts.Comum;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -90,6 +91,12 @@ public sealed partial class SetorEdicao : ObservableObject
 /// <summary>Setores (estrutura organizacional). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class SetoresViewModel : CadastroViewModelBase<LinhaSetor>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaSetor> CriarGradeDaLista() => new(
+        "Setor", l => l.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaSetor>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaSetor>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly ColaboradoresApi _api;
     private List<DepartamentoDto> _departamentos = [];
 

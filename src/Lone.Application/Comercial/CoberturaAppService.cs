@@ -19,7 +19,7 @@ public interface ICoberturaAppService
     Task<CoberturaOpcoesDto> ListarOpcoesAsync(CancellationToken ct = default);
     Task<CoberturaDto> SalvarAsync(CoberturaDto dto, CancellationToken ct = default);
     Task<CoberturaDto> CancelarAsync(Guid id, CancelarCoberturaRequisicao requisicao, CancellationToken ct = default);
-    Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(int? dias, CancellationToken ct = default);
+    Task<CarteiraVencendoDto> CarteiraVencendoAsync(int? dias, CancellationToken ct = default);
 
     /// <summary>Coberturas vigentes e agendadas, em texto, para o aviso na carteira da ficha (sem exigir a permissão do módulo).</summary>
     Task<List<CoberturaAvisoDto>> AvisosAsync(CancellationToken ct = default);
@@ -192,12 +192,20 @@ public sealed class CoberturaAppService : ICoberturaAppService
         return await ReleAsync(id, ct);
     }
 
-    public async Task<List<VinculoVencendoDto>> CarteiraVencendoAsync(int? dias, CancellationToken ct = default)
+    public async Task<CarteiraVencendoDto> CarteiraVencendoAsync(int? dias, CancellationToken ct = default)
     {
         ExigirVer();
         var parametros = await _parametros.ObterAsync(ct);
         var prazo = Math.Clamp(dias ?? parametros.DiasAvisoFimVinculo, 0, ParametrosComerciais.MaximoDiasAviso);
-        return await _consultas.CarteiraVencendoAsync(Hoje, Hoje.AddDays(prazo), await _escopo.ObterAsync(ct), ct);
+        var ate = Hoje.AddDays(prazo);
+        return new CarteiraVencendoDto
+        {
+            Dias = prazo,
+            DoAviso = dias is null,
+            De = Hoje,
+            Ate = ate,
+            Vinculos = await _consultas.CarteiraVencendoAsync(Hoje, ate, await _escopo.ObterAsync(ct), ct)
+        };
     }
 
     public async Task<List<CoberturaAvisoDto>> AvisosAsync(CancellationToken ct = default)

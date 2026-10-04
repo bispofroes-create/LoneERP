@@ -18,11 +18,36 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
     public AuditoriaConsultas(IDbContextFactory<LoneDbContext> fabrica, IUsuarioAtual usuario)
         : base(fabrica, usuario) { }
 
+    public async Task<OpcoesHistorico> OpcoesPorRaizAsync(string raizEntidade, Guid raizId, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        var doAgregado = db.Auditoria.AsNoTracking().Where(a => a.RaizEntidade == raizEntidade && a.RaizId == raizId);
+        return new OpcoesHistorico
+        {
+            Entidades = await doAgregado.Select(a => a.Entidade).Distinct().OrderBy(e => e).ToListAsync(ct),
+            Usuarios = await doAgregado.Select(a => a.Usuario).Distinct().OrderBy(u => u).ToListAsync(ct)
+        };
+    }
+
     public async Task<List<RegistroHistorico>> ListarPorRaizAsync(
-        string raizEntidade, Guid raizId, int limite, long? antesDe, CancellationToken ct)
+        string raizEntidade, Guid raizId, int limite, long? antesDe, CancellationToken ct, FiltroHistorico? filtro = null)
     {
         await using var db = await AbrirAsync(ct);
         var consulta = db.Auditoria.AsNoTracking().Where(a => a.RaizEntidade == raizEntidade && a.RaizId == raizId);
+
+        // Filtro do histórico (tipo, período, usuário): aplicado no banco, vale para o histórico inteiro.
+        if (filtro is { Entidades.Count: > 0 })
+        {
+            var entidades = filtro.Entidades;
+            consulta = consulta.Where(a => entidades.Contains(a.Entidade));
+        }
+        if (filtro?.DeUtc is { } de) consulta = consulta.Where(a => a.DataHora >= de);
+        if (filtro?.AteUtc is { } ate) consulta = consulta.Where(a => a.DataHora < ate);
+        if (!string.IsNullOrWhiteSpace(filtro?.Usuario))
+        {
+            var usuario = filtro.Usuario.Trim();
+            consulta = consulta.Where(a => a.Usuario == usuario);
+        }
 
         // Paginação por chave (não por número de página): a próxima página continua exatamente depois do último
         // registro mostrado, mesmo que novas alterações tenham sido gravadas no meio tempo. Usa o índice

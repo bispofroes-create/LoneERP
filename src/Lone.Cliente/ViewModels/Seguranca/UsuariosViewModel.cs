@@ -6,12 +6,22 @@ using Lone.Cliente.Plataforma;
 using Lone.Cliente.ViewModels.Cadastros;
 using Lone.Contracts.Seguranca;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
+using Lone.Cliente.ViewModels.Comum;
 
 namespace Lone.Cliente.ViewModels.Seguranca;
 
 /// <summary>Tela de usuários: lista com busca e ficha com dados, perfis por empresa, senha e desbloqueio.</summary>
 public sealed partial class UsuariosViewModel : CadastroViewModelBase<UsuarioResumo>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<UsuarioResumo> CriarGradeDaLista() => new(
+        "Usuário", u => u.Id, u => u.Nome, u => u.Login,
+        ColunaCadastro<UsuarioResumo>.Texto("perfis", "Perfis", u => u.Perfis.Count > 0 ? string.Join(", ", u.Perfis) : "—"),
+        ColunaCadastro<UsuarioResumo>.Curto("ultimoAcesso", "Último acesso", u => u.UltimoAcessoEm is { } a ? TextoTela.DataHora(a.ToLocalTime()) : "Nunca", 160),
+        ColunaCadastro<UsuarioResumo>.Selo("situacao", "Situação", u => !u.Ativo ? "Inativo" : u.Bloqueado ? "Bloqueado" : "Ativo",
+            u => !u.Ativo ? "Neutro" : u.Bloqueado ? "Aviso" : "Sucesso", 120));
+
     private readonly UsuariosApi _api;
 
     public UsuariosViewModel(UsuariosApi api, IDialogos dialogos) : base(dialogos)

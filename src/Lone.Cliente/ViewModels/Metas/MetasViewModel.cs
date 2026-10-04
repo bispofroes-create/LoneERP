@@ -11,6 +11,7 @@ using Lone.Contracts.Seguranca;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Metas;
 
@@ -266,6 +267,17 @@ public sealed class LinhaApuracao
 /// <summary>Metas: montagem, publicação, realizado (manual ou CSV), apuração e fechamento aprovado.</summary>
 public sealed partial class MetasViewModel : CadastroViewModelBase<LinhaMeta>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaMeta> CriarGradeDaLista() => new(
+        "Meta", l => l.Item.Id, l => l.Nome, l => l.Detalhe,
+        ColunaCadastro<LinhaMeta>.Selo("situacao", "Situação", l => l.Situacao, l => !l.Item.Ativo ? "Neutro" : l.Item.Situacao switch
+        {
+            SituacaoMeta.Rascunho => "Aviso",
+            SituacaoMeta.Publicada => "Sucesso",
+            SituacaoMeta.EmApuracao => "Informacao",
+            _ => "Neutro"
+        }, 140));
+
     private readonly MetasApi _api;
     private readonly SessaoCliente _sessao;
     private MetaOpcoesDto _opcoes = new();
@@ -277,6 +289,9 @@ public sealed partial class MetasViewModel : CadastroViewModelBase<LinhaMeta>
     }
 
     private bool PodeGerenciar => _sessao.Possui(Permissoes.Metas.Gerenciar);
+
+    /// <summary>Quem só vê metas não cria (Metas.Gerenciar).</summary>
+    public override bool PodeCriar => PodeGerenciar;
     private bool PodeLancarRealizado => _sessao.Possui(Permissoes.Metas.LancarRealizado);
     private bool PodeFechar => _sessao.Possui(Permissoes.Metas.Fechar);
 

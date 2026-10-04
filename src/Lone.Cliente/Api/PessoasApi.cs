@@ -115,8 +115,12 @@ public sealed class PessoasApi
             new Lone.Contracts.Enderecos.ConsolidarEnderecosRequisicao { Versao = versao, OrigemId = origemId, DestinoId = destinoId }, ct: ct);
 
     /// <summary>Uma página do histórico; <paramref name="antes"/> = Id do último registro já mostrado (nulo = do começo).</summary>
-    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid id, long? antes = null, int limite = PaginaHistorico, CancellationToken ct = default) =>
-        _api.GetAsync<List<RegistroHistorico>>(Rotas.Pessoas.Historico(id, antes, limite), ct);
+    public Task<List<RegistroHistorico>> ListarHistoricoAsync(Guid id, long? antes = null, int limite = PaginaHistorico, CancellationToken ct = default,
+        FiltroHistorico? filtro = null) =>
+        _api.GetAsync<List<RegistroHistorico>>(Rotas.Pessoas.Historico(id, antes, limite, filtro), ct);
+
+    public Task<OpcoesHistorico> OpcoesHistoricoAsync(Guid id, CancellationToken ct = default) =>
+        _api.GetAsync<OpcoesHistorico>(Rotas.Pessoas.HistoricoOpcoes(id), ct);
 
     public const int PaginaHistorico = 100;
 

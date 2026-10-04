@@ -79,6 +79,23 @@ public sealed class CoberturaOpcoesDto
 /// <summary>Cobertura vigente ou agendada, para o aviso na carteira da ficha do cliente.</summary>
 public sealed record CoberturaAvisoDto(Guid TitularId, Guid? TipoCarteiraId, Guid? EmpresaId, DateOnly InicioEm, DateOnly FimEm, string Texto);
 
+/// <summary>
+/// Resposta da Carteira vencendo (03/10/2026): os vínculos e o período consultado, para a tela dizer "Aviso padrão
+/// (30 dias)" e "Período consultado: de ... a ..." com o número real.
+/// </summary>
+public sealed class CarteiraVencendoDto
+{
+    /// <summary>Dias usados (o informado ou o aviso dos parâmetros).</summary>
+    public int Dias { get; set; }
+
+    /// <summary>Os dias vieram do aviso configurado (nada foi informado).</summary>
+    public bool DoAviso { get; set; }
+
+    public DateOnly De { get; set; }
+    public DateOnly Ate { get; set; }
+    public List<VinculoVencendoDto> Vinculos { get; set; } = new();
+}
+
 /// <summary>Vínculo da carteira que termina em breve (tela "Carteira vencendo").</summary>
 public sealed class VinculoVencendoDto
 {

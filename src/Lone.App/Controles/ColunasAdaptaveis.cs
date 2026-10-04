@@ -11,7 +11,7 @@ namespace Lone.App.Controles;
 public static class ColunasAdaptaveis
 {
     /// <summary>A partir desta largura do FlexLayout (em pontos), três colunas.</summary>
-    public const double LarguraTresColunas = 1000;
+    public const double LarguraTresColunas = Lone.Cliente.Formularios.CalculoBlocoCampos.LarguraTresColunas;
 
     public static readonly BindableProperty AtivoProperty = BindableProperty.CreateAttached(
         "Ativo", typeof(bool), typeof(ColunasAdaptaveis), false, propertyChanged: AoMudarAtivo);

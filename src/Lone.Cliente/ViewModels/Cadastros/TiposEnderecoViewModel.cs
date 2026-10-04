@@ -7,6 +7,7 @@ using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Enderecos;
 using Lone.Domain.Comum;
 using Lone.Domain.Validacao;
+using Lone.Cliente.Grade;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
 
@@ -81,6 +82,12 @@ public sealed partial class TipoEnderecoEdicao : ObservableObject
 /// <summary>Tipos de endereço (Sede, Filial, Depósito...). Nada é excluído: desativar esconde das escolhas novas.</summary>
 public sealed partial class TiposEnderecoViewModel : CadastroViewModelBase<LinhaTipoEndereco>
 {
+    /// <summary>Lista em colunas (padrão de tela de cadastro, 03/10/2026).</summary>
+    protected override GradeCadastro<LinhaTipoEndereco> CriarGradeDaLista() => new(
+        "Tipo de endereço", l => l.Id, l => l.Nome, l => null,
+        ColunaCadastro<LinhaTipoEndereco>.Curto("emuso", "Em uso", l => l.Usos, 130),
+        ColunaCadastro<LinhaTipoEndereco>.Situacao(l => l.Ativo == "Sim"));
+
     private readonly TiposEnderecoApi _api;
 
     public TiposEnderecoViewModel(TiposEnderecoApi api, IDialogos dialogos) : base(dialogos)

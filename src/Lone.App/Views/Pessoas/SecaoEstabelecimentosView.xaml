@@ -15,7 +15,7 @@
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Formulario.EhJuridica}">
             <Label Text="Matriz e filiais desta empresa (mesma raiz de CNPJ). Cada CNPJ tem os seus dados fiscais; a filial pode ter endereço próprio. Filial gravada não é excluída: é desativada."
                    Style="{StaticResource Secundario}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Adicionar filial" Style="{StaticResource BotaoSecundario}"
+            <Button Grid.Column="1" Text="+ Adicionar filial" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarEstabelecimentoCommand}" />
         </Grid>
 
@@ -39,7 +39,7 @@
                                    LineBreakMode="WordWrap" IsVisible="{Binding PodeReativar}" />
                             <Label Text="{Binding TextoReceita}" Style="{StaticResource Secundario}" />
 
-                            <FlexLayout Wrap="Wrap">
+                            <c:BlocoCampos>
                                 <!-- Filial: edita o próprio CNPJ, nome fantasia e natureza jurídica. -->
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding FilialDaPJ}"
                                       FlexLayout.Basis="100%">
@@ -82,8 +82,8 @@
                                          Dica="Códigos separados por vírgula" FlexLayout.Basis="100%" />
                                 <c:CaixaMarcar Texto="Estabelecimento ativo" Marcado="{Binding Ativo}" IsVisible="{Binding DaPessoaJuridica}" />
                                 <c:CaixaMarcar Texto="Produtor rural" Marcado="{Binding ProdutorRural}" IsVisible="{Binding DaPessoaJuridica}" />
-                            </FlexLayout>
-                            <Button Text="Adicionar inscrição municipal" Style="{StaticResource BotaoLink}" HorizontalOptions="Start"
+                            </c:BlocoCampos>
+                            <Button Text="+ Adicionar inscrição municipal" Style="{StaticResource BotaoLink}" HorizontalOptions="Start"
                                     Command="{Binding AdicionarInscricaoMunicipalCommand}" IsVisible="{Binding PodeAdicionarInscricaoMunicipal}" />
 
                             <!-- PF/estrangeiro com regime, CNAE ou SUFRAMA gravados: leitura até o usuário remover (vale ao salvar). -->

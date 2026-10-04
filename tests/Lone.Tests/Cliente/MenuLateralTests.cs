@@ -42,7 +42,8 @@ public class MenuLateralTests
     {
         var secoes = MenuViewModel.CriarSecoes(Tudo);
 
-        Assert.Equal(new string?[] { "Pessoas", "Comercial", "Organização", "Metas", null }, secoes.Select(s => s.Titulo).ToArray());
+        // "Configurações do sistema" saiu do menu lateral (03/10/2026): fica no menu do usuário.
+        Assert.Equal(new string?[] { "Pessoas", "Comercial", "Organização", "Metas" }, secoes.Select(s => s.Titulo).ToArray());
         // A consulta avançada virou o painel de filtros da tela de Pessoas, e as configurações de Pessoas ficam no botão
         // "Configurações" da própria tela: no menu, só o cadastro (que continua destacado nas telas de configuração).
         var cadastro = Assert.Single(secoes[0].Itens);
@@ -64,17 +65,14 @@ public class MenuLateralTests
         Assert.Equal(new[] { "Painel", "⚙  Configurações" }, secoes[3].Itens.Select(i => i.TextoExibido).ToArray());
         Assert.Equal("Painel de metas", secoes[3].Itens[0].Descricao);
         Assert.Equal("Configurações de Metas", secoes[3].Itens[1].Descricao);
-        var sistema = Assert.Single(secoes[4].Itens);
-        Assert.Equal("configuracoes-sistema", sistema.Rota);
-        Assert.Equal("⚙  Configurações do sistema", sistema.TextoExibido);
-        Assert.True(secoes[4].MostrarItens); // entrada solta: sem cabeçalho, sempre visível
+        Assert.Equal(4, secoes.Count); // "Configurações do sistema" saiu do menu lateral: fica no menu do usuário (03/10/2026)
     }
 
     [Fact]
     public void Quem_so_transfere_carteira_ve_transferencias_e_carteira_em_uma_data()
     {
         var secoes = MenuViewModel.CriarSecoes(p => p == Lone.Contracts.Seguranca.Permissoes.Comercial.Transferir);
-        Assert.Equal(new string?[] { "Comercial", null }, secoes.Select(s => s.Titulo).ToArray()); // e Configurações do sistema
+        Assert.Equal(new string?[] { "Comercial" }, secoes.Select(s => s.Titulo).ToArray());
         Assert.Equal(new[] { "transferencias", "carteira-em-data" }, secoes[0].Itens.Select(i => i.Rota).ToArray());
     }
 
@@ -83,15 +81,14 @@ public class MenuLateralTests
     {
         var secoes = MenuViewModel.CriarSecoes(p => p == Permissoes.Pessoas.Visualizar);
 
-        // Pessoas e Configurações do sistema (esta sempre aparece: "Minha conta › Trocar senha" é de todos).
-        Assert.Equal(new string?[] { "Pessoas", null }, secoes.Select(s => s.Titulo).ToArray());
+        // Só Pessoas (Minha conta › Trocar senha, de todos, fica no menu do usuário).
+        Assert.Equal(new string?[] { "Pessoas" }, secoes.Select(s => s.Titulo).ToArray());
         Assert.Equal(new[] { "pessoas" }, secoes[0].Itens.Select(i => i.Rota).ToArray()); // sem configurações
-        Assert.Equal("configuracoes-sistema", Assert.Single(secoes[1].Itens).Rota);
 
         var soConfiguracao = MenuViewModel.CriarSecoes(p => p == Permissoes.Cadastros.Etiquetas);
         Assert.Equal(new[] { "configuracoes-pessoas" }, soConfiguracao[0].Itens.Select(i => i.Rota).ToArray());
 
-        Assert.Equal("configuracoes-sistema", Assert.Single(Assert.Single(MenuViewModel.CriarSecoes(_ => false)).Itens).Rota);
+        Assert.Empty(MenuViewModel.CriarSecoes(_ => false));
     }
 
     [Fact]
@@ -104,7 +101,8 @@ public class MenuLateralTests
         Assert.Equal(catalogo.Count, catalogo.Select(i => i.Rota).Distinct().Count());
         Assert.Equal("Pessoas › Configurações", catalogo.Single(i => i.Rota == "papeis").Caminho);
         Assert.Equal("Metas › Configurações", catalogo.Single(i => i.Rota == "equipes").Caminho);
-        Assert.Equal("Configurações do sistema", catalogo.Single(i => i.Rota == "usuarios").Caminho);
+        Assert.Equal("Menu do usuário", catalogo.Single(i => i.Rota == "usuarios").Caminho);
+        Assert.DoesNotContain(catalogo, i => i.Rota == "configuracoes-sistema"); // a página saiu: itens no menu do usuário
         Assert.Equal("Pessoas", catalogo.Single(i => i.Rota == "pessoas").Caminho);
         // Fora do menu lateral, a página de configurações de Pessoas continua na busca e nos favoritos.
         Assert.Equal("Configurações de Pessoas", catalogo.Single(i => i.Rota == "configuracoes-pessoas").Descricao);
@@ -374,7 +372,9 @@ public class MenuLateralTests
 
         ambiente.Dialogos.RespostaEscolha = null; // cancelou: nada acontece
         await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
-        Assert.Equal(new[] { MenuViewModel.OpcaoTrocarUsuario, MenuViewModel.OpcaoSair }, ambiente.Dialogos.OpcoesOferecidas);
+        var oferecidas = ambiente.Dialogos.OpcoesOferecidas.ToArray();
+        Assert.Equal(MenuViewModel.OpcaoTrocarSenha, oferecidas[0]); // Minha conta primeiro
+        Assert.Equal(new[] { MenuViewModel.OpcaoTrocarUsuario, MenuViewModel.OpcaoSair }, oferecidas[^2..]);
         Assert.Empty(navegacao.Telas);
         Assert.True(ambiente.Sessao.Autenticada);
 
@@ -384,6 +384,32 @@ public class MenuLateralTests
         Assert.Equal(new[] { Lone.Cliente.Navegacao.Tela.Login }, navegacao.Telas);
         Assert.False(navegacao.Encerrou);
         Assert.False(ambiente.Sessao.Autenticada);
+    }
+
+    [Fact]
+    public async Task Menu_do_usuario_tem_minha_conta_administracao_e_sair()
+    {
+        var ambiente = new AmbienteCliente();
+        await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao()); // administrador: vê a Administração
+        var navegacao = new NavegacaoGravada();
+        var menu = new MenuViewModel(ambiente.Sessao, ambiente.Autenticacao, navegacao, new MenuUsuarioApi(ambiente.Api), ambiente.Dialogos);
+        var abertas = new List<string>();
+        menu.Navegar = rota => { abertas.Add(rota); return Task.CompletedTask; };
+
+        Assert.True(menu.MostrarAdministracao);
+        ambiente.Dialogos.RespostaEscolha = MenuViewModel.OpcaoUsuarios;
+        await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
+        Assert.Equal(new[] { MenuViewModel.OpcaoTrocarSenha, MenuViewModel.OpcaoPerfis, MenuViewModel.OpcaoUsuarios,
+            MenuViewModel.OpcaoTrocarUsuario, MenuViewModel.OpcaoSair }, ambiente.Dialogos.OpcoesOferecidas);
+        Assert.Equal(new[] { "usuarios" }, abertas);
+
+        await menu.AbrirPerfisCommand.ExecuteAsync(null);
+        Assert.Equal(new[] { "usuarios", "perfis" }, abertas);
+
+        ambiente.Dialogos.RespostaEscolha = MenuViewModel.OpcaoTrocarSenha;
+        await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
+        Assert.Equal(1, navegacao.TrocasDeSenhaAbertas);
+        Assert.True(ambiente.Sessao.Autenticada); // trocar senha não encerra a sessão
     }
 
     [Fact]

@@ -9,21 +9,21 @@
     <VerticalStackLayout Spacing="8">
         <!-- Consentimentos (LGPD) ficam na aba "Privacidade". -->
         <Label Text="Segmentação" Style="{StaticResource Subtitulo}" />
-        <FlexLayout Wrap="Wrap">
+        <c:BlocoCampos>
             <c:CampoEscolha Rotulo="Como conheceu a empresa" Itens="{Binding Formulario.Origens}"
                             Selecionado="{Binding Formulario.OrigemCadastro}" />
             <c:Campo Rotulo="Primeiro contato" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.PrimeiroContatoEm}" />
-        </FlexLayout>
+        </c:BlocoCampos>
 
         <!-- Relacionamento: interações (só inclusão) e a situação calculada pelos dias sem interação. -->
         <Label Text="Interações" Style="{StaticResource Subtitulo}" Margin="0,12,0,0" />
         <Label Text="{Binding Formulario.Situacoes.TextoRelacionamento}" FontAttributes="Bold" LineBreakMode="WordWrap" />
-        <FlexLayout Wrap="Wrap" AlignItems="End">
+        <c:BlocoCampos AlignItems="End">
             <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Formulario.Situacoes.ListaTipos}" Selecionado="{Binding Formulario.Situacoes.NovoTipo}" />
             <c:Campo Rotulo="O que foi tratado" Texto="{Binding Formulario.Situacoes.NovaDescricao}" FlexLayout.Basis="{OnIdiom Phone='100%', Default='60%'}" />
             <Button Text="Registrar interação" Style="{StaticResource BotaoSecundario}" Command="{Binding Formulario.Situacoes.RegistrarInteracaoCommand}"
                     IsEnabled="{Binding Livre}" Margin="0,0,0,8" />
-        </FlexLayout>
+        </c:BlocoCampos>
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Situacoes.Interacoes}" Spacing="6">
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:InteracaoItem">

@@ -2,10 +2,13 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Lone.Cliente.Grade;
 using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
+
+using GradeCelula = Lone.Cliente.Grade.CelulaGrade;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
 
@@ -65,7 +68,7 @@ public sealed class CelulaGrade
 }
 
 /// <summary>Uma linha da lista: a pessoa, o texto embaixo do nome e as células das colunas escolhidas.</summary>
-public sealed partial class LinhaPessoa : ObservableObject
+public sealed partial class LinhaPessoa : ObservableObject, ILinhaGrade
 {
     /// <summary>Altura da linha: confortável (padrão) ou compacta. Fixa: a parte presa e a que rola ficam alinhadas.</summary>
     public const double AlturaConfortavel = 56;
@@ -74,11 +77,13 @@ public sealed partial class LinhaPessoa : ObservableObject
     /// <summary>Cartão do celular: nome, documento e cidade, papéis e o botão de ligar.</summary>
     public const double AlturaCartao = 92;
 
-    public LinhaPessoa(PessoaResumo pessoa, string subtitulo, IReadOnlyList<CelulaGrade> celulas, bool compacta = false, bool cartao = false)
+    public LinhaPessoa(PessoaResumo pessoa, string subtitulo, IReadOnlyList<CelulaGrade> celulas, bool compacta = false, bool cartao = false,
+        IReadOnlyList<GradeCelula>? celulasGrade = null)
     {
         Pessoa = pessoa;
         Subtitulo = subtitulo;
         Celulas = celulas;
+        CelulasGrade = celulasGrade ?? [];
         Cartao = cartao;
         Altura = cartao ? AlturaCartao : compacta ? AlturaCompacta : AlturaConfortavel;
         Papeis = [.. pessoa.Papeis.Select(SeloPapel.De)];
@@ -92,6 +97,19 @@ public sealed partial class LinhaPessoa : ObservableObject
     public string Subtitulo { get; }
     public IReadOnlyList<CelulaGrade> Celulas { get; }
     public double Altura { get; }
+
+    // ---- GradeLista (P2-B2, Etapa 3): a mesma linha vista pela grade nova. A tela atual ainda usa Celulas/Altura. ----
+
+    /// <summary>As células no formato da GradeLista (sem largura; a largura é da coluna).</summary>
+    public IReadOnlyList<GradeCelula> CelulasGrade { get; }
+
+    Guid ILinhaGrade.Chave => Pessoa.Id;
+    IReadOnlyList<GradeCelula> ILinhaGrade.Celulas => CelulasGrade;
+
+    /// <summary>Marcada na grade = está na prévia.</summary>
+    public bool Selecionada => NaPrevia;
+
+    partial void OnNaPreviaChanged(bool value) => OnPropertyChanged(nameof(Selecionada));
 
     /// <summary>Iniciais no avatar (ex.: "Mercearia Gregório" → "MG"; "S.A." e afins não contam).</summary>
     public string Iniciais => IniciaisDe(Pessoa.Nome);
@@ -147,11 +165,15 @@ public sealed partial class ColunaGrade : ObservableObject
     public ColunaGrade(ColunaListaDto definicao, Action<string> ordenar, FiltroColuna? filtro)
     {
         Definicao = definicao;
+        Def = GradePessoas.Definicao(definicao);
         Filtro = filtro;
         OrdenarCommand = new RelayCommand(() => ordenar(definicao.Id));
     }
 
     public ColunaListaDto Definicao { get; }
+
+    /// <summary>A coluna como a GradeLista a vê (regra de largura aprovada na P2). Uma instância por coluna mostrada.</summary>
+    public ColunaGradeDef Def { get; }
     public string Id => Definicao.Id;
     public string Nome => Definicao.Nome;
     public string Titulo => Definicao.Nome.ToUpper(TextoTela.Brasil);
@@ -237,6 +259,9 @@ public sealed partial class GradePessoas : ObservableObject
     /// <summary>Largura da coluna do nome (presa à esquerda).</summary>
     public const double LarguraNome = 340;
 
+    /// <summary>Até onde o nome encolhe em tela estreita, antes de a tabela rolar para o lado (P2).</summary>
+    public const double LarguraMinimaNome = 260;
+
     private readonly List<ColunaListaDto> _catalogo = [];
     private readonly List<string> _ids = [];
 
@@ -271,7 +296,11 @@ public sealed partial class GradePessoas : ObservableObject
 
     public string TextoDensidade => Compacta ? "Densidade: compacta" : "Densidade: confortável";
 
-    partial void OnCompactaChanged(bool value) => Mudou?.Invoke(MudancaGrade.Aparencia);
+    partial void OnCompactaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(AlturaLinha));
+        Mudou?.Invoke(MudancaGrade.Aparencia);
+    }
 
     [RelayCommand] private void AlternarDensidade() => Compacta = !Compacta;
 
@@ -303,6 +332,7 @@ public sealed partial class GradePessoas : ObservableObject
     {
         OnPropertyChanged(nameof(MostrarLinhaFiltro));
         OnPropertyChanged(nameof(SemColunas));
+        OnPropertyChanged(nameof(AlturaLinha));
     }
 
     /// <summary>Celular: sem colunas nem cabeçalho (ordenar pelo botão "Ordenar").</summary>
@@ -330,6 +360,7 @@ public sealed partial class GradePessoas : ObservableObject
             Grupos.Add(new GrupoSeletorColunas(g.Key, [.. g.Select(c => new ItemSeletorColuna(c, false, Alternar))]));
         Nome = CriarNome();
         OnPropertyChanged(nameof(Nome));
+        OnPropertyChanged(nameof(ColunaFixa));
         Visiveis.Clear(); // o painel foi remontado: os filtros das colunas ligam nos campos novos
         Carregada = true;
         AplicarLayout(layout ?? new LayoutListaPessoas { Colunas = Padrao() });
@@ -360,7 +391,10 @@ public sealed partial class GradePessoas : ObservableObject
         if (SetProperty(ref _filtroNasColunas, layout.FiltroNasColunas, nameof(FiltroNasColunas)))
             OnPropertyChanged(nameof(MostrarLinhaFiltro));
         if (SetProperty(ref _compacta, layout.Compacta, nameof(Compacta)))
+        {
             OnPropertyChanged(nameof(TextoDensidade));
+            OnPropertyChanged(nameof(AlturaLinha));
+        }
 #pragma warning restore MVVMTK0034
         Reconstruir();
     }
@@ -499,7 +533,78 @@ public sealed partial class GradePessoas : ObservableObject
             MostrarColunas ? $"Cód. {p.CodigoFormatado}" : string.Join(" · ", new[] { p.DocumentoFormatado, p.Local }.Where(t => t.Length > 0)),
             MostrarColunas ? [.. Visiveis.Select(c => Celula(c.Definicao, p))] : [],
             compacta: Compacta && MostrarColunas,
-            cartao: !MostrarColunas);
+            cartao: !MostrarColunas,
+            celulasGrade: MostrarColunas ? [.. Visiveis.Select(c => CelulaGradeNova(c.Def, c.Definicao, p))] : []);
+
+    // ---- GradeLista (P2-B2, Etapa 3): colunas, parte fixa, altura e conteúdo no formato da grade nova ----
+
+    /// <summary>A coluna do nome (parte fixa da grade): a que mais cresce; encolhe até 260 antes de a tabela rolar para o lado.</summary>
+    public ColunaGradeDef ColunaFixa => Nome.Def;
+
+    /// <summary>Colunas de célula na ordem mostrada (no cartão, nenhuma). Mesmas instâncias enquanto a escolha não muda.</summary>
+    public IReadOnlyList<ColunaGradeDef> ColunasGrade => MostrarColunas ? [.. Visiveis.Select(c => c.Def)] : [];
+
+    /// <summary>Altura das linhas na grade: confortável, compacta ou cartão (a densidade não reconstrói as linhas).</summary>
+    public double AlturaLinha => !MostrarColunas ? LinhaPessoa.AlturaCartao
+        : Compacta ? LinhaPessoa.AlturaCompacta : LinhaPessoa.AlturaConfortavel;
+
+    /// <summary>Colunas e linhas juntas, numa troca só. As linhas precisam ter sido montadas com as colunas atuais.</summary>
+    public ConteudoGrade Conteudo(IReadOnlyList<LinhaPessoa> linhas) => new(ColunasGrade, linhas);
+
+    /// <summary>Peso do nome no espaço livre: a coluna principal cresce mais que as de texto (peso 1).</summary>
+    public const double PesoNome = 3;
+
+    /// <summary>
+    /// Regra de largura de cada coluna (revisão de 03/10/2026, substitui a P2; padrão em docs/UX-ARQUITETURA.md):
+    /// <list type="bullet">
+    /// <item><b>Nome / razão social</b> (parte fixa): cresce com o maior peso (3); encolhe até 260 quando falta espaço.</item>
+    /// <item><b>Texto livre</b> (Papéis, Cidade, e-mail, bairro, nome fantasia...): cresce com peso 1, a partir da mínima
+    /// (Papéis e Cidade 160; as outras, a largura do catálogo).</item>
+    /// <item><b>Dado curto</b> (código, CPF/CNPJ, tipo, situação, datas, números, valores, telefone, CEP, opções):
+    /// largura fixa; nunca cresce. A UF é dado curto (80).</item>
+    /// </list>
+    /// O tipo de célula segue a montagem de <see cref="CelulaGradeNova"/>.
+    /// </summary>
+    public static ColunaGradeDef Definicao(ColunaListaDto c)
+    {
+        var titulo = c.Nome.ToUpper(TextoTela.Brasil);
+        if (c.Id == ColunasPessoas.Nome)
+            return ColunaGradeDef.Proporcional(c.Id, titulo, TipoCelula.Texto, peso: PesoNome, minima: LarguraMinimaNome);
+        var catalogo = c.Largura > 0 ? c.Largura : 120;
+        return c.Tipo switch
+        {
+            TipoColunaLista.Documento => ColunaGradeDef.Fixa(c.Id, titulo, TipoCelula.Texto, 180),
+            TipoColunaLista.Natureza => ColunaGradeDef.Fixa(c.Id, titulo, TipoCelula.Selo, 80),
+            TipoColunaLista.Situacao => ColunaGradeDef.Fixa(c.Id, titulo, TipoCelula.Selo, 120),
+            TipoColunaLista.Papeis => ColunaGradeDef.Proporcional(c.Id, titulo, TipoCelula.Pilulas, peso: 1, minima: 160),
+            TipoColunaLista.Cidade => ColunaGradeDef.Proporcional(c.Id, titulo, TipoCelula.Texto, peso: 1, minima: 160),
+            TipoColunaLista.Uf => ColunaGradeDef.Fixa(c.Id, titulo, TipoCelula.Texto, 80),
+            TipoColunaLista.Texto => ColunaGradeDef.Proporcional(c.Id, titulo, TipoCelula.Texto, peso: 1, minima: catalogo),
+            _ => ColunaGradeDef.Fixa(c.Id, titulo, TipoCelula.Texto, catalogo)
+        };
+    }
+
+    /// <summary>A mesma formatação de <see cref="Celula"/>, no formato da GradeLista (avisos como texto com tom).</summary>
+    public static GradeCelula CelulaGradeNova(ColunaGradeDef d, ColunaListaDto c, PessoaResumo p) => c.Tipo switch
+    {
+        TipoColunaLista.Codigo => GradeCelula.DeTexto(d, p.CodigoFormatado),
+        TipoColunaLista.Documento when p.DocumentoFormatado.Length == 0 && p.Natureza != NaturezaPessoa.Estrangeiro =>
+            GradeCelula.DeTexto(d, p.Natureza == NaturezaPessoa.Fisica ? "Sem CPF" : "Sem CNPJ", "Aviso"),
+        TipoColunaLista.Documento => GradeCelula.DeTexto(d, p.DocumentoFormatado),
+        TipoColunaLista.Natureza => GradeCelula.DeSelo(d, p.NaturezaSigla, "Neutro"),
+        TipoColunaLista.Papeis => GradeCelula.DePilulas(d, [.. p.Papeis.Select(SeloPapel.De).Select(s => new SeloGrade(s.Texto, s.Tom))]),
+        TipoColunaLista.Cidade when p.MunicipioACorrigir =>
+            GradeCelula.DeTexto(d, Cidade(p).Length > 0 ? Cidade(p) + " (a corrigir)" : "Município a corrigir", "Aviso"),
+        TipoColunaLista.Cidade => GradeCelula.DeTexto(d, Cidade(p)),
+        TipoColunaLista.Uf => GradeCelula.DeTexto(d, p.Uf),
+        TipoColunaLista.Situacao => GradeCelula.DeSelo(d, p.SituacaoSelo, p.Situacao switch
+        {
+            SituacaoPessoa.Ativo => "Sucesso",
+            SituacaoPessoa.EmAnalise => "Aviso",
+            _ => "Neutro"
+        }),
+        _ => GradeCelula.DeTexto(d, Formatar(c, p.Valores.GetValueOrDefault(c.Id)))
+    };
 
     public static CelulaGrade Celula(ColunaListaDto c, PessoaResumo p) => c.Tipo switch
     {
@@ -510,8 +615,9 @@ public sealed partial class GradePessoas : ObservableObject
         TipoColunaLista.Documento => new(p.DocumentoFormatado, c.Largura),
         TipoColunaLista.Natureza => new(p.NaturezaSigla, c.Largura, "Neutro"),
         TipoColunaLista.Papeis => new(p.PapeisTexto, c.Largura, papeis: [.. p.Papeis.Select(SeloPapel.De)]),
-        TipoColunaLista.Cidade when p.MunicipioACorrigir => new(p.Local.Length > 0 ? p.Local + " (a corrigir)" : "Município a corrigir", c.Largura, "Aviso"),
-        TipoColunaLista.Cidade => new(p.Local, c.Largura),
+        TipoColunaLista.Cidade when p.MunicipioACorrigir => new(Cidade(p).Length > 0 ? Cidade(p) + " (a corrigir)" : "Município a corrigir", c.Largura, "Aviso"),
+        TipoColunaLista.Cidade => new(Cidade(p), c.Largura),
+        TipoColunaLista.Uf => new(p.Uf ?? string.Empty, c.Largura),
         TipoColunaLista.Situacao => new(p.SituacaoSelo, c.Largura, p.Situacao switch
         {
             SituacaoPessoa.Ativo => "Sucesso",
@@ -520,6 +626,9 @@ public sealed partial class GradePessoas : ObservableObject
         }),
         _ => new(Formatar(c, p.Valores.GetValueOrDefault(c.Id)), c.Largura)
     };
+
+    /// <summary>Só o nome da cidade (a UF tem coluna própria desde 03/10/2026).</summary>
+    private static string Cidade(PessoaResumo p) => p.Cidade ?? string.Empty;
 
     /// <summary>Valor da API (texto invariável) no formato da tela.</summary>
     public static string Formatar(ColunaListaDto c, string? valor)
@@ -548,7 +657,8 @@ public sealed partial class GradePessoas : ObservableObject
         new() { Id = CamposFiltroPessoas.Documento, Grupo = "Identificação", Nome = "CPF / CNPJ", Tipo = TipoColunaLista.Documento, Largura = 180, Padrao = true },
         new() { Id = CamposFiltroPessoas.Natureza, Grupo = "Identificação", Nome = "Tipo", Tipo = TipoColunaLista.Natureza, Largura = 80, Padrao = true },
         new() { Id = CamposFiltroPessoas.Papeis, Grupo = "Identificação", Nome = "Papéis", Tipo = TipoColunaLista.Papeis, Largura = 210, Padrao = true },
-        new() { Id = CamposFiltroPessoas.Cidade, Grupo = "Endereços", Nome = "Cidade / UF", Tipo = TipoColunaLista.Cidade, Largura = 200, Padrao = true },
+        new() { Id = CamposFiltroPessoas.Cidade, Grupo = "Endereços", Nome = "Cidade", Tipo = TipoColunaLista.Cidade, Largura = 200, Padrao = true },
+        new() { Id = CamposFiltroPessoas.Uf, Grupo = "Endereços", Nome = "UF", Tipo = TipoColunaLista.Uf, Largura = 80, Padrao = true },
         new() { Id = CamposFiltroPessoas.Situacao, Grupo = "Situação", Nome = "Situação", Tipo = TipoColunaLista.Situacao, Largura = 120, Padrao = true }
     ];
 
@@ -592,5 +702,33 @@ public sealed partial class GradePessoas : ObservableObject
         OnPropertyChanged(nameof(TextoOrdenacao));
         OnPropertyChanged(nameof(TextoBotaoOrdenar));
         OnPropertyChanged(nameof(Ordenacao));
+        OnPropertyChanged(nameof(ColunaOrdenadaChave));
+        OnPropertyChanged(nameof(OrdemDecrescente));
+    }
+
+    // ---- GradeLista: ordenação pelo título e destaque pelo ponteiro (a grade repassa; a regra continua aqui) ----
+
+    /// <summary>Chave da coluna que ordena agora (nula = ordem padrão): a grade mostra ▲/▼ no título dela.</summary>
+    public string? ColunaOrdenadaChave => _ordenacao?.Coluna;
+
+    public bool OrdemDecrescente => _ordenacao?.Direcao == DirecaoOrdenacao.Decrescente;
+
+    /// <summary>Toque no título da grade: a mesma regra do cabeçalho de antes (crescente → decrescente → padrão).</summary>
+    [RelayCommand]
+    private void OrdenarColuna(ColunaGradeDef? coluna)
+    {
+        if (coluna is not null) Ordenar(coluna.Chave);
+    }
+
+    [RelayCommand]
+    private void EntrarNaLinha(LinhaPessoa? linha)
+    {
+        if (linha is not null) linha.Destacada = true;
+    }
+
+    [RelayCommand]
+    private void SairDaLinha(LinhaPessoa? linha)
+    {
+        if (linha is not null) linha.Destacada = false;
     }
 }

@@ -58,7 +58,8 @@ public static class ModulosConfiguracao
     };
 
     /// <summary>Onde ficam os cadastros de configuração do módulo (ex.: "Pessoas › Configurações"), mostrado na busca.</summary>
-    public static string Caminho(string modulo) => modulo == Sistema ? Titulo(Sistema) : $"{Nome(modulo)} › Configurações";
+    // O Sistema não tem página nem item no menu lateral: os itens dele ficam no menu do usuário (canto superior direito).
+    public static string Caminho(string modulo) => modulo == Sistema ? "Menu do usuário" : $"{Nome(modulo)} › Configurações";
 
     public static string Titulo(string modulo) => modulo switch
     {
@@ -167,7 +168,7 @@ public partial class ConfiguracoesViewModel : ViewModelBase
         (ModulosConfiguracao.Metas, "Cadastros de metas", Permissoes.Metas.Gerenciar, new ItemConfiguracao("Equipes", "Equipes e seus membros", "equipes")),
         (ModulosConfiguracao.Metas, "Cadastros de metas", Permissoes.Metas.Gerenciar, new ItemConfiguracao("Indicadores", "O que as metas medem", "indicadores")),
         // ---- Sistema (transversal) ----
-        // "Minha conta" vem primeiro e é de todos: por isso Configurações do sistema aparece para qualquer usuário.
+        // Não têm página: aparecem no menu do usuário (canto superior direito) e na busca do menu (03/10/2026).
         (ModulosConfiguracao.Sistema, "Minha conta", ParaTodos,
             new ItemConfiguracao("Trocar senha", "Altere a senha que você usa para entrar no Lone", ModulosConfiguracao.RotaTrocarSenha)),
         (ModulosConfiguracao.Sistema, "Usuários e permissões", Permissoes.Seguranca.GerenciarPerfis, new ItemConfiguracao("Perfis de acesso", "Permissões por perfil e empresa", "perfis")),
