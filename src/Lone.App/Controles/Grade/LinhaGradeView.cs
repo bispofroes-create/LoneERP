@@ -121,13 +121,19 @@ internal sealed class LinhaGradeView : Grid
         for (var i = 0; i < _slots.Count; i++)
         {
             var largura = _colunas[i].LarguraEfetiva;
-            if (_slots[i].Raiz.WidthRequest != largura) _slots[i].Raiz.WidthRequest = largura;
+            if (_slots[i].Raiz.WidthRequest != largura)
+            {
+                _slots[i].Raiz.WidthRequest = largura;
+                _slots[i].Ajustar(largura, HeightRequest);
+            }
         }
     }
 
     internal void AplicarAltura(double altura)
     {
-        if (HeightRequest != altura) HeightRequest = altura;
+        if (HeightRequest == altura) return;
+        HeightRequest = altura;
+        for (var i = 0; i < _slots.Count; i++) _slots[i].Ajustar(_colunas[i].LarguraEfetiva, altura);
     }
 
     internal void AplicarModo(bool mostrarColunas) => _areaCelulas.IsVisible = mostrarColunas;
@@ -191,6 +197,9 @@ internal abstract class CelulaView
 
     public abstract void Preencher(CelulaGrade celula);
     public abstract void Limpar();
+
+    /// <summary>A largura da coluna ou a altura da linha mudou (só as células que se arrumam pelo espaço reagem).</summary>
+    public virtual void Ajustar(double largura, double altura) { }
 
     /// <summary>No máximo uma dica por célula; sem valor, sem dica.</summary>
     protected static void Dica(BindableObject alvo, string? texto)
@@ -273,40 +282,126 @@ internal abstract class CelulaView
         public override void Limpar() => _selo.IsVisible = false;
     }
 
+    /// <summary>
+    /// Coluna Papéis (decisão D-UX-01): nomes completos, uma linha; se não couber, duas; e o "+N" para o resto, com os
+    /// nomes na dica. A altura da linha nunca muda. O cálculo é puro (<see cref="DistribuicaoPilulas"/>) e usa a
+    /// largura de cada nome medida uma vez (cache por texto): rolar e reciclar não medem nada de novo.
+    /// </summary>
     private sealed class CelulaPilulas : CelulaView
     {
-        // Recortada: papéis que não cabem na largura da coluna não invadem a coluna seguinte (a dica mostra todos).
-        private readonly HorizontalStackLayout _pilha = new() { Padding = Margens, Spacing = 4, VerticalOptions = LayoutOptions.Center, IsClippedToBounds = true };
-        private readonly List<SeloTom> _selos = [];
+        private const double Espaco = 4;
+        private const double AlturaSelo = 20;   // fonte 12 + margem 2+2 (estilo "Selo")
+        private const double EntreLinhas = 2;
 
-        public override View Raiz => _pilha;
+        /// <summary>Largura real de cada texto de selo (medida quando aparece pela primeira vez; vale para todas as células).</summary>
+        private static readonly Dictionary<string, double> Medidas = new(StringComparer.Ordinal);
+
+        private readonly VerticalStackLayout _raiz = new() { Padding = Margens, Spacing = EntreLinhas, VerticalOptions = LayoutOptions.Center, IsClippedToBounds = true };
+        private readonly HorizontalStackLayout _linha1 = new() { Spacing = Espaco };
+        private readonly HorizontalStackLayout _linha2 = new() { Spacing = Espaco, IsVisible = false };
+        private readonly List<SeloTom> _selos1 = [];
+        private readonly List<SeloTom> _selos2 = [];
+        private readonly SeloTom _mais = new() { Tom = "Neutro", IsVisible = false };
+        private CelulaGrade? _celula;
+        private double _largura;
+        private double _altura = GradeLista.AlturaPadrao;
+
+        public CelulaPilulas()
+        {
+            _raiz.Add(_linha1);
+            _raiz.Add(_linha2);
+            _mais.SizeChanged += (_, _) => Medir(_mais);
+        }
+
+        public override View Raiz => _raiz;
 
         public override void Preencher(CelulaGrade celula)
         {
-            // Reaproveita os selos já criados; só cria quando a linha tem mais papéis que as anteriores.
-            while (_selos.Count < celula.Selos.Count)
-            {
-                var novo = new SeloTom();
-                _selos.Add(novo);
-                _pilha.Add(novo);
-            }
-            for (var i = 0; i < _selos.Count; i++)
-            {
-                var usar = i < celula.Selos.Count;
-                if (usar)
-                {
-                    _selos[i].Texto = celula.Selos[i].Texto;
-                    _selos[i].Tom = celula.Selos[i].Tom;
-                }
-                if (_selos[i].IsVisible != usar) _selos[i].IsVisible = usar;
-            }
-            Dica(_pilha, celula.Vazia ? null : celula.Texto);
+            _celula = celula;
+            _largura = celula.Coluna.LarguraEfetiva;
+            Distribuir();
+            Dica(_raiz, celula.Vazia ? null : "Papéis: " + celula.Texto);
+        }
+
+        public override void Ajustar(double largura, double altura)
+        {
+            if (Math.Abs(largura - _largura) < 0.5 && Math.Abs(altura - _altura) < 0.5) return;
+            _largura = largura;
+            if (altura > 0) _altura = altura;
+            if (_celula is not null) Distribuir();
         }
 
         public override void Limpar()
         {
-            foreach (var selo in _selos) selo.IsVisible = false;
-            Dica(_pilha, null);
+            _celula = null;
+            foreach (var selo in _selos1) selo.IsVisible = false;
+            foreach (var selo in _selos2) selo.IsVisible = false;
+            _mais.IsVisible = false;
+            _linha2.IsVisible = false;
+            Dica(_raiz, null);
+        }
+
+        private static double Largura(string texto) =>
+            Medidas.TryGetValue(texto, out var medida) ? medida : 16 + texto.Length * 7.2; // estimativa até a 1ª medida
+
+        private void Distribuir()
+        {
+            if (_celula is not { } celula) return;
+            var selos = celula.Selos;
+            var larguras = selos.Select(s => Largura(s.Texto)).ToList();
+            var maxLinhas = _altura >= 2 * AlturaSelo + EntreLinhas + 2 ? 2 : 1;
+            var d = DistribuicaoPilulas.Calcular(larguras, Math.Max(0, _largura - Margens.HorizontalThickness), Espaco, maxLinhas,
+                n => Largura("+" + n));
+
+            Preencher(_linha1, _selos1, selos, 0, d.NaLinha1);
+            Preencher(_linha2, _selos2, selos, d.NaLinha1, d.NaLinha2);
+            _linha2.IsVisible = d.NaLinha2 > 0;
+
+            // "+N" no fim da última linha usada, com os nomes ocultos na dica.
+            var destino = d.NaLinha2 > 0 ? _linha2 : _linha1;
+            if (d.Ocultos > 0)
+            {
+                if (_mais.Parent is Layout atual && !ReferenceEquals(atual, destino)) atual.Remove(_mais);
+                if (_mais.Parent is null) destino.Add(_mais);
+                _mais.Texto = "+" + d.Ocultos;
+                Dica(_mais, DistribuicaoPilulas.DicaOcultos([.. selos.Select(s => s.Texto)], d.Visiveis));
+                _mais.IsVisible = true;
+            }
+            else if (_mais.IsVisible) _mais.IsVisible = false;
+        }
+
+        /// <summary>Reaproveita os selos já criados na linha; só cria quando precisa de mais.</summary>
+        private void Preencher(HorizontalStackLayout linha, List<SeloTom> pool, IReadOnlyList<SeloGrade> selos, int inicio, int quantos)
+        {
+            while (pool.Count < quantos)
+            {
+                var novo = new SeloTom();
+                novo.SizeChanged += (_, _) => Medir(novo);
+                pool.Add(novo);
+                // Antes do "+N", se ele estiver nesta linha.
+                if (ReferenceEquals(_mais.Parent, linha)) linha.Insert(linha.IndexOf(_mais), novo);
+                else linha.Add(novo);
+            }
+            for (var i = 0; i < pool.Count; i++)
+            {
+                var usar = i < quantos;
+                if (usar)
+                {
+                    pool[i].Texto = selos[inicio + i].Texto;
+                    pool[i].Tom = selos[inicio + i].Tom;
+                }
+                if (pool[i].IsVisible != usar) pool[i].IsVisible = usar;
+            }
+        }
+
+        /// <summary>Primeira medida real de um texto: guarda e, se a estimativa estava longe, redistribui esta célula.</summary>
+        private void Medir(SeloTom selo)
+        {
+            if (selo.Width <= 0 || string.IsNullOrEmpty(selo.Texto)) return;
+            var anterior = Largura(selo.Texto);
+            if (Medidas.TryGetValue(selo.Texto, out var guardada) && Math.Abs(guardada - selo.Width) < 0.5) return;
+            Medidas[selo.Texto] = selo.Width;
+            if (Math.Abs(anterior - selo.Width) >= 1) Distribuir();
         }
     }
 }
