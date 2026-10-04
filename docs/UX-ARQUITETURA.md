@@ -343,8 +343,10 @@ Vale para todas as telas com `ListaCadastro` (peça comum; nenhuma tela precisa 
 - **Linha** de 44 px sem subtítulo; 56 com subtítulo.
 - **Ordenação:** ▲/▼ só na coluna ordenada; nas outras, o "↕" aparece só com o mouse em cima.
 - **Colunas:** não repetir em coluna o que a coluna principal já diz.
-- **Depois (etapa própria, mexe no motor da lista, junto com a Etapa 4):** teclado na lista (↑↓, Enter abre) e Enter/
-  Espaço no título para ordenar. **Futuro:** menu "…" por linha quando houver ação sem abrir a ficha; contador.
+- **Teclado (04/10/2026), em toda GradeLista:** ↑↓, Home/End e Page Up/Down andam pelas linhas (do próprio Windows);
+  **Enter** na linha faz o mesmo que o clique; a linha com o foco ganha o destaque do mouse; os **títulos ordenáveis**
+  recebem o foco com o Tab e ordenam com **Enter ou Espaço** (o "↕" aparece com o foco).
+- **Futuro:** menu "…" por linha quando houver ação sem abrir a ficha; contador.
 
 ## Padrão: texto que não cabe (pedido do usuário, 03/10/2026; referência: SAP Fiori)
 

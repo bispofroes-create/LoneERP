@@ -127,11 +127,8 @@ public sealed class GradeLista : ContentView
         _tituloFixo = new Label { VerticalOptions = LayoutOptions.Center, LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
         if (CoresGrade.Recurso("CabecalhoTabela") is Style estilo) _tituloFixo.Style = estilo;
         _setaFixa = NovaSeta();
-        _cabecalhoFixo = new ContentView { Padding = new Thickness(16, 0, 12, 0), Content = TituloComSeta(_tituloFixo, _setaFixa) };
-        var ordenarFixa = new TapGestureRecognizer();
-        ordenarFixa.Tapped += (_, _) => Ordenar(ColunaFixa);
-        _cabecalhoFixo.GestureRecognizers.Add(ordenarFixa);
-        _cabecalhoFixo.GestureRecognizers.Add(SetaAoPassar(_cabecalhoFixo));
+        _botaoFixo = BotaoDoTitulo(() => Ordenar(ColunaFixa));
+        _cabecalhoFixo = new ContentView { Padding = new Thickness(16, 0, 12, 0), Content = TituloComSeta(_tituloFixo, _setaFixa, _botaoFixo) };
 
         // Cabeçalho = parte fixa + faixa dos títulos (recortada e deslocada junto com as células); embaixo, a linha
         // de filtro (opcional), com a mesma divisão e o mesmo deslocamento.
@@ -160,6 +157,10 @@ public sealed class GradeLista : ContentView
         _rolagemLateral.Scrolled += AoRolarLateral;
         _motor.RodaLateral += delta => _ = RolarLateralAsync(DeslocamentoLateral - delta / 120 * PassoRodaLateral);
         _motor.Rolou += () => RolagemMudou?.Invoke(this, EventArgs.Empty);
+        // Teclado (04/10/2026): Enter na linha com o foco faz o mesmo que o clique; a linha com o foco ganha o destaque
+        // do mouse (o contorno fino do Windows sozinho quase não aparece).
+        _motor.EnterNaLinha += Tocou;
+        _motor.FocoNaLinha += (linha, entrou) => { if (entrou) PonteiroEntrou(linha); else PonteiroSaiu(linha); };
 
         var raiz = new Grid();
         raiz.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -400,18 +401,12 @@ public sealed class GradeLista : ContentView
             var rotulo = new Label { Text = coluna.Titulo, VerticalOptions = LayoutOptions.Center, LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
             if (estilo is not null) rotulo.Style = estilo;
             var seta = NovaSeta();
-            var celula = new ContentView { Padding = new Thickness(12, 0), WidthRequest = coluna.LarguraEfetiva, Content = TituloComSeta(rotulo, seta) };
-            if (coluna.Ordenavel)
-            {
-                var toque = new TapGestureRecognizer();
-                toque.Tapped += (_, _) => Ordenar(coluna);
-                celula.GestureRecognizers.Add(toque);
-                celula.GestureRecognizers.Add(SetaAoPassar(celula));
-            }
-            else seta.IsVisible = false;
+            var botao = coluna.Ordenavel ? BotaoDoTitulo(() => Ordenar(coluna)) : null;
+            var celula = new ContentView { Padding = new Thickness(12, 0), WidthRequest = coluna.LarguraEfetiva, Content = TituloComSeta(rotulo, seta, botao) };
+            if (botao is null) seta.IsVisible = false;
             _titulos.Add(celula);
             _faixaTitulos.Add(celula);
-            _setas.Add((coluna, seta, celula));
+            _setas.Add((coluna, seta, (View?)botao ?? celula));
 
             // Filtro da coluna (ou espaço vazio, para manter o alinhamento com os títulos).
             var campo = _criarFiltro?.Invoke(coluna);
@@ -433,14 +428,42 @@ public sealed class GradeLista : ContentView
         return seta;
     }
 
-    private static Grid TituloComSeta(Label titulo, Label seta)
+    /// <param name="botao">Título ordenável: o botão transparente por cima de tudo (recebe o clique e o foco do teclado).</param>
+    private static Grid TituloComSeta(Label titulo, Label seta, Button? botao = null)
     {
         var grade = new Grid { ColumnSpacing = 0 };
         grade.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         grade.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
         grade.Add(titulo, 0, 0);
         grade.Add(seta, 1, 0);
+        if (botao is not null)
+        {
+            grade.Add(botao, 0, 0);
+            Grid.SetColumnSpan(botao, 2);
+        }
         return grade;
+    }
+
+    private Button? _botaoFixo;
+
+    /// <summary>
+    /// Título ordenável (teclado, 04/10/2026): um botão transparente sobre o título e a seta. Botão recebe foco com o
+    /// Tab, ordena com Enter ou Espaço por natureza e é anunciado como botão pelo leitor de tela; o clique do mouse
+    /// continua igual. O "↕" aparece com o mouse em cima ou com o foco.
+    /// </summary>
+    private Button BotaoDoTitulo(Action ordenar)
+    {
+        var botao = new Button
+        {
+            Text = string.Empty, BackgroundColor = Colors.Transparent, BorderWidth = 0, Padding = 0,
+            MinimumHeightRequest = 0, MinimumWidthRequest = 0, CornerRadius = 0,
+            HorizontalOptions = LayoutOptions.Fill, VerticalOptions = LayoutOptions.Fill
+        };
+        botao.Clicked += (_, _) => ordenar();
+        botao.GestureRecognizers.Add(SetaAoPassar(botao));
+        botao.Focused += (_, _) => { _tituloSobMouse = botao; AtualizarSetas(); };
+        botao.Unfocused += (_, _) => { if (ReferenceEquals(_tituloSobMouse, botao)) _tituloSobMouse = null; AtualizarSetas(); };
+        return botao;
     }
 
     /// <summary>Título com o mouse em cima (mostra o "↕" que diz que dá para ordenar).</summary>
@@ -461,7 +484,7 @@ public sealed class GradeLista : ContentView
     /// </summary>
     private void AtualizarSetas()
     {
-        Pintar(ColunaFixa, _setaFixa, _cabecalhoFixo);
+        Pintar(ColunaFixa, _setaFixa, (View?)_botaoFixo ?? _cabecalhoFixo);
         foreach (var (coluna, seta, celula) in _setas) Pintar(coluna, seta, celula);
 
         void Pintar(ColunaGradeDef? coluna, Label seta, View alvo)
@@ -471,9 +494,11 @@ public sealed class GradeLista : ContentView
             seta.Text = !ordenando ? "↕" : OrdemDecrescente ? "▼" : "▲";
             seta.Opacity = ordenando ? 1 : coluna.Ordenavel && ReferenceEquals(_tituloSobMouse, alvo) ? 0.45 : 0;
             if (!coluna.Ordenavel) { alvo.ClearValue(ToolTipProperties.TextProperty); return; }
-            ToolTipProperties.SetText(alvo, !ordenando ? $"Ordenar por {coluna.Titulo}"
+            var dica = !ordenando ? $"Ordenar por {coluna.Titulo}"
                 : OrdemDecrescente ? $"{coluna.Titulo}: ordem decrescente. Toque para voltar à ordem padrão."
-                : $"{coluna.Titulo}: ordem crescente. Toque para decrescente.");
+                : $"{coluna.Titulo}: ordem crescente. Toque para decrescente.";
+            ToolTipProperties.SetText(alvo, dica);
+            SemanticProperties.SetDescription(alvo, dica); // leitor de tela: o que o Enter faz
         }
     }
 

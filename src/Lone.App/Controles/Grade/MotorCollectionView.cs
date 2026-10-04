@@ -42,6 +42,15 @@ internal sealed class MotorCollectionView
 
     /// <summary>A lista rolou (o adaptador de rolagem registra a posição).</summary>
     public event Action? Rolou;
+
+    /// <summary>
+    /// Teclado (04/10/2026): Enter com o foco numa linha. O Windows já move o foco entre as linhas com ↑↓, Home/End e
+    /// Page Up/Down (verificado na tela real); aqui só se completa o Enter.
+    /// </summary>
+    public event Action<ILinhaGrade>? EnterNaLinha;
+
+    /// <summary>Uma linha ganhou (true) ou perdeu (false) o foco do teclado: a grade pinta o destaque nela.</summary>
+    public event Action<ILinhaGrade, bool>? FocoNaLinha;
 #pragma warning restore CS0067
 
     private void AplicarCache()
@@ -60,9 +69,39 @@ internal sealed class MotorCollectionView
             _rodaLigada = true;
             lista.AddHandler(Microsoft.UI.Xaml.UIElement.PointerWheelChangedEvent,
                 new Microsoft.UI.Xaml.Input.PointerEventHandler(AoRodar), true);
+            lista.AddHandler(Microsoft.UI.Xaml.UIElement.KeyDownEvent,
+                new Microsoft.UI.Xaml.Input.KeyEventHandler(AoTeclar), true);
+            lista.GotFocus += (_, e) => AvisarFoco(lista, e.OriginalSource, true);
+            lista.LostFocus += (_, e) => AvisarFoco(lista, e.OriginalSource, false);
         }
 #endif
     }
+
+#if WINDOWS
+    /// <summary>
+    /// Linha do motor a partir do elemento com foco: só quando o foco está na <b>própria linha</b> (não num botão dentro
+    /// dela, como "…" ou ligar: esses tratam o Enter sozinhos).
+    /// </summary>
+    private ILinhaGrade? LinhaDoFoco(Microsoft.UI.Xaml.Controls.ListViewBase lista, object? origem)
+    {
+        if (origem is not Microsoft.UI.Xaml.Controls.ListViewItem item) return null;
+        var indice = lista.IndexFromContainer(item);
+        return indice >= 0 && indice < _lista.Count ? _lista[indice] : null;
+    }
+
+    private void AoTeclar(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != global::Windows.System.VirtualKey.Enter || sender is not Microsoft.UI.Xaml.Controls.ListViewBase lista) return;
+        if (LinhaDoFoco(lista, e.OriginalSource) is not { } linha) return;
+        e.Handled = true;
+        EnterNaLinha?.Invoke(linha);
+    }
+
+    private void AvisarFoco(Microsoft.UI.Xaml.Controls.ListViewBase lista, object? origem, bool entrou)
+    {
+        if (LinhaDoFoco(lista, origem) is { } linha) FocoNaLinha?.Invoke(linha, entrou);
+    }
+#endif
 
     public CollectionView Vista { get; }
 
