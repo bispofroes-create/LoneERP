@@ -371,6 +371,12 @@ public static class Rotas
         public static string Tela(string tela) => $"{Grupo}/telas/{Uri.EscapeDataString(tela)}";
     }
 
+    /// <summary>Prazos prontos do campo Prazo (menu do usuário › Administração). Nada é excluído: desativa.</summary>
+    public static class PrazosPeriodo
+    {
+        public const string Grupo = Base + "/prazos-periodo";
+    }
+
     public static class Consultas
     {
         public const string Grupo = Base + "/consultas";

@@ -117,6 +117,7 @@
                                 <c:CampoEscolha Rotulo="{Binding RotuloPessoa}" Itens="{Binding Vendedores}" Selecionado="{Binding Vendedor}" IsEnabled="{Binding Editavel}" />
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" IsEnabled="{Binding Editavel}" />
                                 <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" SomenteLeitura="{Binding Travado}" />
+                                <c:CampoPrazo Inicio="{Binding InicioEm}" Fim="{Binding FimEm}" Registro="{Binding .}" />
                                 <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = sem fim" Mascara="Data" />
                                 <Label Text="O início não muda depois que o vínculo começa (o histórico fica). Para outra data, encerre este vínculo e inclua um novo."
                                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" FlexLayout.Basis="100%" IsVisible="{Binding Travado}" />
@@ -152,6 +153,7 @@
                                 <c:CampoEscolha Rotulo="{Binding RotuloPessoa}" Itens="{Binding Vendedores}" Selecionado="{Binding Vendedor}" IsEnabled="{Binding Editavel}" />
                                 <c:CampoEscolha Rotulo="Empresa" Itens="{Binding Empresas}" Selecionado="{Binding Empresa}" IsEnabled="{Binding Editavel}" />
                                 <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Mascara="Data" SomenteLeitura="{Binding Travado}" />
+                                <c:CampoPrazo Inicio="{Binding InicioEm}" Fim="{Binding FimEm}" Registro="{Binding .}" />
                                 <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = sem fim" Mascara="Data" />
                                 <Label Text="O início não muda depois que o vínculo começa (o histórico fica). Para outra data, encerre este vínculo e inclua um novo."
                                        Style="{StaticResource Secundario}" LineBreakMode="WordWrap" FlexLayout.Basis="100%" IsVisible="{Binding Travado}" />

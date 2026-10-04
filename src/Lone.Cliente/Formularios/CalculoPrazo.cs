@@ -6,7 +6,8 @@ namespace Lone.Cliente.Formularios;
 /// <summary>Um prazo pronto para escolher (ex.: "30 dias", "1 ano").</summary>
 /// <param name="Dias">Dias corridos, contando o início; nulo quando é por ano.</param>
 /// <param name="Anos">Anos pelo calendário (ex.: 1 ano: 03/10/2026 a 02/10/2027); nulo quando é por dias.</param>
-public sealed record PrazoPronto(string Nome, int? Dias = null, int? Anos = null)
+/// <param name="Meses">Meses pelo calendário (ex.: 6 meses: 03/10/2026 a 02/04/2027); nulo quando é por dias ou anos.</param>
+public sealed record PrazoPronto(string Nome, int? Dias = null, int? Anos = null, int? Meses = null)
 {
     public override string ToString() => Nome;
 }
@@ -31,7 +32,10 @@ public static class CalculoPrazo
 {
     private static readonly CultureInfo Brasil = new("pt-BR");
 
-    /// <summary>Prazos prontos até existir o cadastro "Prazos de período" (parte 3, com tabela própria).</summary>
+    /// <summary>
+    /// Prazos prontos de antes do cadastro "Prazos de período" (03/10/2026): usados enquanto a lista do cadastro não chega
+    /// (ou se a API não responder). A lista do cadastro fica em <c>PrazosProntos</c> (Lone.Cliente.Api).
+    /// </summary>
     public static readonly IReadOnlyList<PrazoPronto> Padrao =
     [
         new("7 dias", Dias: 7), new("15 dias", Dias: 15), new("30 dias", Dias: 30), new("60 dias", Dias: 60),
@@ -42,7 +46,9 @@ public static class CalculoPrazo
     public static DateOnly Fim(DateOnly inicio, int dias) => inicio.AddDays(Math.Max(1, dias) - 1);
 
     public static DateOnly Fim(DateOnly inicio, PrazoPronto prazo) =>
-        prazo.Anos is { } anos ? inicio.AddYears(anos).AddDays(-1) : Fim(inicio, prazo.Dias ?? 1);
+        prazo.Anos is { } anos ? inicio.AddYears(anos).AddDays(-1)
+        : prazo.Meses is { } meses ? inicio.AddMonths(meses).AddDays(-1)
+        : Fim(inicio, prazo.Dias ?? 1);
 
     /// <summary>Dias do período, contando o início e o fim; nulo se o fim vem antes do início.</summary>
     public static int? Dias(DateOnly inicio, DateOnly fim) => fim >= inicio ? fim.DayNumber - inicio.DayNumber + 1 : null;

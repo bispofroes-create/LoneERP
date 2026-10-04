@@ -1,6 +1,7 @@
 using Lone.Application.Auditoria;
 using Lone.Application.Empresas;
 using Lone.Application.CamposPersonalizados;
+using Lone.Application.Parametros;
 using Lone.Application.Etiquetas;
 using Lone.Application.GruposEmpresariais;
 using Lone.Application.Relacionamentos;
@@ -65,6 +66,7 @@ public static class ConfiguracaoDados
         services.AddScoped<IPerfilComercialRepositorio, PerfilComercialRepositorio>();
         services.AddScoped<ITipoCarteiraRepositorio, TipoCarteiraRepositorio>();
         services.AddScoped<ITipoAusenciaRepositorio, TipoAusenciaRepositorio>();
+        services.AddScoped<IPrazoPeriodoRepositorio, PrazoPeriodoRepositorio>();
         services.AddScoped<IParametrosComerciaisRepositorio, ParametrosComerciaisRepositorio>();
         services.AddScoped<ICoberturaRepositorio, CoberturaRepositorio>();
         services.AddScoped<ICoberturaConsultas, CoberturaConsultas>();

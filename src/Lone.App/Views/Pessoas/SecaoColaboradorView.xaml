@@ -57,6 +57,7 @@
                                                 <Label Text="{Binding ResumoGravado}" Style="{StaticResource Secundario}" />
                                                 <c:BlocoCampos>
                                                     <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                                    <c:CampoPrazo Inicio="{Binding InicioEm}" Fim="{Binding FimEm}" Registro="{Binding .}" />
                                                     <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
                                                     <c:CampoEscolha Rotulo="Cargo" Itens="{Binding Cargos}" Selecionado="{Binding Cargo}"
                                                                     IsEnabled="{Binding OpcoesCarregadas}" />

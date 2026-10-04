@@ -11,6 +11,7 @@ using Lone.Application.Comercial;
 using Lone.Application.Fiscal;
 using Lone.Application.GruposEmpresariais;
 using Lone.Application.Municipios;
+using Lone.Application.Parametros;
 using Lone.Application.Privacidade;
 using Lone.Contracts.CamposPersonalizados;
 using Lone.Contracts.Comum;
@@ -52,6 +53,7 @@ public static class CadastrosEndpoints
         MapTiposCarteira(app);
         MapComercial(app);
         MapTiposAusencia(app);
+        MapPrazosPeriodo(app);
         MapParametrosComerciais(app);
         MapCoberturas(app);
         MapTransferencias(app);
@@ -374,6 +376,36 @@ public static class CadastrosEndpoints
 
         grupo.MapPost("{id:guid}/reativar",
             (Guid id, AlterarSituacaoRequisicao requisicao, ITipoAusenciaAppService servico, CancellationToken ct) =>
+                servico.ReativarAsync(id, requisicao, ct));
+    }
+
+    /// <summary>Prazos de período (03/10/2026): todos leem os ativos; o resto exige a permissão de parâmetros.</summary>
+    private static void MapPrazosPeriodo(IEndpointRouteBuilder app)
+    {
+        var grupo = app.MapGroup(Rotas.PrazosPeriodo.Grupo).WithTags("Prazos de período").RequireAuthorization();
+
+        grupo.MapGet(string.Empty, (bool? incluirInativos, IPrazoPeriodoAppService servico, CancellationToken ct) =>
+            servico.ListarAsync(incluirInativos ?? false, ct));
+
+        grupo.MapGet("{id:guid}", async (Guid id, IPrazoPeriodoAppService servico, CancellationToken ct) =>
+            await servico.ObterAsync(id, ct) is { } item
+                ? Results.Ok(item)
+                : Problemas.Resultado(Problemas.NaoEncontrado("Este cadastro não existe.")));
+
+        grupo.MapPut("{id:guid}", async (Guid id, PrazoPeriodoDto item, IPrazoPeriodoAppService servico, CancellationToken ct) =>
+        {
+            if (item.Id != Guid.Empty && item.Id != id)
+                return Problemas.Resultado(Problemas.Validacao("O Id da URL não confere com o Id enviado."));
+            item.Id = id;
+            return Results.Ok(await servico.SalvarAsync(item, ct));
+        });
+
+        grupo.MapPost("{id:guid}/desativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IPrazoPeriodoAppService servico, CancellationToken ct) =>
+                servico.DesativarAsync(id, requisicao, ct));
+
+        grupo.MapPost("{id:guid}/reativar",
+            (Guid id, AlterarSituacaoRequisicao requisicao, IPrazoPeriodoAppService servico, CancellationToken ct) =>
                 servico.ReativarAsync(id, requisicao, ct));
     }
 

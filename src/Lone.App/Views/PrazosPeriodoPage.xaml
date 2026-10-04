@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Prazos de período (03/10/2026; menu do usuário › Administração): os prazos prontos do campo Prazo (▾) em todas as
+     telas com período. Lista em colunas e ficha em página própria (padrão de tela de cadastro). Nada é excluído. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.PrazosPeriodoPage"
+             x:DataType="cad:PrazosPeriodoViewModel"
+             Title="Prazos de período">
+
+    <Grid>
+        <c:ListaCadastro IsVisible="{Binding SemFicha}"
+                         Titulo="Prazos de período"
+                         Subtitulo="Prazos prontos do campo Prazo nas telas com período."
+                         TextoNovo="+  Novo prazo"
+                         DicaBusca="Pesquisar prazos"
+                         TituloVazio="Nenhum prazo cadastrado"
+                         TextoVazio="Sem prazos, o campo Prazo oferece 7, 15, 30, 60, 90, 180 dias e 1 ano. Use &quot;+ Novo prazo&quot;, no alto da página, para incluir." />
+
+        <c:FichaCadastro MostrarSalvarENovo="True" IsVisible="{Binding MostrarFicha}" TextoVoltar="Voltar para Prazos de período">
+            <VerticalStackLayout Spacing="10">
+                <c:BlocoCampos AlignItems="End">
+                    <c:Campo Rotulo="Quantidade" Texto="{Binding Formulario.Quantidade}" Mascara="Numero" Dica="Ex.: 30" />
+                    <c:CampoEscolha Rotulo="Unidade" Itens="{Binding Formulario.ListaUnidades}" Selecionado="{Binding Formulario.Unidade}" />
+                </c:BlocoCampos>
+                <Label Text="{Binding Formulario.Exemplo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <Label Text="Dias contam o início (30 dias a partir de 03/10 terminam em 01/11). Meses e anos seguem o calendário (1 ano a partir de 03/10/2026 termina em 02/10/2027)."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                <!-- Situação -->
+                <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">
+                    <Button Text="Desativar" Style="{StaticResource BotaoSecundario}" Command="{Binding DesativarCommand}"
+                            IsVisible="{Binding PodeDesativar}" IsEnabled="{Binding Livre}" />
+                    <Button Text="Reativar" Style="{StaticResource BotaoSecundario}" Command="{Binding ReativarCommand}"
+                            IsVisible="{Binding PodeReativar}" IsEnabled="{Binding Livre}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </c:FichaCadastro>
+    </Grid>
+</ContentPage>

@@ -25,7 +25,7 @@ public class ConfiguracoesViewModelTests
     {
         var rotas = ModulosConfiguracao.Todos.SelectMany(m => ConfiguracoesViewModel.Montar(_ => true, m))
             .SelectMany(g => g.Itens).Select(i => i.Rota).ToList();
-        Assert.Equal(25, rotas.Count); // 24 cadastros (2 de territórios na Fase 2b-1a, +1 na 2b-1b) + "Trocar senha" (Minha conta)
+        Assert.Equal(26, rotas.Count); // 25 cadastros (2 de territórios na Fase 2b-1a, +1 na 2b-1b, + Prazos de período) + "Trocar senha" (Minha conta)
         Assert.Equal(rotas.Count, rotas.Distinct().Count());
     }
 
@@ -33,9 +33,10 @@ public class ConfiguracoesViewModelTests
     public void Sistema_so_tem_o_que_e_transversal()
     {
         var sistema = ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Sistema);
-        Assert.Equal(new[] { "Minha conta", "Usuários e permissões" }, sistema.Select(g => g.Titulo).ToArray());
+        Assert.Equal(new[] { "Minha conta", "Usuários e permissões", "Parâmetros" }, sistema.Select(g => g.Titulo).ToArray());
         Assert.Equal(new[] { ModulosConfiguracao.RotaTrocarSenha }, sistema[0].Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "perfis", "usuarios" }, sistema[1].Itens.Select(i => i.Rota).ToArray());
+        Assert.Equal(new[] { "prazos-periodo" }, sistema[2].Itens.Select(i => i.Rota).ToArray()); // menu do usuário › Administração
         Assert.Equal(new[] { "cargos", "centros-custo", "departamentos", "setores" },
             Assert.Single(ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Organizacao)).Itens.Select(i => i.Rota).ToArray());
         Assert.Equal(new[] { "equipes", "indicadores" },

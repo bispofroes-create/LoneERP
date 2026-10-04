@@ -381,6 +381,9 @@
     <FlyoutItem Title="Tipos de ausência" Route="tipos-ausencia" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Tipos de ausência" ContentTemplate="{DataTemplate views:TiposAusenciaPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Prazos de período" Route="prazos-periodo" IsVisible="{Binding PodeGerenciarParametros}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Prazos de período" ContentTemplate="{DataTemplate views:PrazosPeriodoPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Parâmetros comerciais" Route="parametros-comerciais" IsVisible="{Binding PodeGerenciarComercial}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Parâmetros comerciais" ContentTemplate="{DataTemplate views:ParametrosComerciaisPage}" />
     </FlyoutItem>

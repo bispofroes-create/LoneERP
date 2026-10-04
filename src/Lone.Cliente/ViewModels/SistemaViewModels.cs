@@ -437,6 +437,7 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeVerPessoas => _sessao.Possui(Permissoes.Pessoas.Visualizar);
     public bool PodeGerenciarUsuarios => _sessao.Possui(Permissoes.Seguranca.GerenciarUsuarios);
     public bool PodeGerenciarPerfis => _sessao.Possui(Permissoes.Seguranca.GerenciarPerfis);
+    public bool PodeGerenciarParametros => _sessao.Possui(Permissoes.Cadastros.Parametros);
     public bool PodeGerenciarCampos => _sessao.Possui(Permissoes.Cadastros.CamposPersonalizados);
     public bool PodeGerenciarEtiquetas => _sessao.Possui(Permissoes.Cadastros.Etiquetas);
     public bool PodeGerenciarGruposEmpresariais => _sessao.Possui(Permissoes.Cadastros.GruposEmpresariais);
@@ -482,11 +483,12 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public const string OpcaoTrocarSenha = "Trocar senha";
     public const string OpcaoPerfis = "Perfis de acesso";
     public const string OpcaoUsuarios = "Usuários";
+    public const string OpcaoPrazos = "Prazos de período";
     public const string OpcaoTrocarUsuario = "Trocar de usuário";
     public const string OpcaoSair = "Sair do Lone";
 
-    /// <summary>Menu do usuário: a seção "Administração" (usuários e perfis) só aparece para quem tem alguma das permissões.</summary>
-    public bool MostrarAdministracao => PodeGerenciarUsuarios || PodeGerenciarPerfis;
+    /// <summary>Menu do usuário: a seção "Administração" (usuários, perfis, prazos) só aparece para quem tem alguma das permissões.</summary>
+    public bool MostrarAdministracao => PodeGerenciarUsuarios || PodeGerenciarPerfis || PodeGerenciarParametros;
 
     /// <summary>
     /// Menu do usuário (03/10/2026). No Windows a barra de título abre um popover com Minha conta (Trocar senha),
@@ -499,6 +501,7 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
         var opcoes = new List<string> { OpcaoTrocarSenha };
         if (PodeGerenciarPerfis) opcoes.Add(OpcaoPerfis);
         if (PodeGerenciarUsuarios) opcoes.Add(OpcaoUsuarios);
+        if (PodeGerenciarParametros) opcoes.Add(OpcaoPrazos);
         opcoes.Add(OpcaoTrocarUsuario);
         opcoes.Add(OpcaoSair);
 
@@ -509,6 +512,7 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
             case OpcaoTrocarSenha: await TrocarSenhaAsync(); break;
             case OpcaoPerfis: await AbrirPerfisAsync(); break;
             case OpcaoUsuarios: await AbrirUsuariosAsync(); break;
+            case OpcaoPrazos: await AbrirPrazosAsync(); break;
             case OpcaoSair: await SairDoLoneAsync(); break;
             default: await TrocarDeUsuarioAsync(); break;
         }
@@ -522,6 +526,9 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
 
     [RelayCommand]
     private Task AbrirUsuariosAsync() => PodeGerenciarUsuarios && Navegar is not null ? Navegar("usuarios") : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task AbrirPrazosAsync() => PodeGerenciarParametros && Navegar is not null ? Navegar("prazos-periodo") : Task.CompletedTask;
 
     /// <summary>Encerra a sessão e volta ao login.</summary>
     [RelayCommand]

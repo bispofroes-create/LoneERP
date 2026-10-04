@@ -400,11 +400,12 @@ public class MenuLateralTests
         ambiente.Dialogos.RespostaEscolha = MenuViewModel.OpcaoUsuarios;
         await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);
         Assert.Equal(new[] { MenuViewModel.OpcaoTrocarSenha, MenuViewModel.OpcaoPerfis, MenuViewModel.OpcaoUsuarios,
-            MenuViewModel.OpcaoTrocarUsuario, MenuViewModel.OpcaoSair }, ambiente.Dialogos.OpcoesOferecidas);
+            MenuViewModel.OpcaoPrazos, MenuViewModel.OpcaoTrocarUsuario, MenuViewModel.OpcaoSair }, ambiente.Dialogos.OpcoesOferecidas);
         Assert.Equal(new[] { "usuarios" }, abertas);
 
         await menu.AbrirPerfisCommand.ExecuteAsync(null);
-        Assert.Equal(new[] { "usuarios", "perfis" }, abertas);
+        await menu.AbrirPrazosCommand.ExecuteAsync(null);
+        Assert.Equal(new[] { "usuarios", "perfis", "prazos-periodo" }, abertas);
 
         ambiente.Dialogos.RespostaEscolha = MenuViewModel.OpcaoTrocarSenha;
         await menu.OpcoesDoUsuarioCommand.ExecuteAsync(null);

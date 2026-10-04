@@ -66,6 +66,7 @@ public static class MauiProgram
         builder.Services.AddTransient<CondicoesPagamentoPage>();
         builder.Services.AddTransient<TiposCarteiraPage>();
         builder.Services.AddTransient<TiposAusenciaPage>();
+        builder.Services.AddTransient<PrazosPeriodoPage>();
         builder.Services.AddTransient<ParametrosComerciaisPage>();
         builder.Services.AddTransient<CoberturasPage>();
         builder.Services.AddTransient<CarteiraVencendoPage>();
@@ -82,6 +83,10 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        return builder.Build();
+        var app = builder.Build();
+        // Filtro Situação das listas de cadastro: a última escolha fica guardada para o usuário (04/10/2026).
+        Lone.Cliente.ViewModels.Comum.FiltroSituacao.PreferenciasPadrao =
+            (Lone.Cliente.Api.MenuUsuarioApi?)app.Services.GetService(typeof(Lone.Cliente.Api.MenuUsuarioApi));
+        return app;
     }
 }

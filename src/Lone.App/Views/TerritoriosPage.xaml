@@ -72,6 +72,7 @@
                                                         IsVisible="{Binding EhEquipe}" IsEnabled="{Binding PodeEditarQuem}" />
                                         <c:Campo Rotulo="Início" Texto="{Binding InicioEm}" Dica="dd/mm/aaaa" Mascara="Data"
                                                  SomenteLeitura="{Binding JaComecou}" />
+                                        <c:CampoPrazo Inicio="{Binding InicioEm}" Fim="{Binding FimEm}" Registro="{Binding .}" />
                                         <c:Campo Rotulo="Fim" Texto="{Binding FimEm}" Dica="vazio = atual" Mascara="Data" />
                                         <c:Campo Rotulo="Observação" Texto="{Binding Observacao}" Dica="Opcional" />
                                     </c:BlocoCampos>

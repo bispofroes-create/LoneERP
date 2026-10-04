@@ -47,6 +47,16 @@ public sealed class ListaCadastro : ContentView
             ((ListaCadastro)b).TrocarFiltros((View?)n);
         });
 
+    /// <summary>A tela tem o filtro Situação (CadastroViewModelBase.TemFiltroSituacao): ele aparece ao lado da pesquisa.</summary>
+    public static readonly BindableProperty TemFiltroSituacaoProperty = BindableProperty.Create(
+        nameof(TemFiltroSituacao), typeof(bool), typeof(ListaCadastro), false,
+        propertyChanged: (b, _, _) => { var l = (ListaCadastro)b; l.TrocarFiltros(l.Filtros); });
+
+    /// <summary>A lista está vazia por causa da pesquisa ou da situação (não por falta de cadastro).</summary>
+    public static readonly BindableProperty VazioPorFiltroProperty = BindableProperty.Create(
+        nameof(VazioPorFiltro), typeof(bool), typeof(ListaCadastro), false,
+        propertyChanged: (b, _, n) => ((ListaCadastro)b).TrocarVazio((bool)n));
+
     /// <summary>Botões da página além do de novo (ficam à esquerda dele).</summary>
     public static readonly BindableProperty AcoesProperty = BindableProperty.Create(
         nameof(Acoes), typeof(View), typeof(ListaCadastro), null, propertyChanged: (b, _, n) => ((ListaCadastro)b)._acoes.Content = (View?)n);
@@ -68,6 +78,9 @@ public sealed class ListaCadastro : ContentView
     private readonly ContentView _aviso = new() { IsVisible = false };
     private readonly Label _tituloVazio = new() { Text = "Nenhum cadastro", HorizontalOptions = LayoutOptions.Center };
     private readonly Label _textoVazio = new() { HorizontalTextAlignment = TextAlignment.Center, IsVisible = false };
+    private readonly VerticalStackLayout _vazioFiltro = new() { Spacing = 8, IsVisible = false };
+    private readonly CampoEscolha _situacao = new() { Rotulo = "Situação", WidthRequest = 200, Padding = 0, IsVisible = false };
+    private readonly HorizontalStackLayout _barraFiltros = new() { Spacing = 16, VerticalOptions = LayoutOptions.End, IsVisible = false };
 
     public ListaCadastro()
     {
@@ -87,6 +100,11 @@ public sealed class ListaCadastro : ContentView
         // Botões do cabeçalho embaixo, rente à linha da pesquisa: a distância até ela é a mesma da pesquisa até a lista (03/10/2026).
         cabecalho.Add(new HorizontalStackLayout { Spacing = 12, VerticalOptions = LayoutOptions.End, Children = { _acoes, _novo } }, 1);
 
+        // Filtro Situação (Ativos / Inativos / Todos), comum a toda lista com a coluna Situação (04/10/2026).
+        _situacao.SetBinding(CampoEscolha.ItensProperty, "Situacao.Itens");
+        _situacao.SetBinding(CampoEscolha.SelecionadoProperty, "Situacao.Selecionada");
+        SetBinding(TemFiltroSituacaoProperty, new Binding("TemFiltroSituacao"));
+
         _busca.SetBinding(SearchBar.TextProperty, "Busca");
         CampoSemMoldura.Aplicar(_busca);
         var caixaBusca = new Border { StrokeThickness = 1, StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 }, Padding = new Thickness(4, 0), Content = _busca,
@@ -95,7 +113,9 @@ public sealed class ListaCadastro : ContentView
         Cor(caixaBusca, BackgroundColorProperty, "Superficie");
         var pesquisa = new Grid { ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }, ColumnSpacing = 16 };
         pesquisa.Add(caixaBusca);
-        pesquisa.Add(_filtros, 1);
+        _barraFiltros.Add(_filtros);
+        _barraFiltros.Add(_situacao);
+        pesquisa.Add(_barraFiltros, 1);
         _caixaBusca = caixaBusca;
         Grid.SetColumnSpan(caixaBusca, 2); // sem filtros, a pesquisa vai até a borda da lista (sem o espaço da coluna vazia)
 
@@ -115,11 +135,27 @@ public sealed class ListaCadastro : ContentView
         grade.SetBinding(GradeLista.ColunaOrdenadaProperty, "GradeDaLista.ColunaOrdenadaChave");
         grade.SetBinding(GradeLista.OrdemDecrescenteProperty, "GradeDaLista.OrdemDecrescente");
 
+        // Vazia por causa da pesquisa ou da situação: diz o motivo e oferece desfazer ("Limpar pesquisa" / "Mostrar todos").
+        var tituloFiltro = new Label { HorizontalOptions = LayoutOptions.Center, HorizontalTextAlignment = TextAlignment.Center };
+        Estilo(tituloFiltro, "SecaoTitulo");
+        tituloFiltro.SetBinding(Label.TextProperty, "TituloVazioFiltro");
+        var textoFiltro = new Label { HorizontalTextAlignment = TextAlignment.Center };
+        Estilo(textoFiltro, "SubtituloPagina");
+        textoFiltro.SetBinding(Label.TextProperty, "TextoVazioFiltro");
+        var desfazer = new Button { HorizontalOptions = LayoutOptions.Center, Margin = new Thickness(0, 8, 0, 0) };
+        Estilo(desfazer, "BotaoSecundario");
+        desfazer.SetBinding(Button.TextProperty, "AcaoVazioFiltro");
+        desfazer.SetBinding(Button.CommandProperty, "DesfazerFiltroVazioCommand");
+        _vazioFiltro.Add(tituloFiltro);
+        _vazioFiltro.Add(textoFiltro);
+        _vazioFiltro.Add(desfazer);
+        SetBinding(VazioPorFiltroProperty, new Binding("VazioPorFiltro"));
+
         var vazio = new VerticalStackLayout
         {
             Spacing = 8, Padding = new Thickness(32, 48), Margin = new Thickness(0, 40, 0, 0),
             HorizontalOptions = LayoutOptions.Center, VerticalOptions = LayoutOptions.Start,
-            Children = { _tituloVazio, _textoVazio }
+            Children = { _tituloVazio, _textoVazio, _vazioFiltro }
         };
         vazio.SetBinding(IsVisibleProperty, "ListaVazia");
 
@@ -153,6 +189,17 @@ public sealed class ListaCadastro : ContentView
     public string TextoVazio { get => (string)GetValue(TextoVazioProperty); set => SetValue(TextoVazioProperty, value); }
     public View? Filtros { get => (View?)GetValue(FiltrosProperty); set => SetValue(FiltrosProperty, value); }
     public View? Acoes { get => (View?)GetValue(AcoesProperty); set => SetValue(AcoesProperty, value); }
+    public bool TemFiltroSituacao { get => (bool)GetValue(TemFiltroSituacaoProperty); set => SetValue(TemFiltroSituacaoProperty, value); }
+    public bool VazioPorFiltro { get => (bool)GetValue(VazioPorFiltroProperty); set => SetValue(VazioPorFiltroProperty, value); }
+
+    /// <summary>Lista vazia: o texto da tela (nada cadastrado) ou o motivo do filtro, nunca os dois.</summary>
+    private void TrocarVazio(bool porFiltro)
+    {
+        _tituloVazio.IsVisible = !porFiltro;
+        _vazioFiltro.IsVisible = porFiltro;
+        if (porFiltro) _textoVazio.IsVisible = false;
+        else AtualizarTextoVazio();
+    }
     public View? Aviso { get => (View?)GetValue(AvisoProperty); set => SetValue(AvisoProperty, value); }
 
     /// <summary>
@@ -173,6 +220,7 @@ public sealed class ListaCadastro : ContentView
     /// </summary>
     private void AtualizarTextoVazio()
     {
+        if (VazioPorFiltro) return;
         var texto = TextoVazio;
         if (string.IsNullOrEmpty(texto) && MostrarNovo)
         {
@@ -184,12 +232,18 @@ public sealed class ListaCadastro : ContentView
         _textoVazio.IsVisible = !string.IsNullOrEmpty(texto);
     }
 
-    /// <summary>Com filtros, a pesquisa divide a linha com eles; sem filtros, ocupa a largura toda (alinhada à lista).</summary>
+    /// <summary>
+    /// Com filtros (os da tela e o Situação), a pesquisa divide a linha com eles; sem filtros, ocupa a largura toda
+    /// (alinhada à lista).
+    /// </summary>
     private void TrocarFiltros(View? filtros)
     {
-        _filtros.Content = filtros;
+        if (!ReferenceEquals(_filtros.Content, filtros)) _filtros.Content = filtros;
         _filtros.IsVisible = filtros is not null;
-        if (_caixaBusca is not null) Grid.SetColumnSpan(_caixaBusca, filtros is null ? 2 : 1);
+        _situacao.IsVisible = TemFiltroSituacao;
+        var algum = filtros is not null || TemFiltroSituacao;
+        _barraFiltros.IsVisible = algum;
+        if (_caixaBusca is not null) Grid.SetColumnSpan(_caixaBusca, algum ? 1 : 2);
     }
 
     private void TrocarTextoNovo(string texto)

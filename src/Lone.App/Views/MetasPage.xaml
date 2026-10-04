@@ -50,6 +50,8 @@
                 <c:BlocoCampos>
                     <c:Campo Rotulo="Nome" Texto="{Binding Formulario.Nome}" Dica="Ex.: Metas de outubro" IsEnabled="{Binding Formulario.EditarEstrutura}" />
                     <c:Campo Rotulo="Início" Texto="{Binding Formulario.InicioEm}" Dica="dd/mm/aaaa" Mascara="Data" IsEnabled="{Binding Formulario.EditarEstrutura}" />
+                    <c:CampoPrazo Inicio="{Binding Formulario.InicioEm}" Fim="{Binding Formulario.FimEm}" Registro="{Binding Formulario}"
+                                  IsEnabled="{Binding Formulario.EditarEstrutura}" />
                     <c:Campo Rotulo="Fim" Texto="{Binding Formulario.FimEm}" Dica="dd/mm/aaaa" Mascara="Data" IsEnabled="{Binding Formulario.EditarEstrutura}" />
                     <c:Campo Rotulo="Teto por item (%)" Texto="{Binding Formulario.Limite}" Mascara="Numero" Dica="Ex.: 150" IsEnabled="{Binding Formulario.EditarEstrutura}" />
                     <c:Campo Rotulo="Descrição" Texto="{Binding Formulario.Descricao}" FlexLayout.Basis="100%" IsEnabled="{Binding Formulario.EditarEstrutura}" />

@@ -104,6 +104,7 @@ public sealed class GradeLista : ContentView
         var ordenarFixa = new TapGestureRecognizer();
         ordenarFixa.Tapped += (_, _) => Ordenar(ColunaFixa);
         _cabecalhoFixo.GestureRecognizers.Add(ordenarFixa);
+        _cabecalhoFixo.GestureRecognizers.Add(SetaAoPassar(_cabecalhoFixo));
 
         // Cabeçalho = parte fixa + faixa dos títulos (recortada e deslocada junto com as células); embaixo, a linha
         // de filtro (opcional), com a mesma divisão e o mesmo deslocamento.
@@ -379,6 +380,7 @@ public sealed class GradeLista : ContentView
                 var toque = new TapGestureRecognizer();
                 toque.Tapped += (_, _) => Ordenar(coluna);
                 celula.GestureRecognizers.Add(toque);
+                celula.GestureRecognizers.Add(SetaAoPassar(celula));
             }
             else seta.IsVisible = false;
             _titulos.Add(celula);
@@ -415,7 +417,22 @@ public sealed class GradeLista : ContentView
         return grade;
     }
 
-    /// <summary>▲ crescente, ▼ decrescente, ↕ apagada nas outras; a dica diz o que o toque faz.</summary>
+    /// <summary>Título com o mouse em cima (mostra o "↕" que diz que dá para ordenar).</summary>
+    private View? _tituloSobMouse;
+
+    private PointerGestureRecognizer SetaAoPassar(View titulo)
+    {
+        var passar = new PointerGestureRecognizer();
+        passar.PointerEntered += (_, _) => { _tituloSobMouse = titulo; AtualizarSetas(); };
+        passar.PointerExited += (_, _) => { if (ReferenceEquals(_tituloSobMouse, titulo)) _tituloSobMouse = null; AtualizarSetas(); };
+        return passar;
+    }
+
+    /// <summary>
+    /// ▲ crescente, ▼ decrescente só na coluna ordenada; nas outras, o "↕" aparece apenas com o mouse em cima (04/10/2026:
+    /// indicador discreto, como no Fiori e no Dynamics). A seta guarda o espaço (opacidade), então o título não pula.
+    /// A dica diz o que o toque faz.
+    /// </summary>
     private void AtualizarSetas()
     {
         Pintar(ColunaFixa, _setaFixa, _cabecalhoFixo);
@@ -426,7 +443,7 @@ public sealed class GradeLista : ContentView
             if (coluna is null) return;
             var ordenando = coluna.Chave == ColunaOrdenada;
             seta.Text = !ordenando ? "↕" : OrdemDecrescente ? "▼" : "▲";
-            seta.Opacity = ordenando ? 1 : 0.35;
+            seta.Opacity = ordenando ? 1 : coluna.Ordenavel && ReferenceEquals(_tituloSobMouse, alvo) ? 0.45 : 0;
             if (!coluna.Ordenavel) { alvo.ClearValue(ToolTipProperties.TextProperty); return; }
             ToolTipProperties.SetText(alvo, !ordenando ? $"Ordenar por {coluna.Titulo}"
                 : OrdemDecrescente ? $"{coluna.Titulo}: ordem decrescente. Toque para voltar à ordem padrão."

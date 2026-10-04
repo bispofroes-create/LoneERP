@@ -6,6 +6,7 @@ using Lone.Cliente.Api;
 using Lone.Cliente.Grade;
 using Lone.Cliente.Navegacao;
 using Lone.Cliente.Plataforma;
+using Lone.Cliente.ViewModels.Comum;
 using Lone.Contracts.Comum;
 
 namespace Lone.Cliente.ViewModels.Cadastros;
@@ -266,6 +267,11 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
         {
             await ExecutarAsync(async () =>
             {
+                if (Situacao is { } situacao && !_situacaoLida)
+                {
+                    _situacaoLida = true;
+                    await situacao.CarregarAsync(); // a última escolha do usuário, antes da primeira lista
+                }
                 await AntesDeListarAsync();
                 await BuscarListaAsync();
             });
@@ -583,13 +589,89 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     {
         var termo = BuscaNoServidor ? string.Empty : Busca.Trim();
         Itens.Clear();
-        foreach (var item in _todos.Where(i => termo.Length == 0
-                                              || TextoDeBusca(i).Contains(termo, StringComparison.CurrentCultureIgnoreCase)))
+        foreach (var item in _todos.Where(i => Incluir(i) && (termo.Length == 0 || ContemTexto(TextoDeBusca(i), termo))))
             Itens.Add(item);
         OnPropertyChanged(nameof(ListaVazia));
         if (GradeDaLista is { } grade) ConteudoLista = grade.Montar(Itens, Selecionado); // uma troca só, depois de filtrar
+        AtualizarEstadoVazio(termo);
         DepoisDeListar();
     }
+
+    /// <summary>Pesquisa sem diferenciar maiúsculas nem acentos ("periodo" acha "período"; 04/10/2026).</summary>
+    public static bool ContemTexto(string texto, string termo) =>
+        TextoTela.Brasil.CompareInfo.IndexOf(texto, termo,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+
+    /// <summary>
+    /// Filtro da tela além da busca. Padrão: o filtro Situação (quando a lista tem a coluna Situação); as telas podem
+    /// acrescentar o seu.
+    /// </summary>
+    protected virtual bool Incluir(TItem item) =>
+        Situacao is not { } situacao || GradeDaLista?.AtivoDe(item) is not { } ativo || situacao.Inclui(ativo);
+
+    // ---- Filtro Situação (04/10/2026): em toda lista de cadastro com a coluna Situação; não em árvore ----
+
+    private FiltroSituacao? _situacao;
+    private bool _situacaoCriada;
+    private bool _situacaoLida;
+
+    /// <summary>
+    /// Ativos / Inativos / Todos, ao lado da pesquisa. Começa em Ativos; a última escolha fica guardada para o usuário
+    /// (preferência da tela "lista-⟨tela⟩"). Nulo quando a lista não tem situação ou é em árvore.
+    /// </summary>
+    public FiltroSituacao? Situacao
+    {
+        get
+        {
+            if (_situacaoCriada) return _situacao;
+            _situacaoCriada = true;
+            if (GradeDaLista is { TemSituacao: true, Recuo: null })
+            {
+                _situacao = new FiltroSituacao(ChaveDaTela, FiltroSituacao.PreferenciasPadrao);
+                _situacao.Mudou += Filtrar;
+            }
+            return _situacao;
+        }
+    }
+
+    public bool TemFiltroSituacao => Situacao is not null;
+
+    /// <summary>Chave das preferências da tela (ex.: "lista-tiposausencia").</summary>
+    protected virtual string ChaveDaTela => "lista-" + GetType().Name.Replace("ViewModel", string.Empty).ToLowerInvariant();
+
+    // ---- Lista vazia: três casos diferentes (04/10/2026) ----
+
+    /// <summary>
+    /// Nada cadastrado (a tela mostra o seu texto), nada na situação escolhida ou nada para a pesquisa. Nos dois últimos,
+    /// o título diz o motivo e o botão desfaz o que escondeu ("Limpar pesquisa" / "Mostrar todos").
+    /// </summary>
+    [ObservableProperty] private bool _vazioPorFiltro;
+    [ObservableProperty] private string _tituloVazioFiltro = string.Empty;
+    [ObservableProperty] private string _textoVazioFiltro = string.Empty;
+    [ObservableProperty] private string _acaoVazioFiltro = string.Empty;
+
+    private void AtualizarEstadoVazio(string termo)
+    {
+        var estado = EstadoListaVazia.Calcular(Itens.Count, termo,
+            _todos.Count(Incluir), // na situação escolhida, sem a pesquisa
+            termo.Length == 0 ? 0 : _todos.Count(i => ContemTexto(TextoDeBusca(i), termo)), // com a pesquisa, sem a situação
+            _todos.Count, Situacao?.Selecionada.Texto);
+        VazioPorFiltro = estado.PorFiltro;
+        TituloVazioFiltro = estado.Titulo;
+        TextoVazioFiltro = estado.Texto;
+        AcaoVazioFiltro = estado.Acao;
+    }
+
+    /// <summary>Botão da lista vazia: limpa a pesquisa, ou mostra todos quando é a situação que esconde.</summary>
+    [RelayCommand]
+    private void DesfazerFiltroVazio()
+    {
+        if (Busca.Trim().Length > 0) Busca = string.Empty;
+        else if (Situacao is { } situacao) situacao.Selecionada = FiltroSituacao.Opcoes[^1];
+    }
+
+    /// <summary>O filtro da tela mudou: refaz a lista com o que já foi lido (sem ir à API).</summary>
+    protected void Refiltrar() => Filtrar();
 
     // ---- Lista em colunas (padrão de tela de cadastro, 03/10/2026) ----
 

@@ -173,6 +173,8 @@ public partial class ConfiguracoesViewModel : ViewModelBase
             new ItemConfiguracao("Trocar senha", "Altere a senha que você usa para entrar no Lone", ModulosConfiguracao.RotaTrocarSenha)),
         (ModulosConfiguracao.Sistema, "Usuários e permissões", Permissoes.Seguranca.GerenciarPerfis, new ItemConfiguracao("Perfis de acesso", "Permissões por perfil e empresa", "perfis")),
         (ModulosConfiguracao.Sistema, "Usuários e permissões", Permissoes.Seguranca.GerenciarUsuarios, new ItemConfiguracao("Usuários", "Quem acessa o sistema", "usuarios")),
+        (ModulosConfiguracao.Sistema, "Parâmetros", Permissoes.Cadastros.Parametros,
+            new ItemConfiguracao("Prazos de período", "Prazos prontos do campo Prazo (30 dias, 6 meses, 1 ano...)", "prazos-periodo")),
     ];
 
     /// <summary>Grupos do módulo, na ordem do catálogo; itens em ordem alfabética. Grupo sem item permitido não aparece.</summary>

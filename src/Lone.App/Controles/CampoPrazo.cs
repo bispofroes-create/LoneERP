@@ -162,11 +162,22 @@ public sealed class CampoPrazo : ContentView
         _fimDeSemana.IsEnabled = !somenteLeitura;
     }
 
-    private void AbrirProntos()
+    /// <summary>
+    /// Prazos prontos do cadastro "Prazos de período" (menu do usuário › Administração), lidos pelo
+    /// <see cref="Lone.Cliente.Api.PrazosProntos"/>; sem ele (ou sem resposta), os de antes do cadastro.
+    /// </summary>
+    private async void AbrirProntos()
     {
         if (SomenteLeitura) return;
+        IReadOnlyList<PrazoPronto> prazos = CalculoPrazo.Padrao;
+        if (Handler?.MauiContext?.Services.GetService(typeof(Lone.Cliente.Api.PrazosProntos)) is Lone.Cliente.Api.PrazosProntos fonte)
+        {
+            try { prazos = await fonte.ObterAsync(); }
+            catch (Exception) { /* fica com os de antes do cadastro */ }
+        }
+        if (Handler is null) return; // a tela fechou enquanto lia
         var lista = new VerticalStackLayout { Spacing = 0, Padding = 4, WidthRequest = 180 };
-        foreach (var prazo in CalculoPrazo.Padrao)
+        foreach (var prazo in prazos)
         {
             var botao = new Button
             {

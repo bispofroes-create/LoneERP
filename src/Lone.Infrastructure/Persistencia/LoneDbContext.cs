@@ -45,6 +45,7 @@ public class LoneDbContext : DbContext
     public DbSet<TipoCarteira> TiposCarteira => Set<TipoCarteira>();
     public DbSet<TipoCarteiraClassificacao> TiposCarteiraClassificacoes => Set<TipoCarteiraClassificacao>();
     public DbSet<TipoAusencia> TiposAusencia => Set<TipoAusencia>();
+    public DbSet<PrazoPeriodo> PrazosPeriodo => Set<PrazoPeriodo>();
     public DbSet<ParametrosComerciais> ParametrosComerciais => Set<ParametrosComerciais>();
     public DbSet<CoberturaComercial> CoberturasComerciais => Set<CoberturaComercial>();
     public DbSet<TransferenciaCarteira> TransferenciasCarteira => Set<TransferenciaCarteira>();

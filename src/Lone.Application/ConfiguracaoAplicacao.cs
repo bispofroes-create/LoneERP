@@ -1,4 +1,5 @@
 using Lone.Application.CamposPersonalizados;
+using Lone.Application.Parametros;
 using Lone.Application.Etiquetas;
 using Lone.Application.GruposEmpresariais;
 using Lone.Application.Relacionamentos;
@@ -67,6 +68,7 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IPerfilComercialAppService, PerfilComercialAppService>();
         services.AddScoped<ITipoCarteiraAppService, TipoCarteiraAppService>();
         services.AddScoped<ITipoAusenciaAppService, TipoAusenciaAppService>();
+        services.AddScoped<IPrazoPeriodoAppService, PrazoPeriodoAppService>();
         services.AddScoped<IParametrosComerciaisAppService, ParametrosComerciaisAppService>();
         services.AddScoped<ICoberturaAppService, CoberturaAppService>();
         services.AddScoped<ITransferenciaCarteiraAppService, TransferenciaCarteiraAppService>();

@@ -7,8 +7,8 @@ namespace Lone.App.Controles;
 
 /// <summary>
 /// Menu do usuário (03/10/2026), aberto ao tocar no nome no canto superior direito, como no SAP Fiori, no Dynamics e no
-/// Office: cabeçalho (nome, login · empresa), Minha conta (Trocar senha), Administração (Perfis de acesso, Usuários — só
-/// com permissão) e Trocar de usuário / Sair do Lone. Substitui a página "Configurações do sistema" do menu lateral.
+/// Office: cabeçalho (nome, login · empresa), Minha conta (Trocar senha), Administração (Perfis de acesso, Usuários, Prazos de
+/// período — só com permissão) e Trocar de usuário / Sair do Lone. Substitui a página "Configurações do sistema" do menu lateral.
 /// Sem popover na plataforma, abre a lista simples do <see cref="MenuViewModel.OpcoesDoUsuarioCommand"/>.
 /// </summary>
 internal static class MenuDoUsuario
@@ -83,6 +83,7 @@ internal static class MenuDoUsuario
             Secao("Administração");
             if (menu.PodeGerenciarPerfis) Item("🛡", MenuViewModel.OpcaoPerfis, menu.AbrirPerfisCommand);
             if (menu.PodeGerenciarUsuarios) Item("👥", MenuViewModel.OpcaoUsuarios, menu.AbrirUsuariosCommand);
+            if (menu.PodeGerenciarParametros) Item("📅", MenuViewModel.OpcaoPrazos, menu.AbrirPrazosCommand);
         }
         Separador();
         Item("⇄", MenuViewModel.OpcaoTrocarUsuario, menu.TrocarDeUsuarioCommand);

@@ -87,4 +87,27 @@ public class GradeCadastroTests
         grade.OrdenarColunaCommand.Execute(grade.ColunaFixa);
         Assert.Null(grade.ColunaOrdenadaChave);
     }
+
+    [Fact]
+    public void Linha_tem_44_sem_subtitulo_e_56_com()
+    {
+        var grade = Grade();
+        grade.Montar([new Registro(Guid.NewGuid(), "Ana", "", 0, true)], null);
+        Assert.Equal(GradeCadastro<Registro>.AlturaSemSubtitulo, grade.AlturaLinha);
+        grade.Montar([new Registro(Guid.NewGuid(), "Ana", "", 0, true), new Registro(Guid.NewGuid(), "Bia", "Férias", 0, true)], null);
+        Assert.Equal(GradeCadastro<Registro>.AlturaComSubtitulo, grade.AlturaLinha);
+    }
+
+    [Fact]
+    public void Coluna_situacao_diz_se_o_registro_esta_ativo()
+    {
+        var grade = new GradeCadastro<Registro>("Nome", r => r.Id, r => r.Nome, r => null,
+            ColunaCadastro<Registro>.Situacao(r => r.Ativo));
+        Assert.True(grade.TemSituacao);
+        Assert.True(grade.AtivoDe(new Registro(Guid.NewGuid(), "Ana", "", 0, true)));
+        Assert.False(grade.AtivoDe(new Registro(Guid.NewGuid(), "Bia", "", 0, false)));
+        var semSituacao = new GradeCadastro<Registro>("Nome", r => r.Id, r => r.Nome, r => null);
+        Assert.False(semSituacao.TemSituacao);
+        Assert.Null(semSituacao.AtivoDe(new Registro(Guid.NewGuid(), "Ana", "", 0, true)));
+    }
 }

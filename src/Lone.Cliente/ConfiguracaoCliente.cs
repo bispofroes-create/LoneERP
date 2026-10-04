@@ -46,6 +46,8 @@ public static class ConfiguracaoCliente
         services.AddSingleton<AnexosApi>();
         services.AddSingleton<ColaboradoresApi>();
         services.AddSingleton<ComercialApi>();
+        services.AddSingleton<PrazosPeriodoApi>();
+        services.AddSingleton<PrazosProntos>();
         services.AddSingleton<MetasApi>();
         services.AddSingleton<TerritoriosApi>();
         services.AddSingleton<MenuUsuarioApi>();
@@ -82,6 +84,7 @@ public static class ConfiguracaoCliente
         services.AddTransient<CondicoesPagamentoViewModel>();
         services.AddTransient<TiposCarteiraViewModel>();
         services.AddTransient<TiposAusenciaViewModel>();
+        services.AddTransient<PrazosPeriodoViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.ParametrosComerciaisViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.CoberturasViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Comercial.CarteiraVencendoViewModel>();

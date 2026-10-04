@@ -185,7 +185,8 @@ sistema inteiro.
   sistema está aberto). "⇄ Trocar empresa" aparece com mais de uma empresa.
 - **Menu do usuário (03/10/2026; referência: menu do usuário do SAP Fiori, Dynamics e Office):** tocar no usuário abre
   um popover (`Controles/MenuDoUsuario`): cabeçalho (nome, login · empresa) · **Minha conta** (🔑 Trocar senha) ·
-  **Administração** (🛡 Perfis de acesso, 👥 Usuários — a seção só aparece com alguma das permissões) · ⇄ Trocar de
+  **Administração** (🛡 Perfis de acesso, 👥 Usuários, 📅 Prazos de período — a seção só aparece com alguma das
+  permissões) · ⇄ Trocar de
   usuário (encerra a sessão e volta ao login) · ⏻ Sair do Lone (encerra a sessão e fecha o app).
   "Configurações do sistema" saiu do menu lateral e a página deixou de existir. Parâmetros gerais do sistema, quando
   existirem, entram em Administração.
@@ -317,6 +318,33 @@ sistema inteiro.
   (a coluna informa `ordem:`; ex.: Efeito ordena pela data, Mudanças pelo total); vazios sempre por último. Empates
   mantêm a ordem padrão. A busca e a ficha aberta continuam valendo depois de ordenar.
 - Listas em árvore (Territórios) não ordenam: a hierarquia é a ordem.
+
+## Cadastro "Prazos de período" (decisão do usuário, 03/10/2026)
+
+- Os prazos prontos do campo Prazo (▾) vêm do cadastro **Prazos de período** (menu do usuário › Administração;
+  permissão "Alterar parâmetros do cadastro"). Cada prazo: quantidade + unidade (**dias**, contando o início; **meses**
+  e **anos**, pelo calendário). Nada é excluído: desativar tira da lista. A migração cria os de antes (7, 15, 30, 60,
+  90, 180 dias e 1 ano).
+- O campo Prazo lê a lista na primeira vez que o ▾ abre e guarda por 5 minutos (gravar no cadastro relê). Sem resposta
+  da API, valem os de antes.
+- Sem coluna Unidade ("7 dias" já diz a unidade); a pesquisa por "meses" continua achando. Campo Prazo em: Coberturas, Metas, Territórios (responsáveis), vínculos de carteira e
+  lotações do colaborador.
+
+## Padrão: lista de cadastro auxiliar (decisão do usuário, 04/10/2026; análise em _entrega/p2-b2/ANALISE-PROMPT-CADASTRO-AUXILIAR.md)
+
+Vale para todas as telas com `ListaCadastro` (peça comum; nenhuma tela precisa mudar):
+- **Filtro Situação** (Ativos / Inativos / Todos) ao lado da pesquisa em toda lista com a coluna Situação (menos as
+  em árvore). Começa em **Ativos**; a **última escolha fica guardada para o usuário** (preferência da tela
+  "lista-⟨tela⟩" na API; vale em qualquer aparelho).
+- **Lista vazia em três casos:** nada cadastrado (texto da tela); nada para a pesquisa ("Nenhum resultado para "x"",
+  dizendo se há registros com o texto em outra situação, e **Limpar pesquisa**); nada na situação ("Nenhum cadastro
+  em "Inativos"" e **Mostrar todos**). Nunca repete o "+ Novo" (um só, no alto).
+- **Pesquisa** sem diferenciar maiúsculas nem acentos ("periodo" acha "período").
+- **Linha** de 44 px sem subtítulo; 56 com subtítulo.
+- **Ordenação:** ▲/▼ só na coluna ordenada; nas outras, o "↕" aparece só com o mouse em cima.
+- **Colunas:** não repetir em coluna o que a coluna principal já diz.
+- **Depois (etapa própria, mexe no motor da lista, junto com a Etapa 4):** teclado na lista (↑↓, Enter abre) e Enter/
+  Espaço no título para ordenar. **Futuro:** menu "…" por linha quando houver ação sem abrir a ficha; contador.
 
 ## Padrão: texto que não cabe (pedido do usuário, 03/10/2026; referência: SAP Fiori)
 

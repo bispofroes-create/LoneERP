@@ -53,6 +53,9 @@ public sealed class ColunaCadastro<T>
     /// <summary>Chave de ordenação (clicar no título da coluna). Nula = o texto da célula.</summary>
     public Func<T, object?>? Ordem { get; }
 
+    /// <summary>Coluna Situação: se o registro está ativo (a lista ganha o filtro Ativos / Inativos / Todos).</summary>
+    public Func<T, bool>? Ativo { get; private init; }
+
     /// <summary>Texto livre: cresce com peso 1 a partir da mínima (regra de largura das listagens).</summary>
     public static ColunaCadastro<T> Texto(string chave, string titulo, Func<T, string?> valor, double minima = 160,
         Func<T, object?>? ordem = null) =>
@@ -73,8 +76,10 @@ public sealed class ColunaCadastro<T>
 
     /// <summary>Situação do cadastro auxiliar: "Ativo" (verde) ou "Inativo" (cinza); feminino = "Ativa"/"Inativa".</summary>
     public static ColunaCadastro<T> Situacao(Func<T, bool> ativo, bool feminino = false) =>
-        Selo("situacao", "Situação", item => (ativo(item) ? "Ativ" : "Inativ") + (feminino ? "a" : "o"),
-            item => ativo(item) ? "Sucesso" : "Neutro", 120);
+        new(Selo("situacao", "Situação", item => (ativo(item) ? "Ativ" : "Inativ") + (feminino ? "a" : "o"),
+            item => ativo(item) ? "Sucesso" : "Neutro", 120)) { Ativo = ativo };
+
+    private ColunaCadastro(ColunaCadastro<T> outra) : this(outra.Definicao, outra.Celula, outra.Ordem) { }
 }
 
 /// <summary>
@@ -159,8 +164,20 @@ public sealed partial class GradeCadastro<T> : ObservableObject where T : class
     public Func<T, string>? Marcador { get; init; }
     public IReadOnlyList<ColunaGradeDef> Colunas { get; }
 
-    /// <summary>Altura da linha (título + subtítulo).</summary>
-    public double AlturaLinha => 56;
+    /// <summary>
+    /// Altura da linha: 56 com subtítulo (título + subtítulo), 44 sem (uma linha só, a altura dos campos — Fiori cozy;
+    /// 04/10/2026). Decidida a cada montagem pelo que a lista mostra.
+    /// </summary>
+    [ObservableProperty] private double _alturaLinha = AlturaComSubtitulo;
+
+    public const double AlturaComSubtitulo = 56;
+    public const double AlturaSemSubtitulo = 44;
+
+    /// <summary>A lista tem a coluna Situação (e então o filtro Ativos / Inativos / Todos).</summary>
+    public bool TemSituacao => _colunas.Any(c => c.Ativo is not null);
+
+    /// <summary>Se o registro está ativo, pela coluna Situação; nulo sem a coluna.</summary>
+    public bool? AtivoDe(T item) => _colunas.FirstOrDefault(c => c.Ativo is not null)?.Ativo is { } ativo ? ativo(item) : null;
 
     public ConteudoGrade Montar(IEnumerable<T> itens, T? aberto)
     {
@@ -173,6 +190,8 @@ public sealed partial class GradeCadastro<T> : ObservableObject where T : class
                 Marcador = Marcador?.Invoke(item) ?? string.Empty
             })
             .ToList();
+        if (linhas.Count > 0)
+            AlturaLinha = linhas.OfType<LinhaCadastro>().Any(l => l.TemSubtitulo) ? AlturaComSubtitulo : AlturaSemSubtitulo;
         return new ConteudoGrade(Colunas, linhas);
     }
 
