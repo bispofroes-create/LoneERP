@@ -5,12 +5,13 @@
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:cf="clr-namespace:Lone.Domain.Pessoas;assembly=Lone.Domain"
              xmlns:pv="clr-namespace:Lone.App.Views.Pessoas"
              x:Class="Lone.App.Views.Pessoas.SecaoAdicionaisView"
              x:DataType="pes:PessoasViewModel">
     <ContentView.Resources>
         <DataTemplate x:Key="ModeloTexto" x:DataType="cad:CampoPersonalizadoFormulario">
-            <c:Campo Rotulo="{Binding Rotulo}" Texto="{Binding Texto}" Dica="{Binding Dica}" Mascara="{Binding Mascara}" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.CampoPersonalizado}" c:Validacao.Item="{Binding CampoId}" Rotulo="{Binding Rotulo}" Texto="{Binding Texto}" Dica="{Binding Dica}" Mascara="{Binding Mascara}" />
         </DataTemplate>
         <DataTemplate x:Key="ModeloTextoLongo" x:DataType="cad:CampoPersonalizadoFormulario">
             <VerticalStackLayout Spacing="2" FlexLayout.Basis="100%" Padding="0,0,12,8">
@@ -19,7 +20,7 @@
             </VerticalStackLayout>
         </DataTemplate>
         <DataTemplate x:Key="ModeloEscolha" x:DataType="cad:CampoPersonalizadoFormulario">
-            <c:CampoEscolha Rotulo="{Binding Rotulo}" Itens="{Binding Opcoes}" Selecionado="{Binding Escolha}" />
+            <c:CampoEscolha c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.CampoPersonalizado}" c:Validacao.Item="{Binding CampoId}" Rotulo="{Binding Rotulo}" Itens="{Binding Opcoes}" Selecionado="{Binding Escolha}" />
         </DataTemplate>
         <pv:SeletorModeloCampo x:Key="SeletorModelo"
                                Texto="{StaticResource ModeloTexto}"

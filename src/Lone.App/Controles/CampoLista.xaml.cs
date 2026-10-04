@@ -6,7 +6,7 @@ namespace Lone.App.Controles;
 /// Escolha de um item de lista com autocompletar. Só aparência: o filtro e a regra "só vale o que foi escolhido"
 /// ficam no SeletorDeLista (Lone.Cliente), que é o BindingContext deste controle.
 /// </summary>
-public partial class CampoLista : ContentView
+public partial class CampoLista : ContentView, ICampoValidavel
 {
     public static readonly BindableProperty RotuloProperty = BindableProperty.Create(
         nameof(Rotulo), typeof(string), typeof(CampoLista), string.Empty,
@@ -15,7 +15,16 @@ public partial class CampoLista : ContentView
     public CampoLista()
     {
         InitializeComponent();
+        _marca = new MarcaDeErro(Entrada);
+        Pilha.Children.Insert(2, _marca.Rotulo); // logo abaixo da caixa, antes do aviso e das sugestões
     }
+
+    private readonly MarcaDeErro _marca;
+
+    /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
+    public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    public bool Focar() => Entrada.IsEnabled && Entrada.Focus();
 
     public string Rotulo { get => (string)GetValue(RotuloProperty); set => SetValue(RotuloProperty, value); }
 

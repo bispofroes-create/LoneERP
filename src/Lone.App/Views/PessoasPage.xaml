@@ -15,6 +15,10 @@
              x:DataType="pes:PessoasViewModel"
              Title="Pessoas">
 
+    <ContentPage.Resources>
+        <c:ErrosDaAbaConversor x:Key="ErrosDaAba" />
+    </ContentPage.Resources>
+
     <Grid>
         <!-- =====================================================================================================
              LISTA
@@ -603,8 +607,12 @@
         <!-- =====================================================================================================
              FICHA (tela cheia): conteúdo rolável e barra de ações fixa embaixo
              ===================================================================================================== -->
-        <Grid RowDefinitions="*,Auto" IsVisible="{Binding MostrarFicha}">
-            <ScrollView c:Rolagem.Preservar="ficha"> <!-- posição preservada ao voltar (Fase 3 da navegação) -->
+        <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding MostrarFicha}">
+            <!-- Resumo de erros fixo, fora da rolagem (Lone Contextual, Fase 1): visível de qualquer ponto da ficha; cada erro
+                 com campo leva até ele (aba, rolagem e foco). Some quando não há erros. -->
+            <c:BarraValidacao BindingContext="{Binding Validacao}" Margin="{OnIdiom Phone='16,12,16,0', Default='32,12,32,0'}"
+                              MaximumWidthRequest="1600" />
+            <ScrollView Grid.Row="1" c:Rolagem.Preservar="ficha" c:Validacao.Resumo="{Binding Validacao}"> <!-- posição preservada ao voltar (Fase 3 da navegação) -->
                 <!-- Até 1600 de largura: em tela larga, a ficha ocupa mais e o resumo da pessoa fica ao lado. -->
                 <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1600"
                                      HorizontalOptions="Fill">
@@ -711,8 +719,19 @@
                                                 </VisualStateGroup>
                                             </VisualStateGroupList>
                                         </VisualStateManager.VisualStateGroups>
-                                        <Label x:Name="TextoAba" Text="{Binding Texto}" FontSize="14" Padding="16,0" VerticalOptions="Center"
-                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+                                        <HorizontalStackLayout Padding="16,0" Spacing="4" VerticalOptions="Center">
+                                            <Label x:Name="TextoAba" Text="{Binding Texto}" FontSize="14" VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+                                            <!-- Erros nesta aba (Lone Contextual, Fase 1): "●2" na cor de erro, só com erro. -->
+                                            <Label FontSize="12" FontAttributes="Bold" VerticalOptions="Center" TextColor="{StaticResource Erro}">
+                                                <Label.Text>
+                                                    <MultiBinding Converter="{StaticResource ErrosDaAba}">
+                                                        <Binding Path="Secao" />
+                                                        <Binding Path="ErrosPorAba" Source="{RelativeSource AncestorType={x:Type pes:PessoasViewModel}}" x:DataType="pes:PessoasViewModel" />
+                                                    </MultiBinding>
+                                                </Label.Text>
+                                            </Label>
+                                        </HorizontalStackLayout>
                                         <BoxView x:Name="TracoAba" Grid.Row="1" Opacity="0" Margin="8,0"
                                                  Color="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
                                     </Grid>
@@ -763,7 +782,7 @@
             </ScrollView>
 
             <!-- Barra de ações da ficha (fixa) -->
-            <Grid Grid.Row="1" RowDefinitions="1,Auto">
+            <Grid Grid.Row="2" RowDefinitions="1,Auto">
                 <BoxView Color="{AppThemeBinding Light={StaticResource BordaSutil}, Dark={StaticResource BordaSutilEscuro}}" />
                 <Border Grid.Row="1" StrokeThickness="0" Padding="{OnIdiom Phone='16,12', Default='32,12'}"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Superficie}, Dark={StaticResource SuperficieEscuro}}">

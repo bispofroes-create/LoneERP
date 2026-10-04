@@ -358,7 +358,8 @@ public sealed class PessoaAppService : IPessoaAppService
         PessoaNormalizador.Normalizar(dados);
         ExigirPermissoes(dados, anterior);
 
-        var erros = PessoaValidador.Validar(dados);
+        // Erros com o campo da ficha quando a regra sabe (Lone Contextual, Fase 1); as outras regras seguem só com o texto.
+        var erros = PessoaValidador.ValidarComCampos(dados);
 
         // Alcance restrito (Fase 2a-2): só clientes entram (E4) e o cliente novo sem responsável da conta recebe quem o
         // cadastrou (F4), senão sumiria da lista dele ao salvar.
@@ -454,7 +455,7 @@ public sealed class PessoaAppService : IPessoaAppService
                 dados.ProfissaoId,
                 anterior?.ProfissaoId,
                 dados.ProfissaoId is { } profissaoId ? await _profissoes.ObterAsync(profissaoId, ct) : null) is { } erroProfissao)
-            erros.Add(erroProfissao);
+            erros.Add(erroProfissao, Lone.Domain.Pessoas.CamposFichaPessoa.Profissao);
 
         // Ocupação da CBO escolhida sem profissão cadastrada: conferida aqui; a profissão é resolvida depois das regras.
         OcupacaoCbo? ocupacaoEscolhida = null;
@@ -462,7 +463,7 @@ public sealed class PessoaAppService : IPessoaAppService
         {
             ocupacaoEscolhida = (await _ocupacoesCbo.ObterAsync([codigoCbo], ct)).GetValueOrDefault(codigoCbo);
             if (RegrasProfissao.ValidarOcupacaoEscolhida(codigoCbo, ocupacaoEscolhida) is { } erroOcupacao)
-                erros.Add(erroOcupacao);
+                erros.Add(erroOcupacao, Lone.Domain.Pessoas.CamposFichaPessoa.Profissao);
         }
 
         // Pessoa jurídica gravada não vira outra natureza (nada é perdido em silêncio: recusa com a lista do que se perderia).
@@ -485,11 +486,11 @@ public sealed class PessoaAppService : IPessoaAppService
             var mesmoDocumento = await _repositorio.BuscarPorDocumentoAsync(dados.Natureza, dados.DocumentoPrincipal, dados.Id, ct);
             if (mesmoDocumento is not null && await ForaDoAlcanceAsync(mesmoDocumento.Id, ct))
                 erros.Add((dados.Natureza == NaturezaPessoa.Juridica ? "Esta empresa (mesma raiz de CNPJ) já está cadastrada" : "Este CPF já está cadastrado") +
-                          ", fora do seu alcance. Peça acesso ao responsável pelo cliente.");
+                          ", fora do seu alcance. Peça acesso ao responsável pelo cliente.", Lone.Domain.Pessoas.CamposFichaPessoa.Documento);
             else if (mesmoDocumento is not null)
                 erros.Add(dados.Natureza == NaturezaPessoa.Juridica
                     ? $"Esta empresa (mesma raiz de CNPJ) já está cadastrada: {mesmoDocumento}. Para uma filial, abra esse cadastro e adicione o CNPJ como estabelecimento."
-                    : $"Este CPF já está cadastrado: {mesmoDocumento}.");
+                    : $"Este CPF já está cadastrado: {mesmoDocumento}.", Lone.Domain.Pessoas.CamposFichaPessoa.Documento);
         }
 
         if (erros.Count > 0)
@@ -577,7 +578,7 @@ public sealed class PessoaAppService : IPessoaAppService
     /// assim a pessoa nova entra no alcance por essa relação. Nulo se houver erro (vai para <paramref name="erros"/>).
     /// </summary>
     private async Task<PessoaRelacionamento?> PrepararRelacaoInicialAsync(Pessoa dados, IncluirRelacionamentoRequisicao pedido, EscopoResolvido escopo,
-                                                                          List<string> erros, CancellationToken ct)
+                                                                          ListaErros erros, CancellationToken ct)
     {
         _autorizacao.Exigir(Permissoes.Pessoas.Editar);
         if (RegrasRelacionamento.EhSocietario(pedido.TipoRelacionamentoId))

@@ -9,7 +9,7 @@ namespace Lone.App.Controles;
 /// Com Mascara, formata enquanto o usuário digita (data, CPF, CNPJ, CEP, telefone).
 /// Data: ícone 📅 dentro do campo, à direita, que abre o calendário (03/10/2026); digitar continua valendo.
 /// </summary>
-public sealed class Campo : ContentView
+public sealed class Campo : ContentView, ICampoValidavel
 {
     public static readonly BindableProperty RotuloProperty = BindableProperty.Create(
         nameof(Rotulo), typeof(string), typeof(Campo), string.Empty,
@@ -48,8 +48,16 @@ public sealed class Campo : ContentView
         _rotulo.SetDynamicResource(StyleProperty, "Rotulo");
         _entrada.TextChanged += Entrada_TextChanged;
         _entrada.HandlerChanged += (_, _) => AjustarTextoNativo();
-        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada } } } };
+        _marca = new MarcaDeErro(_entrada);
+        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada } }, _marca.Rotulo } };
     }
+
+    private readonly MarcaDeErro _marca;
+
+    /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
+    public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    public bool Focar() => !SomenteLeitura && _entrada.IsEnabled && _entrada.Focus();
 
     public string Rotulo { get => (string)GetValue(RotuloProperty); set => SetValue(RotuloProperty, value); }
     public string Texto { get => (string)GetValue(TextoProperty); set => SetValue(TextoProperty, value); }

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:cf="clr-namespace:Lone.Domain.Pessoas;assembly=Lone.Domain"
              x:Class="Lone.App.Views.Pessoas.SecaoContatosView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
@@ -40,8 +41,8 @@
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <c:BlocoCampos AlignItems="End">
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding TiposTelefone}" Selecionado="{Binding Tipo}" />
-                                <c:Campo Rotulo="Número" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
-                                <c:Campo Rotulo="Ramal" Texto="{Binding Ramal}" Mascara="Numero" IsVisible="{Binding EhFixo}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.MeioContatoValor}" c:Validacao.Item="{Binding Id}" Rotulo="Número" Texto="{Binding Valor}" Mascara="{Binding Mascara}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Ramal}" c:Validacao.Item="{Binding Id}" Rotulo="Ramal" Texto="{Binding Ramal}" Mascara="Numero" IsVisible="{Binding EhFixo}" />
                                 <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
                                                 IsVisible="{Binding TemClassificacao}" />
                                 <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: falar com a recepção" />
@@ -74,7 +75,7 @@
                             <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <c:BlocoCampos AlignItems="End">
-                                <c:Campo Rotulo="E-mail" Texto="{Binding Valor}" Teclado="Email" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.MeioContatoValor}" c:Validacao.Item="{Binding Id}" Rotulo="E-mail" Texto="{Binding Valor}" Teclado="Email" />
                                 <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
                                                 IsVisible="{Binding TemClassificacao}" />
                                 <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: setor financeiro" />
@@ -111,12 +112,12 @@
                     <Border Style="{StaticResource CartaoItem}">
                         <VerticalStackLayout>
                             <c:BlocoCampos>
-                                <c:Campo Rotulo="Nome" Texto="{Binding Nome}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoNome}" c:Validacao.Item="{Binding Id}" Rotulo="Nome" Texto="{Binding Nome}" />
                                 <c:Campo Rotulo="Cargo" Texto="{Binding Cargo}" />
                                 <c:Campo Rotulo="Departamento" Texto="{Binding Departamento}" />
-                                <c:Campo Rotulo="E-mail" Texto="{Binding Email}" Teclado="Email" />
-                                <c:Campo Rotulo="Telefone" Texto="{Binding Telefone}" Mascara="Telefone" />
-                                <c:Campo Rotulo="Celular" Texto="{Binding Celular}" Mascara="Telefone" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoEmail}" c:Validacao.Item="{Binding Id}" Rotulo="E-mail" Texto="{Binding Email}" Teclado="Email" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoTelefone}" c:Validacao.Item="{Binding Id}" Rotulo="Telefone" Texto="{Binding Telefone}" Mascara="Telefone" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoCelular}" c:Validacao.Item="{Binding Id}" Rotulo="Celular" Texto="{Binding Celular}" Mascara="Telefone" />
                                 <c:CaixaMarcar Texto="O celular tem WhatsApp" Marcado="{Binding CelularWhatsApp}" />
                                 <c:CaixaMarcar Texto="Contato principal" Marcado="{Binding Principal}" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />

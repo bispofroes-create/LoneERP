@@ -18,6 +18,7 @@ using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Pessoas;
+using Lone.Domain.Validacao;
 using DocumentoFiscal = Lone.Domain.Validacao.Documento;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
@@ -602,51 +603,62 @@ public sealed partial class PessoaFormulario : ObservableObject
     }
 
     /// <summary>Datas e números que não dá para entender. O resto (CPF, CNPJ, obrigatórios) a API valida.</summary>
-    public IReadOnlyList<string> ValidarLocalmente()
+    /// <summary>Só os textos (o contrato de sempre).</summary>
+    public IReadOnlyList<string> ValidarLocalmente() => ValidarLocalmenteComCampos().Mensagens();
+
+    /// <summary>
+    /// A conferência antes de chamar a API, com o campo da ficha de cada erro (Lone Contextual, Fase 1). Itens de lista
+    /// (endereço, documento, estabelecimento, campo personalizado) levam o Id do registro. Vínculos, carteira, exceções e
+    /// contas seguem sem campo (erro geral) nesta fase.
+    /// </summary>
+    public ListaErros ValidarLocalmenteComCampos()
     {
-        var erros = new List<string>();
+        var erros = new ListaErros();
         // Pessoa jurídica gravada não muda de natureza: CNPJ, estabelecimentos, grupo e vínculos seriam perdidos (a API também recusa).
         if (_naturezaGravada == NaturezaPessoa.Juridica && !EhJuridica)
             erros.Add("Uma pessoa jurídica gravada não pode virar pessoa física ou estrangeiro: o CNPJ, os estabelecimentos, " +
                       "o nome fantasia, o grupo empresarial e os vínculos de sócio/administrador seriam perdidos. Volte o tipo para " +
-                      "\"Pessoa jurídica\". Se o tipo está errado, cadastre a pessoa correta e desative este cadastro.");
+                      "\"Pessoa jurídica\". Se o tipo está errado, cadastre a pessoa correta e desative este cadastro.", CamposFichaPessoa.Natureza);
         else if (!EhJuridica && GrupoEmpresarial.Valor is not null)
-            erros.Add("Só pessoa jurídica pode fazer parte de um grupo empresarial.");
+            erros.Add("Só pessoa jurídica pode fazer parte de um grupo empresarial.", CamposFichaPessoa.GrupoEmpresarial);
         if (EhFisica)
         {
             if (!TextoTela.TentarData(DataNascimento, out var nascimento))
-                erros.Add("Data de nascimento inválida (use dd/mm/aaaa).");
+                erros.Add("Data de nascimento inválida (use dd/mm/aaaa).", CamposFichaPessoa.DataNascimento);
             else if (nascimento > DateOnly.FromDateTime(DateTime.Today))
-                erros.Add("A data de nascimento está no futuro.");
+                erros.Add("A data de nascimento está no futuro.", CamposFichaPessoa.DataNascimento);
         }
         if (EhFisica && Naturalidade.Validar("Naturalidade") is { } naturalidade)
-            erros.Add(naturalidade);
+            erros.Add(naturalidade, CamposFichaPessoa.Naturalidade);
         if (EhFisica && Profissao.Validar("Profissão") is { } profissao)
-            erros.Add(profissao);
+            erros.Add(profissao, CamposFichaPessoa.Profissao);
         if (EhJuridica)
             foreach (var e in Estabelecimentos)
                 if (e.NaturezaJuridicaLista.Validar(e.EhPrincipal ? "Natureza jurídica" : $"Natureza jurídica ({e.Titulo})") is { } natureza)
-                    erros.Add(natureza);
+                    erros.Add(natureza, CamposFichaPessoa.NaturezaJuridica, e.EhPrincipal ? null : e.Id); // principal: na Identificação
         // Endereço físico repetido: não grava um novo igual a um existente (usa-se o existente e acrescenta a finalidade).
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].IgualA is { } igual)
                 erros.Add(Enderecos[i].DuplicidadePossivel
                     ? $"Endereço {i + 1}: parece o mesmo de \"{igual.Resumo}\". Use o endereço existente ou confirme que é outro endereço."
-                    : $"Endereço {i + 1}: este endereço já está cadastrado para esta pessoa (\"{igual.Resumo}\"). Use o endereço existente.");
+                    : $"Endereço {i + 1}: este endereço já está cadastrado para esta pessoa (\"{igual.Resumo}\"). Use o endereço existente.",
+                    CamposFichaPessoa.Logradouro, Enderecos[i].Id);
         // Endereço inativo não é mais conferido (pode ser antigo, de antes da tabela do IBGE).
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].Ativo && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
-                erros.Add(endereco);
-        erros.AddRange(Documentos.SelectMany(d => d.Validar()));
+                erros.Add(endereco, CamposFichaPessoa.Municipio, Enderecos[i].Id);
+        erros.AddRange(Documentos.SelectMany(d => d.ValidarComCampos()));
         for (var i = 0; i < Vinculos.Count; i++)
             erros.AddRange(Vinculos[i].Validar($"Vínculo {i + 1}"));
-        erros.AddRange(InformacoesAdicionais.Select(c => c.Validar()).OfType<string>());
+        foreach (var c in InformacoesAdicionais)
+            if (c.Validar() is { } adicional)
+                erros.Add(adicional, CamposFichaPessoa.CampoPersonalizado, c.CampoId);
         if (EhJuridica && !TextoTela.TentarData(DataAbertura, out _))
-            erros.Add("Data de abertura inválida (use dd/mm/aaaa).");
+            erros.Add("Data de abertura inválida (use dd/mm/aaaa).", CamposFichaPessoa.DataAbertura);
         if (EhJuridica && !TextoTela.TentarDecimal(CapitalSocial, out _))
-            erros.Add("Capital social inválido.");
+            erros.Add("Capital social inválido.", CamposFichaPessoa.CapitalSocial);
         if (!TextoTela.TentarData(PrimeiroContatoEm, out _))
-            erros.Add("Data do primeiro contato inválida (use dd/mm/aaaa).");
+            erros.Add("Data do primeiro contato inválida (use dd/mm/aaaa).", CamposFichaPessoa.PrimeiroContato);
         if (PapelCliente.Ativo) erros.AddRange(ContaCliente.Validar());
         for (var i = 0; i < Excecoes.Count; i++) erros.AddRange(Excecoes[i].Validar($"Exceção comercial {i + 1}"));
         for (var i = 0; i < Carteira.Count; i++) erros.AddRange(Carteira[i].Validar($"Carteira {i + 1}"));

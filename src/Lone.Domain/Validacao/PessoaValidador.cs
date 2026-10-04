@@ -5,15 +5,21 @@ using Lone.Domain.Enums;
 using Lone.Domain.Etiquetas;
 using Lone.Domain.GruposEmpresariais;
 using Lone.Domain.ObjetosDeValor;
+using Lone.Domain.Pessoas;
+using C = Lone.Domain.Pessoas.CamposFichaPessoa;
 
 namespace Lone.Domain.Validacao;
 
 /// <summary>Regras de negócio do cadastro de pessoas. Não acessa banco. Espera a pessoa já normalizada.</summary>
 public static class PessoaValidador
 {
-    public static List<string> Validar(Pessoa p)
+    /// <summary>Só os textos (o contrato de sempre).</summary>
+    public static List<string> Validar(Pessoa p) => ValidarComCampos(p).Mensagens();
+
+    /// <summary>Os mesmos erros, cada um com o campo da ficha e o registro (endereço, documento...) quando houver.</summary>
+    public static ListaErros ValidarComCampos(Pessoa p)
     {
-        var erros = new List<string>();
+        var erros = new ListaErros();
 
         ValidarIdentificacao(p, erros);
         ValidarEstabelecimentos(p, erros);
@@ -41,40 +47,40 @@ public static class PessoaValidador
         return erros;
     }
 
-    private static void ValidarIdentificacao(Pessoa p, List<string> erros)
+    private static void ValidarIdentificacao(Pessoa p, ListaErros erros)
     {
         if (p.Nome.Length == 0)
-            erros.Add(p.Natureza == NaturezaPessoa.Juridica ? "Informe a razão social." : "Informe o nome.");
+            erros.Add(p.Natureza == NaturezaPessoa.Juridica ? "Informe a razão social." : "Informe o nome.", C.Nome);
         else if (p.Nome.Length > 150)
-            erros.Add("O nome pode ter no máximo 150 caracteres.");
+            erros.Add("O nome pode ter no máximo 150 caracteres.", C.Nome);
 
         if (p.Natureza == NaturezaPessoa.Fisica && p.DocumentoPrincipal is not null && !Cpf.EhValido(p.DocumentoPrincipal))
-            erros.Add("CPF inválido.");
+            erros.Add("CPF inválido.", C.Documento);
 
         if (p.Natureza == NaturezaPessoa.Estrangeiro && p.DocumentoPrincipal is { Length: > 20 })
-            erros.Add("A identificação do estrangeiro pode ter no máximo 20 caracteres.");
+            erros.Add("A identificação do estrangeiro pode ter no máximo 20 caracteres.", C.Documento);
 
         if (p.DataNascimento is { } nascimento && nascimento > DateOnly.FromDateTime(DateTime.Today))
-            erros.Add("A data de nascimento não pode ser no futuro.");
+            erros.Add("A data de nascimento não pode ser no futuro.", C.DataNascimento);
         if (RegrasGrupoEmpresarial.ValidarNatureza(p) is { } erroGrupo)
-            erros.Add(erroGrupo);
+            erros.Add(erroGrupo, C.GrupoEmpresarial);
     }
 
     /// <summary>Dados pessoais, da empresa e de relacionamento (tamanhos batem com as colunas do banco).</summary>
-    private static void ValidarDadosComplementares(Pessoa p, List<string> erros)
+    private static void ValidarDadosComplementares(Pessoa p, ListaErros erros)
     {
         var hoje = DateOnly.FromDateTime(DateTime.Today);
 
-        Limite(p.Nacionalidade, 60, "A nacionalidade", erros);
+        Limite(p.Nacionalidade, 60, "A nacionalidade", erros, C.Nacionalidade);
         Limite(p.SituacaoMotivo, Pessoa.TamanhoMaximoMotivo, "O motivo da situação", erros);
-        Limite(p.NomeMae, 150, "O nome da mãe", erros);
-        Limite(p.NomePai, 150, "O nome do pai", erros);
+        Limite(p.NomeMae, 150, "O nome da mãe", erros, C.NomeMae);
+        Limite(p.NomePai, 150, "O nome do pai", erros, C.NomePai);
 
         if (p.DataAbertura is { } abertura && abertura > hoje)
-            erros.Add("A data de abertura da empresa não pode ser no futuro.");
+            erros.Add("A data de abertura da empresa não pode ser no futuro.", C.DataAbertura);
         if (p.CapitalSocial is < 0)
-            erros.Add("O capital social não pode ser negativo.");
-        Limite(p.Porte, 60, "O porte", erros);
+            erros.Add("O capital social não pode ser negativo.", C.CapitalSocial);
+        Limite(p.Porte, 60, "O porte", erros, C.Porte);
         if (p.Socios.Any(s => s.Nome.Length == 0))
             erros.Add("Informe o nome de cada sócio.");
         foreach (var s in p.Socios)
@@ -87,20 +93,20 @@ public static class PessoaValidador
             Limite(e.CnaesSecundarios, 1000, "A lista de CNAEs secundários", erros);
 
         if (p.PrimeiroContatoEm is { } primeiro && primeiro > hoje)
-            erros.Add("A data do primeiro contato não pode ser no futuro.");
+            erros.Add("A data do primeiro contato não pode ser no futuro.", C.PrimeiroContato);
         Limite(p.OrigemCadastro, 60, "A origem do cadastro", erros);
 
         if (p.Etiquetas.Count > RegrasEtiqueta.MaximoPorPessoa)
-            erros.Add($"Use no máximo {RegrasEtiqueta.MaximoPorPessoa} etiquetas por cadastro.");
+            erros.Add($"Use no máximo {RegrasEtiqueta.MaximoPorPessoa} etiquetas por cadastro.", C.Etiquetas);
     }
 
-    private static void Limite(string? texto, int maximo, string campo, List<string> erros)
+    private static void Limite(string? texto, int maximo, string campo, ListaErros erros, string? idCampo = null, Guid? item = null)
     {
         if (texto is { Length: var tamanho } && tamanho > maximo)
-            erros.Add($"{campo} pode ter no máximo {maximo} caracteres.");
+            erros.Add(new ErroValidacao($"{campo} pode ter no máximo {maximo} caracteres.", idCampo, item));
     }
 
-    private static void ValidarEstabelecimentos(Pessoa p, List<string> erros)
+    private static void ValidarEstabelecimentos(Pessoa p, ListaErros erros)
     {
         if (p.Natureza != NaturezaPessoa.Juridica)
         {
@@ -116,15 +122,17 @@ public static class PessoaValidador
             {
                 var e = p.Estabelecimentos[i];
                 var rotulo = $"Estabelecimento {i + 1}";
+                // O CNPJ do principal fica na Identificação (é o documento da empresa); o das filiais, no cartão de cada uma.
+                var (campoCnpj, itemCnpj) = e.Principal ? (C.Documento, (Guid?)null) : (C.Cnpj, (Guid?)e.Id);
 
                 if (e.Cnpj is null)
-                    erros.Add($"{rotulo}: informe o CNPJ.");
+                    erros.Add($"{rotulo}: informe o CNPJ.", campoCnpj, itemCnpj);
                 else if (!Cnpj.EhValido(e.Cnpj))
-                    erros.Add($"{rotulo}: CNPJ inválido.");
+                    erros.Add($"{rotulo}: CNPJ inválido.", campoCnpj, itemCnpj);
                 else if (!cnpjs.Add(e.Cnpj))
-                    erros.Add($"{rotulo}: CNPJ repetido.");
+                    erros.Add($"{rotulo}: CNPJ repetido.", campoCnpj, itemCnpj);
                 else if (raiz is not null && !e.Cnpj.StartsWith(raiz, StringComparison.Ordinal))
-                    erros.Add($"{rotulo}: o CNPJ é de outra empresa (raiz diferente). Filiais precisam ter a mesma raiz da matriz; outra raiz é outra pessoa.");
+                    erros.Add($"{rotulo}: o CNPJ é de outra empresa (raiz diferente). Filiais precisam ter a mesma raiz da matriz; outra raiz é outra pessoa.", campoCnpj, itemCnpj);
             }
         }
 
@@ -141,32 +149,32 @@ public static class PessoaValidador
 
             // O endereço fiscal precisa ser um dos endereços desta mesma pessoa.
             if (e.EnderecoFiscalId is Guid enderecoId && !idsEnderecos.Contains(enderecoId))
-                erros.Add($"{rotulo}: o endereço fiscal escolhido não está entre os endereços do cadastro.");
+                erros.Add($"{rotulo}: o endereço fiscal escolhido não está entre os endereços do cadastro.", C.EnderecoFiscal, e.Id);
             // Operacional (só estabelecimento ativo): um desativado guarda o endereço fiscal da época, mesmo inativo.
             else if (e.Ativo && e.EnderecoFiscalId is Guid fiscalId && p.Enderecos.First(x => x.Id == fiscalId) is { Ativo: false })
-                erros.Add($"{rotulo}: o endereço fiscal foi removido (inativo). Escolha outro endereço ou use o principal.");
+                erros.Add($"{rotulo}: o endereço fiscal foi removido (inativo). Escolha outro endereço ou use o principal.", C.EnderecoFiscal, e.Id);
         }
     }
 
-    private static void ValidarFiscal(Estabelecimento e, string rotulo, List<string> erros)
+    private static void ValidarFiscal(Estabelecimento e, string rotulo, ListaErros erros)
     {
         // Operacional (só estabelecimento ativo): um desativado não emite nota; o indicador e a IE ficam como estavam.
         if (e.Ativo && e.IndicadorIE == IndicadorIE.Contribuinte && e.InscricaoEstadual is null)
-            erros.Add($"{rotulo}: contribuinte do ICMS precisa ter inscrição estadual.");
+            erros.Add($"{rotulo}: contribuinte do ICMS precisa ter inscrição estadual.", C.InscricaoEstadual, e.Id);
         if (e.InscricaoEstadual is { Length: > 14 })
-            erros.Add($"{rotulo}: inscrição estadual com mais de 14 caracteres.");
+            erros.Add($"{rotulo}: inscrição estadual com mais de 14 caracteres.", C.InscricaoEstadual, e.Id);
         if (e.InscricaoSuframa is { Length: not (8 or 9) })
-            erros.Add($"{rotulo}: a inscrição SUFRAMA deve ter 8 ou 9 dígitos.");
+            erros.Add($"{rotulo}: a inscrição SUFRAMA deve ter 8 ou 9 dígitos.", C.Suframa, e.Id);
         if (e.CnaePrincipal is { Length: not 7 })
-            erros.Add($"{rotulo}: o CNAE deve ter 7 dígitos.");
+            erros.Add($"{rotulo}: o CNAE deve ter 7 dígitos.", C.Cnae, e.Id);
     }
 
-    private static void ValidarEndereco(PessoaEndereco e, string rotulo, List<string> erros)
+    private static void ValidarEndereco(PessoaEndereco e, string rotulo, ListaErros erros)
     {
         if (e.Logradouro.Length == 0)
-            erros.Add($"{rotulo}: informe o logradouro.");
+            erros.Add($"{rotulo}: informe o logradouro.", C.Logradouro, e.Id);
         if (e.Observacoes is { Length: > RegrasEndereco.TamanhoMaximoObservacoes })
-            erros.Add($"{rotulo}: as observações podem ter no máximo {RegrasEndereco.TamanhoMaximoObservacoes} caracteres.");
+            erros.Add($"{rotulo}: as observações podem ter no máximo {RegrasEndereco.TamanhoMaximoObservacoes} caracteres.", C.ObservacoesEndereco, e.Id);
 
         // Endereço removido (inativo) fica como estava: dados antigos não impedem a gravação.
         if (!e.Ativo) return;
@@ -174,77 +182,77 @@ public static class PessoaValidador
         if (e.EhBrasil)
         {
             if (e.Cep is not null && !Cep.EhValido(e.Cep))
-                erros.Add($"{rotulo}: o CEP deve ter 8 dígitos.");
+                erros.Add($"{rotulo}: o CEP deve ter 8 dígitos.", C.Cep, e.Id);
             // Município só da tabela do IBGE (a API confere se existe e copia nome, UF e código).
             if (e.MunicipioId is null)
-                erros.Add($"{rotulo}: escolha a UF e o município na lista.");
+                erros.Add($"{rotulo}: escolha a UF e o município na lista.", C.Municipio, e.Id);
         }
         else
         {
             if (e.Cidade.Length == 0)
-                erros.Add($"{rotulo}: informe a cidade.");
+                erros.Add($"{rotulo}: informe a cidade.", C.Cidade, e.Id);
             if (e.Pais.Length == 0)
-                erros.Add($"{rotulo}: informe o país.");
+                erros.Add($"{rotulo}: informe o país.", C.Pais, e.Id);
         }
     }
 
-    private static void ValidarMeio(MeioContato m, string rotulo, List<string> erros)
+    private static void ValidarMeio(MeioContato m, string rotulo, ListaErros erros)
     {
         if (m.Valor.Length == 0)
         {
-            erros.Add($"{rotulo}: informe o número ou e-mail.");
+            erros.Add($"{rotulo}: informe o número ou e-mail.", C.MeioContatoValor, m.Id);
             return;
         }
 
         if (m.Tipo == TipoContato.Email && !Email.EhValido(m.Valor))
-            erros.Add($"{rotulo}: e-mail inválido.");
+            erros.Add($"{rotulo}: e-mail inválido.", C.MeioContatoValor, m.Id);
         else if (m.Tipo is TipoContato.Telefone or TipoContato.Celular or TipoContato.WhatsApp && !Telefone.EhValido(m.Valor))
-            erros.Add($"{rotulo}: telefone inválido. Informe com DDD, ou com + e o código do país se for do exterior.");
+            erros.Add($"{rotulo}: telefone inválido. Informe com DDD, ou com + e o código do país se for do exterior.", C.MeioContatoValor, m.Id);
         if (m.Ramal is { Length: > RegrasMeioContato.TamanhoMaximoRamal })
-            erros.Add($"{rotulo}: o ramal pode ter no máximo {RegrasMeioContato.TamanhoMaximoRamal} dígitos.");
+            erros.Add($"{rotulo}: o ramal pode ter no máximo {RegrasMeioContato.TamanhoMaximoRamal} dígitos.", C.Ramal, m.Id);
     }
 
-    private static void ValidarContato(Contato c, string rotulo, List<string> erros)
+    private static void ValidarContato(Contato c, string rotulo, ListaErros erros)
     {
         if (c.Nome.Length == 0)
-            erros.Add($"{rotulo}: informe o nome.");
+            erros.Add($"{rotulo}: informe o nome.", C.ContatoNome, c.Id);
         if (c.Telefone is not null && !Telefone.EhValido(c.Telefone))
-            erros.Add($"{rotulo}: telefone inválido.");
+            erros.Add($"{rotulo}: telefone inválido.", C.ContatoTelefone, c.Id);
         if (c.Celular is not null && !Telefone.EhValido(c.Celular))
-            erros.Add($"{rotulo}: celular inválido.");
+            erros.Add($"{rotulo}: celular inválido.", C.ContatoCelular, c.Id);
         if (c.Email is not null && !Email.EhValido(c.Email))
-            erros.Add($"{rotulo}: e-mail inválido.");
+            erros.Add($"{rotulo}: e-mail inválido.", C.ContatoEmail, c.Id);
     }
 
-    private static void ValidarDocumento(PessoaDocumento d, string rotulo, List<string> erros)
+    private static void ValidarDocumento(PessoaDocumento d, string rotulo, ListaErros erros)
     {
         if (d.Observacoes is { Length: > 250 })
-            erros.Add($"{rotulo}: as observações podem ter no máximo 250 caracteres.");
+            erros.Add($"{rotulo}: as observações podem ter no máximo 250 caracteres.", C.DocumentoObservacoes, d.Id);
         // Documento removido (inativo) fica como estava: dados antigos não impedem a gravação.
         if (!d.Ativo) return;
         if (d.Numero.Length == 0)
-            erros.Add($"{rotulo}: informe o número.");
+            erros.Add($"{rotulo}: informe o número.", C.DocumentoNumero, d.Id);
         if (d.Uf is not null && !Ufs.Valida(d.Uf))
-            erros.Add($"{rotulo}: UF inválida.");
+            erros.Add($"{rotulo}: UF inválida.", C.DocumentoUf, d.Id);
         if (d.EmitidoEm is { } emissao && d.ValidoAte is { } validade && validade < emissao)
-            erros.Add($"{rotulo}: a validade é anterior à emissão.");
+            erros.Add($"{rotulo}: a validade é anterior à emissão.", C.DocumentoValidoAte, d.Id);
     }
 
-    private static void ValidarContaCliente(ContaCliente c, List<string> erros)
+    private static void ValidarContaCliente(ContaCliente c, ListaErros erros)
     {
         if (c.LimiteCredito < 0)
-            erros.Add("Cliente: o limite de crédito não pode ser negativo.");
+            erros.Add("Cliente: o limite de crédito não pode ser negativo.", C.LimiteCredito);
         if (c.DescontoMaximo is < 0m or > 100m)
-            erros.Add("Cliente: o desconto máximo deve ficar entre 0% e 100%.");
+            erros.Add("Cliente: o desconto máximo deve ficar entre 0% e 100%.", C.DescontoMaximo);
         if (c.DiasMaximoAtraso < 0)
-            erros.Add("Cliente: dias máximos de atraso não podem ser negativos.");
+            erros.Add("Cliente: dias máximos de atraso não podem ser negativos.", C.DiasMaximoAtraso);
     }
 
-    private static void ValidarContaFornecedor(ContaFornecedor f, List<string> erros)
+    private static void ValidarContaFornecedor(ContaFornecedor f, ListaErros erros)
     {
         if (f.PrazoMedioDias < 0 || f.LeadTimeDias < 0)
-            erros.Add("Fornecedor: prazos não podem ser negativos.");
+            erros.Add("Fornecedor: prazos não podem ser negativos.", C.PrazosFornecedor);
         if (f.Avaliacao is < 1 or > 5)
-            erros.Add("Fornecedor: a avaliação deve ser de 1 a 5.");
+            erros.Add("Fornecedor: a avaliação deve ser de 1 a 5.", C.AvaliacaoFornecedor);
     }
 }

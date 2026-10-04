@@ -4,6 +4,7 @@
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:cad="clr-namespace:Lone.Cliente.ViewModels.Cadastros;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:cf="clr-namespace:Lone.Domain.Pessoas;assembly=Lone.Domain"
              xmlns:pv="clr-namespace:Lone.App.Views.Pessoas"
              x:Class="Lone.App.Views.Pessoas.SecaoDocumentosView"
              x:DataType="pes:PessoasViewModel">
@@ -54,14 +55,14 @@
                             <Label Text="{Binding AvisoValidade}" TextColor="{StaticResource Aviso}" FontAttributes="Bold"
                                    IsVisible="{Binding TemAvisoValidade}" />
                             <c:BlocoCampos>
-                                <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
-                                <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
+                                <c:CampoEscolha c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DocumentoTipo}" c:Validacao.Item="{Binding Id}" Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DocumentoNumero}" c:Validacao.Item="{Binding Id}" Rotulo="Número" Texto="{Binding Numero}" />
                                 <!-- Só nos documentos pessoais (RG, CNH, passaporte...) ou quando já preenchidos. -->
                                 <c:Campo Rotulo="Órgão emissor" Texto="{Binding OrgaoEmissor}" IsVisible="{Binding MostrarOrgaoEmissor}" />
-                                <c:Campo Rotulo="UF" Texto="{Binding Uf}" IsVisible="{Binding MostrarUf}" />
-                                <c:Campo Rotulo="Emitido em" Texto="{Binding EmitidoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
-                                <c:Campo Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
-                                <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DocumentoUf}" c:Validacao.Item="{Binding Id}" Rotulo="UF" Texto="{Binding Uf}" IsVisible="{Binding MostrarUf}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DocumentoEmitidoEm}" c:Validacao.Item="{Binding Id}" Rotulo="Emitido em" Texto="{Binding EmitidoEm}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DocumentoValidoAte}" c:Validacao.Item="{Binding Id}" Rotulo="{Binding RotuloValidade}" Texto="{Binding ValidoAte}" Dica="dd/mm/aaaa" Mascara="Data" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DocumentoObservacoes}" c:Validacao.Item="{Binding Id}" Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
                             </c:BlocoCampos>
                             <c:BlocoCampos IsVisible="{Binding TemCamposPersonalizados}"
                                         BindableLayout.ItemsSource="{Binding CamposPersonalizados}"

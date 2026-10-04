@@ -1,3 +1,5 @@
+using Lone.Domain.Pessoas;
+
 namespace Lone.Cliente.ViewModels.Pessoas;
 
 public enum SecaoPessoa
@@ -56,4 +58,43 @@ public sealed record SecaoOpcao(SecaoPessoa Secao, string Texto)
         if (f.Existente) secoes.Add(new(SecaoPessoa.Historico, "Histórico"));
         return secoes;
     }
+}
+
+/// <summary>
+/// Em que aba da ficha fica cada campo (Lone Contextual, Fase 1: o erro leva ao campo). Pela área do id
+/// (<see cref="CamposFichaPessoa"/>), com as poucas exceções escritas aqui; a única tabela desse tipo.
+/// </summary>
+public static class AbaDoCampo
+{
+    private static readonly Dictionary<string, SecaoPessoa> PorArea = new(StringComparer.Ordinal)
+    {
+        ["identificacao"] = SecaoPessoa.Geral,
+        ["pessoais"] = SecaoPessoa.Pessoais,
+        ["contatos"] = SecaoPessoa.Contatos,
+        ["pessoasContato"] = SecaoPessoa.Contatos,
+        ["enderecos"] = SecaoPessoa.Enderecos,
+        ["documentos"] = SecaoPessoa.Documentos,
+        ["fiscal"] = SecaoPessoa.Estabelecimentos,
+        ["cliente"] = SecaoPessoa.Comercial,
+        ["fornecedor"] = SecaoPessoa.Comercial,
+        ["colaborador"] = SecaoPessoa.Colaborador,
+        ["interacoes"] = SecaoPessoa.Relacionamento,
+        ["adicionais"] = SecaoPessoa.Adicionais
+    };
+
+    /// <summary>
+    /// Campos que, num registro de lista (com item), ficam fora da aba da sua área: a natureza jurídica do principal fica na
+    /// Identificação (sem item); a de cada filial, no cartão dela, na aba Fiscal e estabelecimentos.
+    /// </summary>
+    private static readonly Dictionary<string, SecaoPessoa> ExcecoesComItem = new(StringComparer.Ordinal)
+    {
+        [CamposFichaPessoa.NaturezaJuridica] = SecaoPessoa.Estabelecimentos
+    };
+
+    /// <summary>A aba do campo; nula para um id desconhecido (o erro continua no resumo, sem levar a lugar nenhum).</summary>
+    public static SecaoPessoa? De(string? campo, Guid? item = null) =>
+        campo is null ? null
+        : item is not null && ExcecoesComItem.TryGetValue(campo, out var excecao) ? excecao
+        : PorArea.TryGetValue(CamposFichaPessoa.Area(campo), out var aba) ? aba
+        : null;
 }

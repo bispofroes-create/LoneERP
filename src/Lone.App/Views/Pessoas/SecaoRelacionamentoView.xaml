@@ -4,6 +4,7 @@
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:dto="clr-namespace:Lone.Contracts.Pessoas;assembly=Lone.Contracts"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:cf="clr-namespace:Lone.Domain.Pessoas;assembly=Lone.Domain"
              x:Class="Lone.App.Views.Pessoas.SecaoRelacionamentoView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
@@ -12,7 +13,7 @@
         <c:BlocoCampos>
             <c:CampoEscolha Rotulo="Como conheceu a empresa" Itens="{Binding Formulario.Origens}"
                             Selecionado="{Binding Formulario.OrigemCadastro}" />
-            <c:Campo Rotulo="Primeiro contato" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.PrimeiroContatoEm}" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.PrimeiroContato}" Rotulo="Primeiro contato" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.PrimeiroContatoEm}" />
         </c:BlocoCampos>
 
         <!-- Relacionamento: interações (só inclusão) e a situação calculada pelos dias sem interação. -->

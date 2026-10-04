@@ -109,6 +109,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             () => ((PaginaAtual - 1) * TamanhoPagina, TotalRegistros));
         Indicadores = new FaixaIndicadores(AlternarIndicador);
         Indicadores.DefinirConsulta(c => Filtros.Condicoes().Any(v => v.Campo == c.Campo && v.Operador == c.Operador));
+        // Erro que leva ao campo (Lone Contextual, Fase 1): a ficha troca para a aba do campo; a tela rola e põe o foco.
+        Validacao.AntesDeIr = IrParaAbaDoErro;
+        Validacao.Mudou += () => OnPropertyChanged(nameof(ErrosPorAba));
         // A prévia ao lado ocupa parte da largura: as colunas da lista se ajustam ao que sobra.
         Previa.PropertyChanged += (_, e) =>
         {
@@ -1437,9 +1440,28 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 
+    // ---- Erros que levam ao campo (Lone Contextual, Fase 1) ----
+
+    /// <summary>Resumo dos erros da última tentativa de salvar (fixo acima da ficha). Só muda numa nova conferência.</summary>
+    public ResumoValidacao Validacao { get; } = new() { Titulo = "Não foi possível salvar a pessoa" };
+
+    /// <summary>Quantos erros há em cada aba (o "●N" nas abas).</summary>
+    public IReadOnlyDictionary<SecaoPessoa, int> ErrosPorAba =>
+        Validacao.Itens.Select(i => AbaDoCampo.De(i.Erro.Campo, i.Erro.Item)).OfType<SecaoPessoa>()
+            .GroupBy(a => a).ToDictionary(g => g.Key, g => g.Count());
+
+    /// <summary>Troca para a aba do campo do erro; falso se a aba não existe para esta pessoa (o erro fica só no resumo).</summary>
+    private bool IrParaAbaDoErro(ErroValidacao erro)
+    {
+        if (AbaDoCampo.De(erro.Campo, erro.Item) is not { } aba || Secoes.FirstOrDefault(s => s.Secao == aba) is not { } secao) return false;
+        SecaoSelecionada = secao;
+        return true;
+    }
+
     partial void OnFormularioChanged(PessoaFormulario? oldValue, PessoaFormulario? newValue)
     {
         if (oldValue is not null) Desligar(oldValue);
+        Validacao.Limpar(); // outra ficha (ou a mesma relida depois de gravar): os erros eram da tentativa anterior
         Historico.Clear();
         _historicoDe = null;
         _ultimoDoHistorico = null;
@@ -1671,9 +1693,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         if (Formulario is not { } formulario) return;
 
-        if (formulario.ValidarLocalmente() is { Count: > 0 } erros)
+        // Conferência do app: os erros vão para o resumo fixo (com o campo de cada um) e a ficha leva ao primeiro.
+        if (formulario.ValidarLocalmenteComCampos() is { Count: > 0 } erros)
         {
-            Mostrar(string.Join(Environment.NewLine, erros), TipoMensagem.Erro);
+            MostrarErrosDaFicha(erros);
             return;
         }
 
@@ -1682,11 +1705,20 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         var eraEmpresaDoGrupo = formulario.PapelEmpresaDoGrupo.Existia && !formulario.Nova;
         var eraNova = formulario.Nova;
         ResultadoSalvarPessoa? resultado = null;
-        if (!await ExecutarAsync(async () => resultado = await _pessoas.SalvarAsync(formulario.ParaDto())))
+        ValidacaoException? recusa = null;
+        var executou = await ExecutarAsync(async () =>
+        {
+            // Recusa por regra: vai para o resumo da ficha (com os campos que a API informar), não para a barra de mensagens.
+            try { resultado = await _pessoas.SalvarAsync(formulario.ParaDto()); }
+            catch (ValidacaoException v) { recusa = v; }
+        });
+        if (!executou || recusa is not null)
         {
             desfazerSubstituicoes(); // não gravou: o vendedor anterior volta como estava (a pergunta aparece de novo)
+            if (recusa is not null) MostrarErrosDaFicha(recusa.Itens);
             return;
         }
+        Validacao.Limpar();
 
         // Escolheu uma ocupação da CBO: a API usou ou criou a profissão, que a tela relê para mostrar pelo nome.
         if (resultado!.Pessoa.ProfissaoId is { } profissaoGravada && _profissoes.All(p => p.Id != profissaoGravada))
@@ -1711,6 +1743,17 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             await AtualizarEmpresasDaSessaoAsync();
 
         await AtualizarListaAposGravarAsync();
+    }
+
+    /// <summary>
+    /// Erros de validação da ficha: no resumo fixo, com o campo de cada um; a ficha vai para o primeiro que tem campo (os
+    /// outros continuam no resumo). Só erros gerais: ficam no resumo, sem levar a lugar nenhum.
+    /// </summary>
+    private void MostrarErrosDaFicha(IReadOnlyList<ErroValidacao> erros)
+    {
+        LimparMensagem();
+        Validacao.Definir(erros);
+        Validacao.IrParaPrimeiro();
     }
 
     /// <summary>

@@ -11,6 +11,9 @@ using Lone.Domain.Documentos;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 
+using Lone.Domain.Pessoas;
+using Lone.Domain.Validacao;
+
 namespace Lone.Cliente.ViewModels.Pessoas;
 
 /// <summary>
@@ -260,20 +263,24 @@ public sealed partial class DocumentoFormulario : ItemDeLista
     }
 
     /// <summary>Datas que não dá para entender e validade obrigatória (o resto a API valida).</summary>
-    public IEnumerable<string> Validar()
+    public IEnumerable<string> Validar() => ValidarComCampos().Select(e => e.Mensagem);
+
+    /// <summary>Os mesmos erros, com o campo do documento (e o Id dele) para a tela levar até lá.</summary>
+    public IEnumerable<ErroValidacao> ValidarComCampos()
     {
         if (Tipo.Valor == Guid.Empty)
         {
-            yield return "Documento" + (Numero.Length > 0 ? " " + Numero : string.Empty) + ": escolha o tipo.";
+            yield return new("Documento" + (Numero.Length > 0 ? " " + Numero : string.Empty) + ": escolha o tipo.", CamposFichaPessoa.DocumentoTipo, Id);
             yield break;
         }
         var nome = Tipo.Texto + (Numero.Length > 0 ? " " + Numero : string.Empty);
-        if (!TextoTela.TentarData(EmitidoEm, out _)) yield return $"{nome}: data de emissão inválida (use dd/mm/aaaa).";
-        if (!TextoTela.TentarData(ValidoAte, out var validade)) yield return $"{nome}: validade inválida (use dd/mm/aaaa).";
-        else if (Ativo && ExigeValidade && validade is null) yield return $"{nome}: informe a validade.";
+        if (!TextoTela.TentarData(EmitidoEm, out _)) yield return new($"{nome}: data de emissão inválida (use dd/mm/aaaa).", CamposFichaPessoa.DocumentoEmitidoEm, Id);
+        if (!TextoTela.TentarData(ValidoAte, out var validade)) yield return new($"{nome}: validade inválida (use dd/mm/aaaa).", CamposFichaPessoa.DocumentoValidoAte, Id);
+        else if (Ativo && ExigeValidade && validade is null) yield return new($"{nome}: informe a validade.", CamposFichaPessoa.DocumentoValidoAte, Id);
         if (!Ativo) yield break;
+        // Campos do tipo de documento: erro geral nesta fase.
         foreach (var problema in CamposPersonalizados.Select(c => c.Validar()).OfType<string>())
-            yield return problema;
+            yield return new(problema);
     }
 
     public DocumentoDto ParaDto()

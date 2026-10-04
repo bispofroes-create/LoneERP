@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:cf="clr-namespace:Lone.Domain.Pessoas;assembly=Lone.Domain"
              x:Class="Lone.App.Views.Pessoas.SecaoClienteView"
              x:DataType="pes:PessoasViewModel">
     <VerticalStackLayout Spacing="8">
@@ -10,9 +11,9 @@
         <Label Text="Condições de venda que valem para todas as empresas do grupo. Mudar crédito exige a permissão &quot;Alterar limite de crédito&quot;."
                Style="{StaticResource Secundario}" />
         <c:BlocoCampos>
-            <c:Campo Rotulo="Limite de crédito (R$)" Texto="{Binding Formulario.ContaCliente.LimiteCredito}" Dica="Vazio = sem limite" />
-            <c:Campo Rotulo="Dias máximos de atraso" Texto="{Binding Formulario.ContaCliente.DiasMaximoAtraso}" Teclado="Numeric" />
-            <c:Campo Rotulo="Desconto máximo (%)" Texto="{Binding Formulario.ContaCliente.DescontoMaximo}" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.LimiteCredito}" Rotulo="Limite de crédito (R$)" Texto="{Binding Formulario.ContaCliente.LimiteCredito}" Dica="Vazio = sem limite" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DiasMaximoAtraso}" Rotulo="Dias máximos de atraso" Texto="{Binding Formulario.ContaCliente.DiasMaximoAtraso}" Teclado="Numeric" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DescontoMaximo}" Rotulo="Desconto máximo (%)" Texto="{Binding Formulario.ContaCliente.DescontoMaximo}" />
             <c:CampoEscolha Rotulo="Perfil comercial" Itens="{Binding Formulario.ContaCliente.Perfis}" Selecionado="{Binding Formulario.ContaCliente.Perfil}"
                             IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
             <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Formulario.ContaCliente.Condicoes}" Selecionado="{Binding Formulario.ContaCliente.Condicao}"

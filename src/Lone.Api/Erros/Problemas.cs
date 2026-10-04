@@ -18,7 +18,8 @@ public static class Problemas
     public static ProblemDetails? De(Exception erro) => erro switch
     {
         ValidacaoException v => Criar(StatusCodes.Status400BadRequest, "Dados inválidos", v.Message, ErrosApi.Validacao,
-                                      (ErrosApi.CampoErros, v.Erros)),
+                                      (ErrosApi.CampoErros, v.Erros),
+                                      (ErrosApi.CampoItens, v.Itens.Select(i => new ItemErroApi { Mensagem = i.Mensagem, Campo = i.Campo, Item = i.Item }).ToList())),
         AcessoNegadoException a => Criar(StatusCodes.Status403Forbidden, "Acesso negado", a.Message, ErrosApi.AcessoNegado,
                                          (ErrosApi.CampoPermissao, a.Permissao)),
         ConflitoDeEdicaoException c => Criar(StatusCodes.Status409Conflict, "Conflito de edição", c.Message, ErrosApi.Conflito),

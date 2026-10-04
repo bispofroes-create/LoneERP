@@ -5,10 +5,10 @@
              xmlns:comum="clr-namespace:Lone.Cliente.ViewModels.Comum;assembly=Lone.Cliente"
              x:Class="Lone.App.Controles.CampoLista"
              x:DataType="comum:SeletorDeLista">
-    <VerticalStackLayout Spacing="2">
+    <VerticalStackLayout x:Name="Pilha" Spacing="2">
         <Label x:Name="RotuloCampo" Style="{StaticResource Rotulo}" />
         <Grid ColumnDefinitions="*,Auto">
-            <Entry Text="{Binding Texto}" Placeholder="{Binding Dica}" ClearButtonVisibility="WhileEditing" />
+            <Entry x:Name="Entrada" Text="{Binding Texto}" Placeholder="{Binding Dica}" ClearButtonVisibility="WhileEditing" />
             <Label Grid.Column="1" Text="✓" TextColor="{StaticResource Sucesso}" FontAttributes="Bold"
                    VerticalOptions="Center" Margin="6,0" IsVisible="{Binding Escolhido}" />
         </Grid>

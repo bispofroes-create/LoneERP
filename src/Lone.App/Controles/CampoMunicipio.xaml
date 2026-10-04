@@ -8,7 +8,7 @@
              x:Class="Lone.App.Controles.CampoMunicipio"
              x:DataType="comum:SeletorMunicipio"
             >
-    <VerticalStackLayout Spacing="2">
+    <VerticalStackLayout x:Name="Pilha" Spacing="2">
         <!-- Lado a lado (ficha); empilhado (Empilhado=True) em espaço estreito, como o painel de filtros. Sem "dica" na UF:
              no Windows ela aparece como um texto a mais acima da lista (o rótulo "UF" basta). -->
         <Grid x:Name="Linha" ColumnDefinitions="96,*" ColumnSpacing="8" RowSpacing="8">
@@ -16,7 +16,7 @@
             <VerticalStackLayout x:Name="BlocoMunicipio" Grid.Column="1" Spacing="2">
                 <Label x:Name="RotuloMunicipio" Text="Município" Style="{StaticResource Rotulo}" />
                 <Grid ColumnDefinitions="*,Auto">
-                    <Entry Text="{Binding Texto}" Placeholder="{Binding Dica}" IsEnabled="{Binding PodeDigitar}"
+                    <Entry x:Name="EntradaMunicipio" Text="{Binding Texto}" Placeholder="{Binding Dica}" IsEnabled="{Binding PodeDigitar}"
                            ClearButtonVisibility="WhileEditing" SemanticProperties.Description="Município" />
                     <Label Grid.Column="1" Text="✓" TextColor="{StaticResource Sucesso}" FontAttributes="Bold"
                            VerticalOptions="Center" Margin="6,0" IsVisible="{Binding Escolhido}" />

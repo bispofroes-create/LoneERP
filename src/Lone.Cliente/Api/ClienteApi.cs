@@ -207,7 +207,8 @@ public sealed class ClienteApi
 
     // ---------------------------------------------------------------- Erros
 
-    private sealed record Problema(int Status, string Mensagem, string? Codigo, IReadOnlyList<string> Erros, string? Permissao, string? SituacaoLogin);
+    private sealed record Problema(int Status, string Mensagem, string? Codigo, IReadOnlyList<string> Erros, string? Permissao, string? SituacaoLogin,
+                                   IReadOnlyList<ErroValidacao>? Itens = null);
 
     internal static async Task GarantirSucessoAsync(HttpResponseMessage resposta, CancellationToken ct)
     {
@@ -219,7 +220,10 @@ public sealed class ClienteApi
 
         Exception erro = problema.Codigo switch
         {
-            ErrosApi.Validacao => new ValidacaoException(problema.Erros.Count > 0 ? problema.Erros : [problema.Mensagem]),
+            // Com "itens" (o campo de cada erro, quando o servidor sabe); sem eles, só os textos, como sempre.
+            ErrosApi.Validacao => problema.Itens is { Count: > 0 } itens
+                ? new ValidacaoException(itens)
+                : new ValidacaoException(problema.Erros.Count > 0 ? problema.Erros : [problema.Mensagem]),
             ErrosApi.AcessoNegado => new AcessoNegadoException(problema.Permissao ?? string.Empty, problema.Mensagem),
             ErrosApi.Conflito => new ConflitoDeEdicaoException(problema.Mensagem),
             ErrosApi.NaoAutenticado => new SessaoExpiradaException(problema.Mensagem),
@@ -229,6 +233,29 @@ public sealed class ClienteApi
             _ => new ErroDaApiException(problema.Status, problema.Mensagem, problema.Codigo)
         };
         throw erro;
+    }
+
+    /// <summary>
+    /// Os erros com campo (extensão "itens"). Item sem texto é ignorado; campo e item que não vierem (ou vierem em outro
+    /// formato) ficam nulos: o erro continua valendo como erro geral. Nulo quando a resposta não traz "itens".
+    /// </summary>
+    internal static IReadOnlyList<ErroValidacao>? LerItens(JsonElement raiz)
+    {
+        if (!raiz.TryGetProperty(ErrosApi.CampoItens, out var lista) || lista.ValueKind != JsonValueKind.Array) return null;
+        var itens = new List<ErroValidacao>();
+        foreach (var e in lista.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.Object) continue;
+            string? Texto(string nome) =>
+                e.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, nome, StringComparison.OrdinalIgnoreCase)) is { Value.ValueKind: JsonValueKind.String } p
+                    ? p.Value.GetString()
+                    : null;
+            if (Texto(nameof(ItemErroApi.Mensagem)) is not { Length: > 0 } mensagem) continue;
+            var campo = Texto(nameof(ItemErroApi.Campo));
+            Guid? item = Guid.TryParse(Texto(nameof(ItemErroApi.Item)), out var id) ? id : null;
+            itens.Add(new ErroValidacao(mensagem, string.IsNullOrWhiteSpace(campo) ? null : campo, item));
+        }
+        return itens;
     }
 
     /// <summary>Lê o corpo ProblemDetails (RFC 9457). Nulo se a resposta não estiver nesse formato.</summary>
@@ -255,7 +282,8 @@ public sealed class ClienteApi
                 Texto(ErrosApi.CampoCodigo),
                 erros,
                 Texto(ErrosApi.CampoPermissao),
-                Texto(ErrosApi.CampoSituacaoLogin));
+                Texto(ErrosApi.CampoSituacaoLogin),
+                LerItens(raiz));
         }
         catch (JsonException)
         {

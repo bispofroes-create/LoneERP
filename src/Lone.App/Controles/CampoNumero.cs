@@ -8,7 +8,7 @@ namespace Lone.App.Controles;
 /// sem passar de <see cref="Minimo"/> e <see cref="Maximo"/>. Vazio + seta começa em <see cref="ValorInicial"/>.
 /// Mesmo tamanho dos outros campos (rótulo em cima, caixa de 44).
 /// </summary>
-public sealed class CampoNumero : ContentView
+public sealed class CampoNumero : ContentView, ICampoValidavel
 {
     private const double LarguraSetas = 30;
 
@@ -50,8 +50,16 @@ public sealed class CampoNumero : ContentView
             Spacing = 0, WidthRequest = LarguraSetas, HorizontalOptions = LayoutOptions.End, VerticalOptions = LayoutOptions.Center,
             Children = { _mais, _menos }
         };
-        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada, setas } } } };
+        _marca = new MarcaDeErro(_entrada);
+        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada, setas } }, _marca.Rotulo } };
     }
+
+    private readonly MarcaDeErro _marca;
+
+    /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
+    public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    public bool Focar() => _entrada.IsEnabled && _entrada.Focus();
 
     public string Rotulo { get => (string)GetValue(RotuloProperty); set => SetValue(RotuloProperty, value); }
     public string Texto { get => (string)GetValue(TextoProperty); set => SetValue(TextoProperty, value); }

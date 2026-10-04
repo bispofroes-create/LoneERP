@@ -4,7 +4,7 @@ using System.Collections.Specialized;
 namespace Lone.App.Controles;
 
 /// <summary>Rótulo + lista de escolha. O texto de cada item é o ToString() dele.</summary>
-public sealed class CampoEscolha : ContentView
+public sealed class CampoEscolha : ContentView, ICampoValidavel
 {
     public static readonly BindableProperty RotuloProperty = BindableProperty.Create(
         nameof(Rotulo), typeof(string), typeof(CampoEscolha), string.Empty,
@@ -36,8 +36,16 @@ public sealed class CampoEscolha : ContentView
             // -1 acontece ao trocar ou mexer na lista de itens; não apaga a escolha feita.
             if (!_sincronizando && _lista.SelectedIndex >= 0) Selecionado = _lista.SelectedItem;
         };
-        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, _lista } };
+        _marca = new MarcaDeErro(_lista);
+        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, _lista, _marca.Rotulo } };
     }
+
+    private readonly MarcaDeErro _marca;
+
+    /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
+    public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    public bool Focar() => _lista.IsEnabled && _lista.Focus();
 
     public string Rotulo { get => (string)GetValue(RotuloProperty); set => SetValue(RotuloProperty, value); }
     public IList? Itens { get => (IList?)GetValue(ItensProperty); set => SetValue(ItensProperty, value); }

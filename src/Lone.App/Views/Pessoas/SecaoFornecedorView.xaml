@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:cf="clr-namespace:Lone.Domain.Pessoas;assembly=Lone.Domain"
              x:Class="Lone.App.Views.Pessoas.SecaoFornecedorView"
              x:DataType="pes:PessoasViewModel">
     <!-- Bloco próprio, abaixo do Cliente: a mesma pessoa pode ser cliente e fornecedor (um cadastro só). -->
@@ -13,9 +14,9 @@
             <!-- Condição do cadastro de condições de pagamento (o texto antigo fica guardado, só leitura). -->
             <c:CampoEscolha Rotulo="Condição de pagamento" Itens="{Binding Formulario.ContaFornecedor.Condicoes}"
                             Selecionado="{Binding Formulario.ContaFornecedor.Condicao}" IsEnabled="{Binding Formulario.OpcoesComercialCarregadas}" />
-            <c:Campo Rotulo="Prazo médio de pagamento (dias)" Texto="{Binding Formulario.ContaFornecedor.PrazoMedioDias}" Teclado="Numeric" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.PrazosFornecedor}" Rotulo="Prazo médio de pagamento (dias)" Texto="{Binding Formulario.ContaFornecedor.PrazoMedioDias}" Teclado="Numeric" />
             <c:Campo Rotulo="Prazo de entrega (dias)" Texto="{Binding Formulario.ContaFornecedor.LeadTimeDias}" Teclado="Numeric" />
-            <c:Campo Rotulo="Avaliação (1 a 5)" Texto="{Binding Formulario.ContaFornecedor.Avaliacao}" Teclado="Numeric" Dica="Vazio = sem avaliação" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.AvaliacaoFornecedor}" Rotulo="Avaliação (1 a 5)" Texto="{Binding Formulario.ContaFornecedor.Avaliacao}" Teclado="Numeric" Dica="Vazio = sem avaliação" />
             <c:Campo Rotulo="Observações" Texto="{Binding Formulario.ContaFornecedor.Observacoes}" FlexLayout.Basis="100%" />
         </c:BlocoCampos>
         <Label Text="{Binding Formulario.ContaFornecedor.TextoCondicaoAnterior}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap"

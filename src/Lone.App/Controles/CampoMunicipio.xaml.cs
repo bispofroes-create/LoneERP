@@ -4,7 +4,7 @@ namespace Lone.App.Controles;
 /// Escolha de município (UF + autocompletar). Só aparência: a lista, o filtro e a regra "só vale o que foi
 /// escolhido" ficam no SeletorMunicipio (Lone.Cliente), que é o BindingContext deste controle.
 /// </summary>
-public partial class CampoMunicipio : ContentView
+public partial class CampoMunicipio : ContentView, ICampoValidavel
 {
     public static readonly BindableProperty RotuloProperty = BindableProperty.Create(
         nameof(Rotulo), typeof(string), typeof(CampoMunicipio), "Município",
@@ -18,7 +18,21 @@ public partial class CampoMunicipio : ContentView
     public CampoMunicipio()
     {
         InitializeComponent();
+        _marca = new MarcaDeErro(EntradaMunicipio);
+        Pilha.Children.Insert(1, _marca.Rotulo); // logo abaixo da UF e do município
     }
+
+    private readonly MarcaDeErro _marca;
+
+    /// <summary>Marca de erro (Lone Contextual, Fase 1): borda no município e "⚠ mensagem" embaixo; nulo tira.</summary>
+    public void MostrarErro(string? mensagem)
+    {
+        _marca.Mostrar(mensagem);
+        EscolhaUf.MostrarErro(null); // a mensagem fica uma vez só, embaixo dos dois
+    }
+
+    /// <summary>Foco no município; sem UF escolhida (município desligado), na UF.</summary>
+    public bool Focar() => EntradaMunicipio.IsEnabled ? EntradaMunicipio.Focus() : EscolhaUf.Focar();
 
     public string Rotulo { get => (string)GetValue(RotuloProperty); set => SetValue(RotuloProperty, value); }
     public bool Empilhado { get => (bool)GetValue(EmpilhadoProperty); set => SetValue(EmpilhadoProperty, value); }

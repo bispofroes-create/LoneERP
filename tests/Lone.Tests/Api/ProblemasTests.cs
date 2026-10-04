@@ -21,6 +21,27 @@ public class ProblemasTests
     }
 
     [Fact]
+    public void Erro_com_campo_vai_em_itens_e_erros_continua_igual()
+    {
+        var endereco = Guid.NewGuid();
+        var problema = Problemas.De(new ValidacaoException(
+        [
+            new ErroValidacao("CPF inválido.", "identificacao.documento"),
+            new ErroValidacao("Endereço 1: informe o logradouro.", "enderecos.logradouro", endereco),
+            new ErroValidacao("Regra sem campo.")
+        ]))!;
+
+        Assert.Equal(new[] { "CPF inválido.", "Endereço 1: informe o logradouro.", "Regra sem campo." },
+            (IReadOnlyList<string>)problema.Extensions[ErrosApi.CampoErros]!);
+        var itens = (List<ItemErroApi>)problema.Extensions[ErrosApi.CampoItens]!;
+        Assert.Equal(3, itens.Count);
+        Assert.Equal("identificacao.documento", itens[0].Campo);
+        Assert.Null(itens[0].Item);
+        Assert.Equal(endereco, itens[1].Item);
+        Assert.Null(itens[2].Campo);
+    }
+
+    [Fact]
     public void Falta_de_permissao_vira_403_com_o_codigo_da_permissao()
     {
         var problema = Problemas.De(new AcessoNegadoException(Permissoes.Pessoas.Editar))!;
