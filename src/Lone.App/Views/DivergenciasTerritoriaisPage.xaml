@@ -1,56 +1,109 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Comercial › Divergências territoriais (Fase 2b-1b, DN-14): quem o motor colocaria diferente hoje, e por quê; "Criar operação com estas" abre um rascunho TE- sem mudanças que as corrige. -->
+<!-- Comercial › Divergências territoriais (Fase 2b-1b, DN-14; refeita em 04/10/2026 no padrão de consulta do Lone,
+     docs/UX-ARQUITETURA.md): cabeçalho; filtro (mapa + Conferir no fim); barra da lista com o contador, os atalhos por
+     efeito, "Criar operação com estas" e Exportar ▾; lista em colunas ordenável; "Por quê?" do cliente tocado ao lado;
+     lista vazia em uma frase. "Criar operação com estas" abre um rascunho TE- sem mudanças que as corrige. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:t="clr-namespace:Lone.Cliente.ViewModels.Territorios;assembly=Lone.Cliente"
+             xmlns:gr="clr-namespace:Lone.Cliente.Grade;assembly=Lone.Cliente"
              xmlns:c="clr-namespace:Lone.App.Controles"
+             xmlns:grade="clr-namespace:Lone.App.Controles.Grade"
              x:Class="Lone.App.Views.DivergenciasTerritoriaisPage"
              x:DataType="t:DivergenciasTerritoriaisViewModel"
              Title="Divergências territoriais">
-    <ScrollView>
-        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="10">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="{OnIdiom Phone='16,16', Default='32,24'}" RowSpacing="16">
+        <VerticalStackLayout Spacing="4">
             <Label Text="Divergências territoriais" Style="{StaticResource TituloPagina}" />
-            <Label Text="O cadastro de clientes muda (endereço, etiquetas, CNAE...) sem passar pelas operações. Aqui aparece, por mapa, quem as regras e exceções de hoje colocariam num território diferente do gravado, e por quê. Para corrigir, crie uma operação com estas divergências: ela é simulada e aplicada como qualquer outra."
+            <Label Text="Quem as regras e exceções de hoje colocariam num território diferente do gravado, e por quê. Para corrigir, crie uma operação com estas divergências: ela é simulada e aplicada como qualquer outra."
                    Style="{StaticResource SubtituloPagina}" LineBreakMode="WordWrap" />
-            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
-            <!-- Campo + botão = 1 coluna da grade, com o botão alinhado à caixa (mesmo padrão do CNPJ + Consultar). -->
-            <c:BlocoCampos>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Padding="0,0,12,8">
-                    <c:CampoEscolha Rotulo="Mapa territorial" Itens="{Binding Mapas}" Selecionado="{Binding Mapa}" Padding="0" />
-                    <Button Grid.Column="1" Text="Conferir" Command="{Binding ConferirCommand}" IsEnabled="{Binding Livre}" VerticalOptions="End" />
-                </Grid>
-            </c:BlocoCampos>
-            <Label Text="{Binding Resumo}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
-            <Button Text="Criar operação com estas" Command="{Binding CriarOperacaoCommand}" IsVisible="{Binding PodeCriarOperacao}"
-                    IsEnabled="{Binding Livre}" HorizontalOptions="Start" />
-            <!-- Lista num painel com a largura da página; o "Por quê?" do cliente escolhido fica ao lado (03/10/2026). -->
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16" IsVisible="{Binding TemItens}">
-                <Border Style="{StaticResource PainelConteudo}" Padding="8">
-                    <VerticalStackLayout Spacing="4">
-                        <CollectionView ItemsSource="{Binding Itens}" SelectionMode="Single" SelectedItem="{Binding Selecionado}" MaximumHeightRequest="520">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="t:LinhaItemTerritorial">
-                                    <VerticalStackLayout Padding="8,6">
-                                        <Label Text="{Binding Titulo}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding Mudanca}" LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation" />
-                                    </VerticalStackLayout>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                        <Button Text="Mostrar mais" Style="{StaticResource BotaoLink}" Command="{Binding MaisCommand}" IsVisible="{Binding TemMais}" HorizontalOptions="Start" />
-                    </VerticalStackLayout>
-                </Border>
-                <Border Grid.Column="1" Style="{StaticResource PainelConteudo}" WidthRequest="{StaticResource LarguraPainel}" VerticalOptions="Start"
-                        IsVisible="{Binding TemSelecionado}">
-                    <VerticalStackLayout Spacing="4">
-                        <Label Text="Por quê?" Style="{StaticResource SecaoTitulo}" />
-                        <Label Text="{Binding Selecionado.Titulo}" FontAttributes="Bold" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding Selecionado.PorQue}" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
-                </Border>
-            </Grid>
-            <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" HorizontalOptions="Start" />
         </VerticalStackLayout>
-    </ScrollView>
+
+        <!-- Filtro: mapa e Conferir no fim da linha, alinhado à caixa (como Filtrar). -->
+        <c:BlocoCampos Grid.Row="1" AlignItems="End">
+            <c:CampoEscolha Rotulo="Mapa territorial" Itens="{Binding Mapas}" Selecionado="{Binding Mapa}"
+                            FlexLayout.Basis="{OnIdiom Phone='100%', Default='320'}" />
+            <HorizontalStackLayout Spacing="8" Padding="0,0,0,8">
+                <Button Text="Conferir" Command="{Binding ConferirCommand}" IsEnabled="{Binding Livre}"
+                        ToolTipProperties.Text="Calcula agora, com as regras e exceções de hoje, quem ficaria em outro território" />
+            </HorizontalStackLayout>
+        </c:BlocoCampos>
+
+        <c:BarraMensagem Grid.Row="2" Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+        <!-- Barra da lista: título com o contador e atalhos por efeito à esquerda; ação principal e Exportar ▾ à direita. -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+            <Label Text="{Binding TituloLista}" Style="{StaticResource SecaoTitulo}" VerticalOptions="Center" />
+            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center" BindableLayout.ItemsSource="{Binding Atalhos}"
+                                   IsVisible="{Binding MostrarAtalhos}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="t:AtalhoEfeito">
+                        <c:AtalhoContagem Texto="{Binding Texto}" Quantidade="{Binding Quantidade}" Selecionado="{Binding Selecionado}" IsVisible="{Binding Visivel}"
+                                          MostrarQuantidade="{Binding MostrarQuantidades, Source={RelativeSource AncestorType={x:Type t:DivergenciasTerritoriaisViewModel}}, x:DataType=t:DivergenciasTerritoriaisViewModel}"
+                                          Comando="{Binding SelecionarEfeitoCommand, Source={RelativeSource AncestorType={x:Type t:DivergenciasTerritoriaisViewModel}}, x:DataType=t:DivergenciasTerritoriaisViewModel}"
+                                          Parametro="{Binding .}" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+            <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                <ActivityIndicator IsRunning="{Binding Ocupado}" IsVisible="{Binding Ocupado}" VerticalOptions="Center" />
+                <Button Text="Criar operação com estas" Command="{Binding CriarOperacaoCommand}" IsVisible="{Binding PodeCriarOperacao}"
+                        IsEnabled="{Binding Livre}"
+                        ToolTipProperties.Text="Rascunho de operação neste mapa, sem mudanças planejadas: simule e aplique em Operações territoriais para corrigir" />
+                <c:BotaoMenu Texto="Exportar ▾" IsVisible="{Binding MostrarExportar}" Dica="Imprimir, salvar em PDF ou abrir no Excel (com o atalho em uso)"
+                             Texto1="Imprimir / PDF" Comando1="{Binding ImprimirCommand}"
+                             Texto2="Excel (CSV)" Comando2="{Binding ExportarCsvCommand}" />
+            </HorizontalStackLayout>
+        </Grid>
+
+        <!-- Lista em colunas e, ao lado, o "Por quê?" do cliente tocado (tocar de novo, ou ×, fecha). -->
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <Border Style="{StaticResource PainelConteudo}" Padding="0">
+                <Grid>
+                    <grade:GradeLista Conteudo="{Binding ConteudoLista}"
+                                      ColunaFixa="{Binding GradeDaLista.ColunaFixa}"
+                                      AlturaLinha="{Binding GradeDaLista.AlturaLinha}"
+                                      ComandoTocar="{Binding AbrirLinhaCommand}"
+                                      ComandoPonteiroEntrou="{Binding GradeDaLista.EntrarNaLinhaCommand}"
+                                      ComandoPonteiroSaiu="{Binding GradeDaLista.SairDaLinhaCommand}"
+                                      ComandoOrdenar="{Binding GradeDaLista.OrdenarColunaCommand}"
+                                      ColunaOrdenada="{Binding GradeDaLista.ColunaOrdenadaChave}"
+                                      OrdemDecrescente="{Binding GradeDaLista.OrdemDecrescente}">
+                        <grade:GradeLista.MoldeParteFixa>
+                            <DataTemplate x:DataType="gr:LinhaCadastro">
+                                <Label Text="{Binding Titulo}" Style="{StaticResource TextoTabela}" FontAttributes="Bold" VerticalOptions="Center"
+                                       Padding="16,0,8,0" LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding Titulo}" />
+                            </DataTemplate>
+                        </grade:GradeLista.MoldeParteFixa>
+                    </grade:GradeLista>
+                    <VerticalStackLayout IsVisible="{Binding ListaVazia}" Spacing="8" Padding="32,48" Margin="0,40,0,0"
+                                         HorizontalOptions="Center" VerticalOptions="Start">
+                        <Label Text="{Binding TituloVazio}" Style="{StaticResource SecaoTitulo}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding TextoVazio}" Style="{StaticResource SubtituloPagina}" HorizontalTextAlignment="Center" HorizontalOptions="Center" />
+                        <Button Text="{Binding TextoAcaoVazio}" Style="{StaticResource BotaoSecundario}" Command="{Binding AcaoVazioCommand}"
+                                IsVisible="{Binding MostrarAcaoVazio}" HorizontalOptions="Center" Margin="0,8,0,0" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource PainelConteudo}" WidthRequest="{StaticResource LarguraPainel}" VerticalOptions="Start"
+                    IsVisible="{Binding TemSelecionado}">
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Por quê?" Style="{StaticResource SecaoTitulo}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="✕" Style="{StaticResource BotaoLink}" Command="{Binding FecharPorQueCommand}"
+                                ToolTipProperties.Text="Fechar" SemanticProperties.Description="Fechar o por quê" />
+                    </Grid>
+                    <Label Text="{Binding Selecionado.Titulo}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Selecionado.Mudanca}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Selecionado.PorQue}" LineBreakMode="WordWrap" Style="{StaticResource Secundario}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- A API pagina (até 1.000 por leitura): "1.000 de 1.240 · Mostrar mais". -->
+        <HorizontalStackLayout Grid.Row="5" Spacing="8" IsVisible="{Binding TemMais}">
+            <Label Text="{Binding TextoMais}" Style="{StaticResource Secundario}" VerticalOptions="Center" />
+            <Button Text="Mostrar mais" Style="{StaticResource BotaoLink}" Command="{Binding MaisCommand}" IsEnabled="{Binding Livre}" />
+        </HorizontalStackLayout>
+    </Grid>
 </ContentPage>

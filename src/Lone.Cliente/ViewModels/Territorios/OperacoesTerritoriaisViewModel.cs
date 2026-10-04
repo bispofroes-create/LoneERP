@@ -108,7 +108,10 @@ public sealed class LinhaItemTerritorial
     }
 
     public ItemOperacaoTerritorialDto Item { get; }
-    public string Titulo => $"{Item.Codigo} · {Item.Pessoa}";
+    /// <summary>"000008 · Medição P2 01": o código com 6 dígitos, como no cadastro de Pessoas.</summary>
+    public string Titulo => Item.Codigo is { } codigo
+        ? $"{codigo.ToString("000000", System.Globalization.CultureInfo.InvariantCulture)} · {Item.Pessoa}"
+        : Item.Pessoa ?? string.Empty;
     public string Mudanca => $"{Item.TerritorioAtual ?? "sem território"} → {Item.TerritorioProposto ?? "sem território"}";
     public string Detalhe => string.Join("  ·  ", new[]
     {
