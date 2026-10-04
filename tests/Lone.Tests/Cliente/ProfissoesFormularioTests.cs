@@ -57,6 +57,42 @@ public class ProfissoesFormularioTests
     }
 
     [Fact]
+    public void Ficha_oferece_a_CBO_depois_das_cadastradas_sem_repetir_codigo_nem_nome()
+    {
+        var engenheiro = new ProfissaoDto { Id = Guid.NewGuid(), Nome = "Engenheiro de Software", Ativo = true, OcupacaoCboId = 212405 };
+        var f = PessoaFormulario.NovaPessoa(profissoes: [engenheiro, Advogado]);
+        f.OferecerOcupacoesCbo([
+            new OcupacaoCboDto { Codigo = 212405, Titulo = "Analista de desenvolvimento de sistemas" }, // já ligada
+            new OcupacaoCboDto { Codigo = 241005, Titulo = "ADVOGADO" },                               // mesmo nome
+            new OcupacaoCboDto { Codigo = 214205, Titulo = "Engenheiro civil" }]);
+
+        f.Profissao.Texto = "engenheiro";
+
+        Assert.Equal(new[] { "Engenheiro de Software", "Engenheiro civil" }, f.Profissao.Sugestoes.Select(s => s.Texto));
+        Assert.Equal("CBO 2142-05", f.Profissao.Sugestoes[1].Detalhe);
+        Assert.Equal(3, f.Profissao.Itens.Count);
+    }
+
+    [Fact]
+    public void Ocupacao_da_CBO_escolhida_vai_para_a_API_sem_profissao()
+    {
+        var f = PessoaFormulario.NovaPessoa(profissoes: [Advogado]);
+        f.OferecerOcupacoesCbo([new OcupacaoCboDto { Codigo = 214205, Titulo = "Engenheiro civil" }]);
+
+        f.Profissao.Texto = "2142-05";
+        f.Profissao.Escolher(f.Profissao.Sugestoes.Single());
+
+        var dto = f.ParaDto();
+        Assert.Null(dto.ProfissaoId);
+        Assert.Equal(214205, dto.OcupacaoCboEscolhida);
+        Assert.Equal("Engenheiro civil", f.Profissao.Texto);
+
+        f.Profissao.Texto = "advogado";
+        Assert.Equal(Advogado.Id, f.ParaDto().ProfissaoId);
+        Assert.Null(f.ParaDto().OcupacaoCboEscolhida);
+    }
+
+    [Fact]
     public void Profissao_gravada_fora_da_lista_lida_volta_intacta()
     {
         var gravada = Guid.NewGuid();

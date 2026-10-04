@@ -7,6 +7,24 @@ namespace Lone.Tests.Dominio;
 public class ProfissoesTests
 {
     [Fact]
+    public void Nome_vindo_da_CBO_cabe_no_cadastro()
+    {
+        Assert.Equal("Engenheiro civil", RegrasProfissao.NomeDaOcupacao("  Engenheiro   civil "));
+
+        var longo = RegrasProfissao.NomeDaOcupacao(new string('a', 120));
+        Assert.Equal(Profissao.TamanhoMaximoNome, longo.Length);
+        Assert.EndsWith("…", longo);
+    }
+
+    [Fact]
+    public void Ocupacao_escolhida_na_pessoa_precisa_existir_e_estar_vigente()
+    {
+        Assert.NotNull(RegrasProfissao.ValidarOcupacaoEscolhida(214205, null));
+        Assert.NotNull(RegrasProfissao.ValidarOcupacaoEscolhida(214205, new OcupacaoCbo { Id = 214205, Titulo = "x", Ativo = false }));
+        Assert.Null(RegrasProfissao.ValidarOcupacaoEscolhida(214205, new OcupacaoCbo { Id = 214205, Titulo = "x", Ativo = true }));
+    }
+
+    [Fact]
     public void Nome_e_descricao_sao_limpos()
     {
         var profissao = new Profissao { Nome = "  Advogado   tributarista ", Descricao = " " };

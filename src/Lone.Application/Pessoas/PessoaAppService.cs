@@ -56,6 +56,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly ICampoPersonalizadoRepositorio _campos;
     private readonly IEtiquetaRepositorio _etiquetas;
     private readonly IProfissaoRepositorio _profissoes;
+    private readonly IOcupacaoCboRepositorio _ocupacoesCbo;
     private readonly IPapelRepositorio _papeis;
     private readonly ITipoMeioContatoRepositorio _tiposMeio;
     private readonly ITipoEnderecoRepositorio _tiposEndereco;
@@ -83,8 +84,10 @@ public sealed class PessoaAppService : IPessoaAppService
                             ReferenciasComercial comercial, ICnaeRepositorio cnaes,
                             ISituacaoAppService situacoes, TimeProvider relogio, IFinalidadeEnderecoRepositorio finalidades,
                             IGrupoEmpresarialRepositorio gruposEmpresariais, IPessoaRelacionamentoRepositorio relacionamentos,
-                            IEscopoPessoas escopo, IPessoasNoEscopo noEscopo, IAlcanceDoUsuario alcance)
+                            IEscopoPessoas escopo, IPessoasNoEscopo noEscopo, IAlcanceDoUsuario alcance,
+                            IOcupacaoCboRepositorio ocupacoesCbo)
     {
+        _ocupacoesCbo = ocupacoesCbo;
         _escopo = escopo;
         _noEscopo = noEscopo;
         _alcance = alcance;
@@ -288,6 +291,28 @@ public sealed class PessoaAppService : IPessoaAppService
         return _auditoria.OpcoesPorRaizAsync(nameof(Pessoa), pessoaId, ct);
     }
 
+    /// <summary>
+    /// Profissão da ocupação da CBO escolhida na ficha: a ligada ao código ou a de mesmo nome; se não houver, cria a
+    /// profissão com o título oficial e o código (fonte controlada, por isso não exige a permissão do cadastro de
+    /// profissões). Fica gravada mesmo que a pessoa não chegue a ser salva: serve para os próximos cadastros.
+    /// </summary>
+    private async Task<Guid> ProfissaoParaOcupacaoAsync(OcupacaoCbo ocupacao, CancellationToken ct)
+    {
+        var nome = RegrasProfissao.NomeDaOcupacao(ocupacao.Titulo);
+        if (await _profissoes.ObterParaOcupacaoAsync(ocupacao.Id, nome, ct) is { } existente)
+        {
+            if (!existente.Ativo)
+                throw new ValidacaoException([$"A profissão \"{existente.Nome}\" está desativada. Reative-a em Configurações, \"Profissões\", ou escolha outra."]);
+            return existente.Id;
+        }
+
+        var nova = new Profissao { Id = IdSequencial.Novo(), Nome = nome, OcupacaoCboId = ocupacao.Id, Ativo = true };
+        RegrasProfissao.Normalizar(nova);
+        nova.RegistrarEvento($"Profissão '{nova.Nome}' criada a partir da CBO {OcupacaoCbo.Formatar(ocupacao.Id)}, no cadastro de pessoa.");
+        await _profissoes.SalvarAsync(nova, nova: true, ct);
+        return nova.Id;
+    }
+
     public async Task<ResultadoSalvarPessoa> SalvarAsync(PessoaDto dto, CancellationToken ct = default)
     {
         // Id que ainda não existe = inclusão (o aparelho pode ter gerado o Id, inclusive offline).
@@ -431,6 +456,15 @@ public sealed class PessoaAppService : IPessoaAppService
                 dados.ProfissaoId is { } profissaoId ? await _profissoes.ObterAsync(profissaoId, ct) : null) is { } erroProfissao)
             erros.Add(erroProfissao);
 
+        // Ocupação da CBO escolhida sem profissão cadastrada: conferida aqui; a profissão é resolvida depois das regras.
+        OcupacaoCbo? ocupacaoEscolhida = null;
+        if (dados.ProfissaoId is null && dto.OcupacaoCboEscolhida is { } codigoCbo)
+        {
+            ocupacaoEscolhida = (await _ocupacoesCbo.ObterAsync([codigoCbo], ct)).GetValueOrDefault(codigoCbo);
+            if (RegrasProfissao.ValidarOcupacaoEscolhida(codigoCbo, ocupacaoEscolhida) is { } erroOcupacao)
+                erros.Add(erroOcupacao);
+        }
+
         // Pessoa jurídica gravada não vira outra natureza (nada é perdido em silêncio: recusa com a lista do que se perderia).
         if (anterior is { Natureza: NaturezaPessoa.Juridica } && dados.Natureza != NaturezaPessoa.Juridica &&
             RegrasNaturezaPessoa.ValidarTroca(anterior, dados, await _relacionamentos.ContarSocietariosComoEmpresaAsync(dados.Id, ct)) is { } erroNatureza)
@@ -460,6 +494,9 @@ public sealed class PessoaAppService : IPessoaAppService
 
         if (erros.Count > 0)
             throw new ValidacaoException(erros);
+
+        if (ocupacaoEscolhida is not null)
+            dados.ProfissaoId = await ProfissaoParaOcupacaoAsync(ocupacaoEscolhida, ct);
 
         // Papel que começou ou terminou vira frase no histórico (os períodos em si também ficam gravados).
         if (anterior is not null)

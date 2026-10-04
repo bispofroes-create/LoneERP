@@ -13,6 +13,12 @@ public interface IProfissaoRepositorio
     /// <summary>Nome já usado por outra profissão, sem diferenciar maiúsculas nem acentos (collation da coluna).</summary>
     Task<bool> NomeEmUsoAsync(string nome, Guid ignorarId, CancellationToken ct);
 
+    /// <summary>
+    /// Profissão para uma ocupação da CBO: a ativa ligada ao código; senão a de mesmo nome (maiúsculas e acentos não
+    /// contam; pode estar desativada); senão nula.
+    /// </summary>
+    Task<Profissao?> ObterParaOcupacaoAsync(int codigo, string nome, CancellationToken ct);
+
     /// <summary>Quantos cadastros têm cada profissão (ou só a informada); as sem uso não aparecem no dicionário.</summary>
     Task<Dictionary<Guid, int>> ContarPessoasAsync(Guid? somenteProfissaoId, CancellationToken ct);
 

@@ -40,6 +40,14 @@ public class ProfissaoRepositorio : ServicoDadosBase, IProfissaoRepositorio
         return await db.Profissoes.AnyAsync(p => p.Nome == nome && p.Id != ignorarId, ct);
     }
 
+    public async Task<Profissao?> ObterParaOcupacaoAsync(int codigo, string nome, CancellationToken ct)
+    {
+        await using var db = await AbrirAsync(ct);
+        return await db.Profissoes.AsNoTracking()
+                   .Where(p => p.Ativo && p.OcupacaoCboId == codigo).OrderBy(p => p.Nome).FirstOrDefaultAsync(ct)
+               ?? await db.Profissoes.AsNoTracking().FirstOrDefaultAsync(p => p.Nome == nome, ct); // collation CI_AI
+    }
+
     public async Task<Dictionary<Guid, int>> ContarPessoasAsync(Guid? somenteProfissaoId, CancellationToken ct)
     {
         await using var db = await AbrirAsync(ct);

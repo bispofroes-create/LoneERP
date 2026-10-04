@@ -17,6 +17,7 @@ public class AnexosTelaTests
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Etiquetas.EtiquetaDto>())
             .Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>())
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Profissoes.ProfissaoDto>())
+            .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Profissoes.OcupacaoCboDto>()) // tabela CBO
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Papeis.PapelCadastroDto>())
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Contatos.TipoMeioContatoDto>())
             .Responder(HttpStatusCode.OK, new List<Lone.Contracts.Enderecos.TipoEnderecoDto>())

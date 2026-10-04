@@ -698,6 +698,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             NomeMae = TextoTela.Nulo(NomeMae),
             NomePai = TextoTela.Nulo(NomePai),
             ProfissaoId = EhFisica ? ProfissaoEscolhida() : null,
+            OcupacaoCboEscolhida = EhFisica ? OcupacaoEscolhida() : null,
             DataAbertura = abertura,
             Porte = TextoTela.Nulo(Porte),
             CapitalSocial = capital,
@@ -758,6 +759,11 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     /// <summary>Gravada, mas fora da lista lida (a lista não pôde ser lida): volta intacta ao salvar.</summary>
     private Guid? _profissaoDesconhecida;
+    private IReadOnlyList<ProfissaoDto> _profissoesCadastro = [];
+    private IReadOnlyList<OcupacaoCboDto> _ocupacoesCbo = [];
+
+    /// <summary>Chave das sugestões que vêm da CBO (as do cadastro usam o Id da profissão).</summary>
+    public const string PrefixoCbo = "cbo:";
 
     /// <summary>
     /// Oferece as profissões ativas e mostra a gravada (mesmo desativada). Sem a lista (falha ao ler), a gravada
@@ -765,30 +771,68 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// </summary>
     private void DefinirProfissoes(IReadOnlyList<ProfissaoDto>? profissoes, Guid? gravada)
     {
-        var lista = profissoes ?? [];
-        Profissao.DefinirItens(lista.Where(x => x.Ativo).OrderBy(x => x.Nome, StringComparer.CurrentCultureIgnoreCase)
-            .Select(ItemDe).ToList());
-        var atual = gravada is { } id ? lista.FirstOrDefault(x => x.Id == id) : null;
+        _profissoesCadastro = profissoes ?? [];
+        MontarItensProfissao();
+        var atual = gravada is { } id ? _profissoesCadastro.FirstOrDefault(x => x.Id == id) : null;
         _profissaoDesconhecida = gravada is not null && atual is null ? gravada : null;
         Profissao.Definir(atual is null ? null : ItemDe(atual));
+    }
+
+    /// <summary>
+    /// Oferece também as ocupações da tabela oficial da CBO (depois das profissões cadastradas). Escolher uma delas
+    /// faz a API usar ou criar a profissão ao salvar.
+    /// </summary>
+    public void OferecerOcupacoesCbo(IReadOnlyList<OcupacaoCboDto>? ocupacoes)
+    {
+        _ocupacoesCbo = ocupacoes ?? [];
+        MontarItensProfissao();
+    }
+
+    /// <summary>Profissões ativas e, abaixo, as ocupações da CBO que ainda não têm profissão (pelo código ou pelo nome).</summary>
+    private void MontarItensProfissao()
+    {
+        var ligadas = _profissoesCadastro.Where(p => p.OcupacaoCboId is not null).Select(p => p.OcupacaoCboId!.Value).ToHashSet();
+        var nomes = _profissoesCadastro.Select(p => TextoBusca.Normalizar(p.Nome)).ToHashSet();
+        var cadastradas = _profissoesCadastro.Where(x => x.Ativo).OrderBy(x => x.Nome, StringComparer.CurrentCultureIgnoreCase)
+            .Select(ItemDe);
+        var daCbo = _ocupacoesCbo
+            .Where(o => !ligadas.Contains(o.Codigo))
+            .Select(o => (Ocupacao: o, Nome: global::Lone.Domain.Profissoes.RegrasProfissao.NomeDaOcupacao(o.Titulo)))
+            .Where(x => !nomes.Contains(TextoBusca.Normalizar(x.Nome)))
+            .Select(x => new ItemSeletor(PrefixoCbo + x.Ocupacao.Codigo.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                x.Nome, $"{x.Ocupacao.Codigo} {x.Ocupacao.CodigoFormatado}", $"CBO {x.Ocupacao.CodigoFormatado}", Grupo: 1));
+        Profissao.DefinirItens([.. cadastradas, .. daCbo]);
     }
 
     /// <summary>Profissão criada agora pelo atalho da ficha: entra na lista e já fica escolhida.</summary>
     public void IncluirProfissao(ProfissaoDto profissao)
     {
-        var item = ItemDe(profissao);
-        Profissao.DefinirItens([.. Profissao.Itens.Where(i => i.Chave != item.Chave), item]);
+        _profissoesCadastro = [.. _profissoesCadastro.Where(p => p.Id != profissao.Id), profissao];
+        MontarItensProfissao();
         _profissaoDesconhecida = null;
-        Profissao.Definir(item);
+        Profissao.Definir(ItemDe(profissao));
     }
 
-    private static ItemSeletor ItemDe(ProfissaoDto p) => new(p.Id.ToString(), p.Ativo ? p.Nome : p.Nome + " (desativada)");
+    private static ItemSeletor ItemDe(ProfissaoDto p) =>
+        new(p.Id.ToString(), p.Ativo ? p.Nome : p.Nome + " (desativada)",
+            p.OcupacaoCboId is { } codigo ? $"{codigo} {Formatar(codigo)}" : null,
+            p.OcupacaoCboId is { } c ? $"CBO {Formatar(c)}" : null);
+
+    private static string Formatar(int codigo) => codigo.ToString("0000-00", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>A escolhida; sem escolha e sem texto, a gravada que não veio na lista (se houver) continua.</summary>
     private Guid? ProfissaoEscolhida() =>
         Guid.TryParse(Profissao.Chave, out var id) ? id
         : string.IsNullOrWhiteSpace(Profissao.Texto) ? _profissaoDesconhecida
         : null;
+
+    /// <summary>Ocupação da CBO escolhida (ainda sem profissão no cadastro): a API resolve a profissão ao salvar.</summary>
+    private int? OcupacaoEscolhida() =>
+        Profissao.Chave is { } chave && chave.StartsWith(PrefixoCbo, StringComparison.Ordinal) &&
+        int.TryParse(chave.AsSpan(PrefixoCbo.Length), System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var codigo)
+            ? codigo
+            : null;
 
     private static List<CampoPersonalizadoFormulario> MontarInformacoesAdicionais(
         IReadOnlyList<CampoPersonalizadoDto>? campos, IReadOnlyList<ValorPersonalizadoDto> valores) =>

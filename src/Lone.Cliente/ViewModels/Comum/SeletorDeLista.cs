@@ -7,8 +7,15 @@ namespace Lone.Cliente.ViewModels.Comum;
 
 /// <summary>Um item escolhível: a chave gravada (Id ou código) e o texto mostrado.</summary>
 /// <param name="BuscaExtra">Termos a mais para a busca (ex.: o código sem hífen), que não aparecem no texto.</param>
-public sealed record ItemSeletor(string Chave, string Texto, string? BuscaExtra = null)
+/// <param name="Detalhe">Texto secundário mostrado à direita na sugestão (ex.: "CBO 2521-05").</param>
+/// <param name="Grupo">Ordem dos grupos nas sugestões (0 primeiro: ex.: profissões cadastradas antes das da CBO).</param>
+public sealed record ItemSeletor(string Chave, string Texto, string? BuscaExtra = null, string? Detalhe = null, int Grupo = 0)
 {
+    public bool TemDetalhe => !string.IsNullOrEmpty(Detalhe);
+
+    /// <summary>Texto completo para a dica do mouse e o Narrador (a sugestão pode cortar o nome com reticências).</summary>
+    public string Descricao => TemDetalhe ? $"{Texto} ({Detalhe})" : Texto;
+
     /// <summary>Sem acento e em maiúsculas, para a busca.</summary>
     public string Busca { get; } = TextoBusca.Normalizar(BuscaExtra is null ? Texto : Texto + " " + BuscaExtra);
 
@@ -115,7 +122,8 @@ public sealed partial class SeletorDeLista : ObservableObject
 
         var encontrados = _itens
             .Where(i => i.Busca.Contains(termo, StringComparison.Ordinal))
-            .OrderBy(i => i.Busca.StartsWith(termo, StringComparison.Ordinal) ? 0 : 1)
+            .OrderBy(i => i.Grupo)
+            .ThenBy(i => i.Busca.StartsWith(termo, StringComparison.Ordinal) ? 0 : 1)
             .ThenBy(i => i.Busca, StringComparer.Ordinal)
             .Take(MaximoSugestoes)
             .ToList();

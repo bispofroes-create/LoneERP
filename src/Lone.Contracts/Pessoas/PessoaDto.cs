@@ -64,6 +64,12 @@ public sealed class PessoaDto
     /// <summary>Profissão do cadastro de profissões (nula = não informada).</summary>
     public Guid? ProfissaoId { get; set; }
 
+    /// <summary>
+    /// Só na gravação (não é guardado): ocupação da CBO escolhida na ficha quando ainda não há profissão para ela.
+    /// A API usa a profissão ligada a essa ocupação (ou de mesmo nome) e, se não houver, cria a profissão a partir da CBO.
+    /// </summary>
+    public int? OcupacaoCboEscolhida { get; set; }
+
     // ---- Dados da empresa (PJ) ----
     public DateOnly? DataAbertura { get; set; }
     public string? Porte { get; set; }

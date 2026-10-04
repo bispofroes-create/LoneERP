@@ -15,14 +15,35 @@
 
         <Label Text="{Binding Aviso}" IsVisible="{Binding TemAviso}" Style="{StaticResource Secundario}" TextColor="{StaticResource Aviso}" />
 
-        <!-- Sugestões: tocar escolhe (só vale item da lista). -->
-        <Border IsVisible="{Binding MostrarSugestoes}" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+        <!-- Sugestões: tocar escolhe (só vale item da lista). Nome longo termina em reticências (o completo fica na dica
+             do mouse e no Narrador); à direita, o detalhe (ex.: código CBO). O botão transparente por cima dá o foco, o
+             Enter/Espaço e o nome para o Narrador (botão do WinUI não corta com reticências). -->
+        <Border IsVisible="{Binding MostrarSugestoes}" Padding="0,4" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                HorizontalOptions="Fill"
                 Stroke="{AppThemeBinding Light={StaticResource Borda}, Dark={StaticResource BordaEscuro}}">
             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sugestoes}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="comum:ItemSeletor">
-                        <Button Text="{Binding Texto}" Style="{StaticResource BotaoLink}" HorizontalOptions="Fill"
-                                Clicked="Sugestao_Clicked" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="12,0" HeightRequest="36"
+                              ToolTipProperties.Text="{Binding Descricao}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Property="BackgroundColor"
+                                                    Value="{AppThemeBinding Light={StaticResource SuperficieRealce}, Dark={StaticResource SuperficieRealceEscuro}}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Label Text="{Binding Texto}" LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Detalhe}" IsVisible="{Binding TemDetalhe}" Style="{StaticResource Secundario}"
+                                   VerticalOptions="Center" />
+                            <Button Grid.ColumnSpan="2" Margin="-12,0" Text="" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                    CornerRadius="0" MinimumHeightRequest="0" MinimumWidthRequest="0"
+                                    SemanticProperties.Description="{Binding Descricao}" Clicked="Sugestao_Clicked" />
+                        </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
             </VerticalStackLayout>

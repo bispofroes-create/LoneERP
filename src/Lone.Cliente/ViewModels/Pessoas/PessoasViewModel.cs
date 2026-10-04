@@ -65,6 +65,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Cadastro de profissões, com as desativadas (a ficha oferece só as ativas e mostra a gravada).</summary>
     private List<ProfissaoDto> _profissoes = [];
 
+    /// <summary>Tabela oficial da CBO: a ficha oferece as ocupações que ainda não têm profissão (vazia se não importada).</summary>
+    private List<OcupacaoCboDto> _ocupacoesCbo = [];
+
     /// <summary>Cadastro de papéis, com os desativados (a ficha oferece os ativos e mostra os que a pessoa tem).</summary>
     private List<PapelCadastroDto> _papeis = [];
 
@@ -217,6 +220,10 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Sem a lista, a ficha mostra a profissão vazia, mas a gravada volta intacta ao salvar.
         try { _profissoes = await _profissoesApi.ListarAsync(incluirInativas: true); }
         catch (Exception ex) when (ex is not SessaoExpiradaException) { _profissoes = []; }
+
+        // Sem a CBO, a ficha oferece só as profissões cadastradas.
+        try { _ocupacoesCbo = await _profissoesApi.ListarCboAsync(); }
+        catch (Exception ex) when (ex is not SessaoExpiradaException) { _ocupacoesCbo = []; }
 
         // Sem o cadastro de papéis, a ficha usa os papéis de sistema e os outros períodos voltam intactos.
         try
@@ -1371,6 +1378,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         var dto = await _pessoas.ObterAsync(item.Id) ?? throw new ValidacaoException(["Este cadastro não existe mais."]);
         Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
+        Formulario.OferecerOcupacoesCbo(_ocupacoesCbo);
         await CarregarTerritoriosAsync(item.Id);
     }
 
@@ -1400,6 +1408,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     protected override Task NovoItemAsync()
     {
         Formulario = PessoaFormulario.NovaPessoa(_campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
+        Formulario.OferecerOcupacoesCbo(_ocupacoesCbo);
         if (_relacaoParaNova is { } relacao) Formulario.NascerRelacionada(relacao.Pedido, relacao.Tipo, relacao.Outra);
         return Task.CompletedTask;
     }
@@ -1424,6 +1433,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     {
         var aba = Aba;
         Formulario = PessoaFormulario.De(dto, _campos, _etiquetas, _profissoes, _papeis, _tiposMeio, _tiposEndereco, _tiposDocumento, _camposDocumento, _finalidadesEndereco);
+        Formulario.OferecerOcupacoesCbo(_ocupacoesCbo);
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? Secoes[0];
     }
 
@@ -1678,7 +1688,14 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         }
 
-        MostrarGravada(resultado!.Pessoa);
+        // Escolheu uma ocupação da CBO: a API usou ou criou a profissão, que a tela relê para mostrar pelo nome.
+        if (resultado!.Pessoa.ProfissaoId is { } profissaoGravada && _profissoes.All(p => p.Id != profissaoGravada))
+        {
+            try { _profissoes = await _profissoesApi.ListarAsync(incluirInativas: true); }
+            catch (Exception ex) when (ex is not SessaoExpiradaException) { /* a ficha mantém a gravada sem o nome */ }
+        }
+
+        MostrarGravada(resultado.Pessoa);
         MarcarFichaSemAlteracoes();
 
         // Confirmação com o nome que o cabeçalho da ficha mostra ("Pessoa salva: Bruno"); contexto = a pessoa, para que

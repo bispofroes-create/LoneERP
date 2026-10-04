@@ -11,6 +11,19 @@ public static class RegrasProfissao
             ? null
             : string.Join(' ', texto.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    /// <summary>Nome da profissão criada a partir de uma ocupação da CBO (título oficial, cortado no tamanho do nome).</summary>
+    public static string NomeDaOcupacao(string titulo)
+    {
+        var nome = Texto(titulo) ?? string.Empty;
+        return nome.Length <= Profissao.TamanhoMaximoNome ? nome : nome[..(Profissao.TamanhoMaximoNome - 1)].TrimEnd() + "…";
+    }
+
+    /// <summary>Ocupação da CBO escolhida na pessoa (sem profissão cadastrada): precisa existir e estar vigente.</summary>
+    public static string? ValidarOcupacaoEscolhida(int codigo, OcupacaoCbo? ocupacao) =>
+        ocupacao is null ? $"A ocupação CBO {OcupacaoCbo.Formatar(codigo)} não existe na tabela importada."
+        : !ocupacao.Ativo ? $"A ocupação CBO {OcupacaoCbo.Formatar(codigo)} saiu da tabela oficial e não pode ser escolhida."
+        : null;
+
     public static void Normalizar(Profissao profissao)
     {
         profissao.Nome = Texto(profissao.Nome) ?? string.Empty;

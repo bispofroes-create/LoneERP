@@ -42,6 +42,7 @@ public class PessoasViewModelTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto> { Vip }); // cadastro de etiquetas (ficha e filtro)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>()); // campos personalizados
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto> { Advogado }); // cadastro de profissões
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<OcupacaoCboDto>()); // tabela CBO (vazia: não importada)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>()); // cadastro de papéis (vazio: usa os de sistema)
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>()); // tipos de telefone/e-mail
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoEnderecoDto>()); // tipos de endereço
@@ -256,6 +257,7 @@ public class PessoasViewModelCepTests
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<EtiquetaDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<CampoPersonalizadoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<ProfissaoDto>());
+        ambiente.Servidor.Responder(HttpStatusCode.OK, new List<OcupacaoCboDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<PapelCadastroDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoMeioContatoDto>());
         ambiente.Servidor.Responder(HttpStatusCode.OK, new List<TipoEnderecoDto>());
