@@ -17,6 +17,15 @@ public static class AncoraLogica
     public static bool Confirmada(int alvo, int primeiroVisivel, bool listaNoFim) =>
         primeiroVisivel == alvo || (listaNoFim && primeiroVisivel >= 0 && primeiroVisivel < alvo);
 
+    /// <summary>
+    /// Reforço da restauração (decisão P3): depois de restaurar pelo índice, a linha marcada (aberta ou na prévia) que
+    /// ficou fora da vista vai ao topo. Visível (ou sem linha marcada, ou vista desconhecida): nada a fazer.
+    /// </summary>
+    public static int? Reforco(int? marcada, int primeiroVisivel, int ultimoVisivel) =>
+        marcada is { } m && primeiroVisivel >= 0 && ultimoVisivel >= primeiroVisivel && (m < primeiroVisivel || m > ultimoVisivel)
+            ? m
+            : null;
+
     /// <summary>Posição do registro (aberto ou da prévia) na lista atual; nulo se não estiver nela.</summary>
     public static int? IndiceDaChave(IReadOnlyList<ILinhaGrade> linhas, Guid? chave)
     {

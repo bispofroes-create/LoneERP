@@ -65,11 +65,38 @@ public sealed class GradeLista : ContentView
         nameof(OrdemDecrescente), typeof(bool), typeof(GradeLista), false,
         propertyChanged: (b, _, _) => ((GradeLista)b).AtualizarSetas());
 
+    /// <summary>
+    /// Chave da posição preservada pela Fase 3 (ex.: "lista"; P2-B2, Etapa 4): liga o <see cref="AdaptadorRolagem"/> à
+    /// memória de rolagem da tela (o BindingContext). Vazia: a posição não é preservada.
+    /// </summary>
+    public static readonly BindableProperty PreservarRolagemProperty = BindableProperty.Create(
+        nameof(PreservarRolagem), typeof(string), typeof(GradeLista), null,
+        propertyChanged: (b, _, novo) => ((GradeLista)b).TrocarAdaptador(novo as string));
+
     public static readonly BindableProperty MostrarLinhaFiltroProperty = BindableProperty.Create(
         nameof(MostrarLinhaFiltro), typeof(bool), typeof(GradeLista), false,
         propertyChanged: (b, _, _) => ((GradeLista)b).AtualizarLinhaFiltro());
 
     private readonly MotorCollectionView _motor = new();
+    private AdaptadorRolagem? _adaptador;
+
+    public string? PreservarRolagem
+    {
+        get => (string?)GetValue(PreservarRolagemProperty);
+        set => SetValue(PreservarRolagemProperty, value);
+    }
+
+    /// <summary>A lista rolou (na vertical ou para o lado).</summary>
+    public event EventHandler? RolagemMudou;
+
+    private void TrocarAdaptador(string? chave)
+    {
+        _adaptador?.Soltar();
+        _adaptador = string.IsNullOrEmpty(chave) ? null : new AdaptadorRolagem(this, chave);
+    }
+
+    /// <summary>Índice do último registro visível (aproximado; só para saber se uma linha está na vista).</summary>
+    public int UltimoVisivel => _motor.UltimoVisivel;
     private readonly ScrollView _rolagemLateral;
     private readonly BoxView _extensaoLateral = new() { Color = Colors.Transparent, HeightRequest = AlturaBarraLateral };
     private readonly Grid _cabecalho;
@@ -132,6 +159,7 @@ public sealed class GradeLista : ContentView
         };
         _rolagemLateral.Scrolled += AoRolarLateral;
         _motor.RodaLateral += delta => _ = RolarLateralAsync(DeslocamentoLateral - delta / 120 * PassoRodaLateral);
+        _motor.Rolou += () => RolagemMudou?.Invoke(this, EventArgs.Empty);
 
         var raiz = new Grid();
         raiz.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -273,7 +301,6 @@ public sealed class GradeLista : ContentView
             await espera;
             await Task.Delay(16, cancelamento);
             var primeiro = _motor.PrimeiroVisivel;
-            B2UltimasTentativas = tentativa; // B2Temp
             if (AncoraLogica.Confirmada(alvo, primeiro, listaNoFim: anterior == primeiro && primeiro < alvo)) return true;
             anterior = primeiro;
         }
@@ -324,8 +351,7 @@ public sealed class GradeLista : ContentView
             _disponivel = double.NaN;
             RecalcularLarguras();
         }
-        B2TrocasItens++; // B2Temp
-        _motor.DefinirItens(novo.Linhas, renovarFonte: B2RenovarACada > 0 && B2TrocasItens % B2RenovarACada == 0); // B2Temp: experimento (a)
+        _motor.DefinirItens(novo.Linhas);
     }
 
     private void AoTrocarParteFixa()
@@ -516,7 +542,6 @@ public sealed class GradeLista : ContentView
         var resultado = CalculadoraLarguras.Calcular(colunas, largura);
         CalculadoraLarguras.Aplicar(colunas, resultado);
         LarguraConteudo = resultado.Total;
-        B2Recalculos++; // B2Temp
 
         _cabecalho.ColumnDefinitions[0].Width = new GridLength(LarguraParteFixa);
         DefinirLarguraFaixa(_faixaTitulos, LarguraCelulas);
@@ -546,46 +571,11 @@ public sealed class GradeLista : ContentView
     {
         if (x == DeslocamentoLateral) return;
         DeslocamentoLateral = x;
+        RolagemMudou?.Invoke(this, EventArgs.Empty);
         _faixaTitulos.TranslationX = -x;
         _faixaFiltros.TranslationX = -x;
         foreach (var linha in _vivas) linha.AplicarDeslocamento(x);
     }
-
-    #region B2Temp: instrumentação do laboratório da P2-B2 (Etapa 2). Remover ao final.
-    internal int B2Criadas { get; private set; }
-    internal int B2Reciclagens { get; private set; }
-    internal int B2TrocasItens { get; private set; }
-    internal int B2Recalculos { get; private set; }
-    internal int B2UltimasTentativas { get; private set; }
-    internal int B2UltimoVisivel => _motor.UltimoVisivel;
-    internal IReadOnlyCollection<LinhaGradeView> B2Vivas => _vivas.ToList();
-    private readonly List<WeakReference<LinhaGradeView>> _b2Todas = [];
-    /// <summary>Linhas visuais ainda existentes na memória (chamar depois de coletar o lixo).</summary>
-    internal int B2VivasReais => _b2Todas.Count(w => w.TryGetTarget(out _));
-    internal void B2Nasceu(LinhaGradeView linha) => _b2Todas.Add(new(linha));
-    internal View B2FaixaTitulos => _faixaTitulos;
-    /// <summary>Experimento (b): linhas sem se inscrever no modelo (destaque/seleção deixam de ser pintados).</summary>
-    internal bool B2SemInscricao { get; set; }
-    /// <summary>Experimento (a): renovar a fonte do motor a cada K trocas (0 = nunca).</summary>
-    internal int B2RenovarACada { get; set; }
-    internal IReadOnlyList<LinhaGradeView> B2TodasVivas()
-    {
-        var vivas = new List<LinhaGradeView>();
-        foreach (var w in _b2Todas)
-            if (w.TryGetTarget(out var linha)) vivas.Add(linha);
-        return vivas;
-    }
-    internal void B2ContarCriada() => B2Criadas++;
-    internal void B2ContarReciclagem() => B2Reciclagens++;
-    internal int B2Vinculos { get; private set; }
-    internal void B2ContarVinculo() => B2Vinculos++;
-    internal void B2RolarAte(int indice, ScrollToPosition posicao) => _motor.IrPara(indice, posicao);
-    internal string B2Nativo => _motor.Nativo;
-    internal int B2Renovacoes => _motor.Renovacoes;
-    internal int B2LinhasNoPainel => _motor.LinhasNoPainel;
-    internal int B2LimitePainel => _motor.LimitePainel;
-    internal CollectionView B2Vista => _motor.Vista;
-    #endregion
 }
 
 /// <summary>

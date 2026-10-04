@@ -309,7 +309,7 @@
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Grid.Column="5" x:Name="BotaoColunasB2Temp" Text="{Binding Grade.TextoBotaoColunas}" Style="{StaticResource BotaoTerciario}" FontSize="14"
+                        <Button Grid.Column="5" Text="{Binding Grade.TextoBotaoColunas}" Style="{StaticResource BotaoTerciario}" FontSize="14"
                                 Command="{Binding Grade.AlternarSeletorCommand}" IsVisible="{Binding Grade.MostrarColunas}"
                                 ToolTipProperties.Text="Escolher e ordenar as colunas da lista" />
                         <!-- O que o clique na linha faz (escolha de cada usuário): prévia ao lado ou abrir a ficha. -->
@@ -321,7 +321,8 @@
                     <!-- Tabela (P2-B2): uma GradeLista virtualizada. Cabeçalho com ordenação (▲/▼) e linha de filtro, o nome preso à
                          esquerda (molde abaixo) e as colunas que rolam para o lado (barra embaixo, Shift + roda). Larguras pela regra
                          da coluna (P2), calculadas na própria grade; densidade e linha de filtro sem trocar as linhas. -->
-                    <grade:GradeLista Grid.Row="1" Grid.RowSpan="2" x:Name="Tabela"
+                    <!-- PreservarRolagem: ao voltar (Fase 3), o mesmo primeiro registro visível (adaptador, P2-B2 Etapa 4). -->
+                    <grade:GradeLista Grid.Row="1" Grid.RowSpan="2" x:Name="Tabela" PreservarRolagem="lista"
                                       Conteudo="{Binding ConteudoGrade}"
                                       ColunaFixa="{Binding Grade.ColunaFixa}"
                                       AlturaLinha="{Binding Grade.AlturaLinha}"

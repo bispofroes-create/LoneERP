@@ -327,6 +327,17 @@ public class GradeNucleoTests
     public void Ancora_confirma_o_primeiro_visivel(int alvo, int primeiro, bool noFim, bool esperado) =>
         Assert.Equal(esperado, AncoraLogica.Confirmada(alvo, primeiro, noFim));
 
+    [Theory]
+    [InlineData(null, 10, 30, null)]   // sem linha marcada
+    [InlineData(15, 10, 30, null)]     // marcada na vista: nada a fazer
+    [InlineData(10, 10, 30, null)]
+    [InlineData(30, 10, 30, null)]
+    [InlineData(5, 10, 30, 5)]         // acima da vista: vai ao topo
+    [InlineData(80, 10, 30, 80)]       // abaixo da vista (dados mudaram de lugar)
+    [InlineData(80, -1, -1, null)]     // vista ainda desconhecida
+    public void Reforco_leva_a_linha_marcada_fora_da_vista_ao_topo(int? marcada, int primeiro, int ultimo, int? esperado) =>
+        Assert.Equal(esperado, AncoraLogica.Reforco(marcada, primeiro, ultimo));
+
     [Fact]
     public void Ancora_acha_o_registro_pela_chave()
     {

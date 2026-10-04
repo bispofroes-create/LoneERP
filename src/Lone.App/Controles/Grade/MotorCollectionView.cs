@@ -39,22 +39,17 @@ internal sealed class MotorCollectionView
     /// </summary>
 #pragma warning disable CS0067 // só o Windows dispara (nas outras plataformas a roda lateral não existe aqui)
     public event Action<double>? RodaLateral;
-#pragma warning restore CS0067
 
-    /// <summary>Diagnóstico: tipo do controle nativo e do painel (para o relatório).</summary>
-    public string Nativo { get; private set; } = "?";
+    /// <summary>A lista rolou (o adaptador de rolagem registra a posição).</summary>
+    public event Action? Rolou;
+#pragma warning restore CS0067
 
     private void AplicarCache()
     {
 #if WINDOWS
-        if (Vista.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.ListViewBase lista)
-        {
-            Nativo = Vista.Handler?.PlatformView?.GetType().Name ?? "?";
-            return;
-        }
+        if (Vista.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.ListViewBase lista) return;
         void Aplicar()
         {
-            Nativo = $"{lista.GetType().Name}/{lista.ItemsPanelRoot?.GetType().Name ?? "?"}";
             if (lista.ItemsPanelRoot is Microsoft.UI.Xaml.Controls.ItemsStackPanel painel && painel.CacheLength != ReservaPadrao)
                 painel.CacheLength = ReservaPadrao;
         }
@@ -93,21 +88,14 @@ internal sealed class MotorCollectionView
     /// uma troca um pouco mais lenta. O limite segue a altura da lista e da linha (janela, escala, densidade).
     /// </para>
     /// </summary>
-    public void DefinirItens(IReadOnlyList<ILinhaGrade> itens, bool renovarFonte = false)
+    public void DefinirItens(IReadOnlyList<ILinhaGrade> itens)
     {
-        if (renovarFonte || PainelInchado())
-        {
-            _lista = new ListaTrocavel();
-            Renovacoes++;
-        }
+        if (PainelInchado()) _lista = new ListaTrocavel();
         if (!ReferenceEquals(Vista.ItemsSource, _lista)) Vista.ItemsSource = _lista;
         _lista.Trocar(itens);
         PrimeiroVisivel = 0;
         UltimoVisivel = -1;
     }
-
-    /// <summary>Quantas vezes a fonte do motor foi substituída para soltar as linhas acumuladas pelo painel nativo.</summary>
-    public int Renovacoes { get; private set; }
 
     /// <summary>Altura de cada linha (a grade informa; usada no limite do painel).</summary>
     public double AlturaLinha { get; set; } = 56;
@@ -169,6 +157,7 @@ internal sealed class MotorCollectionView
         PrimeiroVisivel = e.FirstVisibleItemIndex;
         UltimoVisivel = e.LastVisibleItemIndex;
         _rolou?.TrySetResult();
+        Rolou?.Invoke();
     }
 }
 

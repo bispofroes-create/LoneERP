@@ -123,7 +123,8 @@ public sealed class ListaCadastro : ContentView
         mensagem.SetBinding(BarraMensagem.MensagemProperty, "Mensagem");
         mensagem.SetBinding(BarraMensagem.TipoProperty, "TipoMensagem");
 
-        var grade = new GradeLista { MoldeParteFixa = new DataTemplate(MoldeTitulo) };
+        // PreservarRolagem: ao voltar à tela (Fase 3), o mesmo primeiro registro visível (adaptador, P2-B2 Etapa 4).
+        var grade = new GradeLista { MoldeParteFixa = new DataTemplate(MoldeTitulo), PreservarRolagem = "lista" };
         grade.SetBinding(GradeLista.ConteudoProperty, "ConteudoLista");
         grade.SetBinding(GradeLista.ColunaFixaProperty, "GradeDaLista.ColunaFixa");
         grade.SetBinding(GradeLista.AlturaLinhaProperty, "GradeDaLista.AlturaLinha");

@@ -24,8 +24,6 @@ internal sealed class LinhaGradeView : Grid
     {
         _grade = grade;
         _colunas = colunas;
-        grade.B2ContarCriada(); // B2Temp
-        grade.B2Nasceu(this); // B2Temp
 
         RowDefinitions.Add(new RowDefinition(GridLength.Star));
         RowDefinitions.Add(new RowDefinition(new GridLength(1)));
@@ -86,10 +84,6 @@ internal sealed class LinhaGradeView : Grid
     /// <summary>A parte fixa (molde da tela): parada à esquerda.</summary>
     internal ContentView Fixa { get; }
 
-    /// <summary>B2Temp: a faixa das células (deslocada), para o laboratório conferir o alinhamento.</summary>
-    internal View B2Faixa => _celulas;
-    internal bool B2Inscrita => _inscrita;
-
     internal ILinhaGrade? Linha => _linha;
 
     protected override void OnBindingContextChanged()
@@ -97,8 +91,6 @@ internal sealed class LinhaGradeView : Grid
         base.OnBindingContextChanged();
         var nova = BindingContext as ILinhaGrade;
         if (ReferenceEquals(nova, _linha)) return;
-        if (_linha is not null && nova is not null) _grade.B2ContarReciclagem(); // B2Temp
-        if (nova is not null) _grade.B2ContarVinculo(); // B2Temp
         Desinscrever();
         _linha = nova;
         if (IsLoaded) Inscrever();
@@ -154,7 +146,7 @@ internal sealed class LinhaGradeView : Grid
 
     private void Inscrever()
     {
-        if (_inscrita || _linha is null || _grade.B2SemInscricao) return; // B2Temp: experimento (b)
+        if (_inscrita || _linha is null) return;
         _linha.PropertyChanged += AoMudarLinha;
         _inscrita = true;
     }
@@ -178,8 +170,6 @@ internal sealed class LinhaGradeView : Grid
         var chave = _linha?.Selecionada == true ? "Selecao" : _linha?.Destacada == true ? "SuperficieRealce" : null;
         BackgroundColor = chave is null ? Colors.Transparent : CoresGrade.DoTema(chave);
     }
-
-    internal Color CorDoEstado => BackgroundColor; // B2Temp: conferência da seleção/destaque pelo laboratório
 }
 
 /// <summary>

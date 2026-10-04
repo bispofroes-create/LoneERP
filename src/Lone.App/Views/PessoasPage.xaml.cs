@@ -56,13 +56,6 @@ public partial class PessoasPage : ContentPage
         {
             if (e.PropertyName == nameof(PreviaPessoa.Visivel)) AjustarColunaPrevia();
         };
-#if DEBUG
-        // B2Temp: diagnóstico dos campos cortados nas fichas (03/10/2026). Só observa. Remover com o laboratório.
-        LabGradeB2Temp.DiagCampos.Ligar(this, () => _viewModel.Editando);
-        // B2Temp: diagnóstico 3.0 do botão de colunas (P2-B2). Só observa. Remover com o laboratório.
-        LabGradeB2Temp.Diag30.Ligar(this, _viewModel, BotaoColunasB2Temp, Lista,
-            () => _viewModel.Filtros.Aberto && DeviceInfo.Idiom != DeviceIdiom.Phone ? LarguraPainelFiltros : 0);
-#endif
     }
 
     /// <summary>
