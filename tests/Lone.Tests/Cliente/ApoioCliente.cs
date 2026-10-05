@@ -30,6 +30,20 @@ internal sealed class ServidorFalso : HttpMessageHandler
         return Responder(status, corpo);
     }
 
+    private readonly Dictionary<string, Queue<Func<HttpRequestMessage, HttpResponseMessage>>> _porCaminho = new();
+
+    /// <summary>
+    /// Resposta para um caminho ("/api/..."), atendida antes da fila geral: para chamadas disparadas sozinhas (conferência
+    /// do documento, consulta automática) cuja ordem em relação às outras não importa ao teste. Pode ser chamado várias
+    /// vezes para o mesmo caminho (atende na ordem).
+    /// </summary>
+    public ServidorFalso ResponderEm(string caminho, HttpStatusCode status, object? corpo = null, int vezes = 1)
+    {
+        if (!_porCaminho.TryGetValue(caminho, out var fila)) _porCaminho[caminho] = fila = new();
+        for (var i = 0; i < vezes; i++) fila.Enqueue(_ => Resposta(status, corpo));
+        return this;
+    }
+
     public ServidorFalso ForaDoAr()
     {
         _respostas.Enqueue(_ => throw new HttpRequestException("Conexão recusada."));
@@ -40,6 +54,8 @@ internal sealed class ServidorFalso : HttpMessageHandler
     {
         var corpo = requisicao.Content is null ? string.Empty : await requisicao.Content.ReadAsStringAsync(ct);
         Recebidas.Add((requisicao.Method, requisicao.RequestUri!.AbsolutePath, requisicao.Headers.Authorization?.Parameter, corpo));
+        if (_porCaminho.TryGetValue(requisicao.RequestUri!.AbsolutePath, out var doCaminho) && doCaminho.Count > 0)
+            return doCaminho.Dequeue()(requisicao);
         if (_respostas.Count == 0)
             throw new InvalidOperationException($"Chamada inesperada: {requisicao.Method} {requisicao.RequestUri}");
         return _respostas.Dequeue()(requisicao);

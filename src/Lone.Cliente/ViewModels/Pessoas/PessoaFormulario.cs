@@ -125,6 +125,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         var principal = Principal;
         if (_razaoSocialConsultada.Length > 0 && Nome.Trim() == _razaoSocialConsultada.Trim()) Nome = string.Empty;
         _razaoSocialConsultada = string.Empty;
+        ConsultaAplicada = null;
         principal.Cnpj = string.Empty;
         principal.NomeFantasia = string.Empty;
         principal.NaturezaJuridica = string.Empty;
@@ -598,6 +599,7 @@ public sealed partial class PessoaFormulario : ObservableObject
         foreach (var d in p.Documentos)
             f.AdicionarDocumento(DocumentoFormulario.De(d));
 
+        f.CnpjGravado = f.Estabelecimentos.Count > 0 ? DocumentoFiscal.Normalizar(f.Principal.Cnpj) : string.Empty;
         f._documentoConferido = f.ChaveDocumento(); // o gravado não é conferido de novo ao abrir
         return f;
     }
@@ -1662,10 +1664,11 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>
     /// Endereço existente que recebe o endereço do CNPJ (nulo = criar um novo): o principal fiscal definido pelo
     /// usuário; senão um ativo que é o mesmo lugar físico (igual ou possível); senão um ativo ainda sem logradouro.
+    /// <paramref name="evitar"/>: endereço que não pode receber (o da consulta anterior que o usuário alterou e fica).
     /// </summary>
-    private EnderecoFormulario? EnderecoParaCnpj(DadosCnpj d)
+    private EnderecoFormulario? EnderecoParaCnpj(DadosCnpj d, EnderecoFormulario? evitar = null)
     {
-        var ativos = Enderecos.Where(e => e.Ativo).ToList();
+        var ativos = Enderecos.Where(e => e.Ativo && !ReferenceEquals(e, evitar)).ToList();
         var principalFiscal = ativos.FirstOrDefault(e => e.Finalidades.Any(f => f.Ativo && f.Principal && f.FinalidadeId == IdFiscal));
         if (principalFiscal is not null) return principalFiscal;
 
@@ -1681,14 +1684,28 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// Preenche o estabelecimento (e, no principal, a razão social e o endereço). O usuário confere e salva. Num cadastro já
     /// gravado, o que a Receita traz de diferente de um valor que já existe não é trocado: vai para <see cref="ConferenciaReceita"/>
     /// (o usuário marca o que trocar). O que foi preenchido fica marcado como vindo da Receita (destaque).
+    /// Ficha nova que já teve uma consulta no principal (outro CNPJ, ou o mesmo de novo): <see cref="SubstituirConsultaAnterior"/>.
     /// </summary>
     public void AplicarCnpj(EstabelecimentoFormulario estabelecimento, DadosCnpj d)
     {
-        var r = new AplicacaoReceita(conferir: Existente);
+        if (Nova && ReferenceEquals(estabelecimento, Principal) && ConsultaAplicada is not null)
+        {
+            SubstituirConsultaAnterior(d);
+            return;
+        }
+        Aplicar(estabelecimento, d, new AplicacaoReceita(conferir: Existente), destino: null, enderecoCriado: null, evitar: null,
+            trocarSocios: false);
+    }
+
+    private void Aplicar(EstabelecimentoFormulario estabelecimento, DadosCnpj d, AplicacaoReceita r, EnderecoFormulario? destino,
+        bool? enderecoCriado, EnderecoFormulario? evitar, bool trocarSocios)
+    {
         estabelecimento.AplicarCnpj(d, r);
 
         EnderecoFormulario? endereco;
-        if (ReferenceEquals(estabelecimento, Principal))
+        var principal = ReferenceEquals(estabelecimento, Principal);
+        var criado = false;
+        if (principal)
         {
             r.Valor(new(CamposFichaPessoa.Nome, null), "Razão social", Nome, d.RazaoSocial, v =>
             {
@@ -1698,7 +1715,8 @@ public sealed partial class PessoaFormulario : ObservableObject
             // Onde entra o endereço do CNPJ: o principal fiscal já definido pelo usuário; senão um endereço ativo que é o
             // mesmo lugar físico; senão um endereço ainda em branco; senão um novo. Nunca sobrescreve outro lugar (ex.: o
             // residencial) só por ser o único endereço, e nunca marca principal.
-            endereco = EnderecoParaCnpj(d);
+            endereco = destino ?? EnderecoParaCnpj(d, evitar);
+            criado = enderecoCriado ?? (endereco is null || string.IsNullOrWhiteSpace(endereco.Logradouro));
             if (endereco is null)
             {
                 endereco = new EnderecoFormulario();
@@ -1720,15 +1738,24 @@ public sealed partial class PessoaFormulario : ObservableObject
         }
         endereco.AplicarCnpj(d, r);
 
-        if (AdicionarMeioSeNovo(TipoContato.Telefone, d.Telefone) is { } telefone) r.Marcar(new(CamposFichaPessoa.MeioContatoValor, telefone.Id));
-        if (AdicionarMeioSeNovo(TipoContato.Email, d.Email) is { } email) r.Marcar(new(CamposFichaPessoa.MeioContatoValor, email.Id));
+        var meios = new List<MeioContatoFormulario>();
+        if (AdicionarMeioSeNovo(TipoContato.Telefone, d.Telefone) is { } telefone)
+        {
+            r.Marcar(new(CamposFichaPessoa.MeioContatoValor, telefone.Id));
+            meios.Add(telefone);
+        }
+        if (AdicionarMeioSeNovo(TipoContato.Email, d.Email) is { } email)
+        {
+            r.Marcar(new(CamposFichaPessoa.MeioContatoValor, email.Id));
+            meios.Add(email);
+        }
 
         // Dados da empresa são da raiz do CNPJ: valem para a pessoa, venha a consulta da matriz ou de uma filial.
-        if (ReferenceEquals(estabelecimento, Principal))
+        if (principal)
             r.Valor(new(CamposFichaPessoa.DataAbertura, null), "Data de abertura", DataAbertura, TextoTela.Data(d.DataAbertura), v => DataAbertura = v);
         r.Valor(new(CamposFichaPessoa.Porte, null), "Porte", Porte, d.Porte, v => Porte = v);
         r.Valor(new(CamposFichaPessoa.CapitalSocial, null), "Capital social (R$)", CapitalSocial, TextoTela.Decimal(d.CapitalSocial), v => CapitalSocial = v);
-        if (d.Socios.Count > 0)
+        if (d.Socios.Count > 0 || trocarSocios)
         {
             Socios.Clear();
             foreach (var socio in d.Socios) Socios.Add(socio);
@@ -1737,7 +1764,167 @@ public sealed partial class PessoaFormulario : ObservableObject
 
         RegistrarOrigemReceita(r.Aplicados);
         ConferenciaReceita.Abrir(r.Conflitos, d.Fonte);
+
+        // Ficha nova: guarda o que esta consulta pôs, para uma nova consulta no principal trocar exatamente isso (§3.1).
+        if (Nova && principal)
+            ConsultaAplicada = new ConsultaCnpjAplicada(
+                DocumentoFiscal.Normalizar(d.Cnpj), d.RazaoSocial.Trim(), endereco.Id, criado, endereco.Localizacao(),
+                meios.Select(m => new MeioDaConsulta(m.Id, m.Valor, m.Descricao)).ToList());
     }
+
+    // ---- Troca de empresa numa ficha nova (nova consulta de CNPJ no principal) ----
+
+    /// <summary>Telefone ou e-mail que a consulta criou, com o valor e a descrição que ela pôs.</summary>
+    public sealed record MeioDaConsulta(Guid Id, string Valor, string Descricao);
+
+    /// <summary>
+    /// O que a última consulta de CNPJ do principal pôs nesta ficha nova (só em memória; some ao gravar, descartar ou trocar a
+    /// natureza). <paramref name="EnderecoCriado"/>: o endereço nasceu da consulta ou estava sem logradouro (o lugar é todo
+    /// dela); falso: já existia com logradouro e só recebeu os campos.
+    /// </summary>
+    public sealed record ConsultaCnpjAplicada(string Cnpj, string RazaoSocial, Guid EnderecoId, bool EnderecoCriado,
+        IReadOnlyList<string> Localizacao, IReadOnlyList<MeioDaConsulta> Meios);
+
+    /// <summary>Última consulta de CNPJ aplicada no principal desta ficha nova (nulo: nenhuma, ou ficha gravada).</summary>
+    public ConsultaCnpjAplicada? ConsultaAplicada { get; private set; }
+
+    /// <summary>
+    /// Troca os dados da consulta anterior pelos de <paramref name="d"/> (outro CNPJ confirmado pelo usuário, ou o mesmo CNPJ
+    /// consultado de novo). Só na ficha nova e só em memória: nada é gravado nem excluído no banco (a ficha nova não existe lá).
+    /// Regra (D-T1, pelo valor): um dado é da consulta enquanto continua com o valor que ela pôs; esses são limpos e recebem
+    /// os da nova consulta (o que ela não trouxer fica vazio). O que o usuário digitou ou alterou fica. O endereço da
+    /// consulta é uma unidade: alterado pelo usuário, fica inteiro e a nova consulta entra em outro endereço.
+    /// </summary>
+    public void SubstituirConsultaAnterior(DadosCnpj d)
+    {
+        if (!Nova || ConsultaAplicada is not { } anterior) return; // guarda: cadastro gravado nunca passa por aqui
+
+        var valores = AlteracoesDaFicha.Valores(ParaDto());
+        var endereco = Enderecos.FirstOrDefault(e => e.Id == anterior.EnderecoId && e.Ativo);
+        var meiosAnteriores = anterior.Meios.Select(m => m.Id).ToHashSet();
+
+        // 1. Campos da pessoa e do estabelecimento principal ainda com o valor da consulta: limpos.
+        foreach (var (chave, origem) in _origemReceita.ToList())
+        {
+            if (chave.Item is { } item && item != Principal.Id) continue; // endereço, meios (abaixo) e filiais (não mexe)
+            if (!AindaDaConsulta(chave, origem.Valor, valores)) continue;
+            LimparCampoDaConsulta(chave);
+            _origemReceita.Remove(chave);
+        }
+
+        // 2. Endereço: o da consulta, sem alteração, é reaproveitado (o lugar é limpo); alterado, fica e não recebe a nova.
+        EnderecoFormulario? destino = null;
+        EnderecoFormulario? mantido = null;
+        bool? criado = null;
+        if (endereco is not null)
+        {
+            if (anterior.EnderecoCriado)
+            {
+                if (endereco.MesmaLocalizacao(anterior.Localizacao))
+                {
+                    endereco.LimparLocalizacao();
+                    destino = endereco;
+                    criado = true;
+                }
+                else mantido = endereco;
+            }
+            else
+            {
+                // Já existia com logradouro (o usuário digitou o lugar): o que a consulta anterior completou e continua com o
+                // valor dela é limpo (o endereço volta a ser como o usuário o deixou) e a nova consulta não entra nele: os
+                // campos digitados são do lugar de A e misturá-los com os de B daria um endereço que não existe.
+                foreach (var campo in EnderecoFormulario.CamposDaLocalizacao)
+                {
+                    var chave = new ChaveCampo(campo, endereco.Id);
+                    if (_origemReceita.TryGetValue(chave, out var origem) && AindaDaConsulta(chave, origem.Valor, valores))
+                        endereco.LimparCampoDaConsulta(campo);
+                }
+                mantido = endereco;
+            }
+            foreach (var chave in _origemReceita.Keys.Where(c => c.Item == endereco.Id).ToList()) _origemReceita.Remove(chave);
+        }
+
+        // 3. Telefones e e-mails que a consulta criou, com o valor e a descrição dela: saem (objetos só da memória).
+        foreach (var m in anterior.Meios)
+        {
+            if (MeiosContato.FirstOrDefault(x => x.Id == m.Id) is not { } meio) continue;
+            if (AplicacaoReceita.Igual(meio.Valor, m.Valor) && AplicacaoReceita.Igual(meio.Descricao, m.Descricao))
+                meio.AoRemover?.Invoke();
+        }
+        foreach (var chave in _origemReceita.Keys.Where(c => c.Item is { } i && meiosAnteriores.Contains(i)).ToList())
+            _origemReceita.Remove(chave);
+
+        // 4. A nova consulta preenche só o que ficou vazio (sócios: a lista é sempre da consulta, trocada inteira).
+        Aplicar(Principal, d, new AplicacaoReceita(conferir: false, somenteVazios: true), destino, criado, mantido, trocarSocios: true);
+    }
+
+    /// <summary>
+    /// Para a confirmação da troca: quantos dados da consulta anterior serão substituídos e o endereço dela que o usuário
+    /// alterou (fica). Mesma regra de <see cref="SubstituirConsultaAnterior"/>.
+    /// </summary>
+    public (int Substituidos, string? EnderecoMantido) PrevisaoDaTroca()
+    {
+        if (!Nova || ConsultaAplicada is not { } anterior) return (0, null);
+        var valores = AlteracoesDaFicha.Valores(ParaDto());
+        var endereco = Enderecos.FirstOrDefault(e => e.Id == anterior.EnderecoId && e.Ativo);
+        var enderecoMantido = endereco is not null && anterior.EnderecoCriado && !endereco.MesmaLocalizacao(anterior.Localizacao);
+        var meios = anterior.Meios.ToDictionary(m => m.Id);
+        var quantos = _origemReceita.Count(o =>
+        {
+            if (o.Key.Item is { } item && item != Principal.Id && item != endereco?.Id && !meios.ContainsKey(item)) return false;
+            if (enderecoMantido && o.Key.Item == endereco!.Id) return false;
+            // Telefone/e-mail: sai só com o valor e a descrição que a consulta pôs (mesma regra da troca).
+            if (o.Key.Item is { } id && meios.TryGetValue(id, out var daConsulta) &&
+                MeiosContato.FirstOrDefault(m => m.Id == id) is { } meio && !AplicacaoReceita.Igual(meio.Descricao, daConsulta.Descricao))
+                return false;
+            return AindaDaConsulta(o.Key, o.Value.Valor, valores);
+        });
+        return (quantos, enderecoMantido ? endereco!.Resumo : null);
+    }
+
+    private static bool AindaDaConsulta(ChaveCampo chave, string valorDaConsulta, IReadOnlyDictionary<ChaveCampo, string> valores) =>
+        valores.TryGetValue(chave, out var atual) && AplicacaoReceita.Igual(atual, valorDaConsulta);
+
+    /// <summary>Esvazia um campo da pessoa ou do estabelecimento principal que a consulta anterior preencheu.</summary>
+    private void LimparCampoDaConsulta(ChaveCampo chave)
+    {
+        var p = Principal;
+        switch (chave.Campo)
+        {
+            case CamposFichaPessoa.Nome:
+                Nome = string.Empty;
+                _razaoSocialConsultada = string.Empty;
+                break;
+            case CamposFichaPessoa.NomeFantasia: p.NomeFantasia = string.Empty; break;
+            case CamposFichaPessoa.NaturezaJuridica: p.NaturezaJuridica = string.Empty; break;
+            case CamposFichaPessoa.Cnae: p.CnaePrincipal = string.Empty; break;
+            case CamposFichaPessoa.CnaesSecundarios: p.CnaesSecundarios = string.Empty; break;
+            case CamposFichaPessoa.Regime: p.Regime = OpcoesPessoa.Regimes[0]; break;
+            case CamposFichaPessoa.InscricaoEstadual:
+                p.InscricaoEstadual = string.Empty;
+                p.IndicadorIE = OpcoesPessoa.IndicadoresIE[0];
+                break;
+            case CamposFichaPessoa.DataAbertura: DataAbertura = string.Empty; break;
+            case CamposFichaPessoa.Porte: Porte = string.Empty; break;
+            case CamposFichaPessoa.CapitalSocial: CapitalSocial = string.Empty; break;
+        }
+    }
+
+    /// <summary>
+    /// Volta o CNPJ do principal sem disparar nova conferência nem consulta (troca cancelada, ou outra empresa recusada num
+    /// cadastro gravado).
+    /// </summary>
+    public void RestaurarCnpj(string cnpj)
+    {
+        var normal = DocumentoFiscal.Normalizar(cnpj ?? string.Empty);
+        _documentoConferido = normal.Length > 0 ? $"{Natureza.Valor}:{normal}" : string.Empty;
+        DocumentoEmUsoId = null;
+        AvisoDocumentoEmUso = string.Empty;
+        Principal.Cnpj = normal.Length > 0 ? DocumentoFiscal.Formatar(normal) : string.Empty;
+    }
+
+    /// <summary>CNPJ do principal como está gravado (sem máscara; vazio na ficha nova ou sem CNPJ).</summary>
+    public string CnpjGravado { get; private set; } = string.Empty;
 
     // ---- Origem dos valores (destaque de alterações) ----
 

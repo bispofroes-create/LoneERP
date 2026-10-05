@@ -555,6 +555,62 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         });
     }
 
+    // ---- Troca de empresa numa ficha nova (consulta de CNPJ refeita com outro CNPJ) ----
+
+    /// <summary>
+    /// O lugar do endereço como texto (CEP, logradouro, número, complemento, bairro, município/cidade, exterior): guardado
+    /// depois da consulta de CNPJ para saber, na troca de empresa, se o usuário mexeu nele. Finalidades, principal e
+    /// descrição não contam (não misturam um lugar com outro).
+    /// </summary>
+    public IReadOnlyList<string> Localizacao() =>
+    [
+        Cep, Logradouro, Numero, Complemento, Bairro,
+        NoExterior ? Cidade : Municipio.Selecionado is { } m ? $"{m.Nome}/{m.Uf}" : $"{Municipio.Texto}/{Municipio.Uf}",
+        NoExterior ? "exterior" : "Brasil"
+    ];
+
+    /// <summary>Mesmo lugar que <paramref name="guardada"/> (sem contar maiúsculas, espaços e pontuação de números).</summary>
+    public bool MesmaLocalizacao(IReadOnlyList<string> guardada)
+    {
+        var atual = Localizacao();
+        return atual.Count == guardada.Count && atual.Zip(guardada).All(p => AplicacaoReceita.Igual(p.First, p.Second));
+    }
+
+    /// <summary>Esvazia o lugar inteiro (o endereço da consulta anterior, sem alteração do usuário, recebe o da nova).</summary>
+    public void LimparLocalizacao()
+    {
+        foreach (var campo in CamposDaLocalizacao) LimparCampoDaConsulta(campo);
+    }
+
+    /// <summary>Campos do endereço que a consulta de CNPJ preenche (chaves de <see cref="CamposFichaPessoa"/>).</summary>
+    public static readonly IReadOnlyList<string> CamposDaLocalizacao =
+    [
+        CamposFichaPessoa.Cep, CamposFichaPessoa.Logradouro, CamposFichaPessoa.Numero, CamposFichaPessoa.Complemento,
+        CamposFichaPessoa.Bairro, CamposFichaPessoa.Municipio
+    ];
+
+    /// <summary>Esvazia um campo que a consulta anterior preencheu (troca de empresa). Outros campos: nada.</summary>
+    public void LimparCampoDaConsulta(string campo)
+    {
+        switch (campo)
+        {
+            case CamposFichaPessoa.Cep:
+                _cepConhecido = string.Empty;
+                Cep = string.Empty;
+                LimparConferenciaCep();
+                break;
+            case CamposFichaPessoa.Logradouro: Logradouro = string.Empty; break;
+            case CamposFichaPessoa.Numero: Numero = string.Empty; break; // desmarca "Sem número" (OnNumeroChanged)
+            case CamposFichaPessoa.Complemento: Complemento = string.Empty; break;
+            case CamposFichaPessoa.Bairro: Bairro = string.Empty; break;
+            case CamposFichaPessoa.Municipio:
+                NoExterior = false;
+                Cidade = string.Empty;
+                Municipio.Definir(null, null, null);
+                break;
+        }
+    }
+
     /// <summary>
     /// CEP e CNPJ trazem o código IBGE: o município já vem escolhido. Sem código, só a UF é preenchida e o
     /// nome fica digitado para o usuário escolher na lista (nunca vira município "de texto").

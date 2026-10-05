@@ -2286,6 +2286,25 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         }
 
         if (Formulario is not { } ficha) return;
+        if (ReferenceEquals(estabelecimento, ficha.Principal))
+        {
+            // Cadastro gravado com CNPJ de outra raiz: não vira outra empresa (oferece cadastrar como nova pessoa).
+            if (ficha.Existente && ficha.CnpjGravado.Length == 14 && !MesmaRaiz(ficha.CnpjGravado, dados.Cnpj))
+            {
+                await RecusarOutraEmpresaAsync(ficha, dados);
+                return;
+            }
+            // Ficha nova já preenchida por outro CNPJ: pergunta antes de trocar (o mesmo CNPJ de novo: troca sem perguntar).
+            if (ficha.Nova && ficha.ConsultaAplicada is { } anterior && anterior.Cnpj != Documento.Normalizar(dados.Cnpj))
+            {
+                if (!await ConfirmarAsync("Trocar a empresa", MensagemTroca(ficha, anterior, dados), "Trocar", "Cancelar"))
+                {
+                    ficha.RestaurarCnpj(anterior.Cnpj);
+                    return;
+                }
+                if (!ReferenceEquals(Formulario, ficha)) return; // a ficha mudou enquanto o usuário decidia
+            }
+        }
         ficha.AplicarCnpj(estabelecimento, dados);
         // O que veio da consulta fica destacado (o usuário desliga no botão da barra da ficha).
         AtualizarDestaques();
@@ -2298,6 +2317,76 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
                     ? "A inscrição estadual também foi encontrada. Confira e salve."
                     : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar).") + conferir,
             TipoMensagem.Informacao);
+    }
+
+    /// <summary>Mesma raiz de CNPJ (os 8 primeiros dígitos: matriz e filiais da mesma empresa).</summary>
+    internal static bool MesmaRaiz(string a, string b)
+    {
+        var x = Documento.Normalizar(a);
+        var y = Documento.Normalizar(b);
+        return x.Length >= 8 && y.Length >= 8 && x[..8] == y[..8];
+    }
+
+    internal static string MensagemTroca(PessoaFormulario ficha, PessoaFormulario.ConsultaCnpjAplicada anterior, DadosCnpj nova)
+    {
+        var (substituidos, enderecoMantido) = ficha.PrevisaoDaTroca();
+        var empresaAnterior = anterior.RazaoSocial.Length > 0 ? anterior.RazaoSocial : "outra empresa";
+        var empresaNova = string.IsNullOrWhiteSpace(nova.RazaoSocial) ? "a nova empresa" : nova.RazaoSocial.Trim();
+        var texto = $"A ficha já foi preenchida com os dados de {empresaAnterior} (CNPJ {Documento.Formatar(anterior.Cnpj)}). " +
+                    $"Trocar pelos dados de {empresaNova} (CNPJ {Documento.Formatar(nova.Cnpj)})?\n\n" +
+                    (substituidos == 1 ? "1 campo vindo da consulta anterior será substituído. "
+                        : $"{substituidos} campos vindos da consulta anterior serão substituídos. ") +
+                    "O que você digitou será mantido.";
+        if (enderecoMantido is not null)
+            texto += $"\nO endereço \"{enderecoMantido}\" foi alterado por você e será mantido.";
+        return texto;
+    }
+
+    /// <summary>
+    /// Cadastro gravado consultado com CNPJ de outra raiz: recusa (um cadastro não vira outra empresa) e oferece cadastrar a
+    /// empresa como nova pessoa. Se ela já estiver cadastrada, oferece abrir esse cadastro (não nasce em dobro).
+    /// </summary>
+    private async Task RecusarOutraEmpresaAsync(PessoaFormulario ficha, DadosCnpj dados)
+    {
+        var cnpj = Documento.Normalizar(dados.Cnpj);
+        var empresa = string.IsNullOrWhiteSpace(dados.RazaoSocial) ? "esta empresa" : dados.RazaoSocial.Trim();
+        var aceitar = await ConfirmarAsync("Outra empresa",
+            $"O CNPJ {Documento.Formatar(cnpj)} é de outra empresa (raiz diferente). Um cadastro gravado não pode virar outra " +
+            $"empresa.\n\nDeseja cadastrar {empresa} como uma nova pessoa?",
+            "Cadastrar como nova pessoa", "Cancelar");
+        ficha.RestaurarCnpj(ficha.CnpjGravado);
+        if (!aceitar) return;
+
+        DocumentoEmUsoResposta? emUso = null;
+        try
+        {
+            emUso = await _pessoas.DocumentoEmUsoAsync(new DocumentoEmUsoRequisicao
+            {
+                Natureza = NaturezaPessoa.Juridica, Documento = cnpj, IgnorarId = ficha.Id
+            });
+        }
+        catch (Exception)
+        {
+            // Sem a resposta, a ficha nova confere de novo ao receber o CNPJ (e a gravação recusa o duplicado).
+        }
+        if (emUso is { EmUso: true })
+        {
+            if (emUso.ForaDoAlcance || emUso.Id is not { } id)
+            {
+                Mostrar("Já existe um cadastro com este CNPJ, fora do seu acesso. Procure o responsável pelo cadastro.", TipoMensagem.Aviso);
+                return;
+            }
+            var nome = string.IsNullOrWhiteSpace(emUso.Nome) ? empresa : emUso.Nome.Trim();
+            if (await ConfirmarAsync("CNPJ já cadastrado",
+                    $"Já existe cadastro para este CNPJ: {nome} (código {emUso.Codigo:000000}).", "Abrir cadastro", "Cancelar"))
+                Selecionado = new PessoaResumo { Id = id };
+            return;
+        }
+
+        await NovoCommand.ExecuteAsync(null); // pergunta antes se houver alterações não salvas; nada é salvo sozinho
+        if (Formulario is not { Nova: true } nova || ReferenceEquals(nova, ficha)) return;
+        nova.Natureza = Opcao.De(OpcoesPessoa.Naturezas, NaturezaPessoa.Juridica);
+        nova.Principal.Cnpj = Documento.Formatar(cnpj); // confere o documento e consulta a Receita (PJ nova)
     }
 
     // ---- Bloqueios e interações (gravados na hora, à parte do "Salvar" da ficha) ----

@@ -15,11 +15,20 @@ public sealed record MudancaReceita(ChaveCampo Chave, string Rotulo, string Atua
 public sealed class AplicacaoReceita
 {
     private readonly bool _conferir;
+    private readonly bool _somenteVazios;
     private readonly List<MudancaReceita> _conflitos = new();
     private readonly List<ChaveCampo> _aplicados = new();
 
     /// <param name="conferir">Cadastro já gravado: valores diferentes dos atuais vão para a conferência.</param>
-    public AplicacaoReceita(bool conferir) => _conferir = conferir;
+    /// <param name="somenteVazios">
+    /// Troca de empresa numa ficha nova: os valores da consulta anterior já foram limpos; o que ainda tem valor foi digitado
+    /// pelo usuário e fica (a consulta só preenche os vazios, sem conferência).
+    /// </param>
+    public AplicacaoReceita(bool conferir, bool somenteVazios = false)
+    {
+        _conferir = conferir;
+        _somenteVazios = somenteVazios;
+    }
 
     public IReadOnlyList<MudancaReceita> Conflitos => _conflitos;
     public IReadOnlyList<ChaveCampo> Aplicados => _aplicados;
@@ -30,6 +39,7 @@ public sealed class AplicacaoReceita
         if (string.IsNullOrWhiteSpace(daReceita)) return; // a consulta não trouxe: fica o que está
         var valor = daReceita.Trim();
         if (Igual(atual, valor)) return;
+        if (_somenteVazios && !string.IsNullOrWhiteSpace(atual)) return; // digitado pelo usuário: fica
         if (_conferir && !string.IsNullOrWhiteSpace(atual))
         {
             _conflitos.Add(new MudancaReceita(chave, rotulo, atual.Trim(), valor, () => aplicar(valor)));
