@@ -8,7 +8,9 @@ public class RegistroAuditoriaConfiguration : IEntityTypeConfiguration<RegistroA
 {
     public void Configure(EntityTypeBuilder<RegistroAuditoria> b)
     {
-        b.ToTable("Auditoria");
+        // P0 (D4): o gatilho que só deixa incluir. Declarado aqui para o EF não usar OUTPUT na inclusão (o SQL Server recusa
+        // OUTPUT sem INTO em tabela com gatilho). O gatilho em si é criado pela migração (SqlMigracaoAuditoria).
+        b.ToTable("Auditoria", t => t.HasTrigger(SqlMigracaoAuditoria.Gatilho));
         b.HasKey(a => a.Id);
 
         b.Property(a => a.Usuario).IsRequired().HasMaxLength(100);

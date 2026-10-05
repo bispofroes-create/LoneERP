@@ -158,15 +158,46 @@ public sealed partial class MeioContatoFormulario : ItemDeLista
     };
 }
 
-/// <summary>Pessoa de contato (ex.: "Maria — Financeiro").</summary>
+/// <summary>
+/// Pessoa de contato (ex.: "Maria — Financeiro"). Remover um já gravado desativa (fica no banco, para o histórico, e dá
+/// para ver e reativar em "Mostrar inativos"); um que ainda não foi gravado sai da lista e nada é criado no banco.
+/// </summary>
 public sealed partial class ContatoFormulario : ItemDeLista
 {
     private Guid? _pessoaVinculadaId;
 
-    public ContatoFormulario() : this(IdSequencial.Novo()) { }
-    private ContatoFormulario(Guid id) => Id = id;
+    public ContatoFormulario() : this(IdSequencial.Novo(), gravado: false) { }
+    private ContatoFormulario(Guid id, bool gravado)
+    {
+        Id = id;
+        Gravado = gravado;
+    }
 
     public Guid Id { get; }
+
+    /// <summary>Já existe no banco: remover desativa em vez de tirar da lista.</summary>
+    public bool Gravado { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Visivel), nameof(Inativo))]
+    private bool _ativo = true;
+
+    /// <summary>Ligado pela ficha em "Mostrar inativos".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Visivel))]
+    private bool _mostrarSeInativo;
+
+    public bool Visivel => Ativo || MostrarSeInativo;
+    public bool Inativo => !Ativo;
+
+    /// <summary>Inativo não é principal.</summary>
+    partial void OnAtivoChanged(bool value)
+    {
+        if (!value) Principal = false;
+    }
+
+    [RelayCommand]
+    private void Reativar() => Ativo = true;
 
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string _cargo = string.Empty;
@@ -178,7 +209,7 @@ public sealed partial class ContatoFormulario : ItemDeLista
     [ObservableProperty] private string _observacoes = string.Empty;
     [ObservableProperty] private bool _principal;
 
-    public static ContatoFormulario De(ContatoDto c) => new(c.Id)
+    public static ContatoFormulario De(ContatoDto c) => new(c.Id, gravado: true)
     {
         _pessoaVinculadaId = c.PessoaVinculadaId,
         Nome = c.Nome,
@@ -189,7 +220,8 @@ public sealed partial class ContatoFormulario : ItemDeLista
         CelularWhatsApp = c.CelularWhatsApp,
         Email = c.Email ?? string.Empty,
         Observacoes = c.Observacoes ?? string.Empty,
-        Principal = c.Principal
+        Principal = c.Ativo && c.Principal,
+        Ativo = c.Ativo
     };
 
     public ContatoDto ParaDto() => new()
@@ -203,8 +235,9 @@ public sealed partial class ContatoFormulario : ItemDeLista
         CelularWhatsApp = CelularWhatsApp,
         Email = TextoTela.Nulo(Email),
         Observacoes = TextoTela.Nulo(Observacoes),
-        Principal = Principal,
-        PessoaVinculadaId = _pessoaVinculadaId
+        Principal = Ativo && Principal,
+        PessoaVinculadaId = _pessoaVinculadaId,
+        Ativo = Ativo
     };
 }
 

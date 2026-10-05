@@ -76,6 +76,11 @@ public class ContatoConfiguration : IEntityTypeConfiguration<Contato>
         b.Property(c => c.Email).HasMaxLength(150);
         b.Property(c => c.Observacoes).HasMaxLength(500);
 
+        // P0: removido depois de gravado fica inativo (nunca apagado pela ficha). Padrão 1 no banco: os registros que já
+        // existem nascem ativos sem UPDATE. Sentinela "true": o EF só manda o valor quando ele é falso (o padrão do banco
+        // já é verdadeiro), então um contato gravado como inativo nunca vira ativo pelo padrão.
+        b.Property(c => c.Ativo).HasDefaultValue(true).HasSentinel(true);
+
         b.HasOne<Pessoa>().WithMany().HasForeignKey(c => c.PessoaVinculadaId).OnDelete(DeleteBehavior.NoAction);
 
         b.HasIndex(c => c.PessoaId);

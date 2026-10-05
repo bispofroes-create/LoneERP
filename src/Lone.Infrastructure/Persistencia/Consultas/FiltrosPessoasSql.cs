@@ -108,8 +108,8 @@ public static class FiltrosPessoasSql
         [CamposFiltroPessoas.Telefone] = (q, c, x) =>
         {
             var meios = x.Db.MeiosContato.Where(m => m.Ativo && m.Tipo != TipoContato.Email).Where(Texto<MeioContato>(m => m.Valor, c));
-            var telefones = x.Db.Contatos.Where(Texto<Contato>(y => y.Telefone, c));
-            var celulares = x.Db.Contatos.Where(Texto<Contato>(y => y.Celular, c));
+            var telefones = x.Db.Contatos.Where(y => y.Ativo).Where(Texto<Contato>(y => y.Telefone, c));
+            var celulares = x.Db.Contatos.Where(y => y.Ativo).Where(Texto<Contato>(y => y.Celular, c));
             var ids = meios.Select(m => m.PessoaId).Concat(telefones.Select(y => y.PessoaId)).Concat(celulares.Select(y => y.PessoaId));
             return q.Where(p => ids.Contains(p.Id));
         },
@@ -118,15 +118,15 @@ public static class FiltrosPessoasSql
             // Gravado só com dígitos e DDD na frente (internacional começa com "+", 0800 com "0": não entram).
             var ddd = c.Valores[0];
             var meios = x.Db.MeiosContato.Where(m => m.Ativo && m.Tipo != TipoContato.Email && m.Valor.StartsWith(ddd));
-            var contatos = x.Db.Contatos.Where(y => (y.Telefone != null && y.Telefone.StartsWith(ddd)) ||
-                                                    (y.Celular != null && y.Celular.StartsWith(ddd)));
+            var contatos = x.Db.Contatos.Where(y => y.Ativo && ((y.Telefone != null && y.Telefone.StartsWith(ddd)) ||
+                                                    (y.Celular != null && y.Celular.StartsWith(ddd))));
             var ids = meios.Select(m => m.PessoaId).Concat(contatos.Select(y => y.PessoaId));
             return q.Where(p => ids.Contains(p.Id));
         },
         [CamposFiltroPessoas.Email] = (q, c, x) =>
         {
             var meios = x.Db.MeiosContato.Where(m => m.Ativo && m.Tipo == TipoContato.Email).Where(Texto<MeioContato>(m => m.Valor, c));
-            var contatos = x.Db.Contatos.Where(Texto<Contato>(y => y.Email, c));
+            var contatos = x.Db.Contatos.Where(y => y.Ativo).Where(Texto<Contato>(y => y.Email, c));
             var ids = meios.Select(m => m.PessoaId).Concat(contatos.Select(y => y.PessoaId));
             return q.Where(p => ids.Contains(p.Id));
         },
@@ -141,7 +141,7 @@ public static class FiltrosPessoasSql
             return c.Operador == OperadorFiltro.Sim ? SemNenhum(q, com, m => m.PessoaId) : ComAlgum(q, com, m => m.PessoaId);
         },
         [CamposFiltroPessoas.CargoContato] = (q, c, x) =>
-            ComAlgum(q, x.Db.Contatos.Where(Texto<Contato>(y => y.Cargo, c)), y => y.PessoaId),
+            ComAlgum(q, x.Db.Contatos.Where(y => y.Ativo).Where(Texto<Contato>(y => y.Cargo, c)), y => y.PessoaId),
         [CamposFiltroPessoas.FinalidadeEndereco] = (q, c, x) =>
         {
             var finalidades = Guids(c);

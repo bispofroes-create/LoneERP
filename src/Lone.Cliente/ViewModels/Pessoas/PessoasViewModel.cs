@@ -1975,7 +1975,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     [RelayCommand]
     private void AdicionarContato()
     {
-        if (Formulario is { } f) f.AdicionarContato(new ContatoFormulario { Principal = f.Contatos.Count == 0 });
+        if (Formulario is { } f) f.AdicionarContato(new ContatoFormulario { Principal = !f.Contatos.Any(c => c.Ativo) });
     }
 
     [RelayCommand]
@@ -2315,8 +2315,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         Mostrar($"Dados preenchidos pela consulta ({dados.Fonte}). " +
                 (estabelecimento.InscricaoVeioDaConsulta
                     ? "A inscrição estadual também foi encontrada. Confira e salve."
-                    : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar).") + conferir,
-            TipoMensagem.Informacao);
+                    : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar).") + conferir +
+                (ficha.AvisoSocios.Length > 0 ? " " + ficha.AvisoSocios : string.Empty),
+            ficha.AvisoSocios.Length > 0 ? TipoMensagem.Aviso : TipoMensagem.Informacao);
     }
 
     /// <summary>Mesma raiz de CNPJ (os 8 primeiros dígitos: matriz e filiais da mesma empresa).</summary>

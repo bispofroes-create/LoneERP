@@ -107,6 +107,22 @@
                 <Label Text="Nenhum sócio encontrado." IsVisible="{Binding SemResultado}" Style="{StaticResource Secundario}" />
                 <Button Text="{Binding TextoBotao}" Command="{Binding AlternarCommand}" IsVisible="{Binding MostrarBotao}"
                         Style="{StaticResource BotaoLink}" HorizontalOptions="Start" Padding="0" />
+                <!-- P0 (D7): quem saiu do quadro da Receita fica gravado como ex-sócio (inativo, com a data de saída). -->
+                <Button Text="{Binding TextoExSocios}" Command="{Binding AlternarExSociosCommand}" IsVisible="{Binding TemExSocios}"
+                        Style="{StaticResource BotaoLink}" HorizontalOptions="Start" Padding="0" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding ExSocios}" IsVisible="{Binding MostrarExSocios}" Spacing="2">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="dto:SocioDto">
+                            <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,1,16,1">
+                                <Label Text="{Binding Nome}" Style="{StaticResource Secundario}" LineBreakMode="TailTruncation"
+                                       ToolTipProperties.Text="{Binding Nome}" />
+                                <Label Grid.Column="1" Text="{Binding Qualificacao, StringFormat=' · {0}'}" Style="{StaticResource Secundario}"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="2" Text="{Binding SaiuEm, StringFormat=' · saiu em {0:dd/MM/yyyy}'}" Style="{StaticResource Secundario}" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </VerticalStackLayout>
 

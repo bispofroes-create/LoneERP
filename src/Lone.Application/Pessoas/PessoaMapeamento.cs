@@ -191,7 +191,9 @@ public static class PessoaMapeamento
         Nome = s.Nome,
         Qualificacao = s.Qualificacao,
         Documento = s.Documento,
-        EntradaEm = s.EntradaEm
+        EntradaEm = s.EntradaEm,
+        Ativo = s.Ativo,
+        SaiuEm = s.SaiuEm
     };
 
     private static PessoaSocio ParaEntidade(SocioDto s, Guid pessoaId) => new()
@@ -201,7 +203,10 @@ public static class PessoaMapeamento
         Nome = s.Nome ?? string.Empty,
         Qualificacao = s.Qualificacao,
         Documento = s.Documento,
-        EntradaEm = s.EntradaEm
+        EntradaEm = s.EntradaEm,
+        Ativo = s.Ativo,
+        // Estado atual: a data de saída só existe enquanto inativo (na volta, fica vazia; o histórico fica na auditoria).
+        SaiuEm = s.Ativo ? null : s.SaiuEm
     };
 
     // ---------------------------------------------------------------- Campos personalizados
@@ -441,7 +446,8 @@ public static class PessoaMapeamento
         Email = c.Email,
         Observacoes = c.Observacoes,
         Principal = c.Principal,
-        PessoaVinculadaId = c.PessoaVinculadaId
+        PessoaVinculadaId = c.PessoaVinculadaId,
+        Ativo = c.Ativo
     };
 
     private static Contato ParaEntidade(ContatoDto c, Guid pessoaId) => new()
@@ -456,8 +462,9 @@ public static class PessoaMapeamento
         CelularWhatsApp = c.CelularWhatsApp,
         Email = c.Email,
         Observacoes = c.Observacoes,
-        Principal = c.Principal,
-        PessoaVinculadaId = c.PessoaVinculadaId
+        Principal = c.Ativo && c.Principal,
+        PessoaVinculadaId = c.PessoaVinculadaId,
+        Ativo = c.Ativo
     };
 
     private static DocumentoDto ParaDto(PessoaDocumento x, IEnumerable<DocumentoValorPersonalizado> valores) => new()

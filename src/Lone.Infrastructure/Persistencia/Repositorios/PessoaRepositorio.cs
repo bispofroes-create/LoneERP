@@ -277,11 +277,11 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             p.ValoresDocumentos.Any(v => pesquisaveis.Contains(v.CampoId) &&
                 (EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicio) ||
                  EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicioDocumento))) ||
-            p.Contatos.Any(x =>
+            p.Contatos.Any(x => x.Ativo && (
                 x.Nome.Contains(termo) ||
                 (x.Email != null && x.Email.Contains(termo)) ||
                 (buscaDigitos && ((x.Telefone != null && x.Telefone.Contains(digitos)) ||
-                                  (x.Celular != null && x.Celular.Contains(digitos))))));
+                                  (x.Celular != null && x.Celular.Contains(digitos)))))));
     }
 
     public async Task<Pessoa?> ObterAsync(Guid id, CancellationToken ct)
@@ -358,9 +358,10 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             .Where(p => p.Id != ignorarId &&
                         (p.Nome == nome ||
                          p.MeiosContato.Any(m => m.Ativo && valores.Contains(m.Valor)) ||
-                         p.Contatos.Any(x => (x.Telefone != null && valores.Contains(x.Telefone)) ||
-                                             (x.Celular != null && valores.Contains(x.Celular)) ||
-                                             (x.Email != null && valores.Contains(x.Email)))))
+                         p.Contatos.Any(x => x.Ativo &&
+                                             ((x.Telefone != null && valores.Contains(x.Telefone)) ||
+                                              (x.Celular != null && valores.Contains(x.Celular)) ||
+                                              (x.Email != null && valores.Contains(x.Email))))))
             .Select(p => new PessoaIdentificacao(p.Id, p.Codigo, p.Nome))
             .Take(5)
             .ToListAsync(ct);
@@ -599,11 +600,13 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         SincronizarFilhos(db, atual.Id, atual.Estabelecimentos, dados.Estabelecimentos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.Documentos, dados.Documentos, apagarAusentes: false); // removidos ficam inativos
         SincronizarFilhos(db, atual.Id, atual.MeiosContato, dados.MeiosContato, apagarAusentes: false); // removidos ficam inativos
-        SincronizarFilhos(db, atual.Id, atual.Contatos, dados.Contatos);
+        SincronizarFilhos(db, atual.Id, atual.Contatos, dados.Contatos, apagarAusentes: false); // removidos ficam inativos (P0)
         SincronizarFilhos(db, atual.Id, atual.Papeis, dados.Papeis, apagarAusentes: false); // períodos nunca são apagados
-        SincronizarFilhos(db, atual.Id, atual.ContasCliente, dados.ContasCliente);
-        SincronizarFilhos(db, atual.Id, atual.ContasFornecedor, dados.ContasFornecedor);
-        SincronizarFilhos(db, atual.Id, atual.Socios, dados.Socios);
+        // P0 (D8): contas ausentes do DTO ficam como estão (nunca apagadas pela gravação); a regra de vigência não muda.
+        SincronizarFilhos(db, atual.Id, atual.ContasCliente, dados.ContasCliente, apagarAusentes: false);
+        SincronizarFilhos(db, atual.Id, atual.ContasFornecedor, dados.ContasFornecedor, apagarAusentes: false);
+        // P0 (D7): sócio que saiu do quadro fica inativo (com a data de saída); nunca é apagado pela gravação.
+        SincronizarFilhos(db, atual.Id, atual.Socios, dados.Socios, apagarAusentes: false);
 
         // Etiqueta é única por pessoa: casa pela etiqueta, não pelo Id, para não apagar e incluir de novo o mesmo registro
         // (histórico limpo e sem conflito no índice único). Consentimentos NÃO passam pelo Salvar da ficha (Fase 3):

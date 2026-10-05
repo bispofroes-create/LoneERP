@@ -30,8 +30,10 @@ public static class PessoaValidador
         for (var i = 0; i < p.MeiosContato.Count; i++)
             ValidarMeio(p.MeiosContato[i], $"Telefone/e-mail {i + 1}", erros);
 
+        // Contato inativo (removido depois de gravado) não é validado: continua gravado como estava (P0).
         for (var i = 0; i < p.Contatos.Count; i++)
-            ValidarContato(p.Contatos[i], $"Pessoa de contato {i + 1}", erros);
+            if (p.Contatos[i].Ativo)
+                ValidarContato(p.Contatos[i], $"Pessoa de contato {i + 1}", erros);
 
         for (var i = 0; i < p.Documentos.Count; i++)
             ValidarDocumento(p.Documentos[i], $"Documento {i + 1}", erros);

@@ -12,6 +12,7 @@ namespace Lone.Cliente.ViewModels.Pessoas;
 /// empurravam papéis e etiquetas para baixo. Como nos ERPs maduros com listas longas: o título traz o total, aparecem os
 /// primeiros <see cref="Previa"/> e "Ver todos os N ▾" / "Recolher ▴"; com mais de <see cref="LimiteBusca"/>, uma busca
 /// por nome ou qualificação. A tela mostra em duas ou três colunas na tela larga.
+/// P0 (D7): o quadro mostra os sócios ativos; os que saíram (inativos, com a data de saída) ficam em "Ver ex-sócios".
 /// </summary>
 public sealed partial class QuadroSocios : ObservableObject
 {
@@ -37,16 +38,25 @@ public sealed partial class QuadroSocios : ObservableObject
     /// <summary>Os nomes mostrados agora (prévia, todos ou os que a busca encontrou).</summary>
     [ObservableProperty] private IReadOnlyList<SocioDto> _visiveis = [];
 
-    public bool TemSocios => _socios.Count > 0;
+    /// <summary>Ex-sócios aparecendo (inativos, que saíram do quadro da Receita).</summary>
+    [ObservableProperty] private bool _mostrarExSocios;
 
-    public string Titulo => _socios.Count > 1
-        ? $"Sócios e administradores (Receita Federal) · {_socios.Count}"
+    [ObservableProperty] private IReadOnlyList<SocioDto> _exSocios = [];
+
+    private List<SocioDto> Ativos => _socios.Where(s => s.Ativo).ToList();
+
+    public bool TemSocios => _socios.Count > 0;
+    public bool TemExSocios => _socios.Any(s => !s.Ativo);
+    public string TextoExSocios => MostrarExSocios ? "Ocultar ex-sócios ▴" : $"Ver ex-sócios ({_socios.Count(s => !s.Ativo)}) ▾";
+
+    public string Titulo => Ativos.Count > 1
+        ? $"Sócios e administradores (Receita Federal) · {Ativos.Count}"
         : "Sócios e administradores (Receita Federal)";
 
     /// <summary>"Ver todos" só quando há mais que a prévia e não há busca (a busca já mostra tudo o que encontra).</summary>
-    public bool MostrarBotao => _socios.Count > Previa && Busca.Trim().Length == 0;
-    public string TextoBotao => Expandido ? "Recolher ▴" : $"Ver todos os {_socios.Count} ▾";
-    public bool MostrarBusca => _socios.Count > LimiteBusca;
+    public bool MostrarBotao => Ativos.Count > Previa && Busca.Trim().Length == 0;
+    public string TextoBotao => Expandido ? "Recolher ▴" : $"Ver todos os {Ativos.Count} ▾";
+    public bool MostrarBusca => Ativos.Count > LimiteBusca;
     public bool SemResultado => Busca.Trim().Length > 0 && Visiveis.Count == 0;
 
     partial void OnExpandidoChanged(bool value) => Atualizar();
@@ -54,6 +64,11 @@ public sealed partial class QuadroSocios : ObservableObject
 
     [RelayCommand]
     private void Alternar() => Expandido = !Expandido;
+
+    [RelayCommand]
+    private void AlternarExSocios() => MostrarExSocios = !MostrarExSocios;
+
+    partial void OnMostrarExSociosChanged(bool value) => Atualizar();
 
     /// <summary>Sem diferenciar maiúsculas nem acentos ("joao" acha "João").</summary>
     private static bool Contem(string texto, string termo) =>
@@ -63,9 +78,14 @@ public sealed partial class QuadroSocios : ObservableObject
     private void Atualizar()
     {
         var termo = Busca.Trim();
+        var ativos = Ativos;
         Visiveis = termo.Length > 0
-            ? _socios.Where(s => Contem($"{s.Nome} {s.Qualificacao}", termo)).ToList()
-            : Expandido ? _socios.ToList() : _socios.Take(Previa).ToList();
+            ? ativos.Where(s => Contem($"{s.Nome} {s.Qualificacao}", termo)).ToList()
+            : Expandido ? ativos : ativos.Take(Previa).ToList();
+        ExSocios = MostrarExSocios ? _socios.Where(s => !s.Ativo).ToList() : [];
+        if (!TemExSocios && MostrarExSocios) MostrarExSocios = false;
+        OnPropertyChanged(nameof(TemExSocios));
+        OnPropertyChanged(nameof(TextoExSocios));
         OnPropertyChanged(nameof(TemSocios));
         OnPropertyChanged(nameof(Titulo));
         OnPropertyChanged(nameof(MostrarBotao));

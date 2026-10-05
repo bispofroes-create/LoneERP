@@ -215,6 +215,70 @@ public sealed partial class PessoaFormulario : ObservableObject
     public ObservableCollection<SocioDto> Socios { get; } = new();
     public bool TemSocios => Socios.Count > 0;
 
+    /// <summary>
+    /// Aviso da última consulta à Receita quando algum sócio não pôde ser identificado com segurança entre os gravados
+    /// (entrou como novo; D7). Vazio = nada a conferir.
+    /// </summary>
+    public string AvisoSocios { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Quadro da Receita × sócios da ficha (P0, D7), em vez de trocar a lista inteira: quem continua fica com o mesmo
+    /// registro (dados atualizados); ex-sócio que voltou é reativado (mesmo Id, sem data de saída); quem não veio mais fica
+    /// inativo com a data de saída de hoje; na dúvida (mais de um candidato), o recebido entra como novo e os gravados
+    /// envolvidos ficam como estão. Quadro vazio na consulta não muda nada (não se presume que todos saíram).
+    /// </summary>
+    internal void CasarSocios(IReadOnlyList<SocioDto> recebidos)
+    {
+        var gravados = Socios.ToList();
+        static DadosSocio Dados(SocioDto s) => new(s.Documento, s.Nome, s.Qualificacao);
+        var r = CasamentoSocios.Casar(gravados.Select(Dados).ToList(), recebidos.Select(Dados).ToList());
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        var resultado = new List<SocioDto>();
+        for (var i = 0; i < recebidos.Count; i++)
+        {
+            var novo = recebidos[i];
+            if (r.GravadoDoRecebido[i] is not { } g)
+            {
+                resultado.Add(new SocioDto
+                {
+                    Nome = novo.Nome, Qualificacao = novo.Qualificacao, Documento = novo.Documento, EntradaEm = novo.EntradaEm, Ativo = true
+                });
+                continue;
+            }
+            var gravado = gravados[g];
+            resultado.Add(new SocioDto
+            {
+                Id = gravado.Id,
+                Nome = string.IsNullOrWhiteSpace(novo.Nome) ? gravado.Nome : novo.Nome,
+                Qualificacao = novo.Qualificacao ?? gravado.Qualificacao,
+                Documento = novo.Documento ?? gravado.Documento,
+                EntradaEm = novo.EntradaEm ?? gravado.EntradaEm,
+                Ativo = true,
+                SaiuEm = null
+            });
+        }
+        foreach (var g in Enumerable.Range(0, gravados.Count).Where(g => !r.GravadoDoRecebido.Contains(g)))
+        {
+            var gravado = gravados[g];
+            var saiu = gravado.Ativo && !r.GravadosPreservados.Contains(g);
+            resultado.Add(new SocioDto
+            {
+                Id = gravado.Id, Nome = gravado.Nome, Qualificacao = gravado.Qualificacao, Documento = gravado.Documento,
+                EntradaEm = gravado.EntradaEm,
+                Ativo = !saiu && gravado.Ativo,
+                SaiuEm = saiu ? hoje : gravado.SaiuEm
+            });
+        }
+
+        Socios.Clear();
+        foreach (var s in resultado) Socios.Add(s);
+        AvisoSocios = r.Ambiguos.Count == 0 ? string.Empty
+            : string.Format(System.Globalization.CultureInfo.InvariantCulture, CasamentoSocios.TextoConferencia, r.Ambiguos.Count);
+        OnPropertyChanged(nameof(AvisoSocios));
+        OnPropertyChanged(nameof(TemSocios));
+    }
+
     /// <summary>Prévia, "Ver todos os N" e busca da lista de sócios (listas longas de empresas grandes).</summary>
     public QuadroSocios QuadroSocios => _quadroSocios ??= new QuadroSocios(Socios);
     private QuadroSocios? _quadroSocios;
@@ -1415,10 +1479,35 @@ public sealed partial class PessoaFormulario : ObservableObject
         foreach (var m in MeiosContato) m.MostrarSeInativo = value;
     }
 
+    /// <summary>
+    /// Pessoa de contato na lista. Remover: o já gravado fica inativo (mesmo registro, para o histórico); o que ainda não
+    /// foi gravado sai da lista e nada vai para o banco (P0).
+    /// </summary>
     public void AdicionarContato(ContatoFormulario contato)
     {
-        contato.AoRemover = () => Contatos.Remove(contato);
+        contato.MostrarSeInativo = MostrarContatosInativos;
+        contato.AoRemover = () =>
+        {
+            if (contato.Gravado) contato.Ativo = false;
+            else Contatos.Remove(contato);
+            OnPropertyChanged(nameof(TemContatosInativos));
+        };
+        contato.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ContatoFormulario.Ativo)) OnPropertyChanged(nameof(TemContatosInativos));
+        };
         Contatos.Add(contato);
+        OnPropertyChanged(nameof(TemContatosInativos));
+    }
+
+    /// <summary>Mostra também as pessoas de contato removidas (inativas), para consultar ou reativar.</summary>
+    [ObservableProperty] private bool _mostrarContatosInativos;
+
+    public bool TemContatosInativos => Contatos.Any(c => !c.Ativo);
+
+    partial void OnMostrarContatosInativosChanged(bool value)
+    {
+        foreach (var c in Contatos) c.MostrarSeInativo = value;
     }
 
     public void AdicionarDocumento(DocumentoFormulario documento)
@@ -1755,12 +1844,16 @@ public sealed partial class PessoaFormulario : ObservableObject
             r.Valor(new(CamposFichaPessoa.DataAbertura, null), "Data de abertura", DataAbertura, TextoTela.Data(d.DataAbertura), v => DataAbertura = v);
         r.Valor(new(CamposFichaPessoa.Porte, null), "Porte", Porte, d.Porte, v => Porte = v);
         r.Valor(new(CamposFichaPessoa.CapitalSocial, null), "Capital social (R$)", CapitalSocial, TextoTela.Decimal(d.CapitalSocial), v => CapitalSocial = v);
-        if (d.Socios.Count > 0 || trocarSocios)
+        if (trocarSocios)
         {
+            // Troca de empresa na ficha nova: os sócios da consulta anterior nunca foram gravados; a lista é a da nova.
             Socios.Clear();
             foreach (var socio in d.Socios) Socios.Add(socio);
+            AvisoSocios = string.Empty;
             OnPropertyChanged(nameof(TemSocios));
         }
+        else if (d.Socios.Count > 0)
+            CasarSocios(d.Socios);
 
         RegistrarOrigemReceita(r.Aplicados);
         ConferenciaReceita.Abrir(r.Conflitos, d.Fonte);

@@ -13,6 +13,9 @@ public class PessoaSocioConfiguration : IEntityTypeConfiguration<PessoaSocio>
         b.Property(s => s.Nome).IsRequired().HasMaxLength(150);
         b.Property(s => s.Qualificacao).HasMaxLength(80);
         b.Property(s => s.Documento).HasMaxLength(20).IsUnicode(false);
+        // P0 (D7): ex-sócio fica inativo com a data de saída (nunca apagado). Padrão 1 no banco: os que já existem nascem
+        // ativos sem UPDATE; sentinela "true" pelo mesmo motivo do contato (o EF só manda o valor quando é falso).
+        b.Property(s => s.Ativo).HasDefaultValue(true).HasSentinel(true);
         b.HasIndex(s => s.PessoaId);
     }
 }

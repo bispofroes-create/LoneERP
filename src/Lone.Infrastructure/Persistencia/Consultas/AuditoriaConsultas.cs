@@ -123,6 +123,21 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
         await TraduzirIdsAsync(registros, nameof(ContaFornecedor), nameof(ContaFornecedor.CondicaoPagamentoId), "(condição de pagamento)",
             ids => db.CondicoesPagamento.AsNoTracking().Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Nome, ct));
 
+        // Foto da inclusão/exclusão (P0, D3-a): Ids das contas e da pessoa de contato aparecem pelo nome.
+        Task<Dictionary<Guid, string>> NomesDePessoas(List<Guid> ids) =>
+            // Sem escopo: só o nome do cadastro referenciado (empresa do grupo, vendedor, transportadora, pessoa vinculada).
+            db.Pessoas.AsNoTracking().Where(p => ids.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => (p.NomeExibicao ?? p.Nome) + " (código " + p.Codigo + ")", ct);
+        await TraduzirIdsAsync(registros, nameof(ContaCliente), nameof(ContaCliente.EmpresaId), "(empresa)", NomesDePessoas);
+        await TraduzirIdsAsync(registros, nameof(ContaCliente), nameof(ContaCliente.PerfilComercialId), "(perfil comercial)",
+            ids => db.PerfisComerciais.AsNoTracking().Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(ContaCliente), nameof(ContaCliente.CondicaoPagamentoId), "(condição de pagamento)",
+            ids => db.CondicoesPagamento.AsNoTracking().Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Nome, ct));
+        await TraduzirIdsAsync(registros, nameof(ContaCliente), nameof(ContaCliente.VendedorPadraoId), "(vendedor)", NomesDePessoas);
+        await TraduzirIdsAsync(registros, nameof(ContaFornecedor), nameof(ContaFornecedor.EmpresaId), "(empresa)", NomesDePessoas);
+        await TraduzirIdsAsync(registros, nameof(ContaFornecedor), nameof(ContaFornecedor.TransportadoraPadraoId), "(transportadora)", NomesDePessoas);
+        await TraduzirIdsAsync(registros, nameof(Contato), nameof(Contato.PessoaVinculadaId), "(cadastro)", NomesDePessoas);
+
         // Gravado em UTC; marcado como tal para o aplicativo converter para o fuso do aparelho.
         foreach (var r in registros)
             r.DataHora = DateTime.SpecifyKind(r.DataHora, DateTimeKind.Utc);

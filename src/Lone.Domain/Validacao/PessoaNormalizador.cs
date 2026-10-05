@@ -173,8 +173,8 @@ public static class PessoaNormalizador
             if (c.Celular is null) c.CelularWhatsApp = false;
         }
 
-        // No máximo um contato principal.
-        var principal = contatos.FirstOrDefault(c => c.Principal);
+        // No máximo um contato principal, escolhido só entre os ativos: inativo nunca é principal (P0).
+        var principal = contatos.FirstOrDefault(c => c.Ativo && c.Principal);
         foreach (var c in contatos)
             c.Principal = ReferenceEquals(c, principal);
     }
@@ -248,6 +248,7 @@ public static class PessoaNormalizador
         p.Porte = Texto(p.Porte);
         foreach (var s in p.Socios)
         {
+            if (s.Ativo) s.SaiuEm = null; // estado atual: a data de saída só existe enquanto inativo (P0)
             s.Nome = Texto(s.Nome) ?? string.Empty;
             s.Qualificacao = Texto(s.Qualificacao);
             s.Documento = Texto(s.Documento);

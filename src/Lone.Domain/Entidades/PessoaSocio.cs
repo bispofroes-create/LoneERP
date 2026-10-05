@@ -8,7 +8,7 @@ namespace Lone.Domain.Entidades;
 /// de CNPJ. Vínculos com pessoas cadastradas ficam em Relacionamentos.
 /// </summary>
 [DisplayName("Sócio")]
-public class PessoaSocio : EntidadePessoaFilha
+public class PessoaSocio : EntidadePessoaFilha, IResumoAuditoria
 {
     [DisplayName("Nome")]
     public string Nome { get; set; } = string.Empty;
@@ -23,4 +23,17 @@ public class PessoaSocio : EntidadePessoaFilha
 
     [DisplayName("Entrada na sociedade")]
     public DateOnly? EntradaEm { get; set; }
+
+    /// <summary>Inativo: não consta mais no quadro da Receita (ex-sócio). Nunca é apagado; volta a ativo se reaparecer.</summary>
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
+
+    /// <summary>
+    /// Data em que deixou de constar no quadro (estado atual): preenchida só enquanto inativo. Na volta, fica vazia; as
+    /// saídas e voltas anteriores ficam no histórico (auditoria).
+    /// </summary>
+    [DisplayName("Saída da sociedade")]
+    public DateOnly? SaiuEm { get; set; }
+
+    public string? ResumoAuditoria => string.IsNullOrWhiteSpace(Qualificacao) ? Nome : $"{Nome} ({Qualificacao})";
 }

@@ -271,6 +271,12 @@ public sealed class ContatoDto
     public string? Observacoes { get; set; }
     public bool Principal { get; set; }
     public Guid? PessoaVinculadaId { get; set; }
+
+    /// <summary>
+    /// Inativo: removido da ficha depois de gravado; continua no banco (histórico). Padrão ativo: chamada antiga, que não
+    /// manda o campo, grava como ativo (o comportamento de antes para quem está na lista).
+    /// </summary>
+    public bool Ativo { get; set; } = true;
 }
 
 public sealed class DocumentoDto
@@ -369,6 +375,12 @@ public sealed class SocioDto
     public string? Qualificacao { get; set; }
     public string? Documento { get; set; }
     public DateOnly? EntradaEm { get; set; }
+
+    /// <summary>Inativo: não consta mais no quadro da Receita (ex-sócio). Padrão ativo (chamada antiga grava como ativo).</summary>
+    public bool Ativo { get; set; } = true;
+
+    /// <summary>Data em que saiu do quadro (só enquanto inativo; na volta, vazia).</summary>
+    public DateOnly? SaiuEm { get; set; }
 }
 
 /// <summary>Texto de município gravado antes da tabela do IBGE que a conciliação não conseguiu ligar.</summary>

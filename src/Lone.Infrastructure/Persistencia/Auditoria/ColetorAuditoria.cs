@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Reflection;
 using Lone.Domain.Auditoria;
 using Lone.Domain.Entidades;
@@ -11,6 +12,9 @@ namespace Lone.Infrastructure.Persistencia.Auditoria;
 /// Lê as mudanças pendentes no contexto e gera os registros de auditoria (uma linha por campo alterado).
 /// Genérico: funciona para qualquer entidade do ERP. Uso: Coletar() antes de gravar; Finalizar() depois,
 /// quando os Ids gerados pelo banco já existem.
+/// Ações distintas (P0, D6): inclusão, alteração, inativação, reativação e exclusão física. Inativar não é excluir: a
+/// mudança de <c>Ativo</c> vira uma ação própria. No cadastro de pessoas (<see cref="EntidadePessoaFilha"/>), a inclusão e
+/// a exclusão física guardam a foto do conteúdo (D3-a).
 /// </summary>
 internal sealed class ColetorAuditoria
 {
@@ -55,11 +59,15 @@ internal sealed class ColetorAuditoria
                 case EntityState.Added:
                     // Partes "owned" (ex.: dados fiscais) nascem junto com o dono; a inclusão do dono já basta.
                     if (!entrada.Metadata.IsOwned())
+                    {
                         Adicionar(entrada, AcaoAuditoria.Inclusao);
+                        if (entrada.Entity is EntidadePessoaFilha) Fotografar(entrada, AcaoAuditoria.Inclusao);
+                    }
                     break;
 
                 case EntityState.Deleted:
                     Adicionar(entrada, AcaoAuditoria.Exclusao);
+                    if (entrada.Entity is EntidadePessoaFilha) Fotografar(entrada, AcaoAuditoria.Exclusao);
                     break;
 
                 case EntityState.Modified:
@@ -124,6 +132,18 @@ internal sealed class ColetorAuditoria
             if (Equals(anterior, atual))
                 continue;
 
+            // Ativo (bool) mudou: inativação ou reativação, ação própria (D6). Só a mudança de Ativo decide a ação; o
+            // resumo do registro é apresentação e nunca impede o registro.
+            if (nome == CampoAtivo && anterior is bool estavaAtivo && atual is bool ficouAtivo)
+            {
+                var mudanca = Adicionar(entrada, ficouAtivo ? AcaoAuditoria.Reativacao : AcaoAuditoria.Inativacao);
+                mudanca.Campo = nome;
+                mudanca.ValorAnterior = Texto(estavaAtivo, sensivel: false);
+                mudanca.ValorNovo = Texto(ficouAtivo, sensivel: false);
+                mudanca.Descricao = Resumo(entrada.Entity);
+                continue;
+            }
+
             var info = entrada.Metadata.ClrType.GetProperty(nome);
             var registro = Adicionar(entrada, AcaoAuditoria.Alteracao);
             registro.Campo = nome;
@@ -137,6 +157,58 @@ internal sealed class ColetorAuditoria
             registro.ValorNovo = Texto(atual, sensivel);
         }
     }
+
+    private const string CampoAtivo = "Ativo";
+
+    /// <summary>Resumo do registro (ex.: "Maria Souza (Compradora)"); qualquer falha vira "sem resumo".</summary>
+    private static string? Resumo(object entidade)
+    {
+        try
+        {
+            return entidade is IResumoAuditoria r && !string.IsNullOrWhiteSpace(r.ResumoAuditoria) ? Cortar(r.ResumoAuditoria.Trim()) : null;
+        }
+        catch (Exception)
+        {
+            return null; // o resumo é só apresentação: a ação continua registrada
+        }
+    }
+
+    /// <summary>
+    /// Foto do conteúdo na inclusão (valores novos) ou na exclusão física (valores anteriores), uma linha por campo (D3-a):
+    /// só propriedades com [DisplayName] (o nome que o usuário vê), sem os campos técnicos, com valor significativo
+    /// (não nulo, texto não vazio, bool verdadeiro; números sempre, inclusive zero). [NaoAuditarValor] não entra;
+    /// [DadoSensivel] entra mascarado.
+    /// </summary>
+    private void Fotografar(EntityEntry entrada, AcaoAuditoria acao)
+    {
+        var tipo = entrada.Metadata.ClrType;
+        foreach (var propriedade in entrada.Properties)
+        {
+            var nome = propriedade.Metadata.Name;
+            if (CamposIgnorados.Contains(nome) || propriedade.Metadata.IsShadowProperty()) continue;
+            var info = tipo.GetProperty(nome);
+            if (info is null || !info.IsDefined(typeof(DisplayNameAttribute), inherit: true)) continue;
+            if (info.IsDefined(typeof(NaoAuditarValorAttribute))) continue;
+
+            var valor = acao == AcaoAuditoria.Exclusao ? propriedade.OriginalValue : propriedade.CurrentValue;
+            if (!Significativo(valor)) continue;
+
+            var texto = Texto(valor, info.IsDefined(typeof(DadoSensivelAttribute)));
+            var registro = Adicionar(entrada, acao);
+            registro.Campo = nome;
+            if (acao == AcaoAuditoria.Exclusao) registro.ValorAnterior = texto;
+            else registro.ValorNovo = texto;
+        }
+    }
+
+    private static bool Significativo(object? valor) => valor switch
+    {
+        null => false,
+        string s => !string.IsNullOrWhiteSpace(s),
+        bool b => b,
+        Guid g => g != Guid.Empty,
+        _ => true
+    };
 
     private RegistroAuditoria Adicionar(EntityEntry entrada, AcaoAuditoria acao)
     {

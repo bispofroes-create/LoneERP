@@ -101,16 +101,23 @@
             <Label Text="Pessoas de contato" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
             <Button Grid.Column="1" Text="+ Adicionar contato" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarContatoCommand}" />
         </Grid>
-        <Label Text="Pessoas sem cadastro próprio (ex.: a recepcionista, o comprador). Se a pessoa já tem cadastro no Lone, ligue os dois cadastros na aba &quot;Relacionamentos&quot;."
-               Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+        <!-- Remover uma pessoa de contato já gravada só desativa (fica no histórico); a que ainda não foi gravada sai da lista. -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Label Text="Pessoas sem cadastro próprio (ex.: a recepcionista, o comprador). Se a pessoa já tem cadastro no Lone, ligue os dois cadastros na aba &quot;Relacionamentos&quot;."
+                   Style="{StaticResource Secundario}" LineBreakMode="WordWrap" VerticalOptions="Center" />
+            <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarContatosInativos}"
+                           IsVisible="{Binding Formulario.TemContatosInativos}" VerticalOptions="Center" />
+        </Grid>
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.Contatos}">
             <BindableLayout.EmptyView>
                 <Label Text="Nenhuma pessoa de contato." Style="{StaticResource Secundario}" Margin="0,4" />
             </BindableLayout.EmptyView>
             <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="pes:ContatoFormulario">
-                    <Border Style="{StaticResource CartaoItem}">
+                    <Border Style="{StaticResource CartaoItem}" IsVisible="{Binding Visivel}">
                         <VerticalStackLayout>
+                            <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
+                                   TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <c:BlocoCampos>
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoNome}" c:Validacao.Item="{Binding Id}" Rotulo="Nome" Texto="{Binding Nome}" />
                                 <c:Campo Rotulo="Cargo" Texto="{Binding Cargo}" />
@@ -119,10 +126,13 @@
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoTelefone}" c:Validacao.Item="{Binding Id}" Rotulo="Telefone" Texto="{Binding Telefone}" Mascara="Telefone" />
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoCelular}" c:Validacao.Item="{Binding Id}" Rotulo="Celular" Texto="{Binding Celular}" Mascara="Telefone" />
                                 <c:CaixaMarcar Texto="O celular tem WhatsApp" Marcado="{Binding CelularWhatsApp}" />
-                                <c:CaixaMarcar Texto="Contato principal" Marcado="{Binding Principal}" />
+                                <c:CaixaMarcar Texto="Contato principal" Marcado="{Binding Principal}" IsEnabled="{Binding Ativo}" />
                                 <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
                             </c:BlocoCampos>
-                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}" />
+                            <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
+                                    IsVisible="{Binding Ativo}" />
+                            <Button Text="Reativar" Style="{StaticResource BotaoLink}" Command="{Binding ReativarCommand}"
+                                    IsVisible="{Binding Inativo}" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>

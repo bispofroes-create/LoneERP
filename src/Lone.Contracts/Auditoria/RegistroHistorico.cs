@@ -17,7 +17,10 @@ public sealed class RegistroHistorico
     public string? ValorAnterior { get; set; }
     public string? ValorNovo { get; set; }
 
-    /// <summary>Texto do evento (Acao = Evento), ex.: "Cliente João da Silva foi desativado."</summary>
+    /// <summary>
+    /// Texto do evento (Acao = Evento), ex.: "Cliente João da Silva foi desativado."; na inativação/reativação, o resumo
+    /// do registro (ex.: "Maria Souza (Compradora)"), quando houver.
+    /// </summary>
     public string? Descricao { get; set; }
 
     /// <summary>Motivo informado pelo usuário na operação (nulo = não informado).</summary>
@@ -32,6 +35,10 @@ public sealed class RegistroHistorico
         AcaoAuditoria.Evento => Descricao ?? string.Empty,
         AcaoAuditoria.Inclusao when Campo is null => $"{EntidadeDescricao}: incluído",
         AcaoAuditoria.Exclusao when Campo is null => $"{EntidadeDescricao}: removido",
+        AcaoAuditoria.Inclusao => $"{EntidadeDescricao}: incluído · {CampoDescricao} = \"{ValorNovo}\"",
+        AcaoAuditoria.Exclusao => $"{EntidadeDescricao}: removido · {CampoDescricao} era \"{ValorAnterior}\"",
+        AcaoAuditoria.Inativacao => string.IsNullOrWhiteSpace(Descricao) ? $"{EntidadeDescricao}: inativado" : $"{EntidadeDescricao}: inativado — {Descricao}",
+        AcaoAuditoria.Reativacao => string.IsNullOrWhiteSpace(Descricao) ? $"{EntidadeDescricao}: reativado" : $"{EntidadeDescricao}: reativado — {Descricao}",
         _ => $"{EntidadeDescricao} · {CampoDescricao}: \"{ValorAnterior ?? "vazio"}\" → \"{ValorNovo ?? "vazio"}\""
     };
 }

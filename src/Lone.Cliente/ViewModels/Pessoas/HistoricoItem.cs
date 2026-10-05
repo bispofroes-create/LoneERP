@@ -15,9 +15,15 @@ public sealed record HistoricoItem(string Quando, string Descricao, string Motiv
         var descricao = r.Acao switch
         {
             AcaoAuditoria.Evento => r.Descricao ?? string.Empty,
-            AcaoAuditoria.Inclusao when r.Entidade == "Pessoa" => "Cadastro criado",
-            AcaoAuditoria.Inclusao => $"{parte}: incluído",
-            AcaoAuditoria.Exclusao => $"{parte}: removido",
+            AcaoAuditoria.Inclusao when r.Entidade == "Pessoa" && r.Campo is null => "Cadastro criado",
+            AcaoAuditoria.Inclusao when r.Campo is null => $"{parte}: incluído",
+            AcaoAuditoria.Exclusao when r.Campo is null => $"{parte}: removido",
+            // Foto do conteúdo (P0, D3-a): uma linha por campo, junto da linha "incluído"/"removido" da mesma operação.
+            AcaoAuditoria.Inclusao => $"{parte}: incluído · {r.CampoDescricao} = \"{r.ValorNovo}\"",
+            AcaoAuditoria.Exclusao => $"{parte}: removido · {r.CampoDescricao} era \"{r.ValorAnterior}\"",
+            // Inativar não é excluir (D6): o registro continua gravado.
+            AcaoAuditoria.Inativacao => string.IsNullOrWhiteSpace(r.Descricao) ? $"{parte}: inativado" : $"{parte}: inativado — {r.Descricao}",
+            AcaoAuditoria.Reativacao => string.IsNullOrWhiteSpace(r.Descricao) ? $"{parte}: reativado" : $"{parte}: reativado — {r.Descricao}",
             _ => $"{parte} · {r.CampoDescricao}: \"{r.ValorAnterior ?? "vazio"}\" → \"{r.ValorNovo ?? "vazio"}\""
         };
 

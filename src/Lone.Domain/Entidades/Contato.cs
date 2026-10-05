@@ -1,10 +1,14 @@
 using System.ComponentModel;
+using Lone.Domain.Auditoria;
 
 namespace Lone.Domain.Entidades;
 
-/// <summary>Pessoa de contato de uma empresa (ex.: "Maria — Financeiro").</summary>
+/// <summary>
+/// Pessoa de contato de uma empresa (ex.: "Maria — Financeiro"). Removido depois de gravado, fica inativo (histórico);
+/// nunca é apagado pela gravação da ficha.
+/// </summary>
 [DisplayName("Pessoa de contato")]
-public class Contato : EntidadePessoaFilha
+public class Contato : EntidadePessoaFilha, IResumoAuditoria
 {
     [DisplayName("Nome")]
     public string Nome { get; set; } = string.Empty;
@@ -36,4 +40,10 @@ public class Contato : EntidadePessoaFilha
     /// <summary>Quando o contato também é uma pessoa cadastrada.</summary>
     [DisplayName("Pessoa vinculada")]
     public Guid? PessoaVinculadaId { get; set; }
+
+    /// <summary>Inativo: removido da ficha, mas guardado (não é principal, não é validado nem encontrado nas buscas).</summary>
+    [DisplayName("Ativo")]
+    public bool Ativo { get; set; } = true;
+
+    public string? ResumoAuditoria => string.IsNullOrWhiteSpace(Cargo) ? Nome : $"{Nome} ({Cargo})";
 }

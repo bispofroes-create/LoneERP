@@ -506,6 +506,11 @@ public sealed class PessoaAppService : IPessoaAppService
             foreach (var mudanca in RegrasPapel.Mudancas(papeisAnteriores, dados.Papeis, cadastroPapeis))
                 dados.RegistrarEvento(mudanca);
 
+        // Sócios (P0, D7): sócio da Receita incluído como novo, mas compatível com um já gravado, é um casamento que não
+        // pôde ser feito com segurança (ambiguidade): fica registrado para conferência.
+        if (SociosNaoIdentificados(dados, anterior) is > 0 and var naoIdentificados)
+            dados.RegistrarEvento(string.Format(System.Globalization.CultureInfo.InvariantCulture, CasamentoSocios.TextoConferencia, naoIdentificados));
+
         // Estrutura empresarial: estabelecimento incluído/desativado/reativado, troca do principal e entrada/saída do grupo.
         foreach (var mudanca in RegrasEstabelecimento.Mudancas(anterior, dados))
             dados.RegistrarEvento(mudanca);
@@ -769,6 +774,20 @@ public sealed class PessoaAppService : IPessoaAppService
             _autorizacao.Exigir(Permissoes.Pessoas.EstruturaEmpresarial);
     }
 
+    /// <summary>
+    /// Sócios novos nesta gravação (Id que não estava gravado) que são compatíveis com algum sócio já gravado: o
+    /// casamento não os identificou com segurança (D7) e eles entraram como novos.
+    /// </summary>
+    internal static int SociosNaoIdentificados(Pessoa dados, Pessoa? anterior)
+    {
+        if (anterior is null || anterior.Socios.Count == 0) return 0;
+        var gravados = anterior.Socios.ToDictionary(s => s.Id);
+        return dados.Socios.Count(s => !gravados.ContainsKey(s.Id) &&
+                                       anterior.Socios.Any(g => CasamentoSocios.Compativeis(Dados(g), Dados(s))));
+
+        static DadosSocio Dados(PessoaSocio s) => new(s.Documento, s.Nome, s.Qualificacao);
+    }
+
     /// <summary>Perfil comercial ou exceções (que mudam limite, desconto e prazos) também exigem "alterar crédito".</summary>
     private static bool CondicoesComerciaisMudaram(Pessoa dados, Pessoa? anterior)
     {
@@ -802,7 +821,7 @@ public sealed class PessoaAppService : IPessoaAppService
     private async Task<List<string>> BuscarAvisosDeDuplicidadeAsync(Pessoa p, CancellationToken ct)
     {
         var contatos = p.MeiosContato.Where(m => m.Ativo).Select(m => m.Valor)
-            .Concat(p.Contatos.SelectMany(c => new[] { c.Telefone, c.Celular, c.Email }))
+            .Concat(p.Contatos.Where(c => c.Ativo).SelectMany(c => new[] { c.Telefone, c.Celular, c.Email }))
             .OfType<string>()
             .Where(v => v.Length > 0)
             .Distinct()
