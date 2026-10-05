@@ -51,13 +51,16 @@ public sealed class CampoNumero : ContentView, ICampoValidavel
             Children = { _mais, _menos }
         };
         _marca = new MarcaDeErro(_entrada);
-        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada, setas } }, _marca.Rotulo } };
+        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada, setas } }, _marca.Mensagens } };
     }
 
     private readonly MarcaDeErro _marca;
 
     /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
     public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    /// <summary>Destaque de alteração: fundo azul-claro e "● Veio da Receita... · antes: ..." embaixo; nulo tira.</summary>
+    public void MostrarDestaque(global::Lone.Cliente.ViewModels.Comum.DestaqueCampo? destaque) => _marca.MostrarDestaque(destaque);
 
     public bool Focar() => _entrada.IsEnabled && _entrada.Focus();
 

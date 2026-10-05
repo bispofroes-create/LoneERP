@@ -1,5 +1,4 @@
 using Lone.Cliente.ViewModels.Comum;
-using Lone.Domain.Validacao;
 
 namespace Lone.App.Controles;
 
@@ -11,6 +10,9 @@ public interface ICampoValidavel
 
     /// <summary>Põe o foco no campo; falso se não deu (desligado, ainda sem controle nativo).</summary>
     bool Focar();
+
+    /// <summary>Mostra (destaque) ou tira (nulo) o destaque de alteração ("Destacar alterações" da ficha).</summary>
+    void MostrarDestaque(DestaqueCampo? destaque);
 }
 
 /// <summary>
@@ -32,6 +34,13 @@ public static class Validacao
     public static readonly BindableProperty ResumoProperty = BindableProperty.CreateAttached(
         "Resumo", typeof(ResumoValidacao), typeof(Validacao), null, propertyChanged: ResumoMudou);
 
+    /// <summary>
+    /// <c>c:Validacao.Destaques="{Binding Destaques}"</c> na mesma rolagem: os campos registrados mostram o destaque de
+    /// alteração ("Destacar alterações" da ficha) pelo mesmo id de campo dos erros.
+    /// </summary>
+    public static readonly BindableProperty DestaquesProperty = BindableProperty.CreateAttached(
+        "Destaques", typeof(DestaquesFicha), typeof(Validacao), null, propertyChanged: DestaquesMudou);
+
     public static readonly BindableProperty CampoProperty = BindableProperty.CreateAttached(
         "Campo", typeof(string), typeof(Validacao), null, propertyChanged: CampoMudou);
 
@@ -44,6 +53,8 @@ public static class Validacao
     private static readonly BindableProperty LigacaoCampoProperty =
         BindableProperty.CreateAttached("LigacaoCampo", typeof(LigacaoCampo), typeof(Validacao), null);
 
+    public static DestaquesFicha? GetDestaques(BindableObject o) => (DestaquesFicha?)o.GetValue(DestaquesProperty);
+    public static void SetDestaques(BindableObject o, DestaquesFicha? valor) => o.SetValue(DestaquesProperty, valor);
     public static ResumoValidacao? GetResumo(BindableObject o) => (ResumoValidacao?)o.GetValue(ResumoProperty);
     public static void SetResumo(BindableObject o, ResumoValidacao? valor) => o.SetValue(ResumoProperty, valor);
     public static string? GetCampo(BindableObject o) => (string?)o.GetValue(CampoProperty);
@@ -58,19 +69,29 @@ public static class Validacao
 
     private static void ResumoMudou(BindableObject objeto, object antigo, object novo)
     {
-        if (objeto is not ScrollView rolagem) return;
+        if (objeto is ScrollView rolagem) FormularioDe(rolagem).Trocar(novo as ResumoValidacao);
+    }
+
+    private static void DestaquesMudou(BindableObject objeto, object antigo, object novo)
+    {
+        if (objeto is ScrollView rolagem) FormularioDe(rolagem).TrocarDestaques(novo as DestaquesFicha);
+    }
+
+    private static Formulario FormularioDe(ScrollView rolagem)
+    {
         var formulario = (Formulario?)rolagem.GetValue(FormularioProperty);
         if (formulario is null)
         {
             formulario = new Formulario(rolagem);
             rolagem.SetValue(FormularioProperty, formulario);
         }
-        formulario.Trocar(novo as ResumoValidacao);
+        return formulario;
     }
 
     private static void CampoMudou(BindableObject objeto, object antigo, object novo)
     {
-        if (objeto is not View controle || controle is not ICampoValidavel) return;
+        // Campo com marca de erro (ICampoValidavel) ou só destino de foco (ex.: o botão "+ Adicionar endereço" de uma pendência).
+        if (objeto is not View controle) return;
         if (Ligacao(controle) is null && novo is string { Length: > 0 })
             controle.SetValue(LigacaoCampoProperty, new LigacaoCampo(controle));
         Ligacao(controle)?.Atualizar();
@@ -110,19 +131,22 @@ public static class Validacao
             _formulario = null;
         }
 
-        /// <summary>Marca (ou desmarca) o controle conforme os erros do resumo.</summary>
+        /// <summary>Marca (ou desmarca) o controle conforme os erros do resumo e o destaque de alterações.</summary>
         public void Atualizar()
         {
             if (_controle is not ICampoValidavel campo) return;
             campo.MostrarErro(_formulario?.Resumo is { } resumo && Campo is { } id ? resumo.ErroDe(id, Item) : null);
+            campo.MostrarDestaque(_formulario?.Destaques is { } destaques && Campo is { } chave ? destaques.De(chave, Item) : null);
         }
     }
 
     /// <summary>O formulário (a rolagem marcada com <c>Resumo</c>): os campos registrados e o "ir para".</summary>
     private sealed class Formulario
     {
-        private const int Tentativas = 30;                    // ~1,5 s: a aba nova termina de aparecer
+        private const int Tentativas = 60;                    // ~3 s: a aba nova (ou a ficha aberta pela prévia) termina de aparecer
         private static readonly TimeSpan Intervalo = TimeSpan.FromMilliseconds(50);
+        private static readonly TimeSpan TempoRolagem = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan Insistencia = TimeSpan.FromMilliseconds(150);
 
         private readonly ScrollView _rolagem;
         private readonly List<LigacaoCampo> _campos = new();
@@ -131,6 +155,15 @@ public static class Validacao
         public Formulario(ScrollView rolagem) => _rolagem = rolagem;
 
         public ResumoValidacao? Resumo { get; private set; }
+        public DestaquesFicha? Destaques { get; private set; }
+
+        public void TrocarDestaques(DestaquesFicha? destaques)
+        {
+            if (Destaques is not null) Destaques.Mudou -= AtualizarTodos;
+            Destaques = destaques;
+            if (destaques is not null) destaques.Mudou += AtualizarTodos;
+            AtualizarTodos();
+        }
 
         public void Trocar(ResumoValidacao? resumo)
         {
@@ -165,7 +198,7 @@ public static class Validacao
         /// Sem o controle na tela depois das tentativas (campo que esta pessoa não mostra), não faz nada: o erro continua no
         /// resumo e marcado onde estiver.
         /// </summary>
-        private async void IrPara(ErroValidacao erro)
+        private async void IrPara(DestinoCampo destino)
         {
             var pedido = ++_pedido;
             try
@@ -173,12 +206,17 @@ public static class Validacao
                 for (var i = 0; i < Tentativas; i++)
                 {
                     if (pedido != _pedido) return; // outro pedido no meio: vale o último
-                    var alvo = _campos.FirstOrDefault(c => c.Campo == erro.Campo && c.Item == erro.Item && Visivel(c.Controle));
+                    var alvo = _campos.FirstOrDefault(c => c.Campo == destino.Campo && c.Item == destino.Item && Visivel(c.Controle));
                     if (alvo is not null)
                     {
-                        await _rolagem.ScrollToAsync(alvo.Controle, ScrollToPosition.Center, true);
-                        if (alvo.Controle is ICampoValidavel campo && !campo.Focar())
-                            SemanticScreenReader.Announce(erro.Mensagem);
+                        // No Windows, ScrollToAsync não termina quando a rolagem não muda (campo já no lugar): não esperar
+                        // por ela além do tempo da animação, senão o foco nunca chega.
+                        await Task.WhenAny(_rolagem.ScrollToAsync(alvo.Controle, ScrollToPosition.Center, true), Task.Delay(TempoRolagem));
+                        if (pedido != _pedido) return;
+                        Focar(alvo.Controle);
+                        // O toque que fez o pedido (item do resumo da pessoa, prévia) ainda pode levar o foco ao soltar: insiste uma vez.
+                        await Task.Delay(Insistencia);
+                        if (pedido == _pedido) Focar(alvo.Controle);
                         return;
                     }
                     await Task.Delay(Intervalo);
@@ -188,6 +226,12 @@ public static class Validacao
             {
                 // Rolar e focar são ajuda: um controle que saiu da tela no meio do caminho não pode derrubar o formulário.
             }
+        }
+
+        private static void Focar(View controle)
+        {
+            if (controle is ICampoValidavel campo) campo.Focar();
+            else controle.Focus();
         }
 
         /// <summary>Na tela de fato: ele e todos os pais visíveis, já medido.</summary>

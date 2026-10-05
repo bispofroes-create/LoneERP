@@ -61,6 +61,12 @@ public sealed record SecaoOpcao(SecaoPessoa Secao, string Texto)
 }
 
 /// <summary>
+/// Para onde um item do resumo da pessoa leva: a aba e, quando o assunto tem um campo (ou um botão de "Adicionar"), o campo
+/// (id de <see cref="CamposFichaPessoa"/>) e o registro da lista. Lone Contextual, Fase 2: o "Resolver" da pendência.
+/// </summary>
+public sealed record DestinoFicha(SecaoPessoa Aba, string? Campo = null, Guid? Item = null);
+
+/// <summary>
 /// Em que aba da ficha fica cada campo (Lone Contextual, Fase 1: o erro leva ao campo). Pela área do id
 /// (<see cref="CamposFichaPessoa"/>), com as poucas exceções escritas aqui; a única tabela desse tipo.
 /// </summary>
@@ -88,7 +94,8 @@ public static class AbaDoCampo
     /// </summary>
     private static readonly Dictionary<string, SecaoPessoa> ExcecoesComItem = new(StringComparer.Ordinal)
     {
-        [CamposFichaPessoa.NaturezaJuridica] = SecaoPessoa.Estabelecimentos
+        [CamposFichaPessoa.NaturezaJuridica] = SecaoPessoa.Estabelecimentos,
+        [CamposFichaPessoa.NomeFantasia] = SecaoPessoa.Estabelecimentos
     };
 
     /// <summary>A aba do campo; nula para um id desconhecido (o erro continua no resumo, sem levar a lugar nenhum).</summary>

@@ -52,10 +52,17 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
             // Propriedades da própria tela também podem ser parte da ficha (ex.: operações territoriais).
             if (e.PropertyName is nameof(PodeSalvarAgora) or nameof(PodeDescartar) or nameof(EstadoFicha) or nameof(MostrarEstadoFicha) or nameof(TemAlteracoes)
                 or nameof(ConteudoLista)) return;
+            if (!PropriedadeDaFicha(e.PropertyName)) return;
             if (e.PropertyName is nameof(Ocupado) or nameof(Livre)) OnPropertyChanged(nameof(PodeSalvarAgora));
             AvaliarAlteracoes();
         };
     }
+
+    /// <summary>
+    /// Falso para propriedades da tela que são só apresentação derivada da ficha (ex.: marcas nas abas): mudar uma delas
+    /// não é alteração da ficha e não deve disparar a comparação com a gravada.
+    /// </summary>
+    protected virtual bool PropriedadeDaFicha(string? propriedade) => true;
 
     /// <summary>Linhas visíveis (já filtradas pela busca).</summary>
     public ObservableCollection<TItem> Itens { get; } = new();
@@ -123,6 +130,12 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
     /// <summary>Há algo na ficha diferente do que foi aberto ou salvo.</summary>
     public bool TemAlteracoes => Editando && Foto() != _fotoGravada;
 
+    /// <summary>A ficha como foi aberta ou salva (o DTO em JSON); base de quem precisa saber o que mudou campo a campo.</summary>
+    protected string? FotoGravada => _fotoGravada;
+
+    /// <summary>Depois de cada avaliação de alterações (abrir, salvar, descartar, cada mudança na ficha).</summary>
+    protected virtual void AlteracoesAvaliadas() { }
+
     /// <summary>Chamado depois de abrir, criar, salvar ou descartar: o que está na ficha passa a ser o "gravado".</summary>
     protected void MarcarFichaSemAlteracoes()
     {
@@ -176,6 +189,7 @@ public abstract partial class CadastroViewModelBase<TItem> : ViewModelBase, IMes
             OnPropertyChanged(nameof(EstadoFicha));
             OnPropertyChanged(nameof(MostrarEstadoFicha));
             DescartarCommand.NotifyCanExecuteChanged();
+            AlteracoesAvaliadas();
         }
         finally
         {

@@ -106,7 +106,7 @@ public static class PessoaNormalizador
             e.Descricao = Texto(e.Descricao);
             e.Cep = Texto(Documento.SomenteDigitos(e.Cep));
             e.Logradouro = Texto(e.Logradouro) ?? string.Empty;
-            e.Numero = Texto(e.Numero);
+            e.Numero = Lone.Domain.Enderecos.RegrasEndereco.NormalizarNumero(Texto(e.Numero)); // "SN", "s/n"... = "S/N"
             e.Complemento = Texto(e.Complemento);
             e.Bairro = Texto(e.Bairro);
             e.Cidade = Texto(e.Cidade) ?? string.Empty;

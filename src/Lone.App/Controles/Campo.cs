@@ -35,8 +35,12 @@ public sealed class Campo : ContentView, ICampoValidavel
         nameof(Mascara), typeof(TipoMascara), typeof(Campo), TipoMascara.Nenhuma,
         propertyChanged: (b, o, n) => ((Campo)b).TrocarMascara((TipoMascara)o, (TipoMascara)n));
 
+    public static readonly BindableProperty AoLadoProperty = BindableProperty.Create(
+        nameof(AoLado), typeof(View), typeof(Campo), null, propertyChanged: (b, o, n) => ((Campo)b).TrocarAoLado(o as View, n as View));
+
     private readonly Label _rotulo = new();
     private readonly Entry _entrada = new();
+    private readonly Grid _linhaEntrada = new() { ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }, ColumnSpacing = 8 };
     private Button? _botaoCalendario;
     private Action? _fecharCalendario;
 
@@ -49,7 +53,8 @@ public sealed class Campo : ContentView, ICampoValidavel
         _entrada.TextChanged += Entrada_TextChanged;
         _entrada.HandlerChanged += (_, _) => AjustarTextoNativo();
         _marca = new MarcaDeErro(_entrada);
-        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, new Grid { Children = { _entrada } }, _marca.Rotulo } };
+        _linhaEntrada.Add(_entrada);
+        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, _linhaEntrada, _marca.Mensagens } };
     }
 
     private readonly MarcaDeErro _marca;
@@ -57,7 +62,24 @@ public sealed class Campo : ContentView, ICampoValidavel
     /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
     public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
 
+    /// <summary>Destaque de alteração: fundo azul-claro e "● Veio da Receita... · antes: ..." embaixo; nulo tira.</summary>
+    public void MostrarDestaque(global::Lone.Cliente.ViewModels.Comum.DestaqueCampo? destaque) => _marca.MostrarDestaque(destaque);
+
     public bool Focar() => !SomenteLeitura && _entrada.IsEnabled && _entrada.Focus();
+
+    /// <summary>
+    /// Ação na mesma linha da caixa (ex.: "Consultar CNPJ"): fica alinhada à caixa, e a mensagem de erro aparece embaixo das
+    /// duas sem empurrar o botão.
+    /// </summary>
+    public View? AoLado { get => (View?)GetValue(AoLadoProperty); set => SetValue(AoLadoProperty, value); }
+
+    private void TrocarAoLado(View? antigo, View? novo)
+    {
+        if (antigo is not null) _linhaEntrada.Remove(antigo);
+        if (novo is null) return;
+        novo.VerticalOptions = LayoutOptions.Center;
+        _linhaEntrada.Add(novo, 1);
+    }
 
     public string Rotulo { get => (string)GetValue(RotuloProperty); set => SetValue(RotuloProperty, value); }
     public string Texto { get => (string)GetValue(TextoProperty); set => SetValue(TextoProperty, value); }
@@ -121,7 +143,7 @@ public sealed class Campo : ContentView, ICampoValidavel
             SemanticProperties.SetDescription(_botaoCalendario, "Abrir calendário");
             ToolTipProperties.SetText(_botaoCalendario, "Escolher no calendário");
             _botaoCalendario.Clicked += (_, _) => AbrirCalendario();
-            ((Grid)((VerticalStackLayout)Content).Children[1]).Children.Add(_botaoCalendario);
+            _linhaEntrada.Add(_botaoCalendario);
         }
         if (_botaoCalendario is not null) _botaoCalendario.IsVisible = MostraCalendario;
         AjustarTextoNativo();

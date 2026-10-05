@@ -13,7 +13,7 @@
                    Style="{StaticResource Secundario}" VerticalOptions="Center" LineBreakMode="WordWrap" />
             <c:CaixaMarcar Grid.Column="1" Texto="Mostrar inativos" Marcado="{Binding Formulario.MostrarEnderecosInativos}"
                            IsVisible="{Binding Formulario.TemEnderecosInativos}" VerticalOptions="Center" />
-            <Button Grid.Column="2" Text="+ Adicionar endereço" Style="{StaticResource BotaoSecundario}"
+            <Button c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.AdicionarEndereco}" Grid.Column="2" Text="+ Adicionar endereço" Style="{StaticResource BotaoSecundario}"
                     Command="{Binding AdicionarEnderecoCommand}" />
         </Grid>
 
@@ -93,15 +93,43 @@
                             <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" Dica="Ex.: Depósito da Rua 2" />
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}">
-                                    <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cep}" c:Validacao.Item="{Binding Id}" Rotulo="CEP" Texto="{Binding Cep}" Mascara="Cep" Padding="0,0,0,8" />
-                                    <Button Grid.Column="1" Text="Buscar CEP" Style="{StaticResource BotaoSecundario}"
-                                            VerticalOptions="End" Margin="0,0,12,8" Command="{Binding BuscarCepCommand}" />
-                                </Grid>
+                                <!-- CEP com o botão ao lado da caixa (a mensagem de erro aparece embaixo sem desalinhar o botão) e, logo
+                                     depois da consulta, o aviso de CEP inexistente (a gravação também recusa). -->
+                                <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0">
+                                    <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cep}" c:Validacao.Item="{Binding Id}" Rotulo="CEP" Texto="{Binding Cep}" Mascara="Cep">
+                                        <c:Campo.AoLado>
+                                            <Button Text="Buscar CEP" Style="{StaticResource BotaoSecundario}" Command="{Binding BuscarCepCommand}" />
+                                        </c:Campo.AoLado>
+                                    </c:Campo>
+                                    <Label Text="{Binding AvisoCep}" IsVisible="{Binding TemAvisoCep}" TextColor="{StaticResource Erro}" FontSize="12"
+                                           LineBreakMode="WordWrap" Margin="0,-6,12,8" />
+                                </VerticalStackLayout>
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Logradouro}" c:Validacao.Item="{Binding Id}" Rotulo="Logradouro" Texto="{Binding Logradouro}" FlexLayout.Basis="100%" />
-                                <c:Campo Rotulo="Número" Texto="{Binding Numero}" />
-                                <c:Campo Rotulo="Complemento" Texto="{Binding Complemento}" />
-                                <c:Campo Rotulo="Bairro" Texto="{Binding Bairro}" />
+                                <!-- "Sem número": marcada, o número fica "S/N" (travado), o texto que vai para a NF-e (o número é obrigatório nela).
+                                     Texto que não parece número ("casa", "x", "0"): dica para marcar (não é erro). -->
+                                <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0">
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Numero}" c:Validacao.Item="{Binding Id}" Rotulo="Número" Texto="{Binding Numero}"
+                                         SomenteLeitura="{Binding SemNumero}">
+                                    <c:Campo.AoLado>
+                                        <HorizontalStackLayout Spacing="0" ToolTipProperties.Text="Endereço sem número: fica &quot;S/N&quot; (é o que vai na nota fiscal)">
+                                            <CheckBox IsChecked="{Binding SemNumero}" VerticalOptions="Center" SemanticProperties.Description="Sem número" />
+                                            <Label Text="Sem número" VerticalOptions="Center" FontSize="13" Margin="0,0,4,0">
+                                                <Label.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding AlternarSemNumeroCommand}" />
+                                                </Label.GestureRecognizers>
+                                            </Label>
+                                        </HorizontalStackLayout>
+                                    </c:Campo.AoLado>
+                                </c:Campo>
+                                <HorizontalStackLayout IsVisible="{Binding SugerirSemNumero}" Spacing="4" Margin="0,-6,12,8">
+                                    <Label Text="Este endereço não tem número?" FontSize="12" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource Informacao}, Dark={StaticResource PrimariaEscuro}}" />
+                                    <Button Text="Marcar &quot;Sem número&quot;" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0"
+                                            VerticalOptions="Center" Command="{Binding MarcarSemNumeroCommand}" />
+                                </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Complemento}" c:Validacao.Item="{Binding Id}" Rotulo="Complemento" Texto="{Binding Complemento}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Bairro}" c:Validacao.Item="{Binding Id}" Rotulo="Bairro" Texto="{Binding Bairro}" />
                                 <c:CaixaMarcar Texto="Endereço no exterior" Marcado="{Binding NoExterior}" VerticalOptions="Center" />
                             </c:BlocoCampos>
 

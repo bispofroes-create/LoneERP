@@ -282,8 +282,9 @@ public class PessoasViewModelCepTests
         await Task.Delay(50); // a consulta automática não é aguardada por quem digita
 
         Assert.Equal("/" + Rotas.Consultas.Cep("99999999"), ambiente.Servidor.Recebidas[^1].Caminho);
-        Assert.Equal(TipoMensagem.Aviso, tela.TipoMensagem);
-        Assert.Contains("não existe", tela.Mensagem);
+        Assert.True(endereco.TemAvisoCep); // embaixo do CEP, não na barra de mensagens (a gravação também recusa)
+        Assert.Contains("não encontrado", endereco.AvisoCep);
+        Assert.NotNull(endereco.ValidarCep("Endereço 1"));
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Lone.Domain.Enums;
+using Lone.Domain.Pessoas;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
 
@@ -14,7 +15,10 @@ public enum NivelResumo
     Ok
 }
 
-/// <summary>Uma linha do resumo. Tocar leva à aba onde o assunto é resolvido (quando houver).</summary>
+/// <summary>
+/// Uma linha do resumo. Tocar leva aonde o assunto é resolvido (quando houver): a aba e, se houver, o campo (ou o botão de
+/// "Adicionar"), com o foco nele.
+/// </summary>
 public sealed class ItemResumo
 {
     public ItemResumo(string texto, NivelResumo nivel, Action? ir = null)
@@ -48,11 +52,11 @@ public sealed record BlocoResumo(string Titulo, IReadOnlyList<ItemResumo> Itens)
 
 /// <summary>
 /// Quem monta um bloco do resumo da pessoa. Cada módulo acrescenta a sua fonte (comercial: limite e títulos;
-/// financeiro: vencidos...) sem mudar a tela. Recebe a ficha aberta e o "ir para a aba".
+/// financeiro: vencidos...) sem mudar a tela. Recebe a ficha aberta e o "ir para" (aba e, quando houver, campo).
 /// </summary>
 public interface IFonteResumoPessoa
 {
-    IEnumerable<BlocoResumo> Montar(PessoaFormulario ficha, Action<SecaoPessoa> irPara);
+    IEnumerable<BlocoResumo> Montar(PessoaFormulario ficha, Action<DestinoFicha> irPara);
 }
 
 /// <summary>
@@ -115,7 +119,7 @@ public sealed partial class ResumoPessoa : ObservableObject
     private void Recolher() => Recolhido = true;
 
     /// <summary>Refaz os blocos a partir da ficha (ao abrir, ao trocar de aba e depois de salvar). Nula = sem ficha.</summary>
-    public void Atualizar(PessoaFormulario? ficha, Action<SecaoPessoa> irPara)
+    public void Atualizar(PessoaFormulario? ficha, Action<DestinoFicha> irPara)
     {
         Blocos.Clear();
         Existe = ficha is not null;
@@ -146,7 +150,7 @@ public sealed partial class ResumoPessoa : ObservableObject
 /// <summary>Situação do cadastro, bloqueios ativos e relacionamento (última interação).</summary>
 public sealed class FonteSituacaoResumo : IFonteResumoPessoa
 {
-    public IEnumerable<BlocoResumo> Montar(PessoaFormulario f, Action<SecaoPessoa> irPara)
+    public IEnumerable<BlocoResumo> Montar(PessoaFormulario f, Action<DestinoFicha> irPara)
     {
         var itens = new List<ItemResumo>();
         if (f.Nova)
@@ -154,22 +158,22 @@ public sealed class FonteSituacaoResumo : IFonteResumoPessoa
         else
             itens.Add(f.SituacaoGravada switch
             {
-                SituacaoPessoa.Inativo => new ItemResumo("Cadastro inativo", NivelResumo.Alerta, () => irPara(SecaoPessoa.Situacao)),
-                SituacaoPessoa.Arquivado => new ItemResumo("Cadastro arquivado", NivelResumo.Alerta, () => irPara(SecaoPessoa.Situacao)),
-                SituacaoPessoa.EmAnalise => new ItemResumo("Cadastro em análise", NivelResumo.Atencao, () => irPara(SecaoPessoa.Situacao)),
+                SituacaoPessoa.Inativo => new ItemResumo("Cadastro inativo", NivelResumo.Alerta, () => irPara(new(SecaoPessoa.Situacao))),
+                SituacaoPessoa.Arquivado => new ItemResumo("Cadastro arquivado", NivelResumo.Alerta, () => irPara(new(SecaoPessoa.Situacao))),
+                SituacaoPessoa.EmAnalise => new ItemResumo("Cadastro em análise", NivelResumo.Atencao, () => irPara(new(SecaoPessoa.Situacao))),
                 _ => new ItemResumo("Cadastro ativo", NivelResumo.Ok)
             });
 
         foreach (var b in f.Situacoes.Bloqueios.Where(b => b.Ativo))
-            itens.Add(new ItemResumo("Bloqueio: " + b.Titulo, NivelResumo.Alerta, () => irPara(SecaoPessoa.Situacao)));
+            itens.Add(new ItemResumo("Bloqueio: " + b.Titulo, NivelResumo.Alerta, () => irPara(new(SecaoPessoa.Situacao))));
 
         if (f.Existente)
             itens.Add(f.Situacoes.EstadoRelacionamento switch
             {
-                SituacaoRelacionamento.Inativo => new ItemResumo(f.Situacoes.TextoRelacionamento, NivelResumo.Alerta, () => irPara(SecaoPessoa.Relacionamento)),
-                SituacaoRelacionamento.EmRisco => new ItemResumo(f.Situacoes.TextoRelacionamento, NivelResumo.Atencao, () => irPara(SecaoPessoa.Relacionamento)),
-                null => new ItemResumo("Nenhuma interação registrada", NivelResumo.Informacao, () => irPara(SecaoPessoa.Relacionamento)),
-                _ => new ItemResumo(f.Situacoes.TextoRelacionamento, NivelResumo.Informacao, () => irPara(SecaoPessoa.Relacionamento))
+                SituacaoRelacionamento.Inativo => new ItemResumo(f.Situacoes.TextoRelacionamento, NivelResumo.Alerta, () => irPara(new(SecaoPessoa.Relacionamento))),
+                SituacaoRelacionamento.EmRisco => new ItemResumo(f.Situacoes.TextoRelacionamento, NivelResumo.Atencao, () => irPara(new(SecaoPessoa.Relacionamento))),
+                null => new ItemResumo("Nenhuma interação registrada", NivelResumo.Informacao, () => irPara(new(SecaoPessoa.Relacionamento))),
+                _ => new ItemResumo(f.Situacoes.TextoRelacionamento, NivelResumo.Informacao, () => irPara(new(SecaoPessoa.Relacionamento)))
             });
 
         yield return new BlocoResumo("Situação", itens);
@@ -179,14 +183,14 @@ public sealed class FonteSituacaoResumo : IFonteResumoPessoa
 /// <summary>Documentos ativos vencidos ou vencendo (pela antecedência de cada tipo).</summary>
 public sealed class FonteDocumentosResumo : IFonteResumoPessoa
 {
-    public IEnumerable<BlocoResumo> Montar(PessoaFormulario f, Action<SecaoPessoa> irPara)
+    public IEnumerable<BlocoResumo> Montar(PessoaFormulario f, Action<DestinoFicha> irPara)
     {
         var itens = f.Documentos
             .Where(d => d.Vencido || d.VenceEmBreve)
             .Select(d => new ItemResumo(
                 $"{d.Tipo.Texto}{(d.Numero.Length > 0 ? " " + d.Numero : string.Empty)}: {d.AvisoValidade}",
                 d.Vencido ? NivelResumo.Alerta : NivelResumo.Atencao,
-                () => irPara(SecaoPessoa.Documentos)))
+                () => irPara(new(SecaoPessoa.Documentos, CamposFichaPessoa.DocumentoValidoAte, d.Id))))
             .ToList();
         yield return new BlocoResumo("Documentos", itens);
     }
@@ -195,32 +199,41 @@ public sealed class FonteDocumentosResumo : IFonteResumoPessoa
 /// <summary>O que falta ou está errado no cadastro (documento, endereço, contato, fiscal).</summary>
 public sealed class FontePendenciasResumo : IFonteResumoPessoa
 {
-    public IEnumerable<BlocoResumo> Montar(PessoaFormulario f, Action<SecaoPessoa> irPara)
+    public IEnumerable<BlocoResumo> Montar(PessoaFormulario f, Action<DestinoFicha> irPara)
     {
         var itens = new List<ItemResumo>();
-        void Pendente(string texto, NivelResumo nivel, SecaoPessoa aba) => itens.Add(new ItemResumo(texto, nivel, () => irPara(aba)));
+        // "Resolver": cada pendência leva ao campo (ou ao "Adicionar") onde ela se resolve. Pendência não é erro: nada fica marcado.
+        void Pendente(string texto, NivelResumo nivel, SecaoPessoa aba, string? campo = null, Guid? item = null) =>
+            itens.Add(new ItemResumo(texto, nivel, () => irPara(new(aba, campo, item))));
 
         if (f.TemAvisoDocumentoEmUso)
-            Pendente(f.EhJuridica ? "CNPJ já usado em outro cadastro" : "CPF já usado em outro cadastro", NivelResumo.Alerta, SecaoPessoa.Geral);
+            Pendente(f.EhJuridica ? "CNPJ já usado em outro cadastro" : "CPF já usado em outro cadastro", NivelResumo.Alerta, SecaoPessoa.Geral,
+                CamposFichaPessoa.Documento);
         if (f.EhFisica && f.Documento.Trim().Length == 0)
-            Pendente("CPF não informado", NivelResumo.Atencao, SecaoPessoa.Geral);
+            Pendente("CPF não informado", NivelResumo.Atencao, SecaoPessoa.Geral, CamposFichaPessoa.Documento);
         if (f.EhJuridica && f.Principal.Cnpj.Trim().Length == 0)
-            Pendente("CNPJ não informado", NivelResumo.Atencao, SecaoPessoa.Geral);
+            Pendente("CNPJ não informado", NivelResumo.Atencao, SecaoPessoa.Geral, CamposFichaPessoa.Documento);
 
         var enderecos = f.Enderecos.Where(e => e.Ativo && e.Logradouro.Trim().Length > 0).ToList();
         if (enderecos.Count == 0)
-            Pendente("Nenhum endereço", NivelResumo.Atencao, SecaoPessoa.Enderecos);
-        else if (enderecos.Any(e => e.TemMunicipioACorrigir))
-            Pendente("Endereço com município a corrigir", NivelResumo.Atencao, SecaoPessoa.Enderecos);
+            Pendente("Nenhum endereço", NivelResumo.Atencao, SecaoPessoa.Enderecos, CamposFichaPessoa.AdicionarEndereco);
+        else if (enderecos.FirstOrDefault(e => e.TemMunicipioACorrigir) is { } aCorrigir)
+            Pendente("Endereço com município a corrigir", NivelResumo.Atencao, SecaoPessoa.Enderecos, CamposFichaPessoa.Municipio, aCorrigir.Id);
+        else if (enderecos.Select(e => (Endereco: e, Faltando: Lone.Domain.Enderecos.RegrasEndereco.Faltando(e.ParaComparacao()))).FirstOrDefault(x => x.Faltando.Count > 0) is { Endereco: { } incompleto } x)
+            // Endereço gravado antes da regra (CEP, número e bairro): não impede gravar, mas leva ao primeiro que falta.
+            Pendente($"Endereço incompleto (falta {string.Join(", ", x.Faltando.Select(f => f.Nome))})", NivelResumo.Atencao,
+                SecaoPessoa.Enderecos, x.Faltando[0].Campo, incompleto.Id);
 
         if (!f.MeiosContato.Any(m => m.Ativo && m.Valor.Trim().Length > 0))
-            Pendente("Nenhum telefone ou e-mail", NivelResumo.Informacao, SecaoPessoa.Contatos);
+            Pendente("Nenhum telefone ou e-mail", NivelResumo.Informacao, SecaoPessoa.Contatos, CamposFichaPessoa.AdicionarTelefone);
 
         var principal = f.Principal;
         if (principal.IndicadorIE.Valor == IndicadorIE.Contribuinte && principal.InscricaoEstadual.Trim().Length == 0)
-            Pendente("Contribuinte do ICMS sem inscrição estadual", NivelResumo.Alerta, SecaoPessoa.Estabelecimentos);
+            Pendente("Contribuinte do ICMS sem inscrição estadual", NivelResumo.Alerta, SecaoPessoa.Estabelecimentos,
+                CamposFichaPessoa.InscricaoEstadual, principal.Id);
         if (f.EhJuridica && principal.Regime.Valor == RegimeTributario.NaoInformado)
-            Pendente("Regime tributário não informado", NivelResumo.Informacao, SecaoPessoa.Estabelecimentos);
+            Pendente("Regime tributário não informado", NivelResumo.Informacao, SecaoPessoa.Estabelecimentos,
+                CamposFichaPessoa.Regime, principal.Id);
 
         if (itens.Count == 0)
             itens.Add(new ItemResumo("Cadastro completo", NivelResumo.Ok));

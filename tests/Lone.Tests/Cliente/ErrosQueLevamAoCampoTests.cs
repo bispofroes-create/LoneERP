@@ -76,7 +76,7 @@ public class ErrosQueLevamAoCampoTests
     public void Resumo_conta_mostra_e_so_leva_quem_tem_campo()
     {
         var resumo = new ResumoValidacao();
-        var focos = new List<ErroValidacao>();
+        var focos = new List<DestinoCampo>();
         resumo.FocoPedido += focos.Add;
         resumo.AntesDeIr = _ => true;
         var item = Guid.NewGuid();
@@ -117,13 +117,13 @@ public class ErrosQueLevamAoCampoTests
 
     // ---- Ficha de Pessoas ----
 
-    private static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente, List<ErroValidacao> Focos)> NovaFichaAsync()
+    private static async Task<(PessoasViewModel Tela, AmbienteCliente Ambiente, List<DestinoCampo> Focos)> NovaFichaAsync()
     {
         var ambiente = new AmbienteCliente();
         await ambiente.Sessao.DefinirAsync(AmbienteCliente.NovaSessao());
         var (tela, _) = await PessoasViewModelTests.AbrirTelaComAsync(ambiente);
         await tela.NovoCommand.ExecuteAsync(null);
-        var focos = new List<ErroValidacao>();
+        var focos = new List<DestinoCampo>();
         tela.Validacao.FocoPedido += focos.Add;
         return (tela, ambiente, focos);
     }
@@ -178,7 +178,10 @@ public class ErrosQueLevamAoCampoTests
         f.Enderecos[0].Logradouro = "Avenida Paulista";
         Assert.NotNull(tela.Validacao.ErroDe(CamposFichaPessoa.Cep, endereco));
 
-        // Salvou: os erros somem.
+        // Salvou: os erros somem. (Endereço novo com logradouro precisa de CEP, número e bairro; CEP curto: sem consulta automática.)
+        f.Enderecos[0].Cep = "0131";
+        f.Enderecos[0].Numero = "1000";
+        f.Enderecos[0].Bairro = "Bela Vista";
         ambiente.Servidor
             .Responder(HttpStatusCode.OK, new ResultadoSalvarPessoa { Pessoa = f.ParaDto(), Avisos = [] })
             .Responder(HttpStatusCode.OK, new PaginaListaPessoas());

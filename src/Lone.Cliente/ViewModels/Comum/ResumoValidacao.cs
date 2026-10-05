@@ -5,6 +5,12 @@ using Lone.Domain.Validacao;
 
 namespace Lone.Cliente.ViewModels.Comum;
 
+/// <summary>
+/// Um campo do formulário para onde a tela leva (rola e põe o foco): o id estável do campo e, se for de uma lista, o Id do
+/// registro. Serve ao erro (Fase 1) e à pendência (Fase 2): pendência não é erro, então ir até ela não marca nada.
+/// </summary>
+public sealed record DestinoCampo(string Campo, Guid? Item = null);
+
 /// <summary>Uma linha do resumo de erros: o erro e, se ele tiver campo, o "ir para".</summary>
 public sealed class ItemValidacao
 {
@@ -48,10 +54,10 @@ public sealed partial class ResumoValidacao : ObservableObject
     public event Action? Mudou;
 
     /// <summary>A tela deve levar ao campo deste erro (rolar e pôr o foco), depois de o formulário trocar a aba.</summary>
-    public event Action<ErroValidacao>? FocoPedido;
+    public event Action<DestinoCampo>? FocoPedido;
 
     /// <summary>O formulário prepara a ida (ex.: troca para a aba do campo). Falso = não há como ir (aba que não existe).</summary>
-    public Func<ErroValidacao, bool>? AntesDeIr { get; set; }
+    public Func<DestinoCampo, bool>? AntesDeIr { get; set; }
 
     /// <summary>Troca os erros pelos da conferência nova (substitui; nada fica de antes).</summary>
     public void Definir(IEnumerable<ErroValidacao> erros)
@@ -89,10 +95,16 @@ public sealed partial class ResumoValidacao : ObservableObject
     /// <summary>Leva ao primeiro erro com campo (ao salvar com erro). Falso se não houver para onde ir.</summary>
     public bool IrParaPrimeiro() => PrimeiroComCampo is { } erro && Ir(erro);
 
-    private bool Ir(ErroValidacao erro)
+    private bool Ir(ErroValidacao erro) => erro.Campo is { } campo && Levar(new DestinoCampo(campo, erro.Item));
+
+    /// <summary>
+    /// Leva a um campo sem que ele tenha erro (ex.: o "Resolver" de uma pendência do resumo da pessoa): o mesmo caminho do
+    /// erro (o formulário troca a aba, a tela rola e põe o foco), sem marcar nada. Falso se não há para onde ir.
+    /// </summary>
+    public bool Levar(DestinoCampo destino)
     {
-        if (AntesDeIr is { } preparar && !preparar(erro)) return false;
-        FocoPedido?.Invoke(erro);
+        if (AntesDeIr is { } preparar && !preparar(destino)) return false;
+        FocoPedido?.Invoke(destino);
         return true;
     }
 

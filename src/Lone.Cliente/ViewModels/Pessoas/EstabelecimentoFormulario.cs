@@ -7,6 +7,7 @@ using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Enums;
 using Lone.Domain.Fiscal;
+using Lone.Domain.Pessoas;
 using Lone.Domain.Validacao;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
@@ -361,34 +362,51 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
     /// <summary>Verdadeiro quando a última consulta de CNPJ trouxe a inscrição estadual.</summary>
     public bool InscricaoVeioDaConsulta { get; private set; }
 
-    public void AplicarCnpj(DadosCnpj d)
+    /// <summary>Preenche pela consulta (cadastro novo ou campo vazio); valor diferente num gravado vai para a conferência.</summary>
+    public void AplicarCnpj(DadosCnpj d) => AplicarCnpj(d, new AplicacaoReceita(conferir: false));
+
+    /// <summary>
+    /// Preenche o estabelecimento pela consulta, campo a campo por <paramref name="r"/>: vazio é preenchido; com outro valor
+    /// num cadastro gravado, fica para o usuário escolher. CNPJ e situação na Receita são da própria consulta (sempre valem).
+    /// </summary>
+    public void AplicarCnpj(DadosCnpj d, AplicacaoReceita r)
     {
         Cnpj = Documento.Formatar(d.Cnpj);
-        if (d.NomeFantasia is not null) NomeFantasia = d.NomeFantasia;
         SituacaoReceita = d.SituacaoCadastral ?? string.Empty;
         ConsultadoReceitaEm = DateTime.UtcNow;
 
-        if (d.CnaePrincipal is not null) CnaePrincipal = d.CnaePrincipal;
-        if (d.NaturezaJuridica is not null) NaturezaJuridica = d.NaturezaJuridica;
-        if (d.CnaesSecundarios.Count > 0) CnaesSecundarios = string.Join(", ", d.CnaesSecundarios);
+        // O principal mostra nome fantasia e natureza jurídica na Identificação (sem item); a filial, no cartão dela.
+        Guid? doCartao = EhPrincipal ? null : Id;
+        r.Valor(new(CamposFichaPessoa.NomeFantasia, doCartao), "Nome fantasia", NomeFantasia, d.NomeFantasia, v => NomeFantasia = v);
+        r.Valor(new(CamposFichaPessoa.Cnae, Id), "CNAE principal", CnaePrincipal, d.CnaePrincipal, v => CnaePrincipal = v);
+        r.Valor(new(CamposFichaPessoa.NaturezaJuridica, doCartao), "Natureza jurídica", NaturezaJuridica, d.NaturezaJuridica, v => NaturezaJuridica = v);
+        if (d.CnaesSecundarios.Count > 0)
+            r.Valor(new(CamposFichaPessoa.CnaesSecundarios, Id), "CNAEs secundários", CnaesSecundarios, string.Join(", ", d.CnaesSecundarios),
+                v => CnaesSecundarios = v);
 
-        // MEI também é optante do Simples: o MEI é o mais específico.
-        if (d.OpcaoMei == true) Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.Mei);
-        else if (d.OpcaoSimples == true) Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.SimplesNacional);
-        // A Receita diz que não é optante: regime normal (lucro presumido ou real; para o ICMS é o mesmo "regime normal").
-        else if (d.OpcaoSimples == false) Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.RegimeNormal);
-        // Sem registro no Simples (a consulta respondeu os dados da empresa, mas sem a opção): só preenche o vazio,
-        // nunca troca um regime escolhido pelo usuário.
-        else if (d.OpcaoMei is null && d.CnaePrincipal is not null && Regime.Valor == RegimeTributario.NaoInformado)
-            Regime = Opcao.De(OpcoesPessoa.Regimes, RegimeTributario.RegimeNormal);
+        // MEI também é optante do Simples: o MEI é o mais específico. A Receita diz que não é optante: regime normal (lucro
+        // presumido ou real; para o ICMS é o mesmo "regime normal"). Sem registro no Simples (a consulta respondeu os dados
+        // da empresa, mas sem a opção): regime normal só no vazio. "Não informado" conta como vazio.
+        RegimeTributario? regime = d.OpcaoMei == true ? RegimeTributario.Mei
+            : d.OpcaoSimples == true ? RegimeTributario.SimplesNacional
+            : d.OpcaoSimples == false ? RegimeTributario.RegimeNormal
+            : d.OpcaoMei is null && d.CnaePrincipal is not null && Regime.Valor == RegimeTributario.NaoInformado ? RegimeTributario.RegimeNormal
+            : null;
+        if (regime is { } novoRegime)
+        {
+            var opcao = Opcao.De(OpcoesPessoa.Regimes, novoRegime);
+            r.Valor(new(CamposFichaPessoa.Regime, Id), "Regime tributário",
+                Regime.Valor == RegimeTributario.NaoInformado ? null : Regime.Texto, opcao.Texto, _ => Regime = opcao);
+        }
 
-        // Inscrição ativa no estado do endereço do CNPJ.
+        // Inscrição ativa no estado do endereço do CNPJ (com ela, contribuinte do ICMS).
         var inscricao = d.InscricoesEstaduais.FirstOrDefault(i => i.Ativa && string.Equals(i.Uf, d.Uf, StringComparison.OrdinalIgnoreCase));
         InscricaoVeioDaConsulta = inscricao is not null;
         if (inscricao is not null)
-        {
-            InscricaoEstadual = inscricao.Numero;
-            IndicadorIE = Opcao.De(OpcoesPessoa.IndicadoresIE, global::Lone.Domain.Enums.IndicadorIE.Contribuinte); // o nome curto seria a propriedade
-        }
+            r.Valor(new(CamposFichaPessoa.InscricaoEstadual, Id), "Inscrição estadual", InscricaoEstadual, inscricao.Numero, v =>
+            {
+                InscricaoEstadual = v;
+                IndicadorIE = Opcao.De(OpcoesPessoa.IndicadoresIE, global::Lone.Domain.Enums.IndicadorIE.Contribuinte); // o nome curto seria a propriedade
+            });
     }
 }

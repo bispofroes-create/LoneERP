@@ -22,9 +22,9 @@ public class ResumoETrocaNaturezaTests
         var f = NovaJuridica();
         f.Principal.IndicadorIE = Opcao.De(OpcoesPessoa.IndicadoresIE, IndicadorIE.Contribuinte);
         var resumo = new ResumoPessoa();
-        SecaoPessoa? destino = null;
+        DestinoFicha? destino = null;
 
-        resumo.Atualizar(f, aba => destino = aba);
+        resumo.Atualizar(f, d => destino = d);
 
         var cadastro = Assert.Single(resumo.Blocos, b => b.Titulo == "Cadastro");
         Assert.True(cadastro.Itens[0].EhAlerta); // alertas primeiro
@@ -33,7 +33,9 @@ public class ResumoETrocaNaturezaTests
         Assert.StartsWith("Resumo: 1 alerta", resumo.TextoCabecalho);
 
         cadastro.Itens[0].IrCommand!.Execute(null);
-        Assert.Equal(SecaoPessoa.Estabelecimentos, destino);
+        Assert.Equal(SecaoPessoa.Estabelecimentos, destino!.Aba);
+        Assert.Equal(Lone.Domain.Pessoas.CamposFichaPessoa.InscricaoEstadual, destino.Campo); // e o campo (Fase 2: "Resolver")
+        Assert.Equal(f.Principal.Id, destino.Item);
     }
 
     [Fact]

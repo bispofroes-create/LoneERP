@@ -17,6 +17,8 @@ public static class CamposFichaPessoa
     public const string DataAbertura = "identificacao.dataAbertura";
     public const string CapitalSocial = "identificacao.capitalSocial";
     public const string Porte = "identificacao.porte";
+    /// <summary>Nome fantasia: o do principal na Identificação (sem item); o de cada filial no cartão dela (com item).</summary>
+    public const string NomeFantasia = "identificacao.nomeFantasia";
     public const string GrupoEmpresarial = "identificacao.grupoEmpresarial";
     public const string Etiquetas = "identificacao.etiquetas";
 
@@ -36,19 +38,30 @@ public static class CamposFichaPessoa
     public const string InscricaoEstadual = "fiscal.inscricaoEstadual";
     public const string Suframa = "fiscal.suframa";
     public const string Cnae = "fiscal.cnae";
+    public const string CnaesSecundarios = "fiscal.cnaesSecundarios";
     public const string EnderecoFiscal = "fiscal.enderecoFiscal";
+    public const string Regime = "fiscal.regime";
 
     // ---- Endereços (item = Id do endereço) ----
     public const string Logradouro = "enderecos.logradouro";
     public const string Cep = "enderecos.cep";
+    public const string Numero = "enderecos.numero";
+    public const string Complemento = "enderecos.complemento";
+    public const string Bairro = "enderecos.bairro";
     public const string Municipio = "enderecos.municipio";
     public const string Cidade = "enderecos.cidade";
     public const string Pais = "enderecos.pais";
     public const string ObservacoesEndereco = "enderecos.observacoes";
 
+    /// <summary>O botão "+ Adicionar endereço" (destino da pendência "Nenhum endereço": não é campo, é a ação de criar).</summary>
+    public const string AdicionarEndereco = "enderecos.adicionar";
+
     // ---- Telefones e e-mails (item = Id do meio de contato) ----
     public const string MeioContatoValor = "contatos.valor";
     public const string Ramal = "contatos.ramal";
+
+    /// <summary>O botão "+ Adicionar telefone" (destino da pendência "Nenhum telefone ou e-mail").</summary>
+    public const string AdicionarTelefone = "contatos.adicionarTelefone";
 
     // ---- Pessoas de contato (item = Id da pessoa de contato; ficam na aba Contatos) ----
     public const string ContatoNome = "pessoasContato.nome";

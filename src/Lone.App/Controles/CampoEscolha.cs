@@ -37,13 +37,16 @@ public sealed class CampoEscolha : ContentView, ICampoValidavel
             if (!_sincronizando && _lista.SelectedIndex >= 0) Selecionado = _lista.SelectedItem;
         };
         _marca = new MarcaDeErro(_lista);
-        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, _lista, _marca.Rotulo } };
+        Content = new VerticalStackLayout { Spacing = 2, Children = { _rotulo, _lista, _marca.Mensagens } };
     }
 
     private readonly MarcaDeErro _marca;
 
     /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
     public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    /// <summary>Destaque de alteração: fundo azul-claro e "● Veio da Receita... · antes: ..." embaixo; nulo tira.</summary>
+    public void MostrarDestaque(global::Lone.Cliente.ViewModels.Comum.DestaqueCampo? destaque) => _marca.MostrarDestaque(destaque);
 
     public bool Focar() => _lista.IsEnabled && _lista.Focus();
 

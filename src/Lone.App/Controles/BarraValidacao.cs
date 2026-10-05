@@ -13,8 +13,20 @@ public sealed class BarraValidacao : ContentView
 {
     private const double AlturaListaLonga = 4 * 30;
 
+    private const double EspacoVertical = 12;
+
+    public static readonly BindableProperty AlinharComProperty = BindableProperty.Create(
+        nameof(AlinharCom), typeof(Layout), typeof(BarraValidacao), null, propertyChanged: (b, o, n) => ((BarraValidacao)b).TrocarReferencia(o as Layout, n as Layout));
+
     private readonly ScrollView _rolagemLista = new();
     private ResumoValidacao? _resumo;
+    private VisualElement? _pai;
+
+    /// <summary>
+    /// O conteúdo do formulário (dentro da rolagem) com que as bordas se alinham: a barra copia a posição e a largura dele,
+    /// sem o espaçamento interno. Assim fica igual com ou sem barra de rolagem, em tela estreita ou larga (limite de largura).
+    /// </summary>
+    public Layout? AlinharCom { get => (Layout?)GetValue(AlinharComProperty); set => SetValue(AlinharComProperty, value); }
 
     public BarraValidacao()
     {
@@ -41,6 +53,37 @@ public sealed class BarraValidacao : ContentView
         Content = borda;
         SemanticProperties.SetHeadingLevel(titulo, SemanticHeadingLevel.Level2);
         SetBinding(IsVisibleProperty, new Binding(nameof(ResumoValidacao.Visivel)));
+    }
+
+    private void TrocarReferencia(Layout? antiga, Layout? nova)
+    {
+        if (antiga is not null) antiga.SizeChanged -= Realinhar;
+        if (nova is not null) nova.SizeChanged += Realinhar;
+        Alinhar();
+    }
+
+    protected override void OnParentSet()
+    {
+        base.OnParentSet();
+        if (_pai is not null) _pai.SizeChanged -= Realinhar;
+        _pai = Parent as VisualElement;
+        if (_pai is not null) _pai.SizeChanged += Realinhar;
+        Alinhar();
+    }
+
+    private void Realinhar(object? sender, EventArgs e) => Alinhar();
+
+    /// <summary>Margens = onde o conteúdo começa e termina dentro do pai comum (a rolagem e a barra ocupam a mesma largura).</summary>
+    private void Alinhar()
+    {
+        if (AlinharCom is not { Width: > 0 } conteudo || _pai is not { Width: > 0 } pai)
+        {
+            Margin = new Thickness(0, EspacoVertical);
+            return;
+        }
+        var esquerda = conteudo.X + conteudo.Padding.Left;
+        var direita = Math.Max(0, pai.Width - (conteudo.X + conteudo.Width) + conteudo.Padding.Right);
+        Margin = new Thickness(esquerda, EspacoVertical, direita, EspacoVertical);
     }
 
     protected override void OnBindingContextChanged()

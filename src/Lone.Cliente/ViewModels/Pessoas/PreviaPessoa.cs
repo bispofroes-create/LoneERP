@@ -18,15 +18,15 @@ public sealed partial class PreviaPessoa : ObservableObject
     public const double Largura = 380;
 
     private readonly Func<Guid, CancellationToken, Task<PessoaFormulario>> _ler;
-    private readonly Func<Guid, SecaoPessoa?, Task> _abrirFicha;
+    private readonly Func<Guid, DestinoFicha?, Task> _abrirFicha;
     private readonly Func<IReadOnlyList<LinhaPessoa>> _linhas;
     private readonly Func<(int Deslocamento, int Total)>? _naLista;
     private CancellationTokenSource? _leitura;
 
     /// <param name="ler">Lê a pessoa como a ficha lê (mesma permissão e mesmos dados).</param>
-    /// <param name="abrirFicha">Abre a ficha da pessoa, opcionalmente já numa aba (item do resumo).</param>
+    /// <param name="abrirFicha">Abre a ficha da pessoa, opcionalmente já numa aba e num campo (item do resumo).</param>
     /// <param name="linhas">Linhas da página atual (anterior/próxima).</param>
-    public PreviaPessoa(Func<Guid, CancellationToken, Task<PessoaFormulario>> ler, Func<Guid, SecaoPessoa?, Task> abrirFicha,
+    public PreviaPessoa(Func<Guid, CancellationToken, Task<PessoaFormulario>> ler, Func<Guid, DestinoFicha?, Task> abrirFicha,
                         Func<IReadOnlyList<LinhaPessoa>> linhas, Func<(int Deslocamento, int Total)>? naLista = null)
     {
         _ler = ler;
@@ -212,7 +212,7 @@ public sealed partial class PreviaPessoa : ObservableObject
             if (EsperaParaLer > TimeSpan.Zero) await Task.Delay(EsperaParaLer, cts.Token);
             var ficha = await _ler(id, cts.Token);
             if (cts.IsCancellationRequested) return;
-            Resumo.Atualizar(ficha, aba => _ = _abrirFicha(id, aba));
+            Resumo.Atualizar(ficha, destino => _ = _abrirFicha(id, destino));
         }
         catch (OperationCanceledException)
         {

@@ -360,6 +360,8 @@ public sealed class PessoaAppService : IPessoaAppService
 
         // Erros com o campo da ficha quando a regra sabe (Lone Contextual, Fase 1); as outras regras seguem só com o texto.
         var erros = PessoaValidador.ValidarComCampos(dados);
+        // Endereço novo ou alterado completo (CEP, número, bairro); o gravado que não mudou vira pendência, não erro.
+        erros.AddRange(RegrasEndereco.ValidarCompletos(dados.Enderecos, anterior?.Enderecos ?? []));
 
         // Alcance restrito (Fase 2a-2): só clientes entram (E4) e o cliente novo sem responsável da conta recebe quem o
         // cadastrou (F4), senão sumiria da lista dele ao salvar.

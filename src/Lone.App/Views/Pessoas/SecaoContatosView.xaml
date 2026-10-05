@@ -29,7 +29,7 @@
         <!-- Telefones -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
             <Label Text="Telefones" Style="{StaticResource Subtitulo}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="+ Adicionar telefone" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarTelefoneCommand}" />
+            <Button c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.AdicionarTelefone}" Grid.Column="1" Text="+ Adicionar telefone" Style="{StaticResource BotaoSecundario}" Command="{Binding AdicionarTelefoneCommand}" />
         </Grid>
         <Label Text="Nenhum telefone." Style="{StaticResource Secundario}" Margin="0,4,0,8" IsVisible="{Binding Formulario.SemTelefones}" />
         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Formulario.MeiosContato}">

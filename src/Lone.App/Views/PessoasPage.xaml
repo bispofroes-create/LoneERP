@@ -610,11 +610,50 @@
         <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding MostrarFicha}">
             <!-- Resumo de erros fixo, fora da rolagem (Lone Contextual, Fase 1): visível de qualquer ponto da ficha; cada erro
                  com campo leva até ele (aba, rolagem e foco). Some quando não há erros. -->
-            <c:BarraValidacao BindingContext="{Binding Validacao}" Margin="{OnIdiom Phone='16,12,16,0', Default='32,12,32,0'}"
-                              MaximumWidthRequest="1600" />
-            <ScrollView Grid.Row="1" c:Rolagem.Preservar="ficha" c:Validacao.Resumo="{Binding Validacao}"> <!-- posição preservada ao voltar (Fase 3 da navegação) -->
+            <!-- Bordas alinhadas às do conteúdo da ficha (AlinharCom: posição e largura medidas dele, sem o espaçamento interno);
+                 espaço em cima e embaixo, para o conteúdo que rola por baixo não parecer cortado. -->
+            <VerticalStackLayout Spacing="0">
+                <c:BarraValidacao x:Name="BarraErros" BindingContext="{Binding Validacao}" AlinharCom="{x:Reference ConteudoFicha}" />
+                <!-- Conferência "atual × Receita" (consulta de CNPJ num cadastro gravado): nada é trocado sem marcar. Fixa, como o
+                     resumo de erros, com as mesmas bordas (a margem calculada por ele). Cor de informação: não é erro. -->
+                <Border IsVisible="{Binding Formulario.ConferenciaReceita.Visivel, FallbackValue=False}"
+                        Margin="{Binding Margin, Source={x:Reference BarraErros}, x:DataType=c:BarraValidacao}"
+                        Padding="16,10" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                        Stroke="{AppThemeBinding Light={StaticResource Informacao}, Dark={StaticResource PrimariaEscuro}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource InformacaoFundo}, Dark={StaticResource InformacaoFundoEscuro}}">
+                    <ContentView BindingContext="{Binding Formulario.ConferenciaReceita}">
+                    <VerticalStackLayout Spacing="6" x:DataType="pes:ConferenciaReceita">
+                        <Label Text="{Binding Titulo}" FontAttributes="Bold" FontSize="14" SemanticProperties.HeadingLevel="Level2" />
+                        <Label Text="{Binding Explicacao}" FontSize="13" />
+                        <ScrollView MaximumHeightRequest="220">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" Spacing="2">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="pes:ItemConferenciaReceita">
+                                        <Grid ColumnDefinitions="Auto,220,*,*" ColumnSpacing="12">
+                                            <CheckBox IsChecked="{Binding Aceitar}" VerticalOptions="Center"
+                                                      SemanticProperties.Description="{Binding Rotulo, StringFormat='Trocar {0} pelo valor da Receita'}" />
+                                            <Label Grid.Column="1" Text="{Binding Rotulo}" FontAttributes="Bold" FontSize="13" VerticalOptions="Center" />
+                                            <Label Grid.Column="2" FontSize="13" VerticalOptions="Center" LineBreakMode="WordWrap"
+                                                   Text="{Binding Atual, StringFormat='Atual: {0}'}" />
+                                            <Label Grid.Column="3" FontSize="13" VerticalOptions="Center" LineBreakMode="WordWrap"
+                                                   Text="{Binding DaReceita, StringFormat='Receita: {0}'}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </ScrollView>
+                        <HorizontalStackLayout Spacing="8">
+                            <Button Text="Aplicar marcados" Command="{Binding AplicarMarcadosCommand}" />
+                            <Button Text="Manter os atuais" Style="{StaticResource BotaoSecundario}" Command="{Binding ManterAtuaisCommand}" />
+                            <Button Text="Marcar/desmarcar todos" Style="{StaticResource BotaoLink}" Command="{Binding MarcarTodosCommand}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    </ContentView>
+                </Border>
+            </VerticalStackLayout>
+            <ScrollView Grid.Row="1" c:Rolagem.Preservar="ficha" c:Validacao.Resumo="{Binding Validacao}" c:Validacao.Destaques="{Binding Destaques}"> <!-- posição preservada ao voltar (Fase 3 da navegação) -->
                 <!-- Até 1600 de largura: em tela larga, a ficha ocupa mais e o resumo da pessoa fica ao lado. -->
-                <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1600"
+                <VerticalStackLayout x:Name="ConteudoFicha" Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16" MaximumWidthRequest="1600"
                                      HorizontalOptions="Fill">
                     <Button Text="←  Voltar para Pessoas" Style="{StaticResource BotaoLink}" Command="{Binding FecharFichaCommand}"
                             FontSize="14" SemanticProperties.Description="Voltar para a lista de pessoas" />
@@ -731,6 +770,17 @@
                                                     </MultiBinding>
                                                 </Label.Text>
                                             </Label>
+                                            <!-- Campos destacados nesta aba ("Destacar alterações" ligado): "◆2" na cor de informação (alteração não é erro). -->
+                                            <Label FontSize="12" FontAttributes="Bold" VerticalOptions="Center"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Informacao}, Dark={StaticResource PrimariaEscuro}}"
+                                                   ToolTipProperties.Text="Campos alterados nesta aba">
+                                                <Label.Text>
+                                                    <MultiBinding Converter="{StaticResource ErrosDaAba}" ConverterParameter="◆">
+                                                        <Binding Path="Secao" />
+                                                        <Binding Path="DestaquesPorAba" Source="{RelativeSource AncestorType={x:Type pes:PessoasViewModel}}" x:DataType="pes:PessoasViewModel" />
+                                                    </MultiBinding>
+                                                </Label.Text>
+                                            </Label>
                                         </HorizontalStackLayout>
                                         <BoxView x:Name="TracoAba" Grid.Row="1" Opacity="0" Margin="8,0"
                                                  Color="{AppThemeBinding Light={StaticResource Primaria}, Dark={StaticResource PrimariaEscuro}}" />
@@ -798,6 +848,10 @@
                                 <Label Text="{Binding EstadoFicha}" Style="{StaticResource Secundario}" VerticalOptions="Center"
                                        SemanticProperties.Description="{Binding EstadoFicha}" />
                             </HorizontalStackLayout>
+                            <!-- Destacar alterações: liga/desliga o destaque dos campos alterados (com a origem: Receita ou digitado). -->
+                            <Button Text="{Binding Destaques.TextoBotao}" Style="{StaticResource BotaoLink}" VerticalOptions="Center"
+                                    Command="{Binding Destaques.AlternarCommand}" IsVisible="{Binding Destaques.TemAlteracoes}"
+                                    ToolTipProperties.Text="{Binding Destaques.DicaBotao}" SemanticProperties.Description="{Binding Destaques.TextoBotao}" />
                         </HorizontalStackLayout>
                         <!-- Motivo (opcional, vai para o histórico): só com alteração; primeiro o botão, o campo abre ao clicar. -->
                         <Button Grid.Column="1" Text="+ Adicionar motivo" Style="{StaticResource BotaoLink}" HorizontalOptions="End"

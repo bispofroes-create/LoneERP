@@ -19,7 +19,7 @@ public partial class CampoMunicipio : ContentView, ICampoValidavel
     {
         InitializeComponent();
         _marca = new MarcaDeErro(EntradaMunicipio);
-        Pilha.Children.Insert(1, _marca.Rotulo); // logo abaixo da UF e do município
+        Pilha.Children.Insert(1, _marca.Mensagens); // logo abaixo da UF e do município
     }
 
     private readonly MarcaDeErro _marca;
@@ -30,6 +30,9 @@ public partial class CampoMunicipio : ContentView, ICampoValidavel
         _marca.Mostrar(mensagem);
         EscolhaUf.MostrarErro(null); // a mensagem fica uma vez só, embaixo dos dois
     }
+
+    /// <summary>Destaque de alteração: fundo azul-claro e "● Veio da Receita... · antes: ..." embaixo; nulo tira.</summary>
+    public void MostrarDestaque(global::Lone.Cliente.ViewModels.Comum.DestaqueCampo? destaque) => _marca.MostrarDestaque(destaque);
 
     /// <summary>Foco no município; sem UF escolhida (município desligado), na UF.</summary>
     public bool Focar() => EntradaMunicipio.IsEnabled ? EntradaMunicipio.Focus() : EscolhaUf.Focar();

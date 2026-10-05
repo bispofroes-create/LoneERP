@@ -16,13 +16,16 @@ public partial class CampoLista : ContentView, ICampoValidavel
     {
         InitializeComponent();
         _marca = new MarcaDeErro(Entrada);
-        Pilha.Children.Insert(2, _marca.Rotulo); // logo abaixo da caixa, antes do aviso e das sugestões
+        Pilha.Children.Insert(2, _marca.Mensagens); // logo abaixo da caixa, antes do aviso e das sugestões
     }
 
     private readonly MarcaDeErro _marca;
 
     /// <summary>Marca de erro (Lone Contextual, Fase 1): borda e "⚠ mensagem" embaixo; nulo tira.</summary>
     public void MostrarErro(string? mensagem) => _marca.Mostrar(mensagem);
+
+    /// <summary>Destaque de alteração: fundo azul-claro e "● Veio da Receita... · antes: ..." embaixo; nulo tira.</summary>
+    public void MostrarDestaque(global::Lone.Cliente.ViewModels.Comum.DestaqueCampo? destaque) => _marca.MostrarDestaque(destaque);
 
     public bool Focar() => Entrada.IsEnabled && Entrada.Focus();
 

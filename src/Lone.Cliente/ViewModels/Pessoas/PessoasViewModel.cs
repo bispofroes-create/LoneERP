@@ -112,6 +112,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Erro que leva ao campo (Lone Contextual, Fase 1): a ficha troca para a aba do campo; a tela rola e põe o foco.
         Validacao.AntesDeIr = IrParaAbaDoErro;
         Validacao.Mudou += () => OnPropertyChanged(nameof(ErrosPorAba));
+        Destaques.Mudou += () => OnPropertyChanged(nameof(DestaquesPorAba));
         // A prévia ao lado ocupa parte da largura: as colunas da lista se ajustam ao que sobra.
         Previa.PropertyChanged += (_, e) =>
         {
@@ -1017,13 +1018,13 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     }
 
     /// <summary>"Abrir ficha" da prévia ou um item do resumo (já na aba do assunto).</summary>
-    private async Task AbrirFichaDaPreviaAsync(Guid id, SecaoPessoa? aba)
+    private async Task AbrirFichaDaPreviaAsync(Guid id, DestinoFicha? destino)
     {
         if ((Itens.FirstOrDefault(p => p.Id == id) ?? Previa.Linha?.Pessoa) is not { } pessoa || pessoa.Id != id) return;
         Selecionado = pessoa; // abre a ficha (pergunta antes se houver alterações não salvas em outra)
-        if (aba is not { } destino) return;
+        if (destino is null) return;
         await EsperarFichaAsync(id);
-        if (Formulario?.Id == id) IrParaAba(destino);
+        if (Formulario?.Id == id) IrPara(destino);
     }
 
     [RelayCommand]
@@ -1445,15 +1446,90 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Resumo dos erros da última tentativa de salvar (fixo acima da ficha). Só muda numa nova conferência.</summary>
     public ResumoValidacao Validacao { get; } = new() { Titulo = "Não foi possível salvar a pessoa" };
 
+    // ---- Destaque de alterações (o que mudou desde a última gravação e de onde veio) ----
+
+    /// <summary>"Destacar alterações": os campos alterados desde a última gravação, com a origem (Receita ou digitado).</summary>
+    public DestaquesFicha Destaques { get; } = new();
+
+    private string? _fotoDosDestaques;
+    private PessoaDto? _gravadoDosDestaques;
+
+    protected override void AlteracoesAvaliadas() => AtualizarDestaques();
+
+    /// <summary>As marcas das abas ("●N" erros, "◆N" destaques) são derivadas da ficha: mudar não é alterar a ficha.</summary>
+    protected override bool PropriedadeDaFicha(string? propriedade) =>
+        propriedade is not (nameof(ErrosPorAba) or nameof(DestaquesPorAba));
+
+    /// <summary>
+    /// Compara a ficha com a gravada, campo a campo (<see cref="AlteracoesDaFicha"/>). Cadastro novo: tudo é novo, então só o
+    /// que veio da consulta é destacado. Ajuda visual: um estado intermediário que não monta não pode atrapalhar a digitação.
+    /// </summary>
+    private void AtualizarDestaques()
+    {
+        try
+        {
+            if (Formulario is not { } f || FotoGravada is not { } foto)
+            {
+                Destaques.Definir([]);
+                return;
+            }
+            if (!ReferenceEquals(foto, _fotoDosDestaques))
+            {
+                _gravadoDosDestaques = JsonSerializer.Deserialize<PessoaDto>(foto, Lone.Contracts.Comum.OpcoesJson.Padrao);
+                _fotoDosDestaques = foto;
+            }
+            if (_gravadoDosDestaques is null)
+            {
+                Destaques.Definir([]);
+                return;
+            }
+            var destaques = new List<DestaqueCampo>();
+            foreach (var (chave, antes, agora) in AlteracoesDaFicha.Comparar(_gravadoDosDestaques, f.ParaDto()))
+            {
+                var daReceita = f.OrigemReceita.TryGetValue(chave, out var origem) && AplicacaoReceita.Igual(origem.Valor, agora);
+                if (f.Nova && !daReceita) continue;
+                destaques.Add(new DestaqueCampo(chave, daReceita ? "Receita" : null, antes, daReceita ? origem.Quando : null));
+            }
+            Destaques.Definir(destaques);
+        }
+        catch (Exception)
+        {
+            Destaques.Definir([]);
+        }
+    }
+
+    /// <summary>
+    /// Gravação com valores trazidos pela Receita e sem motivo escrito pelo usuário: o motivo registra a consulta (vai para
+    /// o histórico do cadastro). Só no que vai para a API: a ficha não muda.
+    /// </summary>
+    private PessoaDto DtoParaGravar(PessoaFormulario formulario)
+    {
+        var dto = formulario.ParaDto();
+        if (dto.MotivoAlteracao is null && Destaques.QuantidadeDaReceita > 0)
+            dto.MotivoAlteracao = $"Dados preenchidos pela consulta à Receita Federal ({formulario.ConferenciaReceita.Fonte}) " +
+                                  $"em {DateTime.Now:dd/MM/yyyy HH:mm}.";
+        return dto;
+    }
+
     /// <summary>Quantos erros há em cada aba (o "●N" nas abas).</summary>
     public IReadOnlyDictionary<SecaoPessoa, int> ErrosPorAba =>
         Validacao.Itens.Select(i => AbaDoCampo.De(i.Erro.Campo, i.Erro.Item)).OfType<SecaoPessoa>()
             .GroupBy(a => a).ToDictionary(g => g.Key, g => g.Count());
 
-    /// <summary>Troca para a aba do campo do erro; falso se a aba não existe para esta pessoa (o erro fica só no resumo).</summary>
-    private bool IrParaAbaDoErro(ErroValidacao erro)
+    /// <summary>
+    /// Quantos campos destacados há em cada aba (o "◆N" nas abas), só com "Destacar alterações" ligado: quem liga o
+    /// destaque vê em que aba estão as alterações sem procurar aba por aba. Alteração não é erro: outra marca, outra cor.
+    /// </summary>
+    public IReadOnlyDictionary<SecaoPessoa, int> DestaquesPorAba =>
+        !Destaques.Ligado
+            ? new Dictionary<SecaoPessoa, int>()
+            : Destaques.Itens.Select(d => AbaDoCampo.De(d.Chave.Campo, d.Chave.Item)).OfType<SecaoPessoa>()
+                .GroupBy(a => a).ToDictionary(g => g.Key, g => g.Count());
+
+    /// <summary>Troca para a aba do campo (de um erro ou de uma pendência); falso se a aba não existe para esta pessoa.</summary>
+    private bool IrParaAbaDoErro(DestinoCampo destino)
     {
-        if (AbaDoCampo.De(erro.Campo, erro.Item) is not { } aba || Secoes.FirstOrDefault(s => s.Secao == aba) is not { } secao) return false;
+        if (AbaDoCampo.De(destino.Campo, destino.Item) is not { } aba || Secoes.FirstOrDefault(s => s.Secao == aba) is not { } secao) return false;
         SecaoSelecionada = secao;
         return true;
     }
@@ -1469,7 +1545,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         ReiniciarFiltroHistorico();
         if (newValue is null)
         {
-            Resumo.Atualizar(null, IrParaAba);
+            Resumo.Atualizar(null, IrPara);
             return;
         }
 
@@ -1486,6 +1562,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.ConsolidarNoServidor = ConsolidarEnderecosAsync;
         newValue.TemAlteracoesNaoSalvas = () => TemAlteracoes;
         newValue.ConsultaCnpj = ConsultarCnpjAsync;
+        newValue.ConferenciaReceita.AoAplicar = campos =>
+        {
+            newValue.RegistrarOrigemReceita(campos);
+            AtualizarDestaques();
+        };
         newValue.AoCompletarDocumento = () => DocumentoCompletoAsync(newValue);
         newValue.FonteMunicipios = uf => _municipios.ListarDaUfAsync(uf);
         newValue.AcoesAnexos.Anexar = AnexarAsync;
@@ -1568,6 +1649,16 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Resumo da pessoa (painel ao lado ou cartão): refeito ao abrir a ficha, ao trocar de aba e depois de salvar.</summary>
     public ResumoPessoa Resumo { get; } = new();
 
+    /// <summary>
+    /// Tocar num item do resumo da pessoa ("Resolver", Lone Contextual Fase 2): com campo, o mesmo caminho do erro que leva ao
+    /// campo (aba, rolagem e foco), sem marcar nada; sem campo, só a aba.
+    /// </summary>
+    private void IrPara(DestinoFicha destino)
+    {
+        if (destino.Campo is { } campo && Validacao.Levar(new DestinoCampo(campo, destino.Item))) return;
+        IrParaAba(destino.Aba);
+    }
+
     /// <summary>Tocar num item do resumo leva à aba onde o assunto é resolvido (se ela existir para esta pessoa).</summary>
     private void IrParaAba(SecaoPessoa aba) =>
         SecaoSelecionada = Secoes.FirstOrDefault(s => s.Secao == aba) ?? SecaoSelecionada;
@@ -1575,7 +1666,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// <summary>Cargas sob demanda: cada uma só na primeira vez que a aba precisa, nesta ficha.</summary>
     private void CarregarDaAba(SecaoOpcao? value)
     {
-        Resumo.Atualizar(Formulario, IrParaAba);
+        Resumo.Atualizar(Formulario, IrPara);
         if (value?.Secao == SecaoPessoa.Historico && Formulario is { Existente: true } f && _historicoDe != f.Id)
             _ = CarregarHistoricoAsync(f.Id);
         if (value?.Secao == SecaoPessoa.Colaborador && Formulario is { OpcoesColaboradorCarregadas: false } ficha)
@@ -1709,7 +1800,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         var executou = await ExecutarAsync(async () =>
         {
             // Recusa por regra: vai para o resumo da ficha (com os campos que a API informar), não para a barra de mensagens.
-            try { resultado = await _pessoas.SalvarAsync(formulario.ParaDto()); }
+            try { resultado = await _pessoas.SalvarAsync(DtoParaGravar(formulario)); }
             catch (ValidacaoException v) { recusa = v; }
         });
         if (!executou || recusa is not null)
@@ -2194,11 +2285,18 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         }
 
-        Formulario?.AplicarCnpj(estabelecimento, dados);
+        if (Formulario is not { } ficha) return;
+        ficha.AplicarCnpj(estabelecimento, dados);
+        // O que veio da consulta fica destacado (o usuário desliga no botão da barra da ficha).
+        AtualizarDestaques();
+        if (Destaques.QuantidadeDaReceita > 0) Destaques.Ligado = true;
+        var conferir = ficha.ConferenciaReceita.Visivel
+            ? " A Receita trouxe valores diferentes dos atuais: escolha no quadro acima o que trocar."
+            : string.Empty;
         Mostrar($"Dados preenchidos pela consulta ({dados.Fonte}). " +
                 (estabelecimento.InscricaoVeioDaConsulta
                     ? "A inscrição estadual também foi encontrada. Confira e salve."
-                    : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar)."),
+                    : "A inscrição estadual não foi encontrada nas fontes públicas: informe-a (o sistema confere o dígito da UF ao salvar).") + conferir,
             TipoMensagem.Informacao);
     }
 
@@ -2507,7 +2605,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
         if (dados is null)
         {
-            Mostrar($"O CEP {cep!.Formatado} não existe na base dos Correios. Confira o número.", TipoMensagem.Aviso);
+            endereco.MarcarCepInexistente(); // aviso embaixo do CEP; a gravação também recusa
             return;
         }
 

@@ -8,6 +8,7 @@ using Lone.Contracts.Pessoas;
 using Lone.Domain.Comum;
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
+using Lone.Domain.Pessoas;
 using CepValor = Lone.Domain.ObjetosDeValor.Cep;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
@@ -128,6 +129,20 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     /// <summary>Último CEP já consultado ou vindo do cadastro: não consulta de novo o mesmo número.</summary>
     private string _cepConhecido = string.Empty;
+
+    /// <summary>O CEP (dígitos) que a última consulta conferiu; mudou o CEP, o resultado não vale mais.</summary>
+    private string _cepVerificado = string.Empty;
+
+    /// <summary>Município (IBGE) do CEP conferido e o texto dele ("Curvelo/MG"), para conferir com o escolhido.</summary>
+    private int? _municipioDoCep;
+    private string _localDoCep = string.Empty;
+
+    /// <summary>"⚠ CEP não encontrado..." embaixo do CEP, logo depois da consulta (a gravação também recusa).</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAvisoCep))] private string _avisoCep = string.Empty;
+    public bool TemAvisoCep => AvisoCep.Length > 0;
+
+    /// <summary>Como o endereço está gravado (nulo se é novo): só endereço novo ou alterado precisa estar completo.</summary>
+    public PessoaEndereco? ComoGravado { get; private set; }
 
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _descricao = string.Empty;
 
@@ -295,7 +310,40 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     [ObservableProperty] private string _cep = string.Empty;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _logradouro = string.Empty;
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _numero = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo), nameof(SugerirSemNumero))] private string _numero = string.Empty;
+
+    /// <summary>
+    /// Caixa "Sem número": marcada, o número fica "S/N" (travado); desmarcada, volta vazio para digitar. Digitar "SN", "s/n"...
+    /// também marca (o texto fica padronizado).
+    /// </summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(SugerirSemNumero))] private bool _semNumero;
+
+    /// <summary>
+    /// Dica embaixo do número ("Este endereço não tem número? Marcar 'Sem número'") quando o texto não parece um número
+    /// ("casa", "x", "0"). Não é erro: "KM 23" ou "100A" não mostram nada.
+    /// </summary>
+    public bool SugerirSemNumero => !SemNumero && NoBrasil && Lone.Domain.Enderecos.RegrasEndereco.PareceSemNumero(Numero);
+
+    /// <summary>O link da dica: marca "Sem número" (o número vira "S/N").</summary>
+    [RelayCommand]
+    private void MarcarSemNumero() => SemNumero = true;
+
+    /// <summary>Tocar no texto "Sem número" também marca/desmarca a caixa.</summary>
+    [RelayCommand]
+    private void AlternarSemNumero() => SemNumero = !SemNumero;
+
+    partial void OnSemNumeroChanged(bool value)
+    {
+        if (value) Numero = Lone.Domain.Enderecos.RegrasEndereco.SemNumero;
+        else if (Lone.Domain.Enderecos.RegrasEndereco.EhSemNumero(Numero)) Numero = string.Empty;
+    }
+
+    partial void OnNumeroChanged(string value)
+    {
+        var semNumero = Lone.Domain.Enderecos.RegrasEndereco.EhSemNumero(value);
+        if (semNumero != SemNumero) SemNumero = semNumero;
+        else if (semNumero && value != Lone.Domain.Enderecos.RegrasEndereco.SemNumero) Numero = Lone.Domain.Enderecos.RegrasEndereco.SemNumero;
+    }
     [ObservableProperty] private string _complemento = string.Empty;
     [ObservableProperty] private string _bairro = string.Empty;
 
@@ -303,7 +351,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _cidade = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NoBrasil), nameof(Resumo))]
+    [NotifyPropertyChangedFor(nameof(NoBrasil), nameof(Resumo), nameof(SugerirSemNumero))]
     private bool _noExterior;
 
     [ObservableProperty] private string _codigoPais = PessoaEndereco.CodigoPaisBrasil;
@@ -363,9 +411,40 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     partial void OnCepChanged(string value)
     {
         var digitos = Digitos(value);
+        if (digitos != _cepVerificado) LimparConferenciaCep();
         if (digitos.Length != 8 || digitos == _cepConhecido || AoBuscarCep is null) return;
         _cepConhecido = digitos;
         _ = AoBuscarCep(this);
+    }
+
+    private void LimparConferenciaCep()
+    {
+        _cepVerificado = string.Empty;
+        _municipioDoCep = null;
+        _localDoCep = string.Empty;
+        AvisoCep = string.Empty;
+    }
+
+    /// <summary>A consulta respondeu que o CEP não existe (sem internet não se chama isto: a gravação segue).</summary>
+    public void MarcarCepInexistente()
+    {
+        var digitos = Digitos(Cep);
+        LimparConferenciaCep();
+        _cepVerificado = digitos;
+        AvisoCep = $"⚠ CEP {Cep} não encontrado nos Correios. Confira o número.";
+    }
+
+    /// <summary>
+    /// O CEP conferido pela consulta: inexistente, ou de outro município que não o escolhido, impede a gravação. Sem
+    /// consulta (CEP gravado antes, ou sem internet), não há o que conferir.
+    /// </summary>
+    public string? ValidarCep(string rotulo)
+    {
+        if (!Ativo || NoExterior || _cepVerificado.Length == 0 || _cepVerificado != Digitos(Cep)) return null;
+        if (TemAvisoCep) return $"{rotulo}: o CEP {Cep} não existe nos Correios. Confira o número.";
+        if (_municipioDoCep is { } doCep && Municipio.MunicipioId is { } escolhido && escolhido != doCep)
+            return $"{rotulo}: o CEP {Cep} é de {_localDoCep}, mas o município escolhido é outro. Confira o CEP ou o município.";
+        return null;
     }
 
     private static string Digitos(string? texto) => new((texto ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
@@ -378,6 +457,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
             f.Incluir(new FinalidadeNoEndereco(u.Id, u.FinalidadeId, gravada: true) { Principal = u.Principal, Ativo = u.Ativo });
         if (!f.NoExterior)
             f.Municipio.Definir(e.MunicipioId, e.MunicipioId is null ? null : e.Cidade, e.Uf is { Length: 2 } uf && uf != "EX" ? uf : null);
+        f.ComoGravado = f.ParaComparacao();
         return f;
     }
 
@@ -436,24 +516,43 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     public void AplicarCep(DadosCep d)
     {
         _cepConhecido = Digitos(d.Cep);
+        _cepVerificado = _cepConhecido;
+        AvisoCep = string.Empty;
         Cep = CepValor.TentarCriar(d.Cep, out var cep) ? cep!.Formatado : d.Cep;
         if (d.Logradouro is not null) Logradouro = d.Logradouro;
         if (d.Bairro is not null) Bairro = d.Bairro;
         if (string.IsNullOrWhiteSpace(Complemento) && d.Complemento is not null) Complemento = d.Complemento;
         NoExterior = false;
         DefinirMunicipio(d.CodigoMunicipioIbge, d.Cidade, d.Uf);
+        _municipioDoCep = int.TryParse(d.CodigoMunicipioIbge, out var codigo) ? codigo : null;
+        _localDoCep = string.IsNullOrWhiteSpace(d.Uf) ? d.Cidade ?? string.Empty : $"{d.Cidade}/{d.Uf}";
     }
 
-    public void AplicarCnpj(DadosCnpj d)
+    public void AplicarCnpj(DadosCnpj d) => AplicarCnpj(d, new AplicacaoReceita(conferir: false));
+
+    /// <summary>
+    /// O endereço do CNPJ, campo a campo por <paramref name="r"/>: vazio é preenchido; com outro valor num cadastro gravado,
+    /// fica para o usuário escolher na conferência "atual × Receita".
+    /// </summary>
+    public void AplicarCnpj(DadosCnpj d, AplicacaoReceita r)
     {
-        if (d.Cep is not null) _cepConhecido = Digitos(d.Cep);
-        if (d.Cep is not null) Cep = CepValor.TentarCriar(d.Cep, out var cep) ? cep!.Formatado : d.Cep;
-        if (d.Logradouro is not null) Logradouro = d.Logradouro;
-        if (d.Numero is not null) Numero = d.Numero;
-        if (d.Complemento is not null) Complemento = d.Complemento;
-        if (d.Bairro is not null) Bairro = d.Bairro;
-        NoExterior = false;
-        DefinirMunicipio(d.CodigoMunicipioIbge, d.Cidade, d.Uf);
+        var cepReceita = d.Cep is null ? null : CepValor.TentarCriar(d.Cep, out var cep) ? cep!.Formatado : d.Cep;
+        r.Valor(new(CamposFichaPessoa.Cep, Id), "Endereço · CEP", Cep, cepReceita, v =>
+        {
+            _cepConhecido = Digitos(v);
+            Cep = v;
+        });
+        r.Valor(new(CamposFichaPessoa.Logradouro, Id), "Endereço · Logradouro", Logradouro, d.Logradouro, v => Logradouro = v);
+        r.Valor(new(CamposFichaPessoa.Numero, Id), "Endereço · Número", Numero, Lone.Domain.Enderecos.RegrasEndereco.NormalizarNumero(d.Numero), v => Numero = v);
+        r.Valor(new(CamposFichaPessoa.Complemento, Id), "Endereço · Complemento", Complemento, d.Complemento, v => Complemento = v);
+        r.Valor(new(CamposFichaPessoa.Bairro, Id), "Endereço · Bairro", Bairro, d.Bairro, v => Bairro = v);
+        var municipioAtual = NoExterior ? Cidade : Municipio.Selecionado is { } m ? $"{m.Nome}/{m.Uf}" : string.Empty;
+        var municipioReceita = string.IsNullOrWhiteSpace(d.Cidade) ? null : string.IsNullOrWhiteSpace(d.Uf) ? d.Cidade : $"{d.Cidade}/{d.Uf}";
+        r.Valor(new(CamposFichaPessoa.Municipio, Id), "Endereço · Município", municipioAtual, municipioReceita, _ =>
+        {
+            NoExterior = false;
+            DefinirMunicipio(d.CodigoMunicipioIbge, d.Cidade, d.Uf);
+        });
     }
 
     /// <summary>

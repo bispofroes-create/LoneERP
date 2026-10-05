@@ -647,6 +647,12 @@ public sealed partial class PessoaFormulario : ObservableObject
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].Ativo && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
                 erros.Add(endereco, CamposFichaPessoa.Municipio, Enderecos[i].Id);
+        // Endereço novo ou alterado completo (a mesma regra da API) e o CEP conferido na consulta (inexistente/outro município).
+        erros.AddRange(Lone.Domain.Enderecos.RegrasEndereco.ValidarCompletos(Enderecos.Select(e => e.ParaComparacao()).ToList(),
+            Enderecos.Select(e => e.ComoGravado).OfType<Lone.Domain.Entidades.PessoaEndereco>()));
+        for (var i = 0; i < Enderecos.Count; i++)
+            if (Enderecos[i].ValidarCep($"Endereço {i + 1}") is { } cep)
+                erros.Add(cep, CamposFichaPessoa.Cep, Enderecos[i].Id);
         erros.AddRange(Documentos.SelectMany(d => d.ValidarComCampos()));
         for (var i = 0; i < Vinculos.Count; i++)
             erros.AddRange(Vinculos[i].Validar($"Vínculo {i + 1}"));
@@ -1671,19 +1677,24 @@ public sealed partial class PessoaFormulario : ObservableObject
                ?? ativos.FirstOrDefault(e => string.IsNullOrWhiteSpace(e.Logradouro));
     }
 
-    /// <summary>Preenche o estabelecimento (e, no principal, a razão social e o endereço). O usuário confere e salva.</summary>
+    /// <summary>
+    /// Preenche o estabelecimento (e, no principal, a razão social e o endereço). O usuário confere e salva. Num cadastro já
+    /// gravado, o que a Receita traz de diferente de um valor que já existe não é trocado: vai para <see cref="ConferenciaReceita"/>
+    /// (o usuário marca o que trocar). O que foi preenchido fica marcado como vindo da Receita (destaque).
+    /// </summary>
     public void AplicarCnpj(EstabelecimentoFormulario estabelecimento, DadosCnpj d)
     {
-        estabelecimento.AplicarCnpj(d);
+        var r = new AplicacaoReceita(conferir: Existente);
+        estabelecimento.AplicarCnpj(d, r);
 
         EnderecoFormulario? endereco;
         if (ReferenceEquals(estabelecimento, Principal))
         {
-            if (d.RazaoSocial.Length > 0)
+            r.Valor(new(CamposFichaPessoa.Nome, null), "Razão social", Nome, d.RazaoSocial, v =>
             {
-                Nome = d.RazaoSocial;
-                _razaoSocialConsultada = d.RazaoSocial;
-            }
+                Nome = v;
+                _razaoSocialConsultada = v;
+            });
             // Onde entra o endereço do CNPJ: o principal fiscal já definido pelo usuário; senão um endereço ativo que é o
             // mesmo lugar físico; senão um endereço ainda em branco; senão um novo. Nunca sobrescreve outro lugar (ex.: o
             // residencial) só por ser o único endereço, e nunca marca principal.
@@ -1707,40 +1718,81 @@ public sealed partial class PessoaFormulario : ObservableObject
                 estabelecimento.EnderecoFiscal = endereco;
             }
         }
-        endereco.AplicarCnpj(d);
+        endereco.AplicarCnpj(d, r);
 
-        AdicionarMeioSeNovo(TipoContato.Telefone, d.Telefone);
-        AdicionarMeioSeNovo(TipoContato.Email, d.Email);
+        if (AdicionarMeioSeNovo(TipoContato.Telefone, d.Telefone) is { } telefone) r.Marcar(new(CamposFichaPessoa.MeioContatoValor, telefone.Id));
+        if (AdicionarMeioSeNovo(TipoContato.Email, d.Email) is { } email) r.Marcar(new(CamposFichaPessoa.MeioContatoValor, email.Id));
 
         // Dados da empresa são da raiz do CNPJ: valem para a pessoa, venha a consulta da matriz ou de uma filial.
-        if (d.DataAbertura is not null && ReferenceEquals(estabelecimento, Principal)) DataAbertura = TextoTela.Data(d.DataAbertura);
-        if (d.Porte is not null) Porte = d.Porte;
-        if (d.CapitalSocial is not null) CapitalSocial = TextoTela.Decimal(d.CapitalSocial);
+        if (ReferenceEquals(estabelecimento, Principal))
+            r.Valor(new(CamposFichaPessoa.DataAbertura, null), "Data de abertura", DataAbertura, TextoTela.Data(d.DataAbertura), v => DataAbertura = v);
+        r.Valor(new(CamposFichaPessoa.Porte, null), "Porte", Porte, d.Porte, v => Porte = v);
+        r.Valor(new(CamposFichaPessoa.CapitalSocial, null), "Capital social (R$)", CapitalSocial, TextoTela.Decimal(d.CapitalSocial), v => CapitalSocial = v);
         if (d.Socios.Count > 0)
         {
             Socios.Clear();
             foreach (var socio in d.Socios) Socios.Add(socio);
             OnPropertyChanged(nameof(TemSocios));
         }
+
+        RegistrarOrigemReceita(r.Aplicados);
+        ConferenciaReceita.Abrir(r.Conflitos, d.Fonte);
     }
 
-    private void AdicionarMeioSeNovo(TipoContato tipo, string? valor)
-    {
-        if (string.IsNullOrWhiteSpace(valor)) return;
+    // ---- Origem dos valores (destaque de alterações) ----
 
-        var digitos = DocumentoFiscal.SomenteDigitos(valor);
+    private readonly Dictionary<ChaveCampo, (string Valor, DateTime Quando)> _origemReceita = new();
+
+    /// <summary>Conferência "atual × Receita" da última consulta de CNPJ (cadastro gravado com valores diferentes).</summary>
+    public ConferenciaReceita ConferenciaReceita { get; } = new();
+
+    /// <summary>
+    /// Campos preenchidos pela Receita e o valor que ela pôs (como texto de tela). Vale enquanto o campo continua com esse
+    /// valor: editado depois, passa a ser "digitado". A ficha nova (aberta depois de gravar) começa sem origens.
+    /// </summary>
+    public IReadOnlyDictionary<ChaveCampo, (string Valor, DateTime Quando)> OrigemReceita => _origemReceita;
+
+    /// <summary>Guarda o valor atual dos campos que a Receita acabou de preencher (o destaque compara com ele).</summary>
+    public void RegistrarOrigemReceita(IEnumerable<ChaveCampo> campos)
+    {
+        var valores = AlteracoesDaFicha.Valores(ParaDto());
+        var agora = DateTime.UtcNow;
+        foreach (var chave in campos)
+            if (valores.TryGetValue(chave, out var valor) && valor.Length > 0)
+                _origemReceita[chave] = (valor, agora);
+    }
+
+    private MeioContatoFormulario? AdicionarMeioSeNovo(TipoContato tipo, string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor)) return null;
+
+        // Telefone: compara pela mesma regra com que o número é gravado (Telefone: sem o 55 do Brasil e sem o zero de
+        // operadora antes do DDD). A Receita manda "01170844621" para o "(11) 7084-4621" que já existe. O valor recebido
+        // não é alterado aqui: só a comparação usa a forma normalizada.
+        var chave = ChaveTelefone(valor);
         var jaExiste = MeiosContato.Any(m =>
             string.Equals(m.Valor.Trim(), valor.Trim(), StringComparison.OrdinalIgnoreCase) ||
-            (tipo != TipoContato.Email && digitos.Length > 0 && DocumentoFiscal.SomenteDigitos(m.Valor) == digitos));
+            (tipo != TipoContato.Email && chave.Length > 0 && ChaveTelefone(m.Valor) == chave));
 
-        if (!jaExiste)
-            AdicionarMeio(new MeioContatoFormulario
-            {
-                Tipo = Opcao.De(OpcoesPessoa.TiposContato, tipo),
-                Valor = valor,
-                Descricao = "Receita Federal"
-            });
+        if (jaExiste) return null;
+        var meio = new MeioContatoFormulario
+        {
+            Tipo = Opcao.De(OpcoesPessoa.TiposContato, tipo),
+            Valor = valor,
+            Descricao = "Receita Federal"
+        };
+        AdicionarMeio(meio);
+        return meio;
     }
+
+    /// <summary>
+    /// Forma de comparar telefones: a normalizada do domínio (a mesma gravada no banco) quando o número é válido; senão,
+    /// só os dígitos. Vazio quando não há dígitos.
+    /// </summary>
+    internal static string ChaveTelefone(string? texto) =>
+        Lone.Domain.ObjetosDeValor.Telefone.TentarCriar(texto, out var telefone)
+            ? telefone!.Normalizado
+            : DocumentoFiscal.SomenteDigitos(texto ?? string.Empty);
 }
 
 /// <summary>
