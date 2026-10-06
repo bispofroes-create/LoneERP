@@ -97,8 +97,92 @@ public sealed partial class PessoaFormulario : ObservableObject
                 _ = TrocarNaturezaComConfirmacaoAsync(value);
                 return;
             }
+            // Bloco G (P1-2): sair de pessoa física com dados que só existem nela pergunta antes (a API também exige a
+            // confirmação, para a troca e os dados exatos).
+            if (value.Valor != NaturezaPessoa.Fisica && (EhFisica || _trocaConfirmada is not null) && Confirmar is not null &&
+                PerdasAoSairDaPessoaFisica(value.Valor) is { Count: > 0 } perdas && !Cobre(_trocaConfirmada, value.Valor, perdas))
+            {
+                _ = TrocarDePessoaFisicaComConfirmacaoAsync(value, perdas);
+                return;
+            }
             Natureza = value;
         }
+    }
+
+    // ---- Bloco G: sair de pessoa física ----
+
+    /// <summary>Dados só de PF como vieram do cadastro gravado (nulo se ele não era PF ou se a ficha é nova).</summary>
+    private DadosSoDaPessoaFisica? _dadosPessoaFisicaCarregados;
+
+    /// <summary>A troca de pessoa física confirmada pelo usuário: vai na gravação enquanto a natureza for a confirmada.</summary>
+    private ConfirmacaoTrocaNaturezaDto? _trocaConfirmada;
+
+    /// <summary>O que seria apagado ao trocar para <paramref name="nova"/>: o que foi carregado e o que está na tela.</summary>
+    public IReadOnlyList<PerdaNaTroca> PerdasAoSairDaPessoaFisica(NaturezaPessoa nova)
+    {
+        var tela = DadosPessoaFisicaDaTela();
+        return RegrasNaturezaPessoa.PerdasAoSairDaPessoaFisica(_dadosPessoaFisicaCarregados?.Mais(tela) ?? tela, nova);
+    }
+
+    private static bool Cobre(ConfirmacaoTrocaNaturezaDto? confirmada, NaturezaPessoa nova, IReadOnlyList<PerdaNaTroca> perdas) =>
+        confirmada is not null && confirmada.Para == nova && perdas.All(p => confirmada.Campos.Contains(p.Campo));
+
+    private DadosSoDaPessoaFisica DadosPessoaFisicaDaTela() => new(
+        Cpf: Documento.Trim().Length > 0,
+        NomeSocial: NomeSocial.Trim().Length > 0,
+        Apelido: Apelido.Trim().Length > 0,
+        DataNascimento: DataNascimento.Trim().Length > 0,
+        Sexo: Sexo.Valor != SexoRegistro.NaoInformado,
+        IdentidadeGenero: Genero.Valor != global::Lone.Domain.Enums.IdentidadeGenero.NaoInformado,
+        EstadoCivil: EstadoCivil.Valor != global::Lone.Domain.Enums.EstadoCivil.NaoInformado,
+        Escolaridade: Escolaridade.Valor != global::Lone.Domain.Enums.Escolaridade.NaoInformado,
+        NomeMae: NomeMae.Trim().Length > 0,
+        NomePai: NomePai.Trim().Length > 0,
+        Profissao: ProfissaoEscolhida() is not null || OcupacaoEscolhida() is not null,
+        Naturalidade: Naturalidade.MunicipioId is not null,
+        CorRaca: CorRaca.Valor != global::Lone.Domain.Enums.CorRaca.NaoInformado || CorRacaOculta,
+        InscricaoEstadual: Estabelecimentos.Count > 0 && Principal.InscricaoEstadual.Trim().Length > 0);
+
+    private static DadosSoDaPessoaFisica DadosPessoaFisicaCarregados(PessoaDto p) => new(
+        Cpf: !string.IsNullOrWhiteSpace(p.DocumentoPrincipal),
+        NomeSocial: !string.IsNullOrWhiteSpace(p.NomeSocial),
+        Apelido: !string.IsNullOrWhiteSpace(p.Apelido),
+        DataNascimento: p.DataNascimento is not null,
+        Sexo: p.Sexo != SexoRegistro.NaoInformado,
+        IdentidadeGenero: p.IdentidadeGenero != global::Lone.Domain.Enums.IdentidadeGenero.NaoInformado,
+        EstadoCivil: p.EstadoCivil != global::Lone.Domain.Enums.EstadoCivil.NaoInformado,
+        Escolaridade: p.Escolaridade != global::Lone.Domain.Enums.Escolaridade.NaoInformado,
+        NomeMae: !string.IsNullOrWhiteSpace(p.NomeMae),
+        NomePai: !string.IsNullOrWhiteSpace(p.NomePai),
+        Profissao: p.ProfissaoId is not null,
+        Naturalidade: p.NaturalidadeMunicipioId is not null,
+        // Cor/raça escondida (sem permissão de dado sensível) também conta: ela existe e seria apagada.
+        CorRaca: p.CorRaca != global::Lone.Domain.Enums.CorRaca.NaoInformado || p.CorRacaOculta,
+        InscricaoEstadual: p.Estabelecimentos.FirstOrDefault(e => e.Principal)?.InscricaoEstadual is { Length: > 0 });
+
+    private async Task TrocarDePessoaFisicaComConfirmacaoAsync(Opcao<NaturezaPessoa> nova, IReadOnlyList<PerdaNaTroca> perdas)
+    {
+        // A lista volta a mostrar a natureza atual enquanto o usuário decide (depois do clique que a mudou).
+        await Task.Yield();
+        OnPropertyChanged(nameof(NaturezaNaTela));
+
+        var confirmar = Confirmar;
+        if (confirmar is null || !await confirmar(
+                "Trocar o tipo de pessoa",
+                $"Ao trocar para \"{nova.Texto}\", serão apagados ao salvar os dados que só existem na pessoa física: " +
+                $"{RegrasNaturezaPessoa.Lista(perdas)}." +
+                (_dadosPessoaFisicaCarregados is null ? string.Empty : " Os valores atuais ficam no histórico do cadastro."),
+                "Trocar e apagar",
+                "Não trocar"))
+            return;
+
+        _trocaConfirmada = new ConfirmacaoTrocaNaturezaDto
+        {
+            De = NaturezaPessoa.Fisica,
+            Para = nova.Valor,
+            Campos = [.. perdas.Select(p => p.Campo)]
+        };
+        Natureza = nova;
     }
 
     /// <summary>Razão social que veio da última consulta de CNPJ (se o nome ainda for ela, sai junto com os dados da empresa).</summary>
@@ -591,6 +675,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             NaturalidadeACorrigir = p.PendenciasMunicipio.FirstOrDefault(x => x.DaNaturalidade)?.Texto ?? string.Empty,
             _grupoEmpresarialGravado = p.GrupoEmpresarialId,
             _naturezaGravada = p.Natureza,
+            _dadosPessoaFisicaCarregados = p.Natureza == NaturezaPessoa.Fisica ? DadosPessoaFisicaCarregados(p) : null,
             _mescladaEmId = p.MescladaEmId,
             _outrasContasCliente = p.ContasCliente.Where(c => c.EmpresaId is not null).ToList(),
             _outrasContasFornecedor = p.ContasFornecedor.Where(c => c.EmpresaId is not null).ToList(),
@@ -801,7 +886,9 @@ public sealed partial class PessoaFormulario : ObservableObject
             EtiquetaIds = Etiquetas.Marcadas.ToList(),
             ValoresPersonalizados = InformacoesAdicionais.Select(c => c.ParaDto()).OfType<ValorPersonalizadoDto>().ToList(),
             MotivoAlteracao = TextoTela.Nulo(MotivoAlteracao)?.Trim(),
-            RelacionarAoCriar = Nova ? RelacionarAoCriar : null
+            RelacionarAoCriar = Nova ? RelacionarAoCriar : null,
+            // Bloco G: só a troca confirmada para a natureza que está indo (a API confere de novo contra o gravado).
+            ConfirmacaoTrocaNatureza = _trocaConfirmada is { } troca && troca.Para == Natureza.Valor ? troca : null
         };
 
         // Conta padrão entra quando o papel existe (ativo ou não); as de outras empresas voltam intactas.

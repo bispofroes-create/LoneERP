@@ -1,5 +1,6 @@
 using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
+using Lone.Domain.Validacao;
 
 namespace Lone.Domain.Contatos;
 
@@ -65,4 +66,47 @@ public static class RegrasMeioContato
         }
         return erros.Distinct().ToList();
     }
+
+    /// <summary>
+    /// Bloco G (P1-12): o mesmo telefone ou e-mail duas vezes na mesma pessoa, entre os ativos. Compara o valor já
+    /// normalizado (telefone só com dígitos, sem o 55; e-mail em minúsculas), então "(11) 98765-4321" e "11987654321" são
+    /// o mesmo número. Telefone, celular e WhatsApp são a mesma categoria (um número é um número); e-mail é outra; "outro"
+    /// (texto livre) não é conferido. Inativo não conta (é histórico). Dois que já estavam gravados assim (cadastro antigo)
+    /// não impedem a gravação; o erro vai para o que é novo, alterado ou reativado.
+    /// </summary>
+    /// <param name="meios">Como vão ser gravados, já normalizados (a posição dá o "Telefone/e-mail N").</param>
+    /// <param name="anteriores">Como estão gravados (vazio num cadastro novo).</param>
+    public static List<ErroValidacao> ValidarRepetidos(IReadOnlyList<MeioContato> meios, IEnumerable<MeioContato> anteriores)
+    {
+        var gravados = anteriores.Where(m => m.Ativo).ToDictionary(m => m.Id, Chave);
+        bool ComoGravado(MeioContato m) => gravados.TryGetValue(m.Id, out var chave) && chave == Chave(m);
+
+        var primeiros = new Dictionary<(CategoriaMeioContato, string), int>();
+        var erros = new List<ErroValidacao>();
+        for (var i = 0; i < meios.Count; i++)
+        {
+            var meio = meios[i];
+            if (!meio.Ativo || Chave(meio) is not { } chave) continue;
+            if (!primeiros.TryGetValue(chave, out var j))
+            {
+                primeiros[chave] = i;
+                continue;
+            }
+
+            var outro = meios[j];
+            if (ComoGravado(meio) && ComoGravado(outro)) continue;
+            // Aponta o que mudou (o gravado igual fica como está).
+            var (alvo, posicao, primeiro) = ComoGravado(meio) ? (outro, j, i) : (meio, i, j);
+            var oQue = chave.Item1 == CategoriaMeioContato.Email ? "este e-mail" : "este número";
+            erros.Add(new ErroValidacao($"Telefone/e-mail {posicao + 1}: {oQue} já está na lista (Telefone/e-mail {primeiro + 1}).",
+                global::Lone.Domain.Pessoas.CamposFichaPessoa.MeioContatoValor, alvo.Id));
+        }
+        return erros;
+    }
+
+    /// <summary>Categoria + valor normalizado; nulo para "outro" e para valor vazio.</summary>
+    private static (CategoriaMeioContato, string)? Chave(MeioContato m) =>
+        Categoria(m.Tipo) is { } categoria && m.Valor.Length > 0
+            ? (categoria, categoria == CategoriaMeioContato.Email ? m.Valor.ToLowerInvariant() : m.Valor)
+            : null;
 }

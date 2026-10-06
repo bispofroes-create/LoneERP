@@ -332,6 +332,10 @@ public sealed class PessoaAppService : IPessoaAppService
 
         var dados = PessoaMapeamento.ParaEntidade(dto);
 
+        // Mesclado em outro cadastro: a ficha não controla (Bloco G, P1-3). Vale o gravado (nulo num cadastro novo); mesclar
+        // será uma operação própria.
+        dados.MescladaEmId = anterior?.MescladaEmId;
+
         // Endereço × finalidade: pedido antigo (só bits) traduzido sem apagar principal; campos que só a API controla
         // (consolidação, revisão) e Ids das relações casados com o gravado.
         CompatibilidadeFinalidadesLegado.Aplicar(dados, dto.Enderecos, anterior);
@@ -367,6 +371,8 @@ public sealed class PessoaAppService : IPessoaAppService
         var erros = PessoaValidador.ValidarComCampos(dados);
         // Endereço novo ou alterado completo (CEP, número, bairro); o gravado que não mudou vira pendência, não erro.
         erros.AddRange(RegrasEndereco.ValidarCompletos(dados.Enderecos, anterior?.Enderecos ?? []));
+        // O mesmo telefone ou e-mail duas vezes nesta pessoa (Bloco G, P1-12); repetidos antigos não impedem a gravação.
+        erros.AddRange(RegrasMeioContato.ValidarRepetidos(dados.MeiosContato, anterior?.MeiosContato ?? []));
 
         // Alcance restrito (Fase 2a-2): só clientes entram (E4) e o cliente novo sem responsável da conta recebe quem o
         // cadastrou (F4), senão sumiria da lista dele ao salvar.
@@ -478,6 +484,13 @@ public sealed class PessoaAppService : IPessoaAppService
             RegrasNaturezaPessoa.ValidarTroca(anterior, dados, await _relacionamentos.ContarSocietariosComoEmpresaAsync(dados.Id, ct)) is { } erroNatureza)
             erros.Add(erroNatureza);
 
+        // Pessoa física gravada que vira PJ ou estrangeiro (Bloco G, P1-2): os dados só da PF seriam apagados; só com a
+        // confirmação explícita desta troca, cobrindo o que se perde (calculado do gravado, não do que veio).
+        var confirmacao = dto.ConfirmacaoTrocaNatureza;
+        if (RegrasNaturezaPessoa.ValidarSaidaDaPessoaFisica(anterior, dados.Natureza, confirmacao?.De, confirmacao?.Para,
+                confirmacao?.Campos) is { } erroSaida)
+            erros.Add(erroSaida, Lone.Domain.Pessoas.CamposFichaPessoa.Natureza);
+
         // Estabelecimentos: gravado nunca é apagado (vem desativado).
         erros.AddRange(RegrasEstabelecimento.ValidarCompleto(dados, anterior));
 
@@ -505,6 +518,10 @@ public sealed class PessoaAppService : IPessoaAppService
 
         if (ocupacaoEscolhida is not null)
             dados.ProfissaoId = await ProfissaoParaOcupacaoAsync(ocupacaoEscolhida, ct);
+
+        // Troca de pessoa física confirmada: fica a frase no histórico (os valores apagados ficam na auditoria campo a campo).
+        if (RegrasNaturezaPessoa.EventoSaidaDaPessoaFisica(anterior, dados.Natureza) is { } trocaDeNatureza)
+            dados.RegistrarEvento(trocaDeNatureza);
 
         // Papel que começou ou terminou vira frase no histórico (os períodos em si também ficam gravados).
         if (anterior is not null)

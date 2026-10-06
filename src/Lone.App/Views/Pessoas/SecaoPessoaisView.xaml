@@ -16,9 +16,9 @@
                             Selecionado="{Binding Formulario.Genero}" />
             <c:CampoEscolha Rotulo="Estado civil" Itens="{Binding Formulario.EstadosCivis}" Selecionado="{Binding Formulario.EstadoCivil}" />
             <c:CampoEscolha Rotulo="Escolaridade" Itens="{Binding Formulario.Escolaridades}" Selecionado="{Binding Formulario.Escolaridade}" />
-            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Nacionalidade}" Rotulo="Nacionalidade" Texto="{Binding Formulario.Nacionalidade}" Dica="Ex.: Brasileira" />
-            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeMae}" Rotulo="Nome da mãe" Texto="{Binding Formulario.NomeMae}" />
-            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomePai}" Rotulo="Nome do pai" Texto="{Binding Formulario.NomePai}" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Nacionalidade}" Rotulo="Nacionalidade" Texto="{Binding Formulario.Nacionalidade}" TamanhoMaximo="60" Dica="Ex.: Brasileira" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeMae}" Rotulo="Nome da mãe" Texto="{Binding Formulario.NomeMae}" TamanhoMaximo="150" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomePai}" Rotulo="Nome do pai" Texto="{Binding Formulario.NomePai}" TamanhoMaximo="150" />
         </c:BlocoCampos>
 
         <!-- Profissão: do cadastro de profissões (grava a referência, nunca texto livre). -->

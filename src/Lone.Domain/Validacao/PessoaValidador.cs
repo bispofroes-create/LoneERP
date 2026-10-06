@@ -45,8 +45,49 @@ public static class PessoaValidador
             ValidarContaFornecedor(f, erros);
 
         ValidarDadosComplementares(p, erros);
+        ValidarTamanhos(p, erros);
 
         return erros;
+    }
+
+    /// <summary>
+    /// Bloco G (P1-1): textos maiores que a coluna do banco viram erro no campo, antes de gravar (a lista de limites é a de
+    /// <see cref="LimitesCadastroPessoa"/>). Vale para todo registro, ativo ou não: o banco não guarda o excesso de nenhum.
+    /// </summary>
+    private static void ValidarTamanhos(Pessoa p, ListaErros erros)
+    {
+        Conferir(p, null, null, null);
+
+        var juridica = p.Natureza == NaturezaPessoa.Juridica;
+        for (var i = 0; i < p.Estabelecimentos.Count; i++)
+        {
+            var e = p.Estabelecimentos[i];
+            Conferir(e, juridica ? $"Estabelecimento {i + 1}" : "Fiscal", e.Id,
+                // Nome fantasia e natureza jurídica do principal ficam na Identificação (sem item); os das filiais, no cartão.
+                campo => e.Principal && campo is C.NomeFantasia or C.NaturezaJuridica ? null : e.Id);
+        }
+        for (var i = 0; i < p.Enderecos.Count; i++) Conferir(p.Enderecos[i], $"Endereço {i + 1}", p.Enderecos[i].Id, null);
+        for (var i = 0; i < p.MeiosContato.Count; i++) Conferir(p.MeiosContato[i], $"Telefone/e-mail {i + 1}", p.MeiosContato[i].Id, null);
+        for (var i = 0; i < p.Contatos.Count; i++) Conferir(p.Contatos[i], $"Pessoa de contato {i + 1}", p.Contatos[i].Id, null);
+        for (var i = 0; i < p.Documentos.Count; i++) Conferir(p.Documentos[i], $"Documento {i + 1}", p.Documentos[i].Id, null);
+        foreach (var papel in p.Papeis) Conferir(papel, "Papel", null, null);
+        foreach (var conta in p.ContasCliente) Conferir(conta, "Cliente", null, null);
+        foreach (var conta in p.ContasFornecedor) Conferir(conta, "Fornecedor", null, null);
+
+        void Conferir(object item, string? rotulo, Guid? id, Func<string?, Guid?>? itemDoCampo)
+        {
+            foreach (var limite in LimitesCadastroPessoa.De(item.GetType()))
+            {
+                if (LimitesCadastroPessoa.Valor(limite, item) is not { Length: var tamanho } || tamanho <= limite.Maximo) continue;
+                // "as observações podem", "o logradouro pode".
+                var pode = limite.Nome.StartsWith("as ", StringComparison.Ordinal) || limite.Nome.StartsWith("os ", StringComparison.Ordinal)
+                    ? "podem" : "pode";
+                var texto = rotulo is null
+                    ? $"{char.ToUpperInvariant(limite.Nome[0])}{limite.Nome[1..]} {pode} ter no máximo {limite.Maximo} caracteres."
+                    : $"{rotulo}: {limite.Nome} {pode} ter no máximo {limite.Maximo} caracteres.";
+                erros.Add(new ErroValidacao(texto, limite.Campo, limite.Campo is null ? null : itemDoCampo is null ? id : itemDoCampo(limite.Campo)));
+            }
+        }
     }
 
     private static void ValidarIdentificacao(Pessoa p, ListaErros erros)
@@ -173,13 +214,15 @@ public static class PessoaValidador
 
     private static void ValidarEndereco(PessoaEndereco e, string rotulo, ListaErros erros)
     {
-        if (e.Logradouro.Length == 0)
-            erros.Add($"{rotulo}: informe o logradouro.", C.Logradouro, e.Id);
         if (e.Observacoes is { Length: > RegrasEndereco.TamanhoMaximoObservacoes })
             erros.Add($"{rotulo}: as observações podem ter no máximo {RegrasEndereco.TamanhoMaximoObservacoes} caracteres.", C.ObservacoesEndereco, e.Id);
 
-        // Endereço removido (inativo) fica como estava: dados antigos não impedem a gravação.
+        // Endereço removido (inativo) fica como estava: dados antigos (até sem logradouro, de cadastros migrados) não
+        // impedem a gravação (Bloco G, P1-14). Reativado, volta a ser conferido como qualquer endereço ativo.
         if (!e.Ativo) return;
+
+        if (e.Logradouro.Length == 0)
+            erros.Add($"{rotulo}: informe o logradouro.", C.Logradouro, e.Id);
 
         if (e.EhBrasil)
         {
@@ -195,6 +238,9 @@ public static class PessoaValidador
                 erros.Add($"{rotulo}: informe a cidade.", C.Cidade, e.Id);
             if (e.Pais.Length == 0)
                 erros.Add($"{rotulo}: informe o país.", C.Pais, e.Id);
+            // No exterior o código postal não passa pela regra do CEP (8 dígitos): só cabe na coluna (8).
+            if (e.Cep is { Length: > 8 })
+                erros.Add($"{rotulo}: o código postal pode ter no máximo 8 dígitos.", C.Cep, e.Id);
         }
     }
 

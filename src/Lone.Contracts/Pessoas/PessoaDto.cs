@@ -38,6 +38,11 @@ public sealed class PessoaDto
 
     /// <summary>Somente leitura: nome do grupo empresarial (cabeçalho da ficha).</summary>
     public string? GrupoEmpresarialNome { get; set; }
+
+    /// <summary>
+    /// Somente leitura: cadastro mesclado em outro. A gravação da ficha ignora o que vier aqui e mantém o gravado (Bloco G,
+    /// P1-3): mesclar será uma operação própria, com permissão e evento.
+    /// </summary>
     public Guid? MescladaEmId { get; set; }
     public string? Observacoes { get; set; }
 
@@ -112,6 +117,13 @@ public sealed class PessoaDto
     /// quem não é cliente, desde que o outro lado seja um cliente do alcance.
     /// </summary>
     public IncluirRelacionamentoRequisicao? RelacionarAoCriar { get; set; }
+
+    /// <summary>
+    /// Só no envio (Bloco G, P1-2): a confirmação do usuário de que, ao trocar uma pessoa física gravada para pessoa
+    /// jurídica ou estrangeiro, os dados só da pessoa física serão apagados. Vale só para a troca e os campos indicados; sem
+    /// ela (ou se não cobrir o que seria apagado), a API recusa a gravação e diz o que seria perdido. Não é lido de volta.
+    /// </summary>
+    public ConfirmacaoTrocaNaturezaDto? ConfirmacaoTrocaNatureza { get; set; }
     public List<PapelDto> Papeis { get; set; } = new();
     public List<ContaClienteDto> ContasCliente { get; set; } = new();
 
@@ -132,6 +144,17 @@ public sealed class PessoaDto
     public List<BloqueioDto> Bloqueios { get; set; } = new();
 
     public bool TemPapel(TipoPapel papel) => Papeis.Any(p => p.Papel == papel && p.Ativo);
+}
+
+/// <summary>
+/// Confirmação explícita de uma troca de natureza que apaga dados (Bloco G). Específica: diz de qual para qual natureza e
+/// quais campos (ids de <c>CamposFichaPessoa</c>) o usuário viu que seriam apagados.
+/// </summary>
+public sealed class ConfirmacaoTrocaNaturezaDto
+{
+    public NaturezaPessoa De { get; set; }
+    public NaturezaPessoa Para { get; set; }
+    public List<string> Campos { get; set; } = new();
 }
 
 public sealed class EstabelecimentoDto

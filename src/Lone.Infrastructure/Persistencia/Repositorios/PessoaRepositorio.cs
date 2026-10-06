@@ -451,6 +451,12 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             // clara; o erro original vai junto (e para o log). Outros erros de banco seguem como erro inesperado.
             throw new ConflitoDeEdicaoException(mensagem, ex);
         }
+        catch (DbUpdateException ex) when (ConflitosDocumentoPessoa.Erro(ex, pessoa) is { } erro)
+        {
+            // CPF, raiz de CNPJ ou CNPJ gravado por outro usuário ao mesmo tempo (Bloco G): o mesmo erro da conferência,
+            // no campo. Qualquer outra falha do banco segue como erro inesperado.
+            throw new ValidacaoException([erro]);
+        }
     }
 
     /// <summary>

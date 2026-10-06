@@ -35,6 +35,13 @@ public sealed class Campo : ContentView, ICampoValidavel
         nameof(Mascara), typeof(TipoMascara), typeof(Campo), TipoMascara.Nenhuma,
         propertyChanged: (b, o, n) => ((Campo)b).TrocarMascara((TipoMascara)o, (TipoMascara)n));
 
+    /// <summary>
+    /// Bloco G: quantos caracteres cabem (o tamanho da coluna do banco; a API confere de novo). Zero = sem limite.
+    /// </summary>
+    public static readonly BindableProperty TamanhoMaximoProperty = BindableProperty.Create(
+        nameof(TamanhoMaximo), typeof(int), typeof(Campo), 0,
+        propertyChanged: (b, _, n) => ((Campo)b)._entrada.MaxLength = (int)n > 0 ? (int)n : int.MaxValue);
+
     public static readonly BindableProperty AoLadoProperty = BindableProperty.Create(
         nameof(AoLado), typeof(View), typeof(Campo), null, propertyChanged: (b, o, n) => ((Campo)b).TrocarAoLado(o as View, n as View));
 
@@ -87,6 +94,7 @@ public sealed class Campo : ContentView, ICampoValidavel
     public Keyboard Teclado { get => (Keyboard)GetValue(TecladoProperty); set => SetValue(TecladoProperty, value); }
     public bool SomenteLeitura { get => (bool)GetValue(SomenteLeituraProperty); set => SetValue(SomenteLeituraProperty, value); }
     public TipoMascara Mascara { get => (TipoMascara)GetValue(MascaraProperty); set => SetValue(MascaraProperty, value); }
+    public int TamanhoMaximo { get => (int)GetValue(TamanhoMaximoProperty); set => SetValue(TamanhoMaximoProperty, value); }
 
     private void Entrada_TextChanged(object? sender, TextChangedEventArgs e)
     {

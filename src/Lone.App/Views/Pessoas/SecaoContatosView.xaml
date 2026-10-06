@@ -45,7 +45,7 @@
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Ramal}" c:Validacao.Item="{Binding Id}" Rotulo="Ramal" Texto="{Binding Ramal}" Mascara="Numero" IsVisible="{Binding EhFixo}" />
                                 <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
                                                 IsVisible="{Binding TemClassificacao}" />
-                                <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: falar com a recepção" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.MeioContatoDescricao}" c:Validacao.Item="{Binding Id}" Rotulo="Observação (opcional)" Texto="{Binding Descricao}" TamanhoMaximo="80" Dica="Ex.: falar com a recepção" />
                                 <c:CaixaMarcar Texto="WhatsApp" Marcado="{Binding WhatsApp}" IsVisible="{Binding EhTelefone}" />
                                 <c:CaixaMarcar Texto="SMS" Marcado="{Binding Sms}" IsVisible="{Binding EhTelefone}" />
                                 <c:CaixaMarcar Texto="Principal deste tipo" Marcado="{Binding Principal}" />
@@ -75,10 +75,10 @@
                             <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <c:BlocoCampos AlignItems="End">
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.MeioContatoValor}" c:Validacao.Item="{Binding Id}" Rotulo="E-mail" Texto="{Binding Valor}" Teclado="Email" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.MeioContatoValor}" c:Validacao.Item="{Binding Id}" Rotulo="E-mail" Texto="{Binding Valor}" Teclado="Email" TamanhoMaximo="150" />
                                 <c:CampoEscolha Rotulo="Classificação" Itens="{Binding Classificacoes}" Selecionado="{Binding Classificacao}"
                                                 IsVisible="{Binding TemClassificacao}" />
-                                <c:Campo Rotulo="Observação (opcional)" Texto="{Binding Descricao}" Dica="Ex.: setor financeiro" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.MeioContatoDescricao}" c:Validacao.Item="{Binding Id}" Rotulo="Observação (opcional)" Texto="{Binding Descricao}" TamanhoMaximo="80" Dica="Ex.: setor financeiro" />
                                 <c:CaixaMarcar Texto="Financeiro" Marcado="{Binding Financeiro}" />
                                 <c:CaixaMarcar Texto="Cobrança" Marcado="{Binding Cobranca}" />
                                 <c:CaixaMarcar Texto="NF-e" Marcado="{Binding Nfe}" />
@@ -119,15 +119,15 @@
                             <Label Text="Inativo (removido): continua gravado para o histórico." Style="{StaticResource Secundario}"
                                    TextColor="{StaticResource Aviso}" IsVisible="{Binding Inativo}" />
                             <c:BlocoCampos>
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoNome}" c:Validacao.Item="{Binding Id}" Rotulo="Nome" Texto="{Binding Nome}" />
-                                <c:Campo Rotulo="Cargo" Texto="{Binding Cargo}" />
-                                <c:Campo Rotulo="Departamento" Texto="{Binding Departamento}" />
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoEmail}" c:Validacao.Item="{Binding Id}" Rotulo="E-mail" Texto="{Binding Email}" Teclado="Email" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoNome}" c:Validacao.Item="{Binding Id}" Rotulo="Nome" Texto="{Binding Nome}" TamanhoMaximo="100" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoCargo}" c:Validacao.Item="{Binding Id}" Rotulo="Cargo" Texto="{Binding Cargo}" TamanhoMaximo="60" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoDepartamento}" c:Validacao.Item="{Binding Id}" Rotulo="Departamento" Texto="{Binding Departamento}" TamanhoMaximo="60" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoEmail}" c:Validacao.Item="{Binding Id}" Rotulo="E-mail" Texto="{Binding Email}" Teclado="Email" TamanhoMaximo="150" />
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoTelefone}" c:Validacao.Item="{Binding Id}" Rotulo="Telefone" Texto="{Binding Telefone}" Mascara="Telefone" />
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoCelular}" c:Validacao.Item="{Binding Id}" Rotulo="Celular" Texto="{Binding Celular}" Mascara="Telefone" />
                                 <c:CaixaMarcar Texto="O celular tem WhatsApp" Marcado="{Binding CelularWhatsApp}" />
                                 <c:CaixaMarcar Texto="Contato principal" Marcado="{Binding Principal}" IsEnabled="{Binding Ativo}" />
-                                <c:Campo Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ContatoObservacoes}" c:Validacao.Item="{Binding Id}" Rotulo="Observações" Texto="{Binding Observacoes}" FlexLayout.Basis="100%" TamanhoMaximo="500" />
                             </c:BlocoCampos>
                             <Button Text="Remover" Style="{StaticResource BotaoLink}" Command="{Binding RemoverCommand}"
                                     IsVisible="{Binding Ativo}" />

@@ -37,10 +37,10 @@
                 <Button Grid.Column="1" Text="Abrir cadastro" Style="{StaticResource BotaoSecundario}"
                         Command="{Binding AbrirCadastroEmUsoCommand}" IsVisible="{Binding Formulario.PodeAbrirDocumentoEmUso}" />
             </Grid>
-            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Nome}" Rotulo="{Binding Formulario.RotuloNome}" Texto="{Binding Formulario.Nome}" FlexLayout.Basis="100%" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Nome}" Rotulo="{Binding Formulario.RotuloNome}" Texto="{Binding Formulario.Nome}" TamanhoMaximo="150" FlexLayout.Basis="100%" />
             <!-- Razão social = identificação jurídica; nome fantasia = nome comercial; nome de exibição = o que o Lone mostra.
                  O nome fantasia é o do estabelecimento principal e só é editado aqui (o cartão do principal mostra como leitura). -->
-            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeFantasia}" Rotulo="Nome fantasia (opcional)" Texto="{Binding Formulario.Principal.NomeFantasia}" FlexLayout.Basis="100%"
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeFantasia}" Rotulo="Nome fantasia (opcional)" Texto="{Binding Formulario.Principal.NomeFantasia}" TamanhoMaximo="150" FlexLayout.Basis="100%"
                      IsVisible="{Binding Formulario.EhJuridica}" Dica="Nome comercial" />
             <!-- Data e idade lado a lado: a idade é calculada ao digitar. -->
             <Grid ColumnDefinitions="*,110" ColumnSpacing="8" IsVisible="{Binding Formulario.EhFisica}"
@@ -50,10 +50,10 @@
                 <c:Campo Grid.Column="1" Rotulo="Idade" SomenteLeitura="True" Padding="0"
                          Texto="{Binding Formulario.Idade, Mode=OneWay}" />
             </Grid>
-            <c:Campo Rotulo="Nome social" Texto="{Binding Formulario.NomeSocial}" IsVisible="{Binding Formulario.EhFisica}"
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeSocial}" Rotulo="Nome social" Texto="{Binding Formulario.NomeSocial}" TamanhoMaximo="150" IsVisible="{Binding Formulario.EhFisica}"
                      Dica="Como a pessoa quer ser chamada; aparece nas listas no lugar do nome civil" />
-            <c:Campo Rotulo="Apelido" Texto="{Binding Formulario.Apelido}" IsVisible="{Binding Formulario.EhFisica}" />
-            <c:Campo Rotulo="Nome de exibição (opcional)" Texto="{Binding Formulario.NomeExibicao}" FlexLayout.Basis="100%" Padding="0,0,12,0" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Apelido}" Rotulo="Apelido" Texto="{Binding Formulario.Apelido}" TamanhoMaximo="60" IsVisible="{Binding Formulario.EhFisica}" />
+            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeExibicao}" Rotulo="Nome de exibição (opcional)" Texto="{Binding Formulario.NomeExibicao}" TamanhoMaximo="80" FlexLayout.Basis="100%" Padding="0,0,12,0" />
             <!-- Ajuda fixa (a dica do campo some ao digitar). A regra é a de NomePessoa.ParaExibir. -->
             <Label Text="{Binding Formulario.AjudaNomeExibicao}" Style="{StaticResource Secundario}"
                    FlexLayout.Basis="100%" Margin="0,2,12,8" />
@@ -65,7 +65,7 @@
             <Label Text="Empresa" Style="{StaticResource SecaoTitulo}" />
             <c:BlocoCampos>
                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DataAbertura}" Rotulo="Data de abertura" Dica="dd/mm/aaaa" Mascara="Data" Texto="{Binding Formulario.DataAbertura}" />
-                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Porte}" Rotulo="Porte" Texto="{Binding Formulario.Porte}" />
+                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Porte}" Rotulo="Porte" Texto="{Binding Formulario.Porte}" TamanhoMaximo="60" />
                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.CapitalSocial}" Rotulo="Capital social (R$)" Texto="{Binding Formulario.CapitalSocial}" />
                 <!-- Da tabela de natureza jurídica (busca por código ou nome); grava o código. -->
                 <c:CampoLista c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NaturezaJuridica}" Rotulo="Natureza jurídica" BindingContext="{Binding Formulario.Principal.NaturezaJuridicaLista}"

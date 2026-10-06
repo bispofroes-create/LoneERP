@@ -92,7 +92,7 @@
 
                             <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
-                                <c:Campo Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" Dica="Ex.: Depósito da Rua 2" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DescricaoEndereco}" c:Validacao.Item="{Binding Id}" Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" TamanhoMaximo="60" Dica="Ex.: Depósito da Rua 2" />
                                 <!-- CEP com o botão ao lado da caixa (a mensagem de erro aparece embaixo sem desalinhar o botão) e, logo
                                      depois da consulta, o aviso de CEP inexistente (a gravação também recusa). -->
                                 <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0">
@@ -225,11 +225,11 @@
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
                                 </VerticalStackLayout>
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Logradouro}" c:Validacao.Item="{Binding Id}" Rotulo="Logradouro" Texto="{Binding Logradouro}" FlexLayout.Basis="100%" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Logradouro}" c:Validacao.Item="{Binding Id}" Rotulo="Logradouro" Texto="{Binding Logradouro}" TamanhoMaximo="150" FlexLayout.Basis="100%" />
                                 <!-- "Sem número": marcada, o número fica "S/N" (travado), o texto que vai para a NF-e (o número é obrigatório nela).
                                      Texto que não parece número ("casa", "x", "0"): dica para marcar (não é erro). -->
                                 <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0">
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Numero}" c:Validacao.Item="{Binding Id}" Rotulo="Número" Texto="{Binding Numero}"
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Numero}" c:Validacao.Item="{Binding Id}" Rotulo="Número" Texto="{Binding Numero}" TamanhoMaximo="10"
                                          SomenteLeitura="{Binding SemNumero}">
                                     <c:Campo.AoLado>
                                         <HorizontalStackLayout Spacing="0" ToolTipProperties.Text="Endereço sem número: fica &quot;S/N&quot; (é o que vai na nota fiscal)">
@@ -249,8 +249,8 @@
                                             VerticalOptions="Center" Command="{Binding MarcarSemNumeroCommand}" />
                                 </HorizontalStackLayout>
                                 </VerticalStackLayout>
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Complemento}" c:Validacao.Item="{Binding Id}" Rotulo="Complemento" Texto="{Binding Complemento}" />
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Bairro}" c:Validacao.Item="{Binding Id}" Rotulo="Bairro" Texto="{Binding Bairro}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Complemento}" c:Validacao.Item="{Binding Id}" Rotulo="Complemento" Texto="{Binding Complemento}" TamanhoMaximo="60" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Bairro}" c:Validacao.Item="{Binding Id}" Rotulo="Bairro" Texto="{Binding Bairro}" TamanhoMaximo="80" />
                                 <c:CaixaMarcar Texto="Endereço no exterior" Marcado="{Binding NoExterior}" VerticalOptions="Center" />
                             </c:BlocoCampos>
 
@@ -269,9 +269,9 @@
 
                             <!-- Exterior: cidade e país digitados (fora da tabela do IBGE). -->
                             <c:BlocoCampos IsVisible="{Binding NoExterior}">
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cidade}" c:Validacao.Item="{Binding Id}" Rotulo="Cidade" Texto="{Binding Cidade}" />
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Pais}" c:Validacao.Item="{Binding Id}" Rotulo="País" Texto="{Binding Pais}" />
-                                <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" Mascara="Numero" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cidade}" c:Validacao.Item="{Binding Id}" Rotulo="Cidade" Texto="{Binding Cidade}" TamanhoMaximo="80" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Pais}" c:Validacao.Item="{Binding Id}" Rotulo="País" Texto="{Binding Pais}" TamanhoMaximo="60" />
+                                <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" TamanhoMaximo="4" Mascara="Numero" />
                             </c:BlocoCampos>
 
                             <!-- Finalidades: cada uma pode ser a principal da pessoa para aquele uso. -->
@@ -301,7 +301,7 @@
                             </Grid>
                             <Label Text="{Binding AvisoFinalidade}" IsVisible="{Binding TemAvisoFinalidade}" TextColor="{StaticResource Aviso}"
                                    LineBreakMode="WordWrap" />
-                            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ObservacoesEndereco}" c:Validacao.Item="{Binding Id}" Rotulo="Observações (opcional)" Texto="{Binding Observacoes}" Dica="Ex.: entrega só pela manhã, portão lateral" />
+                            <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.ObservacoesEndereco}" c:Validacao.Item="{Binding Id}" Rotulo="Observações (opcional)" Texto="{Binding Observacoes}" TamanhoMaximo="250" Dica="Ex.: entrega só pela manhã, portão lateral" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>

@@ -49,7 +49,7 @@
                                         <Button Text="Consultar CNPJ" Style="{StaticResource BotaoSecundario}" Command="{Binding ConsultarCnpjCommand}" />
                                     </c:Campo.AoLado>
                                 </c:Campo>
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeFantasia}" c:Validacao.Item="{Binding Id}" Rotulo="Nome fantasia" Texto="{Binding NomeFantasia}" IsVisible="{Binding FilialDaPJ}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.NomeFantasia}" c:Validacao.Item="{Binding Id}" Rotulo="Nome fantasia" Texto="{Binding NomeFantasia}" TamanhoMaximo="150" IsVisible="{Binding FilialDaPJ}" />
                                 <!-- Filial: natureza jurídica da tabela (o contêiner mostra/esconde; a lista tem o próprio contexto). -->
                                 <ContentView IsVisible="{Binding FilialDaPJ}" FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}"
                                              Padding="0,0,12,8">
@@ -71,7 +71,7 @@
                                 <c:CampoEscolha c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.IndicadorIE}" c:Validacao.Item="{Binding Id}" Rotulo="Indicador de IE" Itens="{Binding IndicadoresIE}" Selecionado="{Binding IndicadorIE}"
                                                 IsVisible="{Binding MostrarDadosIE}" />
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.InscricaoEstadual}" c:Validacao.Item="{Binding Id}" Rotulo="Inscrição estadual" Texto="{Binding InscricaoEstadual}" IsVisible="{Binding MostrarDadosIE}" />
-                                <c:Campo Rotulo="Inscrição municipal" Texto="{Binding InscricaoMunicipal}" IsVisible="{Binding MostrarInscricaoMunicipal}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.InscricaoMunicipal}" c:Validacao.Item="{Binding Id}" Rotulo="Inscrição municipal" Texto="{Binding InscricaoMunicipal}" TamanhoMaximo="20" IsVisible="{Binding MostrarInscricaoMunicipal}" />
                                 <!-- Só pessoa jurídica: SUFRAMA, regime e CNAE. -->
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Suframa}" c:Validacao.Item="{Binding Id}" Rotulo="Inscrição Suframa" Texto="{Binding InscricaoSuframa}" Teclado="Numeric"
                                          IsVisible="{Binding DaPessoaJuridica}" />
