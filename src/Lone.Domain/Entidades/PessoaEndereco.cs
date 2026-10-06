@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Lone.Domain.Enderecos.ConferenciaCep;
 using Lone.Domain.Enums;
 
 namespace Lone.Domain.Entidades;
@@ -92,4 +93,19 @@ public class PessoaEndereco : EntidadePessoaFilha
     /// </summary>
     [DisplayName("Revisão da migração")]
     public MotivoRevisaoEndereco RevisaoMigracao { get; set; } = MotivoRevisaoEndereco.Nenhum;
+
+    // ---- Conferência do CEP persistida (F3). Só a API grava (EstadoConferenciaCep, no Salvar); a ficha nunca envia. ----
+
+    /// <summary>
+    /// Situação da última conferência do CEP que ainda vale para os dados gravados (Conferido, Divergente, NaoEncontrado)
+    /// ou NaoConferido. Endereço antigo começa NaoConferido (nada é presumido). Mudou CEP, UF, município, logradouro,
+    /// número ("Sem número") ou bairro sem nova conferência: volta a NaoConferido. Não é procedência do CEP (DM3).
+    /// </summary>
+    public CepSituacao CepSituacao { get; set; } = CepSituacao.NaoConferido;
+
+    /// <summary>Fonte original da conferência (ViaCEP, BrasilAPI...); nunca "cache". Nula quando não conferido.</summary>
+    public CepFonte? CepFonte { get; set; }
+
+    /// <summary>Quando a conferência que sustenta a situação aconteceu (UTC). Abrir, ler cache ou salvar sem conferir não muda.</summary>
+    public DateTime? CepConferidoEm { get; set; }
 }

@@ -14,7 +14,8 @@ public class ConfiguracoesViewModelTests
     {
         var grupos = ConfiguracoesViewModel.Montar(_ => true, ModulosConfiguracao.Pessoas);
 
-        Assert.Equal(new[] { "Cadastros auxiliares", "Personalização", "Privacidade" }, grupos.Select(g => g.Titulo).ToArray());
+        // F6 do motor de CEP (classe C, autorizada): + "Manutenção" › Reconferência de CEPs.
+        Assert.Equal(new[] { "Cadastros auxiliares", "Personalização", "Privacidade", "Manutenção" }, grupos.Select(g => g.Titulo).ToArray());
         Assert.Equal(new[] { "Papéis", "Profissões", "Tipos de documento", "Tipos de endereço", "Tipos de telefone e e-mail" },
             grupos[0].Itens.Select(i => i.Titulo).ToArray());
         Assert.Equal(new[] { "Campos personalizados", "Etiquetas" }, grupos[1].Itens.Select(i => i.Titulo).ToArray());
@@ -25,7 +26,7 @@ public class ConfiguracoesViewModelTests
     {
         var rotas = ModulosConfiguracao.Todos.SelectMany(m => ConfiguracoesViewModel.Montar(_ => true, m))
             .SelectMany(g => g.Itens).Select(i => i.Rota).ToList();
-        Assert.Equal(26, rotas.Count); // 25 cadastros (2 de territórios na Fase 2b-1a, +1 na 2b-1b, + Prazos de período) + "Trocar senha" (Minha conta)
+        Assert.Equal(27, rotas.Count); // 25 cadastros (2 de territórios na Fase 2b-1a, +1 na 2b-1b, + Prazos de período) + "Trocar senha" (Minha conta) + Reconferência de CEPs (F6)
         Assert.Equal(rotas.Count, rotas.Distinct().Count());
     }
 

@@ -10,6 +10,14 @@ using Lone.Domain.Entidades;
 using Lone.Domain.Enums;
 using Lone.Domain.Pessoas;
 using CepValor = Lone.Domain.ObjetosDeValor.Cep;
+using ResultadoDecisaoCepContrato = Lone.Domain.Enderecos.ConferenciaCep.ResultadoDecisaoCep;
+using FaixaNumeracao = Lone.Domain.Enderecos.ConferenciaCep.FaixaNumeracao;
+using PertinenciaFaixa = Lone.Domain.Enderecos.ConferenciaCep.PertinenciaFaixa;
+using ComponenteCep = Lone.Domain.Enderecos.ConferenciaCep.ComponenteCep;
+using SituacaoComponenteCep = Lone.Domain.Enderecos.ConferenciaCep.SituacaoComponenteCep;
+using CepSituacao = Lone.Domain.Enderecos.ConferenciaCep.CepSituacao;
+using CepFonte = Lone.Domain.Enderecos.ConferenciaCep.CepFonte;
+using EstadoConferenciaCep = Lone.Domain.Enderecos.ConferenciaCep.EstadoConferenciaCep;
 
 namespace Lone.Cliente.ViewModels.Pessoas;
 
@@ -35,6 +43,9 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         {
             if (e.PropertyName is nameof(SeletorMunicipio.Selecionado) or nameof(SeletorMunicipio.Uf))
                 OnPropertyChanged(nameof(Resumo));
+            // O município participa da conferência do CEP: mudou, a decisão anterior não vale mais (L-1).
+            if (e.PropertyName is nameof(SeletorMunicipio.Selecionado) or nameof(SeletorMunicipio.Uf) or nameof(SeletorMunicipio.Texto))
+                ReavaliarDecisaoCep();
         };
     }
 
@@ -336,6 +347,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     {
         if (value) Numero = Lone.Domain.Enderecos.RegrasEndereco.SemNumero;
         else if (Lone.Domain.Enderecos.RegrasEndereco.EhSemNumero(Numero)) Numero = string.Empty;
+        ReavaliarDecisaoCep();
     }
 
     partial void OnNumeroChanged(string value)
@@ -343,9 +355,14 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         var semNumero = Lone.Domain.Enderecos.RegrasEndereco.EhSemNumero(value);
         if (semNumero != SemNumero) SemNumero = semNumero;
         else if (semNumero && value != Lone.Domain.Enderecos.RegrasEndereco.SemNumero) Numero = Lone.Domain.Enderecos.RegrasEndereco.SemNumero;
+        ReavaliarDecisaoCep();
     }
     [ObservableProperty] private string _complemento = string.Empty;
     [ObservableProperty] private string _bairro = string.Empty;
+
+    // Logradouro e bairro participam da conferência do CEP: mudou, a decisão anterior não vale mais (L-1).
+    partial void OnLogradouroChanged(string value) => ReavaliarDecisaoCep();
+    partial void OnBairroChanged(string value) => ReavaliarDecisaoCep();
 
     /// <summary>Cidade digitada: só para endereço no exterior (no Brasil vale o município da lista).</summary>
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _cidade = string.Empty;
@@ -361,6 +378,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     partial void OnNoExteriorChanged(bool value)
     {
+        // A conferência do CEP vale só para o endereço no Brasil em que foi feita.
+        if (_decisaoCep is not null) LimparDecisaoCep();
         if (value)
         {
             if (CodigoPais == PessoaEndereco.CodigoPaisBrasil) CodigoPais = string.Empty;
@@ -399,6 +418,360 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     public override string ToString() => Resumo;
 
+    // ---- Conferência do CEP pelo motor (F2). Só consulta e mostra; aplicar a sugestão muda os campos, sem salvar. ----
+
+    /// <summary>Definido pela ficha: confere o CEP deste endereço pela API (POST consultas/cep/conferir).</summary>
+    public Func<EnderecoFormulario, Task>? AoConferirCep { get; set; }
+
+    /// <summary>
+    /// Resultado da última conferência (motivos), embaixo do CEP. Vazio = não conferido, ou mudou algum dado que participou
+    /// da conferência (CEP, logradouro, número, "Sem número", bairro, município).
+    /// </summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemConferenciaCep))] private string _textoConferenciaCep = string.Empty;
+    public bool TemConferenciaCep => TextoConferenciaCep.Length > 0;
+
+    /// <summary>Gravidade do resultado mostrado (ícone e cor ✓ / ⚠ / ✗). Só apresentação: não muda a decisão.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IconeConferenciaCep), nameof(ConferenciaCepOk), nameof(ConferenciaCepAtencao), nameof(ConferenciaCepAlerta))]
+    private GravidadeConferenciaCep _gravidadeConferenciaCep;
+
+    public string IconeConferenciaCep => GravidadeConferenciaCep switch
+    {
+        GravidadeConferenciaCep.Ok => "✓",
+        GravidadeConferenciaCep.Atencao => "⚠",
+        GravidadeConferenciaCep.Alerta => "✗",
+        _ => string.Empty
+    };
+    public bool ConferenciaCepOk => GravidadeConferenciaCep == GravidadeConferenciaCep.Ok;
+    public bool ConferenciaCepAtencao => GravidadeConferenciaCep == GravidadeConferenciaCep.Atencao;
+    public bool ConferenciaCepAlerta => GravidadeConferenciaCep == GravidadeConferenciaCep.Alerta;
+
+    /// <summary>
+    /// Gravidade de cada resultado do motor. Fonte indisponível é atenção, nunca erro (indisponível ≠ inexistente);
+    /// candidatos são atenção (o usuário decide); CEP inexistente sem candidato ou divergente é alerta.
+    /// </summary>
+    public static GravidadeConferenciaCep GravidadeDe(ResultadoDecisaoCepContrato resultado) => resultado switch
+    {
+        ResultadoDecisaoCepContrato.Conferido => GravidadeConferenciaCep.Ok,
+        ResultadoDecisaoCepContrato.UmCandidato or ResultadoDecisaoCepContrato.VariosCandidatos
+            or ResultadoDecisaoCepContrato.FonteIndisponivel => GravidadeConferenciaCep.Atencao,
+        ResultadoDecisaoCepContrato.Divergente or ResultadoDecisaoCepContrato.NaoEncontrado
+            or ResultadoDecisaoCepContrato.NenhumCandidato => GravidadeConferenciaCep.Alerta,
+        _ => GravidadeConferenciaCep.Nenhuma
+    };
+
+    /// <summary>
+    /// Gravidade geral pela decisão: a do resultado, mas "conferido" com algum componente não validável (S/N, número
+    /// ilegível, faixa não interpretada) vira atenção (⚠), nunca erro. O resultado não muda; é só a cor da ressalva.
+    /// </summary>
+    public static GravidadeConferenciaCep GravidadeDe(DecisaoCepDto decisao) =>
+        decisao.Resultado == ResultadoDecisaoCepContrato.Conferido
+        && decisao.Componentes.Any(c => c.Situacao == SituacaoComponenteCep.NaoValidavel)
+            ? GravidadeConferenciaCep.Atencao
+            // Busca sem CEP sem candidato: não há CEP errado (o usuário não informou nenhum), e a lista da fonte pode estar
+            // cortada; atenção, nunca vermelho.
+            : decisao.CepInformado.Length == 0 && decisao.Resultado == ResultadoDecisaoCepContrato.NenhumCandidato
+                ? GravidadeConferenciaCep.Atencao
+                : GravidadeDe(decisao.Resultado);
+
+    /// <summary>Componentes da última conferência (CEP, UF, município, logradouro, número), para os detalhes.</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemComponentesCep))] private IReadOnlyList<LinhaComponenteCep> _componentesCep = [];
+    public bool TemComponentesCep => ComponentesCep.Count > 0;
+
+    /// <summary>Os detalhes por componente ficam recolhidos; o link "Ver detalhes" abre.</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TextoBotaoDetalhesCep))] private bool _mostrarDetalhesCep;
+    public string TextoBotaoDetalhesCep => MostrarDetalhesCep ? "Ocultar detalhes" : "Ver detalhes";
+
+    [RelayCommand]
+    private void AlternarDetalhesCep() => MostrarDetalhesCep = !MostrarDetalhesCep;
+
+    /// <summary>CEPs sugeridos pela conferência (um = sugestão; vários = para escolher). O usuário decide; nada é escolhido sozinho.</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemCandidatosCep))] private IReadOnlyList<OpcaoCandidatoCep> _candidatosCep = [];
+    public bool TemCandidatosCep => CandidatosCep.Count > 0;
+
+    /// <summary>Decisão que gerou os candidatos (de onde vêm o CEP conferido e a fonte).</summary>
+    private DecisaoCepDto? _decisaoCep;
+
+    /// <summary>Marca de que o CEP atual veio de uma sugestão (vai no DTO só enquanto o CEP for o sugerido).</summary>
+    private SugestaoCepAplicadaDto? _sugestaoAplicada;
+
+    /// <summary>
+    /// Os dados do endereço com que a decisão mostrada vale (os do pedido; depois de "Usar", com o CEP aplicado). Nulo = não
+    /// há decisão. Qualquer diferença tira a decisão da tela e impede usar os candidatos dela.
+    /// </summary>
+    private string? _assinaturaDecisao;
+
+    /// <summary>Ligado só enquanto "Usar" troca o CEP: a troca é da própria sugestão e não a invalida.</summary>
+    private bool _aplicandoSugestao;
+
+    // ---- Segunda opinião (Checkpoint G): só por pedido do usuário; compara duas fontes; nada é escolhido nem alterado. ----
+
+    /// <summary>Definido pela ficha: pede a segunda opinião sobre o CEP conferido (POST consultas/cep/segunda-opiniao).</summary>
+    public Func<EnderecoFormulario, Task>? AoConsultarOutraFonte { get; set; }
+
+    /// <summary>A frase da comparação ("✓ ViaCEP e BrasilAPI concordam…" / "⚠ As fontes consultadas apresentam…").</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemSegundaOpiniao), nameof(PodeConsultarOutraFonte))]
+    private string _textoSegundaOpiniao = string.Empty;
+    public bool TemSegundaOpiniao => TextoSegundaOpiniao.Length > 0;
+
+    /// <summary>As fontes divergem (cor de atenção). Só apresentação: nenhuma fonte é tratada como certa.</summary>
+    [ObservableProperty] private bool _segundaOpiniaoDivergente;
+    [ObservableProperty] private bool _segundaOpiniaoConcordante;
+
+    /// <summary>Cada dado comparado (concordam / divergem / não comparável), recolhido junto com os detalhes.</summary>
+    [ObservableProperty] private IReadOnlyList<LinhaComparacaoFontes> _comparacaoFontes = [];
+
+    /// <summary>
+    /// O link "Consultar outra fonte" aparece só com uma conferência pelo CEP na tela (a fonte respondeu), para o CEP que está
+    /// no campo, e enquanto não há segunda opinião mostrada.
+    /// </summary>
+    public bool PodeConsultarOutraFonte =>
+        _decisaoCep is { CepInformado.Length: 8, Fonte: not null } d && d.Resultado != ResultadoDecisaoCepContrato.FonteIndisponivel
+        && Digitos(Cep) == d.CepInformado && !TemSegundaOpiniao;
+
+    [RelayCommand]
+    private Task ConsultarOutraFonteAsync() => AoConsultarOutraFonte?.Invoke(this) ?? Task.CompletedTask;
+
+    /// <summary>
+    /// Mostra a segunda opinião. Não muda nenhum campo nem a conferência mostrada. Se o CEP mudou durante a consulta (ou a
+    /// conferência saiu da tela), a resposta é velha e não é mostrada (devolve falso).
+    /// </summary>
+    public bool MostrarSegundaOpiniao(SegundaOpiniaoCepDto opiniao, string cepPedido)
+    {
+        if (_decisaoCep is null || Digitos(Cep) != cepPedido || opiniao.Cep != cepPedido) return false;
+        ComparacaoFontes = opiniao.Componentes.Select(c => new LinhaComparacaoFontes(c)).ToList();
+        SegundaOpiniaoDivergente = opiniao.Resultado == Lone.Domain.Enderecos.ConferenciaCep.ResultadoSegundaOpiniaoCep.Divergem;
+        SegundaOpiniaoConcordante = opiniao.Resultado == Lone.Domain.Enderecos.ConferenciaCep.ResultadoSegundaOpiniaoCep.Concordam;
+        TextoSegundaOpiniao = opiniao.Mensagem;
+        return true;
+    }
+
+    private void LimparSegundaOpiniao()
+    {
+        TextoSegundaOpiniao = string.Empty;
+        SegundaOpiniaoDivergente = false;
+        SegundaOpiniaoConcordante = false;
+        ComparacaoFontes = [];
+    }
+
+    /// <summary>Definido pela ficha: busca CEPs pelo endereço, sem CEP (POST consultas/cep/buscar-por-endereco).</summary>
+    public Func<EnderecoFormulario, Task>? AoBuscarCepPorEndereco { get; set; }
+
+    /// <summary>Link "Encontrar CEP pelo endereço": pede a busca (não grava nada; nada é aplicado sem o usuário escolher).</summary>
+    [RelayCommand]
+    private Task BuscarCepPorEnderecoAsync() => AoBuscarCepPorEndereco?.Invoke(this) ?? Task.CompletedTask;
+
+    /// <summary>O endereço como pedido de busca sem CEP (só leitura dos campos; o CEP não vai).</summary>
+    public BuscarCepPorEnderecoRequisicao ParaBuscaPorEndereco()
+    {
+        var p = ParaConferencia();
+        return new() { Logradouro = p.Logradouro, Numero = p.Numero, Bairro = p.Bairro, Cidade = p.Cidade, Uf = p.Uf, CodigoMunicipioIbge = p.CodigoMunicipioIbge };
+    }
+
+    /// <summary>A decisão mostrada veio da busca pelo endereço sem CEP (CEP informado vazio), não da conferência.</summary>
+    public bool ResultadoDaBuscaPorEndereco => _decisaoCep is { CepInformado.Length: 0 };
+
+    /// <summary>Botão "Conferir CEP": pede a conferência (não grava nada).</summary>
+    [RelayCommand]
+    private Task ConferirCepAsync() => AoConferirCep?.Invoke(this) ?? Task.CompletedTask;
+
+    /// <summary>O endereço como pedido de conferência (só leitura dos campos).</summary>
+    public ConferirCepRequisicao ParaConferencia() => new()
+    {
+        Cep = Cep,
+        Logradouro = Logradouro,
+        Numero = Numero,
+        Bairro = Bairro,
+        Cidade = Municipio.Selecionado?.Nome ?? Municipio.Texto,
+        Uf = Municipio.Uf,
+        CodigoMunicipioIbge = Municipio.MunicipioId?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
+
+    /// <summary>
+    /// Mostra a decisão do motor. Não muda nenhum campo do endereço. Com o <paramref name="pedido"/> que gerou a decisão: se o
+    /// endereço mudou enquanto a conferência estava em andamento, a resposta é velha e não é mostrada (devolve falso).
+    /// </summary>
+    public bool MostrarConferencia(DecisaoCepDto decisao, ConferirCepRequisicao? pedido = null)
+    {
+        var atual = Assinatura(ParaConferencia());
+        if (pedido is not null && Assinatura(pedido) != atual) return false;
+
+        _decisaoCep = decisao;
+        _assinaturaDecisao = atual;
+        LimparSegundaOpiniao();
+        TextoConferenciaCep = string.Join(" ", decisao.Motivos.Concat(decisao.Avisos.Select(a => "⚠ " + a)))
+                              + (decisao.InformacaoAnterior is { } anterior ? " " + TextoInformacaoAnterior(anterior) : string.Empty);
+        GravidadeConferenciaCep = GravidadeDe(decisao);
+        ComponentesCep = decisao.Componentes.Select(c => new LinhaComponenteCep(c)).ToList();
+        MostrarDetalhesCep = false;
+        // "Usar a sugestão" só na conferência (caso 4); na busca sem CEP um candidato é só um candidato.
+        var unico = decisao.Resultado == ResultadoDecisaoCepContrato.UmCandidato && decisao.CepInformado.Length > 0;
+        CandidatosCep = decisao.Resultado is ResultadoDecisaoCepContrato.UmCandidato or ResultadoDecisaoCepContrato.VariosCandidatos
+                        && decisao.Fonte is not null
+            ? OrdenarParaExibicao(decisao.Candidatos, Numero).Select(c => new OpcaoCandidatoCep(c, unico, UsarCandidatoCep)).ToList()
+            : [];
+        return true;
+    }
+
+    /// <summary>
+    /// F3, offline: a última informação guardada, sempre identificada como anterior (fonte e data originais), nunca como
+    /// conferência de agora.
+    /// </summary>
+    public static string TextoInformacaoAnterior(InformacaoAnteriorCepDto a) =>
+        $"Última informação disponível: CEP encontrado via {NomeFonte(a.Fonte)} em {DataLocal(a.ConsultadoEm)}"
+        + (a.Motivos.Count > 0 ? $" (com os dados de então: {string.Join(" ", a.Motivos)})" : string.Empty)
+        + ". Não foi possível atualizar agora.";
+
+    /// <summary>
+    /// Ordem de exibição dos candidatos (só apresentação, L-9): primeiro o CEP de prédio com o número do endereço, depois a
+    /// faixa que contém o número, depois o CEP sem faixa (rua toda ou CEP geral), por último os demais (faixa não
+    /// interpretada ou número que não dá para conferir). Empate: a ordem do motor (por CEP). Ordenar não é escolher: todos
+    /// continuam na lista e nenhum é destacado ou aplicado.
+    /// </summary>
+    public static IReadOnlyList<CandidatoCepDto> OrdenarParaExibicao(IEnumerable<CandidatoCepDto> candidatos, string? numero) =>
+        candidatos.Select((c, i) => (Candidato: c, Ordem: i))
+            .OrderBy(x => Especificidade(x.Candidato, numero)).ThenBy(x => x.Ordem)
+            .Select(x => x.Candidato).ToList();
+
+    private static int Especificidade(CandidatoCepDto candidato, string? numero)
+    {
+        if (FaixaNumeracao.Interpretar(candidato.Faixa) is not { } faixa) return 3;
+        if (faixa == FaixaNumeracao.Todas) return 2;
+        if (faixa.Contem(numero) != PertinenciaFaixa.Dentro) return 3;
+        return faixa.Inicio is { } inicio && faixa.Fim == inicio ? 0 : 1;
+    }
+
+    /// <summary>Os dados que participam da conferência, como texto comparável (CEP só pelos dígitos).</summary>
+    private static string Assinatura(ConferirCepRequisicao p) =>
+        string.Join('\u001F', Digitos(p.Cep), p.Logradouro, p.Numero, p.Bairro, p.Cidade, p.Uf, p.CodigoMunicipioIbge);
+
+    /// <summary>
+    /// Chamado quando muda um dado que participa da conferência. A marca de sugestão aplicada vale enquanto o CEP for o
+    /// sugerido; a decisão mostrada vale enquanto os dados forem os mesmos com que foi feita (ou com que a sugestão foi usada).
+    /// </summary>
+    private void ReavaliarDecisaoCep()
+    {
+        if (_aplicandoSugestao) return;
+        if (_sugestaoAplicada is not null && Digitos(Cep) != _sugestaoAplicada.CepSugerido) _sugestaoAplicada = null;
+        if (_assinaturaDecisao is not null && Assinatura(ParaConferencia()) != _assinaturaDecisao) LimparDecisaoCep();
+        AvisarEstadoCepGravado();
+    }
+
+    // ---- Conferência gravada (F3): o que a API gravou da última conferência, enquanto valer para os dados da tela ----
+
+    private CepSituacao _cepSituacaoGravada = CepSituacao.NaoConferido;
+    private CepFonte? _cepFonteGravada;
+    private DateTime? _cepConferidoEmGravado;
+    private string? _assinaturaGravada;
+
+    /// <summary>
+    /// Linha discreta com o estado gravado ("✓ CEP conferido em 05/10/2026 20:30 (fonte: ViaCEP)"). Some quando há resultado de
+    /// conferência na tela, ou quando os dados conferíveis mudaram (a mesma regra do Salvar: <see cref="EstadoConferenciaCep"/>).
+    /// </summary>
+    public string TextoEstadoCepGravado =>
+        !Gravado || NoExterior || TemConferenciaCep || Digitos(Cep).Length == 0 || _assinaturaGravada is null
+        || EstadoConferenciaCep.Assinatura(ParaComparacao()) != _assinaturaGravada
+            ? string.Empty
+            : _cepSituacaoGravada switch
+            {
+                CepSituacao.Conferido => $"✓ CEP conferido{Procedencia()}",
+                CepSituacao.Divergente => $"Última conferência{Procedencia()}: o CEP não correspondia ao endereço",
+                CepSituacao.NaoEncontrado => $"Última conferência{Procedencia()}: CEP não encontrado",
+                _ => "CEP ainda não conferido"
+            };
+
+    public bool TemEstadoCepGravado => TextoEstadoCepGravado.Length > 0;
+
+    /// <summary>Conferido = verde; divergente ou não encontrado (informação antiga, não erro atual) = atenção; não conferido = neutro.</summary>
+    public bool EstadoCepGravadoOk => TemEstadoCepGravado && _cepSituacaoGravada == CepSituacao.Conferido;
+    public bool EstadoCepGravadoAtencao => TemEstadoCepGravado && _cepSituacaoGravada is CepSituacao.Divergente or CepSituacao.NaoEncontrado;
+
+    /// <summary>
+    /// R-E3: " em 05/10/2026 20:30 (fonte: ViaCEP)". A data é a da conferência feita pelo Lone (a avaliação do endereço),
+    /// não a hora em que a fonte respondeu: com cache válido a evidência pode ser anterior. A fonte vem à parte, entre
+    /// parênteses, para a data não parecer resposta dela.
+    /// </summary>
+    private string Procedencia() =>
+        (_cepConferidoEmGravado is { } em ? " em " + DataLocal(em) : string.Empty)
+        + (_cepFonteGravada is { } f ? $" (fonte: {NomeFonte(f)})" : string.Empty);
+
+    /// <summary>Data/hora da API (UTC) no fuso do aparelho.</summary>
+    public static string DataLocal(DateTime utc) =>
+        DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime().ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static string NomeFonte(CepFonte fonte) => fonte switch
+    {
+        CepFonte.ViaCep => "ViaCEP",
+        CepFonte.BrasilApi => "BrasilAPI",
+        CepFonte.Correios => "Correios",
+        _ => fonte.ToString()
+    };
+
+    private void AvisarEstadoCepGravado()
+    {
+        OnPropertyChanged(nameof(TextoEstadoCepGravado));
+        OnPropertyChanged(nameof(TemEstadoCepGravado));
+        OnPropertyChanged(nameof(EstadoCepGravadoOk));
+        OnPropertyChanged(nameof(EstadoCepGravadoAtencao));
+    }
+
+    partial void OnTextoConferenciaCepChanged(string value)
+    {
+        // Outra conferência (ou nenhuma) na tela: a segunda opinião era sobre a anterior.
+        LimparSegundaOpiniao();
+        OnPropertyChanged(nameof(PodeConsultarOutraFonte));
+        AvisarEstadoCepGravado();
+    }
+
+    /// <summary>
+    /// A ficha tem uma conferência (não busca) que vale para exatamente os dados atuais: o Salvar pede para gravar o
+    /// estado; a API só grava se ela mesma fez essa conferência para esses dados.
+    /// </summary>
+    public bool ConferenciaCepVigente =>
+        _decisaoCep is { CepInformado.Length: > 0 } d && Digitos(Cep) == d.CepInformado && _assinaturaDecisao == Assinatura(ParaConferencia());
+
+    /// <summary>
+    /// O usuário escolheu usar um CEP sugerido: só o CEP muda, como alteração não salva (a ficha fica pendente). A marca
+    /// de procedência vai junto no Salvar; a API confere antes de registrar.
+    /// </summary>
+    public void UsarCandidatoCep(CandidatoCepDto candidato)
+    {
+        // Só candidato da decisão que está valendo (um botão de uma decisão já invalidada não aplica nada).
+        if (_decisaoCep is not { Fonte: { } fonte } decisao || !decisao.Candidatos.Contains(candidato)
+            || !CepValor.TentarCriar(candidato.Cep, out var novo)) return;
+        var conferido = decisao.CepInformado;
+        _sugestaoAplicada = new SugestaoCepAplicadaDto { CepConferido = conferido, CepSugerido = novo!.Valor, Fonte = fonte };
+        _cepConhecido = novo.Valor;        // não consulta de novo o CEP aplicado
+        _cepVerificado = novo.Valor;
+        _municipioDoCep = int.TryParse(candidato.CodigoMunicipioIbge, out var codigo) ? codigo : null;
+        _localDoCep = string.IsNullOrWhiteSpace(candidato.Uf) ? candidato.Cidade ?? string.Empty : $"{candidato.Cidade}/{candidato.Uf}";
+        AvisoCep = string.Empty;
+        _aplicandoSugestao = true;
+        try { Cep = novo.Formatado; }
+        finally { _aplicandoSugestao = false; }
+        _assinaturaDecisao = Assinatura(ParaConferencia()); // a decisão segue valendo com o CEP aplicado
+        CandidatosCep = [];
+        GravidadeConferenciaCep = GravidadeConferenciaCep.Nenhuma;
+        ComponentesCep = [];
+        MostrarDetalhesCep = false;
+        TextoConferenciaCep = conferido.Length == 0
+            ? $"CEP {novo.Formatado} aplicado a partir da busca pelo endereço (ainda não salvo). Salve a ficha para gravar."
+            : $"CEP {FormatarCep(conferido)} → {novo.Formatado} aplicado (ainda não salvo). Salve a ficha para gravar.";
+    }
+
+    private void LimparDecisaoCep()
+    {
+        _decisaoCep = null;
+        _assinaturaDecisao = null;
+        TextoConferenciaCep = string.Empty;
+        GravidadeConferenciaCep = GravidadeConferenciaCep.Nenhuma;
+        CandidatosCep = [];
+        ComponentesCep = [];
+        MostrarDetalhesCep = false;
+    }
+
+    private static string FormatarCep(string cep) => CepValor.TentarCriar(cep, out var c) ? c!.Formatado : cep;
+
     /// <summary>Botão "Buscar CEP": consulta mesmo que o número já tenha sido consultado.</summary>
     [RelayCommand]
     private Task BuscarCepAsync()
@@ -412,6 +785,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     {
         var digitos = Digitos(value);
         if (digitos != _cepVerificado) LimparConferenciaCep();
+        // CEP diferente do aplicado (ou do conferido): a marca de sugestão e o resultado da conferência não valem mais.
+        ReavaliarDecisaoCep();
         if (digitos.Length != 8 || digitos == _cepConhecido || AoBuscarCep is null) return;
         _cepConhecido = digitos;
         _ = AoBuscarCep(this);
@@ -431,7 +806,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         var digitos = Digitos(Cep);
         LimparConferenciaCep();
         _cepVerificado = digitos;
-        AvisoCep = $"⚠ CEP {Cep} não encontrado nos Correios. Confira o número.";
+        AvisoCep = $"⚠ CEP {Cep} não encontrado na consulta de CEP. Confira o número.";
     }
 
     /// <summary>
@@ -441,7 +816,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     public string? ValidarCep(string rotulo)
     {
         if (!Ativo || NoExterior || _cepVerificado.Length == 0 || _cepVerificado != Digitos(Cep)) return null;
-        if (TemAvisoCep) return $"{rotulo}: o CEP {Cep} não existe nos Correios. Confira o número.";
+        if (TemAvisoCep) return $"{rotulo}: o CEP {Cep} não foi encontrado na consulta de CEP. Confira o número.";
         if (_municipioDoCep is { } doCep && Municipio.MunicipioId is { } escolhido && escolhido != doCep)
             return $"{rotulo}: o CEP {Cep} é de {_localDoCep}, mas o município escolhido é outro. Confira o CEP ou o município.";
         return null;
@@ -458,6 +833,10 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         if (!f.NoExterior)
             f.Municipio.Definir(e.MunicipioId, e.MunicipioId is null ? null : e.Cidade, e.Uf is { Length: 2 } uf && uf != "EX" ? uf : null);
         f.ComoGravado = f.ParaComparacao();
+        f._cepSituacaoGravada = e.CepSituacao;
+        f._cepFonteGravada = e.CepFonte;
+        f._cepConferidoEmGravado = e.CepConferidoEm;
+        f._assinaturaGravada = EstadoConferenciaCep.Assinatura(f.ComoGravado);
         return f;
     }
 
@@ -509,7 +888,14 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         Uf = NoExterior ? null : Municipio.Uf,
         CodigoMunicipioIbge = NoExterior ? null : Municipio.MunicipioId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
         CodigoPais = NoExterior ? CodigoPais : PessoaEndereco.CodigoPaisBrasil,
-        Pais = NoExterior ? Pais : "Brasil"
+        Pais = NoExterior ? Pais : "Brasil",
+        // Só contexto para a auditoria (a API confere); vai apenas se o CEP ainda for o sugerido.
+        SugestaoCepAplicada = _sugestaoAplicada is { } s && Digitos(Cep) == s.CepSugerido && !NoExterior ? s : null,
+        // F3: só um pedido; a API confere e calcula o estado (os três valores abaixo ela ignora).
+        ConferenciaCepNaFicha = ConferenciaCepVigente && !NoExterior,
+        CepSituacao = _cepSituacaoGravada,
+        CepFonte = _cepFonteGravada,
+        CepConferidoEm = _cepConferidoEmGravado
     };
 
     /// <summary>Preenche com a consulta de CEP, sem apagar o que a consulta não trouxe.</summary>
@@ -658,4 +1044,111 @@ public sealed partial class FinalidadeNoEndereco : ItemDeLista
 
     [RelayCommand]
     private Task AlternarPrincipalAsync() => AoAlternarPrincipal?.Invoke() ?? Task.CompletedTask;
+}
+
+/// <summary>Gravidade do resultado da conferência de CEP na tela (✓ verde, ⚠ âmbar, ✗ vermelho). Só apresentação.</summary>
+public enum GravidadeConferenciaCep
+{
+    Nenhuma = 0,
+    Ok = 1,
+    Atencao = 2,
+    Alerta = 3
+}
+
+/// <summary>
+/// Uma linha dos detalhes da conferência ("✓ Número: confirmado. O número está na faixa do CEP (...)"). Estado e cor vêm do
+/// enum do componente, nunca do texto. Não informado/não validável não são vermelhos (ausência de evidência não é erro).
+/// </summary>
+/// <summary>Um dado da segunda opinião: o que cada fonte informa e se concordam. Nenhuma é destacada como certa.</summary>
+public sealed class LinhaComparacaoFontes
+{
+    public LinhaComparacaoFontes(ComparacaoComponenteFontesDto c)
+    {
+        Situacao = c.Situacao;
+        Texto = c.Motivo;
+    }
+
+    public Lone.Domain.Enderecos.ConferenciaCep.SituacaoComparacaoFontes Situacao { get; }
+    public string Texto { get; }
+
+    public string Icone => Situacao switch
+    {
+        Lone.Domain.Enderecos.ConferenciaCep.SituacaoComparacaoFontes.Concordam => "✓",
+        Lone.Domain.Enderecos.ConferenciaCep.SituacaoComparacaoFontes.Divergem => "≠",
+        _ => "–"
+    };
+    public bool EhOk => Situacao == Lone.Domain.Enderecos.ConferenciaCep.SituacaoComparacaoFontes.Concordam;
+    public bool EhAtencao => Situacao == Lone.Domain.Enderecos.ConferenciaCep.SituacaoComparacaoFontes.Divergem;
+}
+
+public sealed class LinhaComponenteCep
+{
+    public LinhaComponenteCep(ComponenteCepDto componente)
+    {
+        Componente = componente.Componente;
+        Situacao = componente.Situacao;
+        Texto = $"{Nome(componente.Componente)}: {Estado(componente.Situacao)}. {componente.Motivo}".TrimEnd();
+    }
+
+    public ComponenteCep Componente { get; }
+    public SituacaoComponenteCep Situacao { get; }
+    public string Texto { get; }
+
+    public string Icone => Situacao switch
+    {
+        SituacaoComponenteCep.Confirmado => "✓",
+        SituacaoComponenteCep.Divergente => "✗",
+        SituacaoComponenteCep.NaoValidavel => "⚠",
+        _ => "–"
+    };
+    public bool EhOk => Situacao == SituacaoComponenteCep.Confirmado;
+    public bool EhAtencao => Situacao == SituacaoComponenteCep.NaoValidavel;
+    public bool EhAlerta => Situacao == SituacaoComponenteCep.Divergente;
+
+    public static string Nome(ComponenteCep c) => c switch
+    {
+        ComponenteCep.Cep => "CEP",
+        ComponenteCep.Uf => "UF",
+        ComponenteCep.Municipio => "Município",
+        ComponenteCep.Logradouro => "Logradouro",
+        ComponenteCep.Numero => "Número",
+        _ => c.ToString()
+    };
+
+    public static string Estado(SituacaoComponenteCep s) => s switch
+    {
+        SituacaoComponenteCep.Confirmado => "confirmado",
+        SituacaoComponenteCep.Divergente => "divergente",
+        SituacaoComponenteCep.NaoValidavel => "não foi possível validar",
+        SituacaoComponenteCep.NaoInformado => "não informado",
+        _ => s.ToString()
+    };
+}
+
+/// <summary>Um CEP sugerido pela conferência, como botão na ficha ("Usar 35790-001 · Rua Barão · até 999/1000").</summary>
+public sealed class OpcaoCandidatoCep
+{
+    public OpcaoCandidatoCep(CandidatoCepDto candidato, bool unico, Action<CandidatoCepDto> usar)
+    {
+        Candidato = candidato;
+        var cep = CepValor.TentarCriar(candidato.Cep, out var c) ? c!.Formatado : candidato.Cep;
+        var partes = new[] { cep, candidato.Logradouro, candidato.Faixa, candidato.Unidade, candidato.Bairro }
+            .Where(p => !string.IsNullOrWhiteSpace(p));
+        Texto = (unico ? "Usar a sugestão: " : "Usar ") + string.Join(" · ", partes);
+        var local = string.IsNullOrWhiteSpace(candidato.Uf) ? candidato.Cidade : $"{candidato.Cidade}/{candidato.Uf}";
+        // Por que ficou na lista (mesma avaliação do filtro): ✓ confirmado, ⚠ não deu para validar, – a fonte não informa.
+        var componentes = candidato.Componentes.Select(c =>
+            $"{LinhaComponenteCep.Nome(c.Componente)} {new LinhaComponenteCep(c).Icone}"
+            + (c.Situacao == SituacaoComponenteCep.NaoValidavel ? " não foi possível validar" : string.Empty));
+        Detalhe = string.Join(" · ", new[] { local }.Concat(componentes).Where(p => !string.IsNullOrWhiteSpace(p)));
+        UsarCommand = new RelayCommand(() => usar(candidato));
+    }
+
+    public CandidatoCepDto Candidato { get; }
+    public string Texto { get; }
+
+    /// <summary>Município/UF e os componentes do candidato ("São Paulo/SP · UF ✓ · Município ✓ · Logradouro ✓ · Número ✓").</summary>
+    public string Detalhe { get; }
+    public bool TemDetalhe => Detalhe.Length > 0;
+    public IRelayCommand UsarCommand { get; }
 }

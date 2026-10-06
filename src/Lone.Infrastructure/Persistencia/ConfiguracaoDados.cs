@@ -36,6 +36,16 @@ public static class ConfiguracaoDados
     {
         services.AddDbContextFactory<LoneDbContext>(o => o.UseSqlServer(connectionString));
 
+        // F3 do motor de CEP: cache postal persistente e histórico técnico. Singleton: cada operação abre o próprio contexto
+        // pela fábrica (fora da transação do cadastro); nenhum dos dois derruba a consulta se o banco falhar.
+        services.AddSingleton<Lone.Application.Integracoes.ConferenciaCep.ICachePostalCep, Lone.Infrastructure.Integracoes.Cep.CachePostalCepSql>();
+        services.AddSingleton<Lone.Application.Integracoes.ConferenciaCep.IHistoricoConsultasCep, Lone.Infrastructure.Integracoes.Cep.HistoricoConsultasCepSql>();
+        // F6: reconferência em lote e limpeza do histórico (contextos curtos pela fábrica).
+        services.AddSingleton<Lone.Infrastructure.Integracoes.Cep.ReconferenciaCepSql>();
+        services.AddSingleton<Lone.Application.Integracoes.ConferenciaCep.IReconferenciaCepRepositorio>(sp => sp.GetRequiredService<Lone.Infrastructure.Integracoes.Cep.ReconferenciaCepSql>());
+        services.AddSingleton<Lone.Application.Integracoes.ConferenciaCep.IManutencaoConsultasCep>(sp => sp.GetRequiredService<Lone.Infrastructure.Integracoes.Cep.ReconferenciaCepSql>());
+        services.AddSingleton<Lone.Application.Integracoes.ConferenciaCep.IRegistroExecucoesReconferenciaCep>(sp => sp.GetRequiredService<Lone.Infrastructure.Integracoes.Cep.ReconferenciaCepSql>());
+
         // Scoped: dependem do usuário da requisição (gravado na auditoria).
         services.AddSingleton<IBancoDeDados, BancoDeDados>();
         services.AddScoped<IPessoaRepositorio, PessoaRepositorio>();

@@ -32,6 +32,11 @@ public sealed record EnderecoConferenciaCep(
 /// bairro, município e UF. Dado de entrada do motor; quem o obtém (provedor) é da F2.
 /// </summary>
 /// <param name="Complemento">Texto da faixa que acompanha o CEP (lido por <see cref="FaixaNumeracao.Interpretar"/>).</param>
+/// <param name="Unidade">
+/// Nome do prédio ou do grande usuário de um CEP específico (campo <c>unidade</c> do ViaCEP, ex.: "Edifício Paulicéia"). Só
+/// explicação na tela: não é critério de decisão, não elimina candidato e não tem relação com o complemento do endereço da
+/// pessoa (apartamento, sala, bloco).
+/// </param>
 public sealed record RegistroCep(
     string Cep,
     string? Logradouro,
@@ -39,7 +44,15 @@ public sealed record RegistroCep(
     string? Bairro,
     string? Cidade,
     string? Uf,
-    string? CodigoMunicipioIbge = null);
+    string? CodigoMunicipioIbge = null,
+    string? Unidade = null);
+
+/// <summary>
+/// Um CEP que passou pelo filtro do motor, com os componentes da mesma avaliação que o manteve (UF, município, logradouro,
+/// número). Só explica por que ficou na lista: nenhum componente é <see cref="SituacaoComponenteCep.Divergente"/> (quem
+/// diverge sai) e não há pontuação nem "melhor" candidato.
+/// </summary>
+public sealed record CandidatoCep(RegistroCep Registro, IReadOnlyList<ConferenciaComponenteCep> Componentes);
 
 /// <summary>O que a fonte respondeu.</summary>
 public enum SituacaoRespostaFonte
@@ -116,17 +129,19 @@ public sealed record RespostaBuscaEndereco
 public sealed record DecisaoCep
 {
     internal DecisaoCep(ResultadoDecisaoCep resultado, string cepInformado, CepFonte? fonte, RegistroCep? registroConsultado,
-                        string? cepSugerido, IReadOnlyList<RegistroCep> candidatos, IReadOnlyList<string> motivos,
-                        bool deveBuscarPorEndereco)
+                        string? cepSugerido, IReadOnlyList<CandidatoCep> candidatos, IReadOnlyList<string> motivos,
+                        bool deveBuscarPorEndereco, IReadOnlyList<ConferenciaComponenteCep> componentes)
     {
         Resultado = resultado;
         CepInformado = cepInformado;
         Fonte = fonte;
         RegistroConsultado = registroConsultado;
         CepSugerido = cepSugerido;
-        Candidatos = candidatos;
+        CandidatosAvaliados = candidatos;
+        Candidatos = Array.AsReadOnly(candidatos.Select(c => c.Registro).ToArray());
         Motivos = motivos;
         DeveBuscarPorEndereco = deveBuscarPorEndereco;
+        Componentes = componentes;
     }
 
     /// <summary>Qual dos casos (1 a 6, ou fonte indisponível).</summary>
@@ -145,7 +160,10 @@ public sealed record DecisaoCep
         _ => CepSituacao.NaoConferido
     };
 
-    /// <summary>O CEP do endereço, só dígitos (o que foi conferido; nunca muda).</summary>
+    /// <summary>
+    /// O CEP do endereço, só dígitos (o que foi conferido; nunca muda). Vazio na busca pelo endereço sem CEP
+    /// (<see cref="MotorCep.BuscarPorEndereco"/>).
+    /// </summary>
     public string CepInformado { get; }
 
     /// <summary>De onde veio a informação que levou à decisão (a busca, nos casos 4 a 6).</summary>
@@ -160,9 +178,19 @@ public sealed record DecisaoCep
     /// <summary>Os CEPs compatíveis achados pela busca (casos 4 e 5), em ordem de CEP.</summary>
     public IReadOnlyList<RegistroCep> Candidatos { get; }
 
+    /// <summary>Os mesmos <see cref="Candidatos"/>, na mesma ordem, com os componentes que explicam por que ficaram.</summary>
+    public IReadOnlyList<CandidatoCep> CandidatosAvaliados { get; }
+
     /// <summary>Por que o motor decidiu assim, em texto para o usuário.</summary>
     public IReadOnlyList<string> Motivos { get; }
 
     /// <summary>Caso 3: o CEP não existe e a busca pelo endereço ainda não foi feita (ou não pôde ser feita).</summary>
     public bool DeveBuscarPorEndereco { get; }
+
+    /// <summary>
+    /// O CEP informado, componente a componente (CEP, UF, município, logradouro, número, nesta ordem), saído da mesma
+    /// avaliação que deu o <see cref="Resultado"/>. Informação adicional: o resultado e os motivos não mudam por causa dela.
+    /// Divergente só existe quando o resultado é <see cref="ResultadoDecisaoCep.Divergente"/> (ou o CEP não existe, no CEP).
+    /// </summary>
+    public IReadOnlyList<ConferenciaComponenteCep> Componentes { get; }
 }

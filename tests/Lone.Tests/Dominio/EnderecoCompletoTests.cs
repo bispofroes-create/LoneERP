@@ -151,7 +151,7 @@ public class EnderecoCompletoTests
         e.MarcarCepInexistente();
 
         Assert.True(e.TemAvisoCep);
-        Assert.Equal("Endereço 1: o CEP 99999-999 não existe nos Correios. Confira o número.", e.ValidarCep("Endereço 1"));
+        Assert.Equal("Endereço 1: o CEP 99999-999 não foi encontrado na consulta de CEP. Confira o número.", e.ValidarCep("Endereço 1"));
 
         e.Cep = "35790-000"; // outro CEP: a conferência anterior não vale mais
         Assert.False(e.TemAvisoCep);

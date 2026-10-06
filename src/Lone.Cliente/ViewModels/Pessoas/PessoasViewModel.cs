@@ -1558,6 +1558,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         newValue.Privacidade.Acoes.Conceder = ConcederConsentimentoAsync;
         newValue.Privacidade.Acoes.Revogar = RevogarConsentimentoAsync;
         newValue.ConsultaCep = ConsultarCepAsync;
+        newValue.ConferenciaCep = ConferirCepAsync;
+        newValue.BuscaCepPorEndereco = BuscarCepPorEnderecoAsync;
+        newValue.SegundaOpiniaoCep = ConsultarOutraFonteCepAsync;
         newValue.Confirmar = ConfirmarAsync; // diálogo da base (CadastroViewModelBase)
         newValue.ConsolidarNoServidor = ConsolidarEnderecosAsync;
         newValue.TemAlteracoesNaoSalvas = () => TemAlteracoes;
@@ -1589,6 +1592,9 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private void Desligar(PessoaFormulario formulario)
     {
         formulario.ConsultaCep = null;
+        formulario.ConferenciaCep = null;
+        formulario.BuscaCepPorEndereco = null;
+        formulario.SegundaOpiniaoCep = null;
         formulario.Confirmar = null;
         formulario.ConsultaCnpj = null;
         formulario.AoCompletarDocumento = null;
@@ -2679,6 +2685,56 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
             return;
         anexo.Atualizar(gravado!);
         Mostrar(ativo ? "Anexo reativado." : "Anexo removido (continua guardado; aparece em \"Mostrar inativos\").", TipoMensagem.Sucesso);
+    }
+
+    /// <summary>
+    /// "Conferir CEP" (F2): a API confere pelo motor e devolve a decisão; a ficha só mostra. Usar a sugestão é escolha do
+    /// usuário e vira alteração não salva (nada é gravado aqui).
+    /// </summary>
+    private async Task ConferirCepAsync(EnderecoFormulario endereco)
+    {
+        if (!Cep.TentarCriar(endereco.Cep, out _))
+        {
+            Mostrar("Digite um CEP válido (8 dígitos) para conferir.", TipoMensagem.Aviso);
+            return;
+        }
+
+        DecisaoCepDto? decisao = null;
+        var pedido = endereco.ParaConferencia();
+        if (!await ExecutarAsync(async () => decisao = await _consultas.ConferirCepAsync(pedido)))
+            return;
+        // O endereço mudou enquanto a conferência estava em andamento: a resposta é de outros dados e não é mostrada.
+        if (!endereco.MostrarConferencia(decisao!, pedido))
+            Mostrar("O endereço mudou durante a conferência. Clique em \"Conferir CEP\" de novo.", TipoMensagem.Aviso);
+    }
+
+    /// <summary>
+    /// "Encontrar CEP" (Checkpoint D): o usuário não sabe o CEP; a API busca pelo endereço e devolve candidatos. A ficha só
+    /// mostra; usar um é escolha do usuário e vira alteração não salva. Dados insuficientes: a API responde com a mensagem.
+    /// </summary>
+    /// <summary>
+    /// "Consultar outra fonte" (Checkpoint G): a API compara a resposta da conferência com a de outra fonte. A ficha só
+    /// mostra concordâncias e divergências; nenhuma fonte é escolhida e nada muda no endereço.
+    /// </summary>
+    private async Task ConsultarOutraFonteCepAsync(EnderecoFormulario endereco)
+    {
+        var cep = new string(endereco.Cep.Where(char.IsAsciiDigit).ToArray());
+        if (cep.Length != 8) return;
+        SegundaOpiniaoCepDto? opiniao = null;
+        if (!await ExecutarAsync(async () => opiniao = await _consultas.ConsultarOutraFonteAsync(cep)))
+            return;
+        // O CEP mudou (ou a conferência saiu da tela) enquanto a consulta estava em andamento: a resposta não é mostrada.
+        endereco.MostrarSegundaOpiniao(opiniao!, cep);
+    }
+
+    private async Task BuscarCepPorEnderecoAsync(EnderecoFormulario endereco)
+    {
+        DecisaoCepDto? decisao = null;
+        var dados = endereco.ParaConferencia(); // os dados com que a busca foi pedida (resposta atrasada é descartada)
+        if (!await ExecutarAsync(async () => decisao = await _consultas.BuscarCepPorEnderecoAsync(endereco.ParaBuscaPorEndereco())))
+            return;
+        if (!endereco.MostrarConferencia(decisao!, dados))
+            Mostrar("O endereço mudou durante a busca. Clique em \"Encontrar CEP\" de novo.", TipoMensagem.Aviso);
     }
 
     private async Task ConsultarCepAsync(EnderecoFormulario endereco)

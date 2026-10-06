@@ -358,7 +358,11 @@ public static class PessoaMapeamento
         Uf = e.Uf,
         CodigoMunicipioIbge = e.CodigoMunicipioIbge,
         CodigoPais = e.CodigoPais,
-        Pais = e.Pais
+        Pais = e.Pais,
+        // F3: só leitura (a API recalcula no Salvar).
+        CepSituacao = e.CepSituacao,
+        CepFonte = e.CepFonte,
+        CepConferidoEm = e.CepConferidoEm
     };
 
     private static PessoaEndereco ParaEntidade(EnderecoDto e, Guid pessoaId) => new()

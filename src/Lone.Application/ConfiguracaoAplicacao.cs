@@ -45,6 +45,16 @@ public static class ConfiguracaoAplicacao
         services.AddScoped<IPerfilAppService, PerfilAppService>();
         services.AddScoped<IPessoaAppService, PessoaAppService>();
         services.AddScoped<IConsultasAppService, ConsultasAppService>();
+        // Conferência de CEP (F2 do motor de endereçamento): cache transitório e sugestões emitidas só em memória.
+        services.TryAddSingleton<Integracoes.ConferenciaCep.CacheConferenciaCep>();
+        services.TryAddSingleton<Integracoes.ConferenciaCep.SugestoesCepEmitidas>();
+        // F3: conferências feitas por esta API (base do estado gravado no endereço), só em memória. O cache postal e o
+        // histórico técnico (banco) são registrados por Lone.Infrastructure.
+        services.TryAddSingleton<Integracoes.ConferenciaCep.ConferenciasCepEmitidas>();
+        // F6: reconferência em lote (manual; os dados vêm de Lone.Infrastructure).
+        services.AddScoped<Integracoes.ConferenciaCep.ServicoReconferenciaCep>();
+        services.AddScoped<Integracoes.ConferenciaCep.IReconferenciaCepAppService, Integracoes.ConferenciaCep.ReconferenciaCepAppService>();
+        services.AddScoped<Integracoes.ConferenciaCep.IServicoConferenciaCep, Integracoes.ConferenciaCep.ServicoConferenciaCep>();
         services.AddScoped<ServicoMunicipios>();
         services.AddScoped<IMunicipioAppService, MunicipioAppService>();
         services.AddScoped<ICampoPersonalizadoAppService, CampoPersonalizadoAppService>();

@@ -381,6 +381,21 @@ public static class Rotas
     {
         public const string Grupo = Base + "/consultas";
         public static string Cep(string cep) => $"{Grupo}/cep/{Uri.EscapeDataString(cep)}";
+
+        /// <summary>Conferência do CEP de um endereço pelo motor (POST; não grava nada).</summary>
+        public const string ConferirCep = Grupo + "/cep/conferir";
+
+        /// <summary>Busca de CEP pelo endereço, sem CEP (POST; só candidatos; não grava nada).</summary>
+        public const string BuscarCepPorEndereco = Grupo + "/cep/buscar-por-endereco";
+
+        /// <summary>F6: reconferência de CEPs em lote (seleção, processamento de um bloco) e limpeza do histórico técnico.</summary>
+        public const string ReconferenciaSelecionar = Grupo + "/cep/reconferencia/selecionar";
+        public const string ReconferenciaProcessar = Grupo + "/cep/reconferencia/processar";
+        public const string HistoricoCepLimpar = Grupo + "/cep/historico/limpar";
+        public const string ReconferenciaConcluir = Grupo + "/cep/reconferencia/concluir";
+
+        /// <summary>Checkpoint G: segunda opinião sobre um CEP (POST; compara duas fontes; não grava nada).</summary>
+        public const string SegundaOpiniaoCep = Grupo + "/cep/segunda-opiniao";
         public static string Cnpj(string cnpj) => $"{Grupo}/cnpj/{Uri.EscapeDataString(cnpj)}";
     }
 }

@@ -234,6 +234,30 @@ public sealed class EnderecoDto
     public string? CodigoMunicipioIbge { get; set; }
     public string CodigoPais { get; set; } = "1058";
     public string Pais { get; set; } = "Brasil";
+
+    /// <summary>
+    /// Opcional (F2 do motor de CEP): o CEP deste endereço foi aplicado pelo usuário a partir de uma sugestão da
+    /// conferência. Só contexto para a auditoria; a API confere e ignora se não bater. Não é gravado no endereço.
+    /// </summary>
+    public Lone.Contracts.Integracoes.SugestaoCepAplicadaDto? SugestaoCepAplicada { get; set; }
+
+    // ---- Conferência do CEP gravada (F3). Só leitura: a API calcula no Salvar e ignora o que vier aqui. ----
+
+    /// <summary>Situação da última conferência que vale para os dados gravados (NaoConferido em endereço antigo).</summary>
+    public Lone.Domain.Enderecos.ConferenciaCep.CepSituacao CepSituacao { get; set; }
+
+    /// <summary>Fonte original da conferência (nunca "cache"). Nula quando não conferido.</summary>
+    public Lone.Domain.Enderecos.ConferenciaCep.CepFonte? CepFonte { get; set; }
+
+    /// <summary>Quando a conferência aconteceu (UTC). Nula quando não conferido.</summary>
+    public DateTime? CepConferidoEm { get; set; }
+
+    /// <summary>
+    /// Opcional (F3): a ficha tem uma conferência (Conferir CEP) que ainda vale para exatamente estes dados. Só um pedido:
+    /// a API grava o estado apenas se ela mesma fez essa conferência para os dados gravados (o aplicativo não consegue
+    /// inventar "conferido"). Ausente = falso (aplicativo antigo).
+    /// </summary>
+    public bool ConferenciaCepNaFicha { get; set; }
 }
 
 public sealed class MeioContatoDto

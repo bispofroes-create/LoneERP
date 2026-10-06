@@ -56,7 +56,8 @@ public sealed record FaixaNumeracao
     }
 
     /// <summary>
-    /// Lê o texto da faixa. Vazio = <see cref="Todas"/>. Texto fora dos formatos conhecidos = nulo (não interpretada; quem
+    /// Lê o texto da faixa. Vazio = <see cref="Todas"/>. Complemento que começa pelo número do prédio ("960", "1374 12 Andar",
+    /// CEP de grande usuário) = só aquele número (D-F2-1). Texto fora dos formatos conhecidos = nulo (não interpretada; quem
     /// usa trata como indeterminado e não elimina o CEP). Um par "999/1000" é o último ímpar e o último par da faixa: vale
     /// como o maior (no fim) ou o menor (no começo); só se aceita par de números vizinhos.
     /// </summary>
@@ -68,6 +69,12 @@ public sealed record FaixaNumeracao
         var tokens = DuplicidadeEndereco.Texto(texto.Replace("/", " BARRA ", StringComparison.Ordinal))
             .Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
         if (tokens.Count == 0) return null;
+
+        // CEP de prédio ou grande usuário (D-F2-1, teste real da F2): o complemento começa pelo número do prédio ("960",
+        // "1374 12 Andar", "37 3 Andar Conjunto 31") e vale só para esse número. Não confundir com início de faixa
+        // ("10 a 20", "999/1000"), que continua não interpretado.
+        if (Inteiro(tokens[0], out var predio) && (tokens.Count == 1 || tokens[1] is not ("A" or "AO" or "ATE" or "BARRA" or "LADO")))
+            return new FaixaNumeracao(predio, predio, LadoFaixa.Ambos);
 
         var lado = LadoFaixa.Ambos;
         var posLado = tokens.IndexOf("LADO");

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Configurações de Pessoas › Reconferência de CEPs (F6): filtro, quantidade, confirmação de lote grande, progresso com
+     Cancelar e, ao final, os endereços separados por situação. Só confere: nenhum endereço é alterado. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pes="clr-namespace:Lone.Cliente.ViewModels.Pessoas;assembly=Lone.Cliente"
+             xmlns:c="clr-namespace:Lone.App.Controles"
+             x:Class="Lone.App.Views.ReconferenciaCepPage"
+             x:DataType="pes:ReconferenciaCepViewModel"
+             Title="Reconferência de CEPs">
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Phone='16,16', Default='32,24'}" Spacing="16">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Reconferência de CEPs" Style="{StaticResource TituloPagina}" />
+                <Label Style="{StaticResource SubtituloPagina}" LineBreakMode="WordWrap"
+                       Text="Confere de novo o CEP dos endereços na consulta de CEP e atualiza só a situação da conferência. Nenhum endereço é alterado: divergências e CEPs não encontrados ficam para revisão na ficha." />
+            </VerticalStackLayout>
+
+            <c:BlocoCampos AlignItems="End">
+                <c:CaixaMarcar Texto="Nunca conferidos" Marcado="{Binding IncluirNaoConferidos}" />
+                <c:CaixaMarcar Texto="Com divergência" Marcado="{Binding IncluirDivergentes}" />
+                <c:CaixaMarcar Texto="CEP não encontrado" Marcado="{Binding IncluirNaoEncontrados}" />
+                <c:CaixaMarcar Texto="Conferidos há mais de 180 dias" Marcado="{Binding IncluirConferidosAntigos}" />
+                <c:Campo Rotulo="UF (opcional)" Texto="{Binding Uf}" Dica="Ex.: MG" FlexLayout.Basis="{OnIdiom Phone='100%', Default='120'}" />
+                <HorizontalStackLayout Spacing="8" Padding="0,0,0,8">
+                    <Button Text="Ver quantos" Style="{StaticResource BotaoSecundario}" Command="{Binding SelecionarCommand}" IsEnabled="{Binding Parado}"
+                            ToolTipProperties.Text="Conta os endereços que atendem ao filtro (nada é consultado ainda)" />
+                    <Button Text="Reconferir" Command="{Binding IniciarCommand}" IsEnabled="{Binding Parado}"
+                            ToolTipProperties.Text="Confere os endereços selecionados, no ritmo da consulta externa; pede confirmação para lote grande" />
+                    <Button Text="Cancelar" Style="{StaticResource BotaoSecundario}" Command="{Binding CancelarCommand}" IsVisible="{Binding Executando}" />
+                </HorizontalStackLayout>
+            </c:BlocoCampos>
+
+            <Label Text="{Binding TextoSelecao}" IsVisible="{Binding TemSelecao}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+            <c:BarraMensagem Mensagem="{Binding Mensagem}" Tipo="{Binding TipoMensagem}" />
+
+            <!-- Progresso e contadores. -->
+            <VerticalStackLayout Spacing="6">
+                <ProgressBar Progress="{Binding Progresso}" IsVisible="{Binding Executando}" />
+                <Label Text="{Binding TextoProgresso}" Style="{StaticResource Secundario}" />
+                <FlexLayout Wrap="Wrap" JustifyContent="Start">
+                    <Label Margin="0,0,16,4" Text="{Binding Conferidos, StringFormat='✓ Conferidos: {0}'}" TextColor="{StaticResource Sucesso}" />
+                    <Label Margin="0,0,16,4" Text="{Binding Divergentes, StringFormat='⚠ Divergentes: {0}'}" TextColor="{StaticResource Aviso}" />
+                    <Label Margin="0,0,16,4" Text="{Binding NaoEncontrados, StringFormat='⚠ Não encontrados: {0}'}" TextColor="{StaticResource Aviso}" />
+                    <Label Margin="0,0,16,4" Text="{Binding Indisponiveis, StringFormat='Não foi possível consultar: {0}'}" />
+                    <Label Margin="0,0,16,4" Text="{Binding Alterados, StringFormat='Alterados durante: {0}'}" />
+                    <Label Margin="0,0,16,4" Text="{Binding NaoProcessados, StringFormat='Não processados: {0}'}" />
+                    <Label Margin="0,0,16,4" Text="{Binding Duracao}" Style="{StaticResource Secundario}" />
+                </FlexLayout>
+            </VerticalStackLayout>
+
+            <!-- Resultado por situação (sem BI): quem precisa de atenção vem primeiro. -->
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Grupos}" Spacing="12">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="pes:GrupoReconferenciaCep">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding Titulo}" Style="{StaticResource SecaoTitulo}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Itens}" Spacing="2">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="pes:LinhaReconferenciaCep">
+                                        <VerticalStackLayout Spacing="0" Margin="0,0,0,4">
+                                            <Label Text="{Binding Titulo}" FontSize="13" LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding Detalhe}" Style="{StaticResource Secundario}" FontSize="12" LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <!-- Manutenção: o histórico técnico das consultas guarda 90 dias. -->
+            <HorizontalStackLayout Spacing="8">
+                <Button Text="Limpar histórico técnico (mais de 90 dias)" Style="{StaticResource BotaoLink}" Command="{Binding LimparHistoricoCommand}"
+                        IsEnabled="{Binding Parado}"
+                        ToolTipProperties.Text="Apaga só o histórico técnico das consultas de CEP com mais de 90 dias; endereços e histórico dos cadastros não mudam" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

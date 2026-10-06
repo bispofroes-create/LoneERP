@@ -78,6 +78,7 @@ public static class MauiProgram
         builder.Services.AddTransient<OperacoesTerritoriaisPage>(); // Fase 2b-1b
         builder.Services.AddTransient<DivergenciasTerritoriaisPage>();
         builder.Services.AddTransient<ParametrosTerritoriaisPage>();
+        builder.Services.AddTransient<ReconferenciaCepPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

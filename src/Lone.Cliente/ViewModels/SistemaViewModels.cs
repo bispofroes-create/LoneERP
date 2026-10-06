@@ -451,6 +451,9 @@ public partial class MenuViewModel : ViewModelBase, IDisposable
     public bool PodeVerCarteiraEmDataMenu => MenuViewModel.PodeVerCarteiraEmData(_sessao.Possui);
     public bool PodeVerTerritoriosMenu => PodeVerTerritorios(_sessao.Possui);
     public bool PodeConfigurarTerritorios => _sessao.Possui(Permissoes.Territorios.Configurar);
+
+    /// <summary>F6: reconferência de CEPs (a API ainda exige alcance "Tudo").</summary>
+    public bool PodeReconferirCeps => _sessao.Possui(Permissoes.Pessoas.Editar) && _sessao.Possui(Permissoes.Cadastros.TabelasOficiais);
     public bool PodeVerOperacoesTerritoriaisMenu => MenuViewModel.PodeVerOperacoesTerritoriais(_sessao.Possui);
     public bool PodeVerMetas => _sessao.Possui(Permissoes.Metas.Visualizar);
     public bool PodeGerenciarMetas => _sessao.Possui(Permissoes.Metas.Gerenciar);

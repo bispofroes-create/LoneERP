@@ -369,6 +369,9 @@
     <FlyoutItem Title="Divergências territoriais" Route="divergencias-territoriais" IsVisible="{Binding PodeVerOperacoesTerritoriaisMenu}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Divergências territoriais" ContentTemplate="{DataTemplate views:DivergenciasTerritoriaisPage}" />
     </FlyoutItem>
+    <FlyoutItem Title="Reconferência de CEPs" Route="reconferencia-cep" IsVisible="{Binding PodeReconferirCeps}" Shell.FlyoutItemIsVisible="False">
+        <ShellContent Title="Reconferência de CEPs" ContentTemplate="{DataTemplate views:ReconferenciaCepPage}" />
+    </FlyoutItem>
     <FlyoutItem Title="Parâmetros territoriais" Route="parametros-territoriais" IsVisible="{Binding PodeConfigurarTerritorios}" Shell.FlyoutItemIsVisible="False">
         <ShellContent Title="Parâmetros territoriais" ContentTemplate="{DataTemplate views:ParametrosTerritoriaisPage}" />
     </FlyoutItem>

@@ -31,12 +31,16 @@ public class PessoaEnderecoConfiguration : IEntityTypeConfiguration<PessoaEndere
         b.Property(e => e.CodigoMunicipioIbge).HasMaxLength(7).IsFixedLength().IsUnicode(false);
         b.Property(e => e.CodigoPais).IsRequired().HasMaxLength(4).IsUnicode(false);
         b.Property(e => e.Pais).IsRequired().HasMaxLength(60);
+        // F3: conferência do CEP gravada (tinyint; endereço antigo = 0, NaoConferido; fonte e data nulas).
+        b.Property(e => e.CepSituacao).HasConversion<byte>();
+        b.Property(e => e.CepFonte).HasConversion<byte?>();
 
         b.Property(e => e.Observacoes).HasMaxLength(global::Lone.Domain.Enderecos.RegrasEndereco.TamanhoMaximoObservacoes);
         b.HasOne<TipoEndereco>().WithMany().HasForeignKey(e => e.TipoEnderecoId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(e => e.TipoEnderecoId);
         b.HasIndex(e => new { e.PessoaId, e.Ordem });
         b.HasIndex(e => new { e.Uf, e.MunicipioId }); // filtro avançado por UF / município
+        b.HasIndex(e => new { e.CepSituacao, e.CepConferidoEm }); // F6: seleção da reconferência (situação e idade)
 
         // Município da tabela do IBGE (relatórios, filtros e NF-e por município).
         b.HasOne<Municipio>().WithMany().HasForeignKey(e => e.MunicipioId).OnDelete(DeleteBehavior.Restrict);

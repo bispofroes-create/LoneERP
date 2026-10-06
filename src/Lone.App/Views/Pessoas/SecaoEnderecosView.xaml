@@ -98,11 +98,132 @@
                                 <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0">
                                     <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cep}" c:Validacao.Item="{Binding Id}" Rotulo="CEP" Texto="{Binding Cep}" Mascara="Cep">
                                         <c:Campo.AoLado>
-                                            <Button Text="Buscar CEP" Style="{StaticResource BotaoSecundario}" Command="{Binding BuscarCepCommand}" />
+                                            <HorizontalStackLayout Spacing="4">
+                                                <Button Text="Buscar CEP" Style="{StaticResource BotaoSecundario}" Command="{Binding BuscarCepCommand}"
+                                                        ToolTipProperties.Text="Preenche logradouro, bairro e município a partir do CEP digitado (nada é gravado)" />
+                                                <!-- Conferência pelo motor (F2): só consulta e mostra; usar a sugestão não salva. -->
+                                                <Button Text="Conferir CEP" Style="{StaticResource BotaoSecundario}" Command="{Binding ConferirCepCommand}"
+                                                        ToolTipProperties.Text="Confere se o CEP corresponde ao endereço digitado (logradouro, número, bairro e município) sem alterar nenhum campo (nada é gravado)" />
+                                            </HorizontalStackLayout>
                                         </c:Campo.AoLado>
                                     </c:Campo>
                                     <Label Text="{Binding AvisoCep}" IsVisible="{Binding TemAvisoCep}" TextColor="{StaticResource Erro}" FontSize="12"
                                            LineBreakMode="WordWrap" Margin="0,-6,12,8" />
+                                    <!-- Conferência gravada (F3): discreta; some quando há resultado na tela ou o endereço mudou. -->
+                                    <Label Text="{Binding TextoEstadoCepGravado}" IsVisible="{Binding TemEstadoCepGravado}" FontSize="12"
+                                           LineBreakMode="WordWrap" Margin="0,-6,12,4"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding EstadoCepGravadoOk}" Value="True">
+                                                <Setter Property="TextColor" Value="{StaticResource Sucesso}" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label" Binding="{Binding EstadoCepGravadoAtencao}" Value="True">
+                                                <Setter Property="TextColor" Value="{StaticResource Aviso}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <!-- Busca pelo endereço quando não se sabe o CEP (Checkpoint D): só candidatos; nada é aplicado sem escolher. -->
+                                    <Button Text="Não sabe o CEP? Encontrar pelo endereço" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0"
+                                            HorizontalOptions="Start" Margin="0,-6,12,4" Command="{Binding BuscarCepPorEnderecoCommand}"
+                                            ToolTipProperties.Text="Procura possíveis CEPs usando o endereço informado (UF, município e logradouro). Nenhum CEP é aplicado sem você escolher." />
+                                    <!-- Resultado da conferência e os CEPs sugeridos: o usuário escolhe; vira alteração não salva.
+                                         Ícone e cor pela gravidade (✓ verde, ⚠ âmbar, ✗ vermelho), no padrão do resumo da pessoa. -->
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4" IsVisible="{Binding TemConferenciaCep}" Margin="0,-6,12,4">
+                                        <Label Text="{Binding IconeConferenciaCep}" FontSize="12" FontAttributes="Bold" VerticalOptions="Start"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding ConferenciaCepAlerta}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Erro}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding ConferenciaCepAtencao}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Aviso}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding ConferenciaCepOk}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Sucesso}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Label Grid.Column="1" Text="{Binding TextoConferenciaCep}" FontSize="12" LineBreakMode="WordWrap" />
+                                    </Grid>
+                                    <!-- Detalhes por componente (CEP, UF, município, logradouro, número), recolhidos: a mensagem principal fica em cima. -->
+                                    <VerticalStackLayout IsVisible="{Binding TemComponentesCep}" Spacing="2" Margin="0,0,12,4">
+                                        <Button Text="{Binding TextoBotaoDetalhesCep}" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0"
+                                                HorizontalOptions="Start" Command="{Binding AlternarDetalhesCepCommand}" />
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding ComponentesCep}" IsVisible="{Binding MostrarDetalhesCep}" Spacing="2">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="pes:LinhaComponenteCep">
+                                                    <Grid ColumnDefinitions="18,*" ColumnSpacing="4">
+                                                        <Label Text="{Binding Icone}" FontSize="12" FontAttributes="Bold" VerticalOptions="Start"
+                                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                                            <Label.Triggers>
+                                                                <DataTrigger TargetType="Label" Binding="{Binding EhAlerta}" Value="True">
+                                                                    <Setter Property="TextColor" Value="{StaticResource Erro}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger TargetType="Label" Binding="{Binding EhAtencao}" Value="True">
+                                                                    <Setter Property="TextColor" Value="{StaticResource Aviso}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger TargetType="Label" Binding="{Binding EhOk}" Value="True">
+                                                                    <Setter Property="TextColor" Value="{StaticResource Sucesso}" />
+                                                                </DataTrigger>
+                                                            </Label.Triggers>
+                                                        </Label>
+                                                        <Label Grid.Column="1" Text="{Binding Texto}" FontSize="12" LineBreakMode="WordWrap" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                    <!-- Segunda opinião (Checkpoint G): discreta, só por pedido; compara duas fontes; nada é escolhido nem alterado. -->
+                                    <Button Text="Consultar outra fonte" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0" Margin="0,0,12,4"
+                                            HorizontalOptions="Start" Command="{Binding ConsultarOutraFonteCommand}" IsVisible="{Binding PodeConsultarOutraFonte}" />
+                                    <VerticalStackLayout IsVisible="{Binding TemSegundaOpiniao}" Spacing="2" Margin="0,0,12,4">
+                                        <Label Text="{Binding TextoSegundaOpiniao}" FontSize="12" LineBreakMode="WordWrap"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding SegundaOpiniaoDivergente}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Aviso}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding SegundaOpiniaoConcordante}" Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Sucesso}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding ComparacaoFontes}" IsVisible="{Binding MostrarDetalhesCep}" Spacing="2">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="pes:LinhaComparacaoFontes">
+                                                    <Grid ColumnDefinitions="18,*" ColumnSpacing="4">
+                                                        <Label Text="{Binding Icone}" FontSize="12" FontAttributes="Bold" VerticalOptions="Start"
+                                                               TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}">
+                                                            <Label.Triggers>
+                                                                <DataTrigger TargetType="Label" Binding="{Binding EhAtencao}" Value="True">
+                                                                    <Setter Property="TextColor" Value="{StaticResource Aviso}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger TargetType="Label" Binding="{Binding EhOk}" Value="True">
+                                                                    <Setter Property="TextColor" Value="{StaticResource Sucesso}" />
+                                                                </DataTrigger>
+                                                            </Label.Triggers>
+                                                        </Label>
+                                                        <Label Grid.Column="1" Text="{Binding Texto}" FontSize="12" LineBreakMode="WordWrap" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding CandidatosCep}" IsVisible="{Binding TemCandidatosCep}"
+                                                         Spacing="2" Margin="0,0,12,8">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="pes:OpcaoCandidatoCep">
+                                                <VerticalStackLayout Spacing="0">
+                                                    <Button Text="{Binding Texto}" Style="{StaticResource BotaoLink}" Command="{Binding UsarCommand}"
+                                                            HorizontalOptions="Start" />
+                                                    <!-- Por que este CEP ficou na lista (componentes da mesma avaliação); não é nota nem recomendação. -->
+                                                    <Label Text="{Binding Detalhe}" IsVisible="{Binding TemDetalhe}" FontSize="11" LineBreakMode="WordWrap"
+                                                           Margin="0,-4,0,2"
+                                                           TextColor="{AppThemeBinding Light={StaticResource TextoSecundario}, Dark={StaticResource TextoSecundarioEscuro}}" />
+                                                </VerticalStackLayout>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
                                 </VerticalStackLayout>
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Logradouro}" c:Validacao.Item="{Binding Id}" Rotulo="Logradouro" Texto="{Binding Logradouro}" FlexLayout.Basis="100%" />
                                 <!-- "Sem número": marcada, o número fica "S/N" (travado), o texto que vai para a NF-e (o número é obrigatório nela).

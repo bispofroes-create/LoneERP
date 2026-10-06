@@ -21,6 +21,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- Respostas reais do ViaCEP (teste de 05/10/2026), guardadas no projeto: nenhum teste depende do ViaCEP no ar. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Integracoes\Fixtures\ViaCep\*.json" LogicalName="ViaCep/%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lone.Application\Lone.Application.csproj" />
     <ProjectReference Include="..\..\src\Lone.Api\Lone.Api.csproj" />

@@ -84,6 +84,17 @@ public class MotorCepTests
         Assert.Contains(decisao.Motivos, m => m.Contains("não foi interpretada", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Caso1_cep_de_predio_confere_so_o_numero_do_predio()
+    {
+        var predio = Registro(complemento: "960");
+
+        Assert.Equal(ResultadoDecisaoCep.Conferido, MotorCep.Decidir(Endereco(numero: "960"), Encontrado(predio)).Resultado);
+        var outro = MotorCep.Decidir(Endereco(numero: "962"), Encontrado(predio));
+        Assert.Equal(ResultadoDecisaoCep.Divergente, outro.Resultado);
+        Assert.Contains("O número informado é incompatível com a faixa do CEP (960).", outro.Motivos);
+    }
+
     // ---- Caso 2: divergente ----
 
     [Fact]

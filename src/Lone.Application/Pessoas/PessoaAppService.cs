@@ -74,6 +74,8 @@ public sealed class PessoaAppService : IPessoaAppService
     private readonly IEscopoPessoas _escopo;
     private readonly IPessoasNoEscopo _noEscopo;
     private readonly IAlcanceDoUsuario _alcance;
+    private readonly Integracoes.ConferenciaCep.SugestoesCepEmitidas _sugestoesCep;
+    private readonly Integracoes.ConferenciaCep.ConferenciasCepEmitidas _conferenciasCep;
 
     public PessoaAppService(IPessoaRepositorio repositorio, IAuditoriaConsultas auditoria, IAutorizacao autorizacao,
                             IMunicipioRepositorio municipios, ICampoPersonalizadoRepositorio campos, IEtiquetaRepositorio etiquetas,
@@ -85,9 +87,12 @@ public sealed class PessoaAppService : IPessoaAppService
                             ISituacaoAppService situacoes, TimeProvider relogio, IFinalidadeEnderecoRepositorio finalidades,
                             IGrupoEmpresarialRepositorio gruposEmpresariais, IPessoaRelacionamentoRepositorio relacionamentos,
                             IEscopoPessoas escopo, IPessoasNoEscopo noEscopo, IAlcanceDoUsuario alcance,
-                            IOcupacaoCboRepositorio ocupacoesCbo)
+                            IOcupacaoCboRepositorio ocupacoesCbo, Integracoes.ConferenciaCep.SugestoesCepEmitidas sugestoesCep,
+                            Integracoes.ConferenciaCep.ConferenciasCepEmitidas conferenciasCep)
     {
         _ocupacoesCbo = ocupacoesCbo;
+        _sugestoesCep = sugestoesCep;
+        _conferenciasCep = conferenciasCep;
         _escopo = escopo;
         _noEscopo = noEscopo;
         _alcance = alcance;
@@ -510,6 +515,16 @@ public sealed class PessoaAppService : IPessoaAppService
         // pôde ser feito com segurança (ambiguidade): fica registrado para conferência.
         if (SociosNaoIdentificados(dados, anterior) is > 0 and var naoIdentificados)
             dados.RegistrarEvento(string.Format(System.Globalization.CultureInfo.InvariantCulture, CasamentoSocios.TextoConferencia, naoIdentificados));
+
+        // Conferência do CEP gravada (F3): sem nenhuma consulta externa aqui (salvar não depende da internet). Vale a
+        // conferência que esta API fez para exatamente os dados gravados (pedida pela ficha); senão a gravada, se os dados
+        // conferíveis não mudaram; senão "não conferido". Procedência (DM3, abaixo) é outro fato e continua à parte.
+        EstadoConferenciaCepNoSalvar.Aplicar(dados.Enderecos, anterior?.Enderecos, dto.Enderecos, _conferenciasCep.Obter);
+
+        // CEP aplicado a partir da sugestão da conferência (F2, DM3): a alteração é do usuário; a fonte da sugestão vira
+        // frase no histórico, só se a marca do aplicativo for coerente (salvo = sugerido e emitido pela API).
+        foreach (var frase in ProcedenciaSugestaoCep.Frases(dto.Enderecos, dados.Enderecos, anterior?.Enderecos, _sugestoesCep.FoiEmitida))
+            dados.RegistrarEvento(frase);
 
         // Estrutura empresarial: estabelecimento incluído/desativado/reativado, troca do principal e entrada/saída do grupo.
         foreach (var mudanca in RegrasEstabelecimento.Mudancas(anterior, dados))

@@ -48,6 +48,15 @@ public sealed partial class PessoaFormulario : ObservableObject
 
     /// <summary>Definidos pela tela: consultas feitas pela API.</summary>
     public Func<EnderecoFormulario, Task>? ConsultaCep { get; set; }
+
+    /// <summary>Conferência do CEP pelo motor (F2): só consulta e mostra; aplicar a sugestão não salva.</summary>
+    public Func<EnderecoFormulario, Task>? ConferenciaCep { get; set; }
+
+    /// <summary>Busca de CEP pelo endereço sem CEP (Checkpoint D): só mostra candidatos; usar um não salva.</summary>
+    public Func<EnderecoFormulario, Task>? BuscaCepPorEndereco { get; set; }
+
+    /// <summary>Segunda opinião sobre o CEP conferido (Checkpoint G): compara duas fontes; nada é escolhido nem salvo.</summary>
+    public Func<EnderecoFormulario, Task>? SegundaOpiniaoCep { get; set; }
     public Func<EstabelecimentoFormulario, Task>? ConsultaCnpj { get; set; }
 
     private Func<string, Task<IReadOnlyList<MunicipioDto>>>? _fonteMunicipios;
@@ -961,6 +970,9 @@ public sealed partial class PessoaFormulario : ObservableObject
         endereco.MostrarSeInativo = MostrarEnderecosInativos;
         endereco.AoRemover = () => RemoverEndereco(endereco);
         endereco.AoBuscarCep = e => ConsultaCep?.Invoke(e) ?? Task.CompletedTask;
+        endereco.AoConferirCep = e => ConferenciaCep?.Invoke(e) ?? Task.CompletedTask;
+        endereco.AoBuscarCepPorEndereco = e => BuscaCepPorEndereco?.Invoke(e) ?? Task.CompletedTask;
+        endereco.AoConsultarOutraFonte = e => SegundaOpiniaoCep?.Invoke(e) ?? Task.CompletedTask;
         endereco.DefinirFinalidades(_finalidades);
         endereco.AoPedirPrincipal = AlternarPrincipalAsync;
         endereco.AoUsarExistente = UsarEnderecoExistente;

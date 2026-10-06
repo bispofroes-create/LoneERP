@@ -103,6 +103,10 @@ public class LoneDbContext : DbContext
     public DbSet<Perfil> Perfis => Set<Perfil>();
     public DbSet<TokenRenovacao> TokensRenovacao => Set<TokenRenovacao>();
 
+    /// <summary>F3 do motor de CEP: cache postal persistente e histórico técnico das consultas (sem dados de pessoa).</summary>
+    public DbSet<Lone.Domain.Enderecos.ConferenciaCep.CacheCep> CacheCep => Set<Lone.Domain.Enderecos.ConferenciaCep.CacheCep>();
+    public DbSet<Lone.Domain.Enderecos.ConferenciaCep.ConsultaCep> ConsultasCep => Set<Lone.Domain.Enderecos.ConferenciaCep.ConsultaCep>();
+
     /// <summary>Usuário gravado na auditoria. Definido pelos repositórios ao abrir o contexto.</summary>
     public string Usuario { get; set; } = "sistema";
 

@@ -24,6 +24,93 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.HasSequence<int>("SeqPessoaCodigo");
 
+            modelBuilder.Entity("Lone.Domain.Enderecos.ConferenciaCep.CacheCep", b =>
+                {
+                    b.Property<string>("Chave")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Cep")
+                        .HasMaxLength(8)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(8)");
+
+                    b.Property<DateTime>("ConsultadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("Fonte")
+                        .HasColumnType("tinyint");
+
+                    b.Property<bool>("LimiteAtingido")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Registros")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte>("Situacao")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("Tipo")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("UtilizavelAte")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Chave");
+
+                    b.ToTable("CacheCep", (string)null);
+                });
+
+            modelBuilder.Entity("Lone.Domain.Enderecos.ConferenciaCep.ConsultaCep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Cep")
+                        .HasMaxLength(8)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(8)");
+
+                    b.Property<string>("Chave")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("DuracaoMs")
+                        .HasColumnType("int");
+
+                    b.Property<byte?>("Fonte")
+                        .HasColumnType("tinyint");
+
+                    b.Property<bool?>("LimiteAtingido")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("OcorridoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("Operacao")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("Origem")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("Resultado")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("Tipo")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OcorridoEm");
+
+                    b.ToTable("ConsultasCep", (string)null);
+                });
+
             modelBuilder.Entity("Lone.Domain.Entidades.AnexoDocumento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3574,6 +3661,15 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                         .IsUnicode(false)
                         .HasColumnType("varchar(8)");
 
+                    b.Property<DateTime?>("CepConferidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte?>("CepFonte")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("CepSituacao")
+                        .HasColumnType("tinyint");
+
                     b.Property<string>("Cidade")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -3652,6 +3748,8 @@ namespace Lone.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("MunicipioId");
 
                     b.HasIndex("TipoEnderecoId");
+
+                    b.HasIndex("CepSituacao", "CepConferidoEm");
 
                     b.HasIndex("MescladoEmId", "PessoaId");
 

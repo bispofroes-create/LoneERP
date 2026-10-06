@@ -32,6 +32,32 @@ public class FaixaNumeracaoTests
     }
 
     [Theory]
+    [InlineData("960", 960)]
+    [InlineData("1374 12 Andar", 1374)]
+    [InlineData("37 3 Andar Conjunto 31 e 32", 37)]
+    [InlineData("2313 2 Subsolo", 2313)]
+    [InlineData("1230 Edifício Sede", 1230)]
+    public void Cep_de_predio_vale_so_para_o_numero_do_predio(string texto, int numero)
+    {
+        var faixa = FaixaNumeracao.Interpretar(texto)!;
+
+        Assert.Equal(FaixaNumeracao.Criar(numero, numero), faixa);
+        Assert.Equal(PertinenciaFaixa.Dentro, faixa.Contem(numero));
+        Assert.Equal(PertinenciaFaixa.Fora, faixa.Contem(numero + 2));
+        Assert.Equal(PertinenciaFaixa.Fora, faixa.Contem(numero - 1));
+        Assert.Equal(PertinenciaFaixa.Indeterminado, faixa.Contem("S/N")); // sem número: não elimina
+    }
+
+    [Theory]
+    [InlineData("10 a 20")]
+    [InlineData("999/1000")]
+    [InlineData("10 ao fim")]
+    [InlineData("10 até 20")]
+    [InlineData("10 lado par")]
+    public void Numero_seguido_de_marcador_de_faixa_nao_e_cep_de_predio(string texto) =>
+        Assert.Null(FaixaNumeracao.Interpretar(texto));
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]

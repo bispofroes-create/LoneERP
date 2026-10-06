@@ -141,6 +141,9 @@ public partial class ConfiguracoesViewModel : ViewModelBase
         (ModulosConfiguracao.Pessoas, "Personalização", Permissoes.Cadastros.Etiquetas, new ItemConfiguracao("Etiquetas", "Marcadores livres para agrupar e filtrar pessoas", "etiquetas")),
         (ModulosConfiguracao.Pessoas, "Privacidade", Permissoes.Cadastros.Tipos,
             new ItemConfiguracao("Finalidades de tratamento", "Para quê a pessoa pode ser contatada (LGPD)", "finalidades-tratamento")),
+        // F6 do motor de CEP: só confere (nunca altera endereço). A API exige também editar pessoas e alcance "Tudo".
+        (ModulosConfiguracao.Pessoas, "Manutenção", Permissoes.Cadastros.TabelasOficiais,
+            new ItemConfiguracao("Reconferência de CEPs", "Confere de novo os CEPs e mostra divergências para revisão", "reconferencia-cep")),
         // ---- Comercial (Motor Comercial, Fase 1c): usados na aba Comercial da ficha (cliente e fornecedor) ----
         (ModulosConfiguracao.Comercial, "Carteira de clientes", Permissoes.Cadastros.Comercial,
             new ItemConfiguracao("Papéis comerciais", "Vendedor, representante... quem pode ser, quantos por vez, crédito e metas", "tipos-carteira")),

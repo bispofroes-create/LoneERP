@@ -96,6 +96,7 @@ public static class ConfiguracaoCliente
         services.AddTransient<Lone.Cliente.ViewModels.Territorios.OperacoesTerritoriaisViewModel>(); // Fase 2b-1b
         services.AddTransient<Lone.Cliente.ViewModels.Territorios.DivergenciasTerritoriaisViewModel>();
         services.AddTransient<Lone.Cliente.ViewModels.Territorios.ParametrosTerritoriaisViewModel>();
+        services.AddTransient<Lone.Cliente.ViewModels.Pessoas.ReconferenciaCepViewModel>(); // F6 do motor de CEP
 
         return services;
     }
