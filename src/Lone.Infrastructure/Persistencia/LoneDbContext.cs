@@ -94,6 +94,7 @@ public class LoneDbContext : DbContext
     public DbSet<CampoPersonalizadoOpcao> CampoPersonalizadoOpcoes => Set<CampoPersonalizadoOpcao>();
     public DbSet<Municipio> Municipios => Set<Municipio>();
     public DbSet<PendenciaMunicipio> PendenciasMunicipio => Set<PendenciaMunicipio>();
+    public DbSet<Pais> Paises => Set<Pais>();
     public DbSet<GrupoEconomico> GruposEconomicos => Set<GrupoEconomico>();
     public DbSet<GrupoEmpresarial> GruposEmpresariais => Set<GrupoEmpresarial>();
     public DbSet<TipoRelacionamento> TiposRelacionamento => Set<TipoRelacionamento>();

@@ -15,12 +15,11 @@ public sealed partial class SeletorMunicipio : ObservableObject
 {
     public const int MaximoSugestoes = 8;
 
-    /// <summary>As 27 UFs em ordem alfabética (array: a lista de escolha precisa de IList).</summary>
-    public static readonly string[] Ufs =
-    [
-        "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
-        "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"
-    ];
+    /// <summary>
+    /// As 27 UFs em ordem alfabética (array: a lista de escolha precisa de IList). A fonte é a do domínio
+    /// (<see cref="Lone.Domain.Validacao.Ufs.Todas"/>): uma lista só para validar e para escolher.
+    /// </summary>
+    public static readonly string[] Ufs = [.. global::Lone.Domain.Validacao.Ufs.Todas.Order(StringComparer.Ordinal)];
 
     private IReadOnlyList<(MunicipioDto Municipio, string Busca)> _lista = [];
     private string? _listaDaUf;

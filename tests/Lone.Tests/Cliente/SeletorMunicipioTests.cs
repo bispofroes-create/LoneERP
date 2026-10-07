@@ -115,4 +115,19 @@ public class SeletorMunicipioTests
 
         Assert.Contains("ainda não foi carregada", seletor.Aviso);
     }
+
+    [Fact]
+    public void Lista_de_UFs_vem_do_dominio_com_as_mesmas_27_na_mesma_ordem()
+    {
+        // V2-1 (backlog 21.2): a lista da escolha deixou de ser uma cópia; a tela continua vendo exatamente isto.
+        string[] esperado =
+        [
+            "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
+            "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"
+        ];
+        Assert.Equal(esperado, SeletorMunicipio.Ufs);
+        Assert.Equal(esperado, new SeletorMunicipio().ListaUfs);
+        Assert.True(Lone.Domain.Validacao.Ufs.Todas.SetEquals(SeletorMunicipio.Ufs));
+        Assert.DoesNotContain(Lone.Domain.Validacao.Ufs.Exterior, SeletorMunicipio.Ufs); // "EX" não é UF de escolha
+    }
 }

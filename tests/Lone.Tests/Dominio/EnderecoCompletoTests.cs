@@ -118,7 +118,7 @@ public class EnderecoCompletoTests
     public void Exterior_e_inativo_nao_entram_na_regra()
     {
         var exterior = Endereco();
-        exterior.CodigoPais = "0249";
+        exterior.CodigoPais = "2496"; // cPais NF-e dos Estados Unidos (249 é o código RFB, outro sistema)
         exterior.Pais = "Estados Unidos";
         var inativo = Endereco();
         inativo.Ativo = false;
