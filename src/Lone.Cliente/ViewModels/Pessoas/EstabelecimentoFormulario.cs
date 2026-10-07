@@ -356,7 +356,7 @@ public sealed partial class EstabelecimentoFormulario : ItemDeLista
         NaturezaJuridica = TextoTela.Nulo(NaturezaJuridica),
         CnaesSecundarios = TextoTela.Nulo(CnaesSecundarios),
         // Endereço removido da ficha: volta ao principal em vez de apontar para um Id que não será gravado.
-        EnderecoFiscalId = EnderecoFiscal is { } e && EnderecosDisponiveis.Contains(e) ? e.Id : null
+        EnderecoFiscalId = EnderecoFiscal is { } e && EnderecosDisponiveis.Contains(e) && !e.EmBranco ? e.Id : null
     };
 
     /// <summary>Verdadeiro quando a última consulta de CNPJ trouxe a inscrição estadual.</summary>

@@ -392,6 +392,16 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         }
     }
 
+    /// <summary>
+    /// Endereço novo em que o usuário ainda não mexeu (a ficha nova já abre com um, para facilitar a digitação): não é
+    /// enviado nem conferido, como se não existisse. Qualquer dado digitado ou escolhido (tipo, UF, finalidade, exterior,
+    /// "Sem número"...) faz voltar a valer, com a conferência completa. Endereço já gravado nunca conta como em branco.
+    /// </summary>
+    public bool EmBranco =>
+        !Gravado && !NoExterior && !SemNumero && Tipo?.Valor is null && Finalidades.Count == 0
+        && Municipio.Selecionado is null && string.IsNullOrWhiteSpace(Municipio.Uf) && string.IsNullOrWhiteSpace(Municipio.Texto)
+        && new[] { Cep, Logradouro, Numero, Complemento, Bairro, Cidade, Descricao, Observacoes }.All(string.IsNullOrWhiteSpace);
+
     /// <summary>No Brasil, o município precisa ser escolhido da lista.</summary>
     public string? ValidarMunicipio(string rotulo)
     {

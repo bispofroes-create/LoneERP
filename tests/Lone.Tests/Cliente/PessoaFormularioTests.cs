@@ -136,9 +136,10 @@ public class PessoaFormularioTests
         Assert.Contains("Data de nascimento inválida (use dd/mm/aaaa).", erros);
         Assert.Contains("Cliente: limite de crédito inválido.", erros);
         Assert.Contains(erros, e => e.EndsWith(": validade inválida (use dd/mm/aaaa)."));
-        // O endereço principal da pessoa nova ainda não tem município: no Brasil isso também bloqueia (intencional).
-        Assert.Contains("Endereço 1: escolha a UF e o município na lista.", erros);
-        Assert.Equal(4, erros.Count);
+        // O endereço que a ficha nova já traz, sem nada digitado, não bloqueia nem é enviado (requisito alterado pela
+        // autorização de correções de UX pós-P1-8, 06/10/2026; antes bloqueava "intencionalmente"). Começado, volta a valer.
+        Assert.DoesNotContain(erros, e => e.StartsWith("Endereço", StringComparison.Ordinal));
+        Assert.Equal(3, erros.Count);
     }
 
     [Fact]

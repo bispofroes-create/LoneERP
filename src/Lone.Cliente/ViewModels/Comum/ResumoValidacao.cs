@@ -29,9 +29,10 @@ public sealed class ItemValidacao
 
 /// <summary>
 /// Resumo de erros de um formulário (Lone Contextual, Fase 1: o erro leva ao campo). Guarda os erros da última conferência
-/// (do app ou da API), diz se um campo tem erro e pede para levar a um campo. <b>Só muda numa nova conferência</b>
-/// (<see cref="Definir"/> ou <see cref="Limpar"/>): mexer no campo não tira o erro, porque ainda não se sabe se ficou
-/// certo (decisão do usuário, 04/10/2026). Não é um sistema de notificações: só os erros que impedem gravar o formulário.
+/// (do app ou da API), diz se um campo tem erro e pede para levar a um campo. Muda numa nova conferência
+/// (<see cref="Definir"/> ou <see cref="Limpar"/>) e, entre uma e outra, só perde o erro que comprovadamente deixou de
+/// valer (<see cref="Reconferir"/>, 06/10/2026): mexer no campo, por si só, não tira o erro, porque ainda não se sabe se
+/// ficou certo (decisão do usuário, 04/10/2026). Não é um sistema de notificações: só os erros que impedem gravar o formulário.
 /// Quem decide a aba é o formulário (<see cref="AntesDeIr"/>); quem acha o controle, rola e põe o foco é a tela, que ouve
 /// <see cref="FocoPedido"/>.
 /// </summary>
@@ -73,6 +74,20 @@ public sealed partial class ResumoValidacao : ObservableObject
         if (Itens.Count == 0) return;
         Itens.Clear();
         Avisar();
+    }
+
+    /// <summary>
+    /// Tira só os erros que deixaram de valer, segundo quem conhece a ficha (ex.: o item do erro foi removido; a mesma
+    /// conferência do app já não aponta aquele campo). Nunca acrescenta erro e não mexe nos que continuam valendo, nem na
+    /// ordem deles. Verdadeiro se algum saiu.
+    /// </summary>
+    public bool Reconferir(Func<ErroValidacao, bool> continuaValido)
+    {
+        var sairam = Itens.Where(i => !continuaValido(i.Erro)).ToList();
+        if (sairam.Count == 0) return false;
+        foreach (var item in sairam) Itens.Remove(item);
+        Avisar();
+        return true;
     }
 
     /// <summary>A mensagem do erro deste campo (do registro <paramref name="item"/>, se for de uma lista); nula = sem erro.</summary>

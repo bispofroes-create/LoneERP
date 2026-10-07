@@ -797,15 +797,16 @@ public sealed partial class PessoaFormulario : ObservableObject
                 if (e.NaturezaJuridicaLista.Validar(e.EhPrincipal ? "Natureza jurídica" : $"Natureza jurídica ({e.Titulo})") is { } natureza)
                     erros.Add(natureza, CamposFichaPessoa.NaturezaJuridica, e.EhPrincipal ? null : e.Id); // principal: na Identificação
         // Endereço físico repetido: não grava um novo igual a um existente (usa-se o existente e acrescenta a finalidade).
+        // Endereço em branco (o que a ficha nova já traz, sem nada digitado) não é conferido nem enviado.
         for (var i = 0; i < Enderecos.Count; i++)
-            if (Enderecos[i].IgualA is { } igual)
+            if (!Enderecos[i].EmBranco && Enderecos[i].IgualA is { } igual)
                 erros.Add(Enderecos[i].DuplicidadePossivel
                     ? $"Endereço {i + 1}: parece o mesmo de \"{igual.Resumo}\". Use o endereço existente ou confirme que é outro endereço."
                     : $"Endereço {i + 1}: este endereço já está cadastrado para esta pessoa (\"{igual.Resumo}\"). Use o endereço existente.",
                     CamposFichaPessoa.Logradouro, Enderecos[i].Id);
         // Endereço inativo não é mais conferido (pode ser antigo, de antes da tabela do IBGE).
         for (var i = 0; i < Enderecos.Count; i++)
-            if (Enderecos[i].Ativo && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
+            if (Enderecos[i].Ativo && !Enderecos[i].EmBranco && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
                 erros.Add(endereco, CamposFichaPessoa.Municipio, Enderecos[i].Id);
         // Endereço novo ou alterado completo (a mesma regra da API) e o CEP conferido na consulta (inexistente/outro município).
         erros.AddRange(Lone.Domain.Enderecos.RegrasEndereco.ValidarCompletos(Enderecos.Select(e => e.ParaComparacao()).ToList(),
@@ -831,6 +832,23 @@ public sealed partial class PessoaFormulario : ObservableObject
         if (PapelFornecedor.Ativo) erros.AddRange(ContaFornecedor.Validar());
         return erros;
     }
+
+    /// <summary>
+    /// Os itens das listas da ficha que ainda contam (para saber se o erro de um item deixou de valer porque ele saiu):
+    /// endereços, documentos, telefones/e-mails e contatos só enquanto ativos (removido = não é mais conferido); filiais,
+    /// vínculos, exceções e carteira enquanto estiverem na lista.
+    /// </summary>
+    public HashSet<Guid> ItensPresentes() =>
+    [
+        .. Enderecos.Where(e => e.Ativo).Select(e => e.Id),
+        .. Documentos.Where(d => d.Ativo).Select(d => d.Id),
+        .. MeiosContato.Where(m => m.Ativo).Select(m => m.Id),
+        .. Contatos.Where(c => c.Ativo).Select(c => c.Id),
+        .. Estabelecimentos.Select(e => e.Id),
+        .. Vinculos.Select(v => v.Id),
+        .. Excecoes.Select(e => e.Id),
+        .. Carteira.Select(c => c.Id)
+    ];
 
     public PessoaDto ParaDto()
     {
@@ -858,7 +876,7 @@ public sealed partial class PessoaFormulario : ObservableObject
             Observacoes = TextoTela.Nulo(Observacoes),
             // Só a PJ tem filiais; nas outras naturezas vai o estabelecimento principal (dados fiscais).
             Estabelecimentos = (EhJuridica ? Estabelecimentos.ToList() : [Principal]).Select(e => e.ParaDto()).ToList(),
-            Enderecos = Enderecos.Select((e, i) => e.ParaDto(i)).ToList(),
+            Enderecos = Enderecos.Where(e => !e.EmBranco).Select((e, i) => e.ParaDto(i)).ToList(),
             MeiosContato = MeiosContato.Select(m => m.ParaDto()).ToList(),
             Contatos = Contatos.Select(c => c.ParaDto()).ToList(),
             Documentos = Documentos.Select(d => d.ParaDto()).ToList(),
@@ -1625,7 +1643,8 @@ public sealed partial class PessoaFormulario : ObservableObject
         };
         documento.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(DocumentoFormulario.Ativo) or nameof(DocumentoFormulario.AvisoValidade)) AvisarDocumentos();
+            if (e.PropertyName is nameof(DocumentoFormulario.Ativo) or nameof(DocumentoFormulario.AvisoValidade)
+                or nameof(DocumentoFormulario.TemAnexosInativos)) AvisarDocumentos();
         };
         Documentos.Add(documento);
         AvisarDocumentos();
@@ -1817,7 +1836,11 @@ public sealed partial class PessoaFormulario : ObservableObject
     /// <summary>Mostra também os documentos removidos (inativos), para consultar ou reativar.</summary>
     [ObservableProperty] private bool _mostrarDocumentosInativos;
 
-    public bool TemDocumentosInativos => Documentos.Any(d => !d.Ativo);
+    /// <summary>
+    /// Há o que mostrar em "Mostrar inativos" na aba Documentos: documento removido ou anexo removido de qualquer documento
+    /// (o anexo removido continua guardado e só aparece por ali, mesmo com todos os documentos ativos).
+    /// </summary>
+    public bool TemDocumentosInativos => Documentos.Any(d => !d.Ativo || d.TemAnexosInativos);
 
     partial void OnMostrarDocumentosInativosChanged(bool value)
     {

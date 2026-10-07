@@ -41,6 +41,17 @@ public sealed partial class DocumentoFormulario : ItemDeLista
         Gravado = gravado;
         _tipos = [SemTipo, .. TiposSemCadastro(Guid.Empty)];
         _tipo = SemTipo;
+        // Anexo removido (inativo) também é consultado em "Mostrar inativos": a ficha precisa saber que ele existe.
+        Anexos.CollectionChanged += (_, e) =>
+        {
+            foreach (var a in e.NewItems?.OfType<AnexoFormulario>() ?? []) a.PropertyChanged += Anexo_PropertyChanged;
+            OnPropertyChanged(nameof(TemAnexosInativos));
+        };
+    }
+
+    private void Anexo_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AnexoFormulario.Ativo)) OnPropertyChanged(nameof(TemAnexosInativos));
     }
 
     public Guid Id { get; }
@@ -258,6 +269,9 @@ public sealed partial class DocumentoFormulario : ItemDeLista
     private IReadOnlyList<AnexoDto> _anexosGravados = [];
 
     public ObservableCollection<AnexoFormulario> Anexos { get; } = new();
+
+    /// <summary>Há anexo removido (inativo) neste documento: aparece com "Mostrar inativos", como o documento removido.</summary>
+    public bool TemAnexosInativos => Anexos.Any(a => !a.Ativo);
 
     /// <summary>Só documento já gravado e ativo recebe anexos (o arquivo precisa de um documento no banco).</summary>
     public bool PodeAnexar => Gravado && Ativo;

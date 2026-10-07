@@ -1454,7 +1454,11 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     private string? _fotoDosDestaques;
     private PessoaDto? _gravadoDosDestaques;
 
-    protected override void AlteracoesAvaliadas() => AtualizarDestaques();
+    protected override void AlteracoesAvaliadas()
+    {
+        AtualizarDestaques();
+        ReconferirErros();
+    }
 
     /// <summary>As marcas das abas ("●N" erros, "◆N" destaques) são derivadas da ficha: mudar não é alterar a ficha.</summary>
     protected override bool PropriedadeDaFicha(string? propriedade) =>
@@ -1793,7 +1797,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         // Conferência do app: os erros vão para o resumo fixo (com o campo de cada um) e a ficha leva ao primeiro.
         if (formulario.ValidarLocalmenteComCampos() is { Count: > 0 } erros)
         {
-            MostrarErrosDaFicha(erros);
+            MostrarErrosDaFicha(erros, doApp: true);
             return;
         }
 
@@ -1812,7 +1816,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         if (!executou || recusa is not null)
         {
             desfazerSubstituicoes(); // não gravou: o vendedor anterior volta como estava (a pergunta aparece de novo)
-            if (recusa is not null) MostrarErrosDaFicha(recusa.Itens);
+            if (recusa is not null) MostrarErrosDaFicha(recusa.Itens, doApp: false);
             return;
         }
         Validacao.Limpar();
@@ -1846,11 +1850,51 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// Erros de validação da ficha: no resumo fixo, com o campo de cada um; a ficha vai para o primeiro que tem campo (os
     /// outros continuam no resumo). Só erros gerais: ficam no resumo, sem levar a lugar nenhum.
     /// </summary>
-    private void MostrarErrosDaFicha(IReadOnlyList<ErroValidacao> erros)
+    private void MostrarErrosDaFicha(IReadOnlyList<ErroValidacao> erros, bool doApp)
     {
         LimparMensagem();
+        _itensDosErros = Formulario?.ItensPresentes() ?? [];
+        _errosDoApp = doApp;
         Validacao.Definir(erros);
         Validacao.IrParaPrimeiro();
+    }
+
+    /// <summary>Os itens da ficha (endereços, documentos...) que existiam quando os erros foram mostrados.</summary>
+    private HashSet<Guid> _itensDosErros = [];
+
+    /// <summary>Os erros mostrados vieram da conferência do app (que dá para repetir aqui); falso = vieram da API.</summary>
+    private bool _errosDoApp;
+
+    /// <summary>
+    /// A cada mudança na ficha, tira do resumo (e das marcas e contadores das abas) só o erro que comprovadamente deixou de
+    /// valer: o do item que saiu da ficha (documento, endereço... removido) e, se os erros vieram da conferência do app, o
+    /// do campo que a mesma conferência já não aponta. Erro da API que o app não sabe repetir (ex.: número repetido em
+    /// outra pessoa) continua até a próxima tentativa de salvar, a não ser que o item dele tenha saído (04/10 e 06/10/2026).
+    /// </summary>
+    private void ReconferirErros()
+    {
+        if (!Validacao.Visivel || Formulario is not { } formulario) return;
+        HashSet<Guid> presentes;
+        List<ErroValidacao>? doAppAgora = null;
+        try
+        {
+            presentes = formulario.ItensPresentes();
+            if (_errosDoApp) doAppAgora = [.. formulario.ValidarLocalmenteComCampos()];
+        }
+        catch (Exception)
+        {
+            return; // estado intermediário da digitação: fica como está até a próxima mudança
+        }
+        Validacao.Reconferir(e =>
+        {
+            if (e.Item is { } item && _itensDosErros.Contains(item) && !presentes.Contains(item)) return false;
+            if (doAppAgora is null) return true;
+            // Com campo: vale enquanto a conferência ainda apontar o mesmo campo do mesmo item (o texto pode mudar, ex.:
+            // "Endereço 2" que virou "Endereço 1"); sem campo (erro geral): enquanto a mesma mensagem continuar.
+            return e.Campo is { } campo
+                ? doAppAgora.Any(a => a.Campo == campo && a.Item == e.Item)
+                : doAppAgora.Any(a => a.Campo is null && a.Mensagem == e.Mensagem);
+        });
     }
 
     /// <summary>

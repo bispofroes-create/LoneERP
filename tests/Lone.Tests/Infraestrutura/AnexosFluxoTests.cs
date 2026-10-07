@@ -113,6 +113,33 @@ public class AnexosFluxoTests : IClassFixture<AmbienteCadastroPessoas>
     }
 
     [FatoSqlServer]
+    public async Task Anexo_removido_continua_na_leitura_da_ficha_com_o_mesmo_arquivo_e_hash()
+    {
+        // Correções de UX pós-P1-8 (item 3): a ficha mostra o anexo removido em "Mostrar inativos" porque a leitura da
+        // pessoa continua trazendo ele, intacto. Remover não apaga, não troca o arquivo e não reativa nada.
+        var pessoa = await PessoaComDocumentoAsync();
+        var anexo = await EnviarAsync(pessoa.Id, pessoa.Documentos[0].Id, Pdf);
+        string hashAntes;
+        await using (var antes = _ambiente.Banco!.Contexto())
+            hashAntes = (await antes.AnexosDocumento.SingleAsync(a => a.Id == anexo.Id)).Hash;
+
+        await ComAsync(sp => sp.GetRequiredService<IAnexoAppService>().DesativarAsync(anexo.Id));
+        var lida = await ComAsync(async sp => (await sp.GetRequiredService<IPessoaAppService>().ObterAsync(pessoa.Id))!);
+
+        var documento = Assert.Single(lida.Documentos);
+        Assert.True(documento.Ativo);
+        var devolvido = Assert.Single(documento.Anexos);
+        Assert.Equal(anexo.Id, devolvido.Id);
+        Assert.False(devolvido.Ativo);
+        Assert.Equal(Pdf.Length, devolvido.Tamanho);
+        await using var depois = _ambiente.Banco!.Contexto();
+        var gravado = await depois.AnexosDocumento.SingleAsync(a => a.Id == anexo.Id);
+        Assert.Equal(hashAntes, gravado.Hash);
+        Assert.Equal(Convert.ToHexString(SHA256.HashData(Pdf)), gravado.Hash);
+        Assert.Equal(Pdf, (await BaixarAsync(anexo.Id)).Conteudo);
+    }
+
+    [FatoSqlServer]
     public async Task Permissoes_dos_anexos()
     {
         var pessoa = await PessoaComDocumentoAsync();
