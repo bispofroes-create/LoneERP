@@ -93,9 +93,23 @@
                             <c:BlocoCampos>
                                 <c:CampoEscolha Rotulo="Tipo" Itens="{Binding Tipos}" Selecionado="{Binding Tipo}" />
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.DescricaoEndereco}" c:Validacao.Item="{Binding Id}" Rotulo="Descrição (opcional)" Texto="{Binding Descricao}" TamanhoMaximo="60" Dica="Ex.: Depósito da Rua 2" />
+                                <!-- Bloco A: o país vem primeiro. Marcado, o CEP do Brasil (consulta, conferência, "Não sei o CEP") some e
+                                     aparecem país, código do país e código postal; nada do outro lado é apagado da tela (o aviso diz o que
+                                     não vai ser gravado). -->
+                                <c:CaixaMarcar Texto="Endereço no exterior" Marcado="{Binding NoExterior}" VerticalOptions="Center" FlexLayout.Basis="100%" />
+                                <Label Text="{Binding AvisoTrocaPais, StringFormat='ⓘ {0}'}" IsVisible="{Binding TemAvisoTrocaPais}" FontSize="12"
+                                       LineBreakMode="WordWrap" FlexLayout.Basis="100%" Margin="0,-6,12,8" TextColor="{StaticResource Aviso}"
+                                       SemanticProperties.Description="{Binding AvisoTrocaPais}" />
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Pais}" c:Validacao.Item="{Binding Id}" Rotulo="País" Texto="{Binding Pais}" TamanhoMaximo="60"
+                                         IsVisible="{Binding NoExterior}" />
+                                <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" TamanhoMaximo="4" Mascara="Numero" Dica="Ex.: 6076 (Portugal)"
+                                         IsVisible="{Binding NoExterior}" />
+                                <!-- Código postal do exterior: letras, algarismos, espaço e hífen, sem a máscara do CEP; nunca consulta CEP. -->
+                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cep}" c:Validacao.Item="{Binding Id}" Rotulo="Código postal (opcional)"
+                                         Texto="{Binding CodigoPostal}" TamanhoMaximo="8" Dica="Ex.: SW1A 1AA" IsVisible="{Binding NoExterior}" />
                                 <!-- CEP com o botão ao lado da caixa (a mensagem de erro aparece embaixo sem desalinhar o botão) e, logo
-                                     depois da consulta, o aviso de CEP inexistente (a gravação também recusa). -->
-                                <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0">
+                                     depois da consulta, o aviso de CEP inexistente (a gravação também recusa). Só no Brasil. -->
+                                <VerticalStackLayout FlexLayout.Basis="{OnIdiom Phone='100%', Default='50%'}" Spacing="0" IsVisible="{Binding NoBrasil}">
                                     <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cep}" c:Validacao.Item="{Binding Id}" Rotulo="CEP" Texto="{Binding Cep}" Mascara="Cep">
                                         <c:Campo.AoLado>
                                             <HorizontalStackLayout Spacing="4">
@@ -268,7 +282,6 @@
                                 </VerticalStackLayout>
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Complemento}" c:Validacao.Item="{Binding Id}" Rotulo="Complemento" Texto="{Binding Complemento}" TamanhoMaximo="60" />
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Bairro}" c:Validacao.Item="{Binding Id}" Rotulo="Bairro" Texto="{Binding Bairro}" TamanhoMaximo="80" />
-                                <c:CaixaMarcar Texto="Endereço no exterior" Marcado="{Binding NoExterior}" VerticalOptions="Center" />
                             </c:BlocoCampos>
 
                             <!-- Brasil: UF e município da tabela do IBGE (o CEP já preenche). -->
@@ -284,11 +297,9 @@
                                 </c:BlocoCampos>
                             </ContentView>
 
-                            <!-- Exterior: cidade e país digitados (fora da tabela do IBGE). -->
+                            <!-- Exterior: cidade digitada (fora da tabela do IBGE); país, código e código postal ficam no alto do cartão. -->
                             <c:BlocoCampos IsVisible="{Binding NoExterior}">
                                 <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Cidade}" c:Validacao.Item="{Binding Id}" Rotulo="Cidade" Texto="{Binding Cidade}" TamanhoMaximo="80" />
-                                <c:Campo c:Validacao.Campo="{x:Static cf:CamposFichaPessoa.Pais}" c:Validacao.Item="{Binding Id}" Rotulo="País" Texto="{Binding Pais}" TamanhoMaximo="60" />
-                                <c:Campo Rotulo="Código do país (Bacen)" Texto="{Binding CodigoPais}" TamanhoMaximo="4" Mascara="Numero" />
                             </c:BlocoCampos>
 
                             <!-- Finalidades: cada uma pode ser a principal da pessoa para aquele uso. -->

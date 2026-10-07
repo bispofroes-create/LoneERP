@@ -2739,6 +2739,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     /// </summary>
     private async Task ConferirCepAsync(EnderecoFormulario endereco)
     {
+        if (endereco.NoExterior) return; // CEP do Brasil: o exterior nunca vai ao Motor CEP (Bloco A)
         if (!Cep.TentarCriar(endereco.Cep, out _))
         {
             Mostrar("Digite um CEP válido (8 dígitos) para conferir.", TipoMensagem.Aviso);
@@ -2822,6 +2823,7 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     private async Task ConsultarCepAsync(EnderecoFormulario endereco)
     {
+        if (endereco.NoExterior) return; // CEP do Brasil: o exterior nunca consulta o ViaCEP (Bloco A, D-2)
         if (!Cep.TentarCriar(endereco.Cep, out var cep))
         {
             Mostrar("Digite um CEP válido (8 dígitos) para buscar.", TipoMensagem.Aviso);

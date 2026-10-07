@@ -643,7 +643,8 @@ public sealed partial class GradePessoas : ObservableObject
             TipoColunaLista.Data when DateOnly.TryParseExact(valor, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) =>
                 TextoTela.Data(d),
             TipoColunaLista.Telefone => Mascara.Aplicar(TipoMascara.Telefone, valor),
-            TipoColunaLista.Cep => Mascara.Aplicar(TipoMascara.Cep, valor),
+            // Só o CEP do Brasil (8 algarismos) leva a máscara; o código postal do exterior ("SW1A 1AA", "1000-001") aparece como gravado.
+            TipoColunaLista.Cep => valor.Length == 8 && valor.All(char.IsAsciiDigit) ? Mascara.Aplicar(TipoMascara.Cep, valor) : valor,
             TipoColunaLista.Opcao => c.Opcoes.FirstOrDefault(o => o.Valor == valor)?.Texto ?? valor,
             _ => valor
         };

@@ -104,7 +104,12 @@ public static class PessoaNormalizador
             var e = enderecos[i];
             e.Ordem = i;
             e.Descricao = Texto(e.Descricao);
-            e.Cep = Texto(Documento.SomenteDigitos(e.Cep));
+            // O país vem antes do CEP: no Brasil o CEP fica só com algarismos; no exterior é o código postal, que tem letras
+            // em muitos países ("SW1A 1AA", "K1A 0B6"): maiúsculas, espaços reduzidos, nada tirado (Bloco A, D-1).
+            e.CodigoPais = Texto(Documento.SomenteDigitos(e.CodigoPais)) ?? PessoaEndereco.CodigoPaisBrasil;
+            e.Cep = e.EhBrasil
+                ? Texto(Documento.SomenteDigitos(e.Cep))
+                : Lone.Domain.Enderecos.RegrasEndereco.NormalizarCodigoPostal(e.Cep);
             e.Logradouro = Texto(e.Logradouro) ?? string.Empty;
             e.Numero = Lone.Domain.Enderecos.RegrasEndereco.NormalizarNumero(Texto(e.Numero)); // "SN", "s/n"... = "S/N"
             e.Complemento = Texto(e.Complemento);
@@ -112,7 +117,6 @@ public static class PessoaNormalizador
             e.Cidade = Texto(e.Cidade) ?? string.Empty;
             e.Uf = Texto(e.Uf)?.ToUpperInvariant();
             e.CodigoMunicipioIbge = Texto(Documento.SomenteDigitos(e.CodigoMunicipioIbge));
-            e.CodigoPais = Texto(Documento.SomenteDigitos(e.CodigoPais)) ?? PessoaEndereco.CodigoPaisBrasil;
             e.Pais = Texto(e.Pais) ?? (e.EhBrasil ? "Brasil" : string.Empty);
 
             if (!e.EhBrasil)

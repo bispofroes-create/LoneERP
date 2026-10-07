@@ -808,6 +808,10 @@ public sealed partial class PessoaFormulario : ObservableObject
         for (var i = 0; i < Enderecos.Count; i++)
             if (Enderecos[i].Ativo && !Enderecos[i].EmBranco && Enderecos[i].ValidarMunicipio($"Endereço {i + 1}") is { } endereco)
                 erros.Add(endereco, CamposFichaPessoa.Municipio, Enderecos[i].Id);
+        // Exterior: código do país vazio ou 1058 viraria Brasil na API (Bloco A, D-3).
+        for (var i = 0; i < Enderecos.Count; i++)
+            if (!Enderecos[i].EmBranco && Enderecos[i].ValidarPais($"Endereço {i + 1}") is { } pais)
+                erros.Add(pais, CamposFichaPessoa.Pais, Enderecos[i].Id);
         // Endereço novo ou alterado completo (a mesma regra da API) e o CEP conferido na consulta (inexistente/outro município).
         erros.AddRange(Lone.Domain.Enderecos.RegrasEndereco.ValidarCompletos(Enderecos.Select(e => e.ParaComparacao()).ToList(),
             Enderecos.Select(e => e.ComoGravado).OfType<Lone.Domain.Entidades.PessoaEndereco>()));
@@ -1134,7 +1138,8 @@ public sealed partial class PessoaFormulario : ObservableObject
     [
         nameof(EnderecoFormulario.Logradouro), nameof(EnderecoFormulario.Numero), nameof(EnderecoFormulario.Complemento),
         nameof(EnderecoFormulario.Bairro), nameof(EnderecoFormulario.Cep), nameof(EnderecoFormulario.Cidade),
-        nameof(EnderecoFormulario.NoExterior), nameof(EnderecoFormulario.Resumo), nameof(EnderecoFormulario.Ativo)
+        nameof(EnderecoFormulario.NoExterior), nameof(EnderecoFormulario.Resumo), nameof(EnderecoFormulario.Ativo),
+        nameof(EnderecoFormulario.CodigoPostal), nameof(EnderecoFormulario.CodigoPais)
     ];
 
     private void Endereco_PropertyChanged(object? sender, PropertyChangedEventArgs e)

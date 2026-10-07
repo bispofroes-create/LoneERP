@@ -42,6 +42,25 @@ public static class RegrasEndereco
         return digitos.Count == 0 || (digitos.All(c => c == '0') && !numero.Any(char.IsLetter));
     }
 
+    /// <summary>Tamanho da coluna do CEP, que no exterior guarda o código postal.</summary>
+    public const int TamanhoMaximoCodigoPostal = 8;
+
+    /// <summary>
+    /// Código postal do exterior como gravado: maiúsculas, sem espaços nas pontas e com um espaço só entre as partes. Nada é
+    /// tirado (letras, hífen e o que mais vier ficam): o que não cabe na regra é recusado por <see cref="CodigoPostalValido"/>,
+    /// nunca corrigido em silêncio. Vazio = nulo.
+    /// </summary>
+    public static string? NormalizarCodigoPostal(string? codigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo)) return null;
+        return string.Join(' ', codigo.Trim().ToUpperInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>Código postal do exterior aceito: até 8 caracteres, só letras A–Z, algarismos, espaço e hífen (cabe na coluna).</summary>
+    public static bool CodigoPostalValido(string? codigo) =>
+        codigo is null || (codigo.Length <= TamanhoMaximoCodigoPostal
+                           && codigo.All(c => c is (>= 'A' and <= 'Z') or (>= '0' and <= '9') or ' ' or '-'));
+
     /// <summary>Qualquer forma de "sem número" vira <see cref="SemNumero"/>; o resto fica como está.</summary>
     public static string? NormalizarNumero(string? numero) => EhSemNumero(numero) ? SemNumero : numero;
 

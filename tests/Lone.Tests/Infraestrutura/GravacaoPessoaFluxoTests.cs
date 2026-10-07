@@ -251,6 +251,25 @@ public class GravacaoPessoaFluxoTests : IClassFixture<AmbienteCadastroPessoas>
     }
 
     [FatoSqlServer]
+    public async Task Codigo_postal_do_exterior_com_letras_e_gravado_e_reaberto_como_digitado()
+    {
+        // Bloco A, D-1: o código postal do exterior guarda as letras (antes ficava só com os algarismos: "SW1A 1AA" → "11").
+        var dto = new PessoaDto { Natureza = NaturezaPessoa.Estrangeiro, Nome = "John Smith", DocumentoPrincipal = "P7654321" };
+        dto.Enderecos.Add(new EnderecoDto
+        {
+            Id = Guid.NewGuid(), Logradouro = "Downing Street", Numero = "10", Cidade = "Londres", Pais = "Reino Unido", CodigoPais = "6289",
+            Cep = "sw1a 1aa"
+        });
+
+        var salva = await SalvarAsync(dto);
+        var reaberta = await ObterAsync(salva.Id);
+
+        var endereco = Assert.Single(reaberta.Enderecos);
+        Assert.Equal(("SW1A 1AA", "6289", Ufs.Exterior), (endereco.Cep, endereco.CodigoPais, endereco.Uf));
+        Assert.Null(endereco.MunicipioId);
+    }
+
+    [FatoSqlServer]
     public async Task Cpf_ja_cadastrado_e_recusado_no_campo_documento()
     {
         var cpf = DocumentosDeTeste.Cpf();

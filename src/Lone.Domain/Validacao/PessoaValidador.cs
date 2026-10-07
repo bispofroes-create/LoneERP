@@ -238,9 +238,12 @@ public static class PessoaValidador
                 erros.Add($"{rotulo}: informe a cidade.", C.Cidade, e.Id);
             if (e.Pais.Length == 0)
                 erros.Add($"{rotulo}: informe o país.", C.Pais, e.Id);
-            // No exterior o código postal não passa pela regra do CEP (8 dígitos): só cabe na coluna (8).
-            if (e.Cep is { Length: > 8 })
-                erros.Add($"{rotulo}: o código postal pode ter no máximo 8 dígitos.", C.Cep, e.Id);
+            // No exterior o código postal não passa pela regra do CEP (8 dígitos): letras, algarismos, espaço e hífen,
+            // até o tamanho da coluna (8). Bloco A, D-1: as letras não são mais tiradas.
+            if (e.Cep is { Length: > Lone.Domain.Enderecos.RegrasEndereco.TamanhoMaximoCodigoPostal })
+                erros.Add($"{rotulo}: o código postal pode ter no máximo {Lone.Domain.Enderecos.RegrasEndereco.TamanhoMaximoCodigoPostal} caracteres.", C.Cep, e.Id);
+            else if (!Lone.Domain.Enderecos.RegrasEndereco.CodigoPostalValido(e.Cep))
+                erros.Add($"{rotulo}: o código postal aceita só letras, algarismos, espaço e hífen.", C.Cep, e.Id);
         }
     }
 

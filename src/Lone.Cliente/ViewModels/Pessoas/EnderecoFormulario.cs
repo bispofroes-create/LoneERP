@@ -43,6 +43,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         {
             if (e.PropertyName is nameof(SeletorMunicipio.Selecionado) or nameof(SeletorMunicipio.Uf))
                 OnPropertyChanged(nameof(Resumo));
+            if (e.PropertyName is nameof(SeletorMunicipio.Selecionado) or nameof(SeletorMunicipio.Uf) or nameof(SeletorMunicipio.Texto))
+                AvisarTrocaPais();
             // O município participa da conferência do CEP: mudou, a decisão anterior não vale mais (L-1).
             if (e.PropertyName is nameof(SeletorMunicipio.Selecionado) or nameof(SeletorMunicipio.Uf) or nameof(SeletorMunicipio.Texto))
                 ReavaliarDecisaoCep();
@@ -308,7 +310,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     {
         Id = Id,
         Ativo = Ativo,
-        Cep = Cep,
+        Cep = NoExterior ? CodigoPostal : Cep,
         Logradouro = Logradouro,
         Numero = Numero,
         Complemento = Complemento,
@@ -319,7 +321,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         CodigoPais = NoExterior ? CodigoPais : PessoaEndereco.CodigoPaisBrasil
     };
 
-    [ObservableProperty] private string _cep = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(AvisoTrocaPais), nameof(TemAvisoTrocaPais))] private string _cep = string.Empty;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _logradouro = string.Empty;
     [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo), nameof(SugerirSemNumero))] private string _numero = string.Empty;
 
@@ -365,31 +367,87 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     partial void OnBairroChanged(string value) => ReavaliarDecisaoCep();
 
     /// <summary>Cidade digitada: só para endereço no exterior (no Brasil vale o município da lista).</summary>
-    [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo))] private string _cidade = string.Empty;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(Resumo), nameof(AvisoTrocaPais), nameof(TemAvisoTrocaPais))] private string _cidade = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NoBrasil), nameof(Resumo), nameof(SugerirSemNumero))]
+    [NotifyPropertyChangedFor(nameof(NoBrasil), nameof(Resumo), nameof(SugerirSemNumero), nameof(AvisoTrocaPais), nameof(TemAvisoTrocaPais))]
     private bool _noExterior;
 
-    [ObservableProperty] private string _codigoPais = PessoaEndereco.CodigoPaisBrasil;
-    [ObservableProperty] private string _pais = "Brasil";
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(AvisoTrocaPais), nameof(TemAvisoTrocaPais))]
+    private string _codigoPais = PessoaEndereco.CodigoPaisBrasil;
+
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(AvisoTrocaPais), nameof(TemAvisoTrocaPais))] private string _pais = "Brasil";
+
+    /// <summary>
+    /// Código postal do exterior (letras, algarismos, espaço e hífen; até 8), separado do CEP do Brasil: os dois ficam
+    /// guardados na tela e só o do lado escolhido vai na gravação (na mesma coluna do banco). Nunca consulta CEP (Bloco A).
+    /// </summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(AvisoTrocaPais), nameof(TemAvisoTrocaPais))]
+    private string _codigoPostal = string.Empty;
 
     public bool NoBrasil => !NoExterior;
+
+    /// <summary>
+    /// Trocar Brasil ↔ exterior não apaga nada na tela: o que é só do outro lado fica guardado (e volta ao desmarcar), mas
+    /// não é gravado. O aviso diz exatamente o quê, só quando há dado do outro lado (Bloco A, D5).
+    /// </summary>
+    public string AvisoTrocaPais
+    {
+        get
+        {
+            if (NoExterior)
+                return string.IsNullOrWhiteSpace(Cep) && Municipio.Selecionado is null && string.IsNullOrWhiteSpace(Municipio.Uf)
+                       && string.IsNullOrWhiteSpace(Municipio.Texto)
+                    ? string.Empty
+                    : "Os dados do Brasil (CEP, UF e município) ficam guardados nesta tela, mas não são gravados enquanto o " +
+                      "endereço estiver no exterior. Desmarque \"Endereço no exterior\" para voltar a eles.";
+            var codigo = Digitos(CodigoPais);
+            return string.IsNullOrWhiteSpace(CodigoPostal) && string.IsNullOrWhiteSpace(Cidade)
+                   && (codigo.Length == 0 || codigo == PessoaEndereco.CodigoPaisBrasil)
+                   && (string.IsNullOrWhiteSpace(Pais) || string.Equals(Pais.Trim(), "Brasil", StringComparison.OrdinalIgnoreCase))
+                ? string.Empty
+                : "Os dados do exterior (país, código do país, código postal e cidade) ficam guardados nesta tela, mas não são " +
+                  "gravados com o endereço no Brasil.";
+        }
+    }
+
+    public bool TemAvisoTrocaPais => AvisoTrocaPais.Length > 0;
+
+    private void AvisarTrocaPais()
+    {
+        OnPropertyChanged(nameof(AvisoTrocaPais));
+        OnPropertyChanged(nameof(TemAvisoTrocaPais));
+    }
+
+    /// <summary>
+    /// Exterior: o código do país (Bacen) é o que diz que o endereço é do exterior. Vazio viraria Brasil (1058) na API, e
+    /// 1058 é o Brasil: a ficha recusa os dois (Bloco A, D-3). Sem 4 algarismos, só recusa em endereço novo ou com o código
+    /// alterado (cadastro antigo não fica bloqueado). Nulo = tudo certo.
+    /// </summary>
+    public string? ValidarPais(string rotulo)
+    {
+        if (!NoExterior || !Ativo) return null;
+        var codigo = Digitos(CodigoPais);
+        if (codigo.Length == 0) return $"{rotulo}: informe o código do país (Bacen, 4 algarismos).";
+        if (codigo == PessoaEndereco.CodigoPaisBrasil)
+            return $"{rotulo}: 1058 é o código do Brasil. Para endereço no Brasil, desmarque \"Endereço no exterior\".";
+        if (codigo.Length != 4 && (ComoGravado is null || Digitos(ComoGravado.CodigoPais) != codigo))
+            return $"{rotulo}: o código do país (Bacen) deve ter 4 algarismos.";
+        return null;
+    }
 
     partial void OnNoExteriorChanged(bool value)
     {
         // A conferência do CEP vale só para o endereço no Brasil em que foi feita.
         if (_decisaoCep is not null) LimparDecisaoCep();
         ReavaliarOrientacaoBuscaCep();
+        // Indo para o exterior, o país do Brasil sai para o usuário escolher o do exterior. Voltando ao Brasil, o país do
+        // exterior que foi digitado fica guardado (não é reescrito com 1058/Brasil): a gravação no Brasil manda 1058 de
+        // qualquer jeito, e marcar de novo traz o que tinha sido digitado (Bloco A, D5).
         if (value)
         {
             if (CodigoPais == PessoaEndereco.CodigoPaisBrasil) CodigoPais = string.Empty;
             if (Pais == "Brasil") Pais = string.Empty;
-        }
-        else
-        {
-            CodigoPais = PessoaEndereco.CodigoPaisBrasil;
-            Pais = "Brasil";
         }
     }
 
@@ -401,7 +459,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     public bool EmBranco =>
         !Gravado && !NoExterior && !SemNumero && Tipo?.Valor is null && Finalidades.Count == 0
         && Municipio.Selecionado is null && string.IsNullOrWhiteSpace(Municipio.Uf) && string.IsNullOrWhiteSpace(Municipio.Texto)
-        && new[] { Cep, Logradouro, Numero, Complemento, Bairro, Cidade, Descricao, Observacoes }.All(string.IsNullOrWhiteSpace);
+        && new[] { Cep, CodigoPostal, Logradouro, Numero, Complemento, Bairro, Cidade, Descricao, Observacoes }.All(string.IsNullOrWhiteSpace);
 
     /// <summary>No Brasil, o município precisa ser escolhido da lista.</summary>
     public string? ValidarMunicipio(string rotulo)
@@ -667,7 +725,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
 
     /// <summary>Botão "Conferir CEP": pede a conferência (não grava nada).</summary>
     [RelayCommand]
-    private Task ConferirCepAsync() => AoConferirCep?.Invoke(this) ?? Task.CompletedTask;
+    private Task ConferirCepAsync() =>
+        NoExterior ? Task.CompletedTask : AoConferirCep?.Invoke(this) ?? Task.CompletedTask; // o exterior não confere (Bloco A)
 
     /// <summary>O endereço como pedido de conferência (só leitura dos campos).</summary>
     public ConferirCepRequisicao ParaConferencia() => new()
@@ -882,6 +941,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     [RelayCommand]
     private Task BuscarCepAsync()
     {
+        if (NoExterior) return Task.CompletedTask; // CEP do Brasil; o exterior não consulta (Bloco A)
         _cepConhecido = Digitos(Cep);
         return AoBuscarCep?.Invoke(this) ?? Task.CompletedTask;
     }
@@ -893,7 +953,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         if (digitos != _cepVerificado) LimparConferenciaCep();
         // CEP diferente do aplicado (ou do conferido): a marca de sugestão e o resultado da conferência não valem mais.
         ReavaliarDecisaoCep();
-        if (digitos.Length != 8 || digitos == _cepConhecido || AoBuscarCep is null) return;
+        // No exterior nunca há consulta de CEP do Brasil (Bloco A, D-2): nem o ViaCEP, nem a troca para o Brasil.
+        if (NoExterior || digitos.Length != 8 || digitos == _cepConhecido || AoBuscarCep is null) return;
         _cepConhecido = digitos;
         _ = AoBuscarCep(this);
     }
@@ -946,16 +1007,25 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         return f;
     }
 
-    private static EnderecoFormulario Criar(EnderecoDto e) => new(e.Id, gravado: true)
+    private static EnderecoFormulario Criar(EnderecoDto e)
     {
-        _cepConhecido = Digitos(e.Cep),
+        // No exterior a coluna do CEP guarda o código postal: vai para o campo dele, como gravado (Bloco A).
+        var exterior = e.CodigoPais != PessoaEndereco.CodigoPaisBrasil;
+        return exterior ? CriarCom(e, cep: string.Empty, codigoPostal: e.Cep ?? string.Empty)
+                        : CriarCom(e, CepValor.TentarCriar(e.Cep, out var cep) ? cep!.Formatado : e.Cep ?? string.Empty, string.Empty);
+    }
+
+    private static EnderecoFormulario CriarCom(EnderecoDto e, string cep, string codigoPostal) => new(e.Id, gravado: true)
+    {
+        _cepConhecido = Digitos(cep),
         _tipoGravado = e.TipoEnderecoId,
         Descricao = e.Descricao ?? string.Empty,
         Observacoes = e.Observacoes ?? string.Empty,
         Ativo = e.Ativo,
         MescladoEmId = e.MescladoEmId,
         RevisaoMigracao = e.RevisaoMigracao,
-        Cep = CepValor.TentarCriar(e.Cep, out var cep) ? cep!.Formatado : e.Cep ?? string.Empty,
+        Cep = cep,
+        CodigoPostal = codigoPostal,
         Logradouro = e.Logradouro,
         Numero = e.Numero ?? string.Empty,
         Complemento = e.Complemento ?? string.Empty,
@@ -983,7 +1053,8 @@ public sealed partial class EnderecoFormulario : ItemDeLista
             Id = f.Id, FinalidadeId = f.FinalidadeId, Ativo = f.Ativo, Principal = Ativo && f.Ativo && f.Principal
         }).ToList(),
         Ordem = ordem,
-        Cep = TextoTela.Nulo(Cep),
+        // Brasil: o CEP; exterior: o código postal (a mesma coluna). O do outro lado fica só na tela (Bloco A).
+        Cep = TextoTela.Nulo(NoExterior ? CodigoPostal : Cep),
         Logradouro = Logradouro,
         Numero = TextoTela.Nulo(Numero),
         Complemento = TextoTela.Nulo(Complemento),
@@ -1056,7 +1127,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     /// </summary>
     public IReadOnlyList<string> Localizacao() =>
     [
-        Cep, Logradouro, Numero, Complemento, Bairro,
+        NoExterior ? CodigoPostal : Cep, Logradouro, Numero, Complemento, Bairro,
         NoExterior ? Cidade : Municipio.Selecionado is { } m ? $"{m.Nome}/{m.Uf}" : $"{Municipio.Texto}/{Municipio.Uf}",
         NoExterior ? "exterior" : "Brasil"
     ];
