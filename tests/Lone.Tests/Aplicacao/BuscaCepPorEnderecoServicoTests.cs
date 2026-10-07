@@ -195,6 +195,30 @@ public class BuscaCepPorEnderecoServicoTests
     }
 
     [Fact]
+    public async Task Tempo_esgotado_na_busca_vira_indisponivel_e_nao_entra_no_cache()
+    {
+        // D5: a busca é sob demanda e tem teto; a fonte que não responde a tempo não trava a ficha nem vira "nenhum CEP".
+        var chamou = new TaskCompletionSource();
+        _viaCep.Busca = async (_, ct) =>
+        {
+            chamou.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            return ResultadoBuscaProvedorCep.Com(CepFonte.ViaCep, []);
+        };
+
+        var busca = Servico().BuscarPorEnderecoAsync(Endereco());
+        await chamou.Task;
+        _relogio.Advance(ServicoConferenciaCep.TetoTotal + TimeSpan.FromSeconds(1));
+        var r = await busca;
+
+        Assert.Equal(ResultadoDecisaoCep.FonteIndisponivel, r.Decisao.Resultado);
+        Assert.Equal(MotorCep.MensagemBuscaIndisponivel, Assert.Single(r.Decisao.Motivos));
+        Assert.Empty(r.Decisao.Candidatos);
+        Assert.Equal(1, _viaCep.Buscas);
+        Assert.Null(_cache.ObterBusca(BuscaEnderecoCep.De(Endereco())!));
+    }
+
+    [Fact]
     public async Task Cancelamento_de_quem_chamou_continua_cancelamento()
     {
         using var cts = new CancellationTokenSource();

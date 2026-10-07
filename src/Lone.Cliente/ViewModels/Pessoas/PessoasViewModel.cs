@@ -1595,6 +1595,8 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
 
     private void Desligar(PessoaFormulario formulario)
     {
+        // Busca de CEP pelo endereço em andamento na ficha que sai: cancelada (nada dela chega à ficha nova).
+        foreach (var endereco in formulario.Enderecos) endereco.CancelarBuscaCepCommand.Execute(null);
         formulario.ConsultaCep = null;
         formulario.ConferenciaCep = null;
         formulario.BuscaCepPorEndereco = null;
@@ -2753,10 +2755,6 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
     }
 
     /// <summary>
-    /// "Encontrar CEP" (Checkpoint D): o usuário não sabe o CEP; a API busca pelo endereço e devolve candidatos. A ficha só
-    /// mostra; usar um é escolha do usuário e vira alteração não salva. Dados insuficientes: a API responde com a mensagem.
-    /// </summary>
-    /// <summary>
     /// "Consultar outra fonte" (Checkpoint G): a API compara a resposta da conferência com a de outra fonte. A ficha só
     /// mostra concordâncias e divergências; nenhuma fonte é escolhida e nada muda no endereço.
     /// </summary>
@@ -2771,14 +2769,55 @@ public sealed partial class PessoasViewModel : CadastroViewModelBase<PessoaResum
         endereco.MostrarSegundaOpiniao(opiniao!, cep);
     }
 
+    /// <summary>Busca de CEP pelo endereço indisponível (rede, servidor): amigável, sem detalhe técnico.</summary>
+    public const string MensagemBuscaCepIndisponivel =
+        "Não foi possível pesquisar CEPs neste momento. Você pode tentar novamente ou informar o CEP manualmente.";
+
+    /// <summary>
+    /// "Não sei o CEP" (Checkpoint D; D3 da busca de CEP por endereço): o usuário não sabe o CEP; a API busca pelo endereço
+    /// e devolve candidatos. A ficha só mostra; usar um é escolha do usuário e vira alteração não salva (e passa pela
+    /// conferência, D1). Faltou UF, município ou logradouro: nada é consultado, a mensagem diz o que falta e a ficha leva
+    /// ao campo. Durante a busca a ficha continua usável ("Procurando CEPs…", com "Cancelar"); cancelada, nada muda.
+    /// </summary>
     private async Task BuscarCepPorEnderecoAsync(EnderecoFormulario endereco)
     {
-        DecisaoCepDto? decisao = null;
-        var dados = endereco.ParaConferencia(); // os dados com que a busca foi pedida (resposta atrasada é descartada)
-        if (!await ExecutarAsync(async () => decisao = await _consultas.BuscarCepPorEnderecoAsync(endereco.ParaBuscaPorEndereco())))
+        if (endereco.ProcurandoCep) return; // uma busca por vez neste endereço
+        if (endereco.FaltaParaBuscarCep() is { } falta)
+        {
+            endereco.MostrarOrientacaoBuscaCep(falta.Mensagem); // junto da ação (a faixa da ficha pode sair da vista)
+            Mostrar(falta.Mensagem, TipoMensagem.Aviso);
+            Validacao.Levar(new DestinoCampo(falta.Campo, endereco.Id));
             return;
-        if (!endereco.MostrarConferencia(decisao!, dados))
-            Mostrar("O endereço mudou durante a busca. Clique em \"Encontrar CEP\" de novo.", TipoMensagem.Aviso);
+        }
+
+        var dados = endereco.ParaConferencia(); // os dados com que a busca foi pedida (resposta atrasada é descartada)
+        var ct = endereco.IniciarBuscaCep();
+        LimparMensagem();
+        try
+        {
+            var decisao = await _consultas.BuscarCepPorEnderecoAsync(endereco.ParaBuscaPorEndereco(), ct);
+            if (ct.IsCancellationRequested) return;
+            if (!endereco.MostrarConferencia(decisao, dados))
+                Mostrar("O endereço mudou durante a busca. Clique em \"Não sei o CEP\" de novo.", TipoMensagem.Aviso);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancelada pelo usuário: o endereço fica como estava e nenhum resultado aparece.
+        }
+        catch (Exception ex) when (ex is ServidorIndisponivelException or ErroDaApiException
+                                       or System.Text.Json.JsonException or NotSupportedException)
+        {
+            // Rede, tempo esgotado, servidor com erro ou resposta que não dá para ler: amigável, sem detalhe técnico.
+            Mostrar(MensagemBuscaCepIndisponivel, TipoMensagem.Aviso);
+        }
+        catch (Exception ex)
+        {
+            MostrarErro(ex); // dados recusados pela API, sessão expirada, permissão: as mensagens de sempre
+        }
+        finally
+        {
+            endereco.TerminarBuscaCep();
+        }
     }
 
     private async Task ConsultarCepAsync(EnderecoFormulario endereco)

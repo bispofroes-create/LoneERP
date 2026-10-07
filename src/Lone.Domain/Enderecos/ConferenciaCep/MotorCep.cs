@@ -99,6 +99,10 @@ public static class MotorCep
         }
     }
 
+    /// <summary>A fonte não respondeu à busca pelo endereço: amigável, sem detalhe técnico, e o caminho manual à vista.</summary>
+    public const string MensagemBuscaIndisponivel =
+        "Não foi possível consultar a fonte de CEP agora. Você pode tentar novamente ou informar o CEP manualmente.";
+
     /// <summary>
     /// Busca de CEP pelo endereço quando o usuário <b>não sabe o CEP</b> (Checkpoint D): o mesmo filtro dos casos 4 a 6
     /// (UF, município, bairro, logradouro, número/faixa/lado/prédio), sem CEP informado. Busca candidatos; não descobre "o
@@ -115,8 +119,9 @@ public static class MotorCep
         const string semCep = "";
 
         if (busca.Situacao == SituacaoRespostaFonte.Indisponivel)
+            // Sem "o cadastro pode seguir": o CEP continua obrigatório no endereço (decisão D2 da busca por endereço).
             return new DecisaoCep(ResultadoDecisaoCep.FonteIndisponivel, semCep, busca.Fonte, null, null, [],
-                ["Não foi possível consultar a fonte de CEP agora. Tente de novo mais tarde; o cadastro pode seguir normalmente."],
+                [MensagemBuscaIndisponivel],
                 false, []);
 
         var candidatos = Filtrar(endereco, busca.Registros, cepExcluido: null);

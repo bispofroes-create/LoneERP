@@ -44,6 +44,29 @@ internal sealed class ServidorFalso : HttpMessageHandler
         return this;
     }
 
+    /// <summary>A chamada não termina a tempo (o HttpClient desiste): o mesmo que o cliente vê num tempo esgotado.</summary>
+    public ServidorFalso TempoEsgotado()
+    {
+        _respostas.Enqueue(_ => throw new TaskCanceledException("Tempo esgotado.", new TimeoutException()));
+        return this;
+    }
+
+    /// <summary>Resposta 200 com um corpo que não é o JSON esperado.</summary>
+    public ServidorFalso RespostaInvalida(string corpo = "{ isto não é json")
+    {
+        _respostas.Enqueue(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(corpo, System.Text.Encoding.UTF8, "application/json")
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Quando definido, cada chamada fica parada (depois de registrada) até a tarefa terminar ou o token da chamada ser
+    /// cancelado: para ver o estado da tela no meio de uma consulta e testar o cancelamento.
+    /// </summary>
+    public TaskCompletionSource? Segurar { get; set; }
+
     public ServidorFalso ForaDoAr()
     {
         _respostas.Enqueue(_ => throw new HttpRequestException("Conexão recusada."));
@@ -54,6 +77,7 @@ internal sealed class ServidorFalso : HttpMessageHandler
     {
         var corpo = requisicao.Content is null ? string.Empty : await requisicao.Content.ReadAsStringAsync(ct);
         Recebidas.Add((requisicao.Method, requisicao.RequestUri!.AbsolutePath, requisicao.Headers.Authorization?.Parameter, corpo));
+        if (Segurar is { } segurar) await segurar.Task.WaitAsync(ct);
         if (_porCaminho.TryGetValue(requisicao.RequestUri!.AbsolutePath, out var doCaminho) && doCaminho.Count > 0)
             return doCaminho.Dequeue()(requisicao);
         if (_respostas.Count == 0)

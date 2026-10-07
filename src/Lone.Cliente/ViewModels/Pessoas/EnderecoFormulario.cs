@@ -380,6 +380,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     {
         // A conferência do CEP vale só para o endereço no Brasil em que foi feita.
         if (_decisaoCep is not null) LimparDecisaoCep();
+        ReavaliarOrientacaoBuscaCep();
         if (value)
         {
             if (CodigoPais == PessoaEndereco.CodigoPaisBrasil) CodigoPais = string.Empty;
@@ -567,9 +568,92 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     /// <summary>Definido pela ficha: busca CEPs pelo endereço, sem CEP (POST consultas/cep/buscar-por-endereco).</summary>
     public Func<EnderecoFormulario, Task>? AoBuscarCepPorEndereco { get; set; }
 
-    /// <summary>Link "Encontrar CEP pelo endereço": pede a busca (não grava nada; nada é aplicado sem o usuário escolher).</summary>
+    /// <summary>Link "Não sei o CEP": pede a busca (não grava nada; nada é aplicado sem o usuário escolher).</summary>
     [RelayCommand]
     private Task BuscarCepPorEnderecoAsync() => AoBuscarCepPorEndereco?.Invoke(this) ?? Task.CompletedTask;
+
+    // ---- "Não sei o CEP": estado da busca e cancelamento (busca de CEP por endereço, D3) ----
+
+    /// <summary>Busca de CEP pelo endereço em andamento ("Procurando CEPs…" e o "Cancelar" ficam à vista).</summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(SemBuscaCepEmAndamento))] private bool _procurandoCep;
+
+    /// <summary>O link "Não sei o CEP" some enquanto a busca anda (no lugar dele ficam o "Procurando CEPs…" e o "Cancelar").</summary>
+    public bool SemBuscaCepEmAndamento => !ProcurandoCep;
+
+    private CancellationTokenSource? _cancelamentoBuscaCep;
+
+    /// <summary>
+    /// Começa uma busca: tira da tela o resultado anterior (de CEP ou de busca), para nada antigo parecer desta busca, e
+    /// devolve o token que o "Cancelar" interrompe. Não muda nenhum campo do endereço.
+    /// </summary>
+    public CancellationToken IniciarBuscaCep()
+    {
+        _cancelamentoBuscaCep?.Dispose();
+        _cancelamentoBuscaCep = new CancellationTokenSource();
+        LimparDecisaoCep();
+        OrientacaoBuscaCep = string.Empty; // nunca "Procurando" junto de "falta dado"
+        ProcurandoCep = true;
+        return _cancelamentoBuscaCep.Token;
+    }
+
+    /// <summary>A busca terminou (com resultado, erro ou cancelada): a tela volta ao normal.</summary>
+    public void TerminarBuscaCep()
+    {
+        ProcurandoCep = false;
+        _cancelamentoBuscaCep?.Dispose();
+        _cancelamentoBuscaCep = null;
+    }
+
+    /// <summary>"Cancelar": interrompe a busca em andamento. O endereço fica como estava e nenhum CEP é preenchido.</summary>
+    [RelayCommand]
+    private void CancelarBuscaCep() => _cancelamentoBuscaCep?.Cancel();
+
+    /// <summary>
+    /// O que falta para buscar o CEP pelo endereço, na ordem da tela (UF, município, logradouro), com o campo para onde a
+    /// ficha leva; nulo = pode buscar. A mesma exigência da API (UF de 2 letras, município, logradouro com 3 ou mais letras
+    /// ou dígitos), com o município escolhido da lista do IBGE em vez de texto livre. Número e bairro são opcionais: só
+    /// ajudam a filtrar os candidatos que a fonte devolver.
+    /// </summary>
+    public (string Mensagem, string Campo)? FaltaParaBuscarCep()
+    {
+        if (NoExterior) return ("A busca de CEP pelo endereço vale só para endereço no Brasil.", CamposFichaPessoa.Cep);
+        if (Municipio.Uf is not { Length: 2 })
+            return ("Para encontrar o CEP pelo endereço, escolha a UF.", CamposFichaPessoa.Municipio);
+        if (!Municipio.Escolhido)
+            return ("Para encontrar o CEP pelo endereço, escolha o município na lista.", CamposFichaPessoa.Municipio);
+        if (Lone.Domain.Enderecos.ConferenciaCep.NormalizadorLogradouro.Normalizar(Logradouro).Length < TamanhoMinimoBuscaCep)
+            return ("Para encontrar o CEP pelo endereço, informe o logradouro (pelo menos 3 letras).", CamposFichaPessoa.Logradouro);
+        return null;
+    }
+
+    /// <summary>O mínimo de letras ou dígitos do logradouro que a fonte aceita na busca (o mesmo da API).</summary>
+    public const int TamanhoMinimoBuscaCep = 3;
+
+    /// <summary>
+    /// Orientação junto do "Não sei o CEP" quando faltou dado para buscar: o mesmo texto da faixa da ficha, perto da ação
+    /// (a tela rola até o campo e a faixa pode sair da vista). Vem de <see cref="FaltaParaBuscarCep"/> (nenhuma regra nova):
+    /// some ou muda sozinha quando o dado é corrigido, e uma busca nova ou um CEP digitado a tiram.
+    /// </summary>
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TemOrientacaoBuscaCep))] private string _orientacaoBuscaCep = string.Empty;
+
+    public bool TemOrientacaoBuscaCep => OrientacaoBuscaCep.Length > 0;
+
+    /// <summary>Faltou dado para buscar: mostra a orientação e tira da tela o resultado anterior (que já não vale).</summary>
+    public void MostrarOrientacaoBuscaCep(string mensagem)
+    {
+        LimparDecisaoCep();
+        OrientacaoBuscaCep = mensagem;
+    }
+
+    /// <summary>Um dado mudou: a orientação acompanha o que ainda falta (ou some), e some se o usuário digitou o CEP.</summary>
+    private void ReavaliarOrientacaoBuscaCep()
+    {
+        if (OrientacaoBuscaCep.Length == 0) return;
+        OrientacaoBuscaCep = Digitos(Cep).Length > 0 ? string.Empty : FaltaParaBuscarCep()?.Mensagem ?? string.Empty;
+    }
+
+    /// <summary>Conferência automática depois de "Usar" um CEP da busca (D1); a tela e os testes podem aguardar.</summary>
+    public Task ConferenciaAposUsar { get; private set; } = Task.CompletedTask;
 
     /// <summary>O endereço como pedido de busca sem CEP (só leitura dos campos; o CEP não vai).</summary>
     public BuscarCepPorEnderecoRequisicao ParaBuscaPorEndereco()
@@ -609,7 +693,12 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         _decisaoCep = decisao;
         _assinaturaDecisao = atual;
         LimparSegundaOpiniao();
-        TextoConferenciaCep = string.Join(" ", decisao.Motivos.Concat(decisao.Avisos.Select(a => "⚠ " + a)))
+        // Na busca sem CEP, a fonte dos candidatos fica dita (o resultado é dela, não uma certeza do Lone).
+        var fonteDaBusca = decisao.CepInformado.Length == 0 && decisao.Fonte is { } f
+                           && decisao.Resultado != ResultadoDecisaoCepContrato.FonteIndisponivel
+            ? new[] { $"Fonte: {NomeFonte(f)}." }
+            : Array.Empty<string>();
+        TextoConferenciaCep = string.Join(" ", decisao.Motivos.Concat(fonteDaBusca).Concat(decisao.Avisos.Select(a => "⚠ " + a)))
                               + (decisao.InformacaoAnterior is { } anterior ? " " + TextoInformacaoAnterior(anterior) : string.Empty);
         GravidadeConferenciaCep = GravidadeDe(decisao);
         ComponentesCep = decisao.Componentes.Select(c => new LinhaComponenteCep(c)).ToList();
@@ -661,6 +750,7 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     /// </summary>
     private void ReavaliarDecisaoCep()
     {
+        ReavaliarOrientacaoBuscaCep();
         if (_aplicandoSugestao) return;
         if (_sugestaoAplicada is not null && Digitos(Cep) != _sugestaoAplicada.CepSugerido) _sugestaoAplicada = null;
         if (_assinaturaDecisao is not null && Assinatura(ParaConferencia()) != _assinaturaDecisao) LimparDecisaoCep();
@@ -750,6 +840,9 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         if (_decisaoCep is not { Fonte: { } fonte } decisao || !decisao.Candidatos.Contains(candidato)
             || !CepValor.TentarCriar(candidato.Cep, out var novo)) return;
         var conferido = decisao.CepInformado;
+        // Clique repetido no mesmo "Usar": o CEP já está aplicado; nada muda e nenhuma conferência é repetida.
+        if (_sugestaoAplicada is { } jaAplicada && jaAplicada.CepSugerido == novo!.Valor && jaAplicada.CepConferido == conferido
+            && Digitos(Cep) == novo.Valor) return;
         _sugestaoAplicada = new SugestaoCepAplicadaDto { CepConferido = conferido, CepSugerido = novo!.Valor, Fonte = fonte };
         _cepConhecido = novo.Valor;        // não consulta de novo o CEP aplicado
         _cepVerificado = novo.Valor;
@@ -767,6 +860,9 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         TextoConferenciaCep = conferido.Length == 0
             ? $"CEP {novo.Formatado} aplicado a partir da busca pelo endereço (ainda não salvo). Salve a ficha para gravar."
             : $"CEP {FormatarCep(conferido)} → {novo.Formatado} aplicado (ainda não salvo). Salve a ficha para gravar.";
+        // D1: o CEP escolhido na busca passa pela conferência oficial do Motor de CEP (a mesma do "Conferir CEP"). A busca
+        // só localiza candidatos; quem confere é a conferência, que mostra o resultado e não muda nenhum campo.
+        if (conferido.Length == 0 && AoConferirCep is { } conferir) ConferenciaAposUsar = conferir(this);
     }
 
     private void LimparDecisaoCep()

@@ -122,10 +122,27 @@
                                             </DataTrigger>
                                         </Label.Triggers>
                                     </Label>
-                                    <!-- Busca pelo endereço quando não se sabe o CEP (Checkpoint D): só candidatos; nada é aplicado sem escolher. -->
-                                    <Button Text="Não sabe o CEP? Encontrar pelo endereço" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0"
+                                    <!-- Busca pelo endereço quando não se sabe o CEP (Checkpoint D): só candidatos; nada é aplicado sem escolher.
+                                         Durante a busca: "Procurando CEPs…" com "Cancelar" (a ficha continua usável). -->
+                                    <Button Text="Não sei o CEP" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0"
                                             HorizontalOptions="Start" Margin="0,-6,12,4" Command="{Binding BuscarCepPorEnderecoCommand}"
-                                            ToolTipProperties.Text="Procura possíveis CEPs usando o endereço informado (UF, município e logradouro). Nenhum CEP é aplicado sem você escolher." />
+                                            IsVisible="{Binding SemBuscaCepEmAndamento}"
+                                            SemanticProperties.Hint="Procura possíveis CEPs pelo endereço informado; nenhum CEP é aplicado sem você escolher"
+                                            ToolTipProperties.Text="Procura possíveis CEPs pela UF, município e logradouro informados (número e bairro ajudam a filtrar). Nenhum CEP é aplicado sem você escolher." />
+                                    <!-- Faltou dado para buscar: a mesma orientação da faixa da ficha, aqui junto da ação (ícone + texto, não só cor). -->
+                                    <Label Text="{Binding OrientacaoBuscaCep, StringFormat='ⓘ {0}'}" IsVisible="{Binding TemOrientacaoBuscaCep}"
+                                           FontSize="12" LineBreakMode="WordWrap" Margin="0,-2,12,4" TextColor="{StaticResource Aviso}"
+                                           SemanticProperties.Description="{Binding OrientacaoBuscaCep}" />
+                                    <HorizontalStackLayout Spacing="8" IsVisible="{Binding ProcurandoCep}" Margin="0,-6,12,4">
+                                        <ActivityIndicator IsRunning="{Binding ProcurandoCep}" HeightRequest="14" WidthRequest="14" VerticalOptions="Center"
+                                                           SemanticProperties.Description="Procurando CEPs" />
+                                        <Label Text="Procurando CEPs…" FontSize="12" VerticalOptions="Center"
+                                               SemanticProperties.Description="Procurando CEPs pelo endereço informado" />
+                                        <Button Text="Cancelar" Style="{StaticResource BotaoLink}" FontSize="12" Padding="0" VerticalOptions="Center"
+                                                Command="{Binding CancelarBuscaCepCommand}"
+                                                SemanticProperties.Description="Cancelar a busca de CEP"
+                                                ToolTipProperties.Text="Interrompe a busca; o endereço fica como está." />
+                                    </HorizontalStackLayout>
                                     <!-- Resultado da conferência e os CEPs sugeridos: o usuário escolhe; vira alteração não salva.
                                          Ícone e cor pela gravidade (✓ verde, ⚠ âmbar, ✗ vermelho), no padrão do resumo da pessoa. -->
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4" IsVisible="{Binding TemConferenciaCep}" Margin="0,-6,12,4">
