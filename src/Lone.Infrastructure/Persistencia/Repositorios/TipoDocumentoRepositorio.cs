@@ -73,6 +73,8 @@ public class TipoDocumentoRepositorio : ServicoDadosBase, ITipoDocumentoReposito
             // Sem escopo: de propósito — o serviço decide o que mostrar (quem está fora do alcance nunca é identificado).
             .Join(db.Pessoas.AsNoTracking(), d => d.PessoaId, p => p.Id,
                   (d, p) => new { d.TipoDocumentoId, d.NumeroNormalizado, d.Uf, p.Id, p.Codigo, p.Nome })
+            // V2-0.2: ordem estável antes do corte (o mesmo documento repetido sempre traz as mesmas pessoas, sem o aviso 10102).
+            .OrderBy(x => x.Codigo).ThenBy(x => x.Id).ThenBy(x => x.TipoDocumentoId).ThenBy(x => x.NumeroNormalizado).ThenBy(x => x.Uf)
             .Take(50)
             .ToListAsync(ct);
         return linhas.Select(l => new DocumentoEmOutraPessoa(l.TipoDocumentoId, l.NumeroNormalizado, l.Uf, new PessoaIdentificacao(l.Id, l.Codigo, l.Nome)))

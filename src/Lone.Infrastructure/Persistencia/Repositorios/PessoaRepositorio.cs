@@ -365,6 +365,9 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                                              ((x.Telefone != null && valores.Contains(x.Telefone)) ||
                                               (x.Celular != null && valores.Contains(x.Celular)) ||
                                               (x.Email != null && valores.Contains(x.Email))))))
+            // V2-0.2: ordem estável antes do corte (sem ela o SQL Server devolve 5 quaisquer, e o EF avisa 10102):
+            // o cadastro mais antigo primeiro (código), Id como desempate.
+            .OrderBy(p => p.Codigo).ThenBy(p => p.Id)
             .Select(p => new PessoaIdentificacao(p.Id, p.Codigo, p.Nome))
             .Take(5)
             .ToListAsync(ct);

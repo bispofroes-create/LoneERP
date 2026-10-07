@@ -150,6 +150,34 @@ public sealed partial class EnderecoFormulario : ItemDeLista
     private int? _municipioDoCep;
     private string _localDoCep = string.Empty;
 
+    /// <summary>
+    /// O complemento que a própria consulta de CEP escreveu (no ViaCEP é a faixa, "de 607 a 1289 - lado ímpar", ou o
+    /// número do prédio) e que o usuário ainda não mexeu; nulo quando o complemento é do usuário ou veio do cadastro.
+    /// Trocar de CEP (outra consulta ou "Usar" um candidato) troca ou limpa só esse texto, nunca o digitado (V2-0.1).
+    /// </summary>
+    private string? _complementoDaConsulta;
+
+    /// <summary>O CEP (dígitos) cuja consulta escreveu <see cref="_complementoDaConsulta"/>.</summary>
+    private string _cepDoComplemento = string.Empty;
+
+    /// <summary>O complemento na tela ainda é exatamente o que a consulta de CEP escreveu (o usuário não mexeu).</summary>
+    private bool ComplementoVeioDaConsulta => _complementoDaConsulta is { Length: > 0 } c && Complemento == c;
+
+    /// <summary>
+    /// Qualquer mudança no complemento que não seja a escrita da própria consulta torna o texto do usuário: a partir daí ele
+    /// nunca é trocado nem limpo pela troca de CEP (mesmo que o usuário volte a digitar o texto da faixa).
+    /// </summary>
+    partial void OnComplementoChanged(string value)
+    {
+        if (_complementoDaConsulta is not null && value != _complementoDaConsulta) _complementoDaConsulta = null;
+    }
+
+    private void LembrarComplementoDaConsulta(string? complemento, string cep)
+    {
+        _complementoDaConsulta = complemento is { Length: > 0 } ? complemento : null;
+        _cepDoComplemento = _complementoDaConsulta is null ? string.Empty : cep;
+    }
+
     /// <summary>"⚠ CEP não encontrado..." embaixo do CEP, logo depois da consulta (a gravação também recusa).</summary>
     [ObservableProperty][NotifyPropertyChangedFor(nameof(TemAvisoCep))] private string _avisoCep = string.Empty;
     public bool TemAvisoCep => AvisoCep.Length > 0;
@@ -908,6 +936,14 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         _municipioDoCep = int.TryParse(candidato.CodigoMunicipioIbge, out var codigo) ? codigo : null;
         _localDoCep = string.IsNullOrWhiteSpace(candidato.Uf) ? candidato.Cidade ?? string.Empty : $"{candidato.Cidade}/{candidato.Uf}";
         AvisoCep = string.Empty;
+        // V2-0.1: o complemento que a consulta de outro CEP escreveu (faixa ou prédio daquele CEP) não vale para o CEP
+        // escolhido; sai. Se o escolhido é o próprio CEP da consulta, a faixa continua valendo. O que o usuário digitou ou
+        // editou fica como está. Vale para "Usar" do "Não sei o CEP" e da sugestão do "Conferir CEP".
+        if (ComplementoVeioDaConsulta && _cepDoComplemento != novo.Valor)
+        {
+            Complemento = string.Empty;
+            LembrarComplementoDaConsulta(null, string.Empty);
+        }
         _aplicandoSugestao = true;
         try { Cep = novo.Formatado; }
         finally { _aplicandoSugestao = false; }
@@ -1075,7 +1111,10 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         CepConferidoEm = _cepConferidoEmGravado
     };
 
-    /// <summary>Preenche com a consulta de CEP, sem apagar o que a consulta não trouxe.</summary>
+    /// <summary>
+    /// Preenche com a consulta de CEP, sem apagar o que a consulta não trouxe. O complemento só é escrito quando está vazio
+    /// ou quando ainda é o que uma consulta anterior escreveu (V2-0.1); o do usuário nunca.
+    /// </summary>
     public void AplicarCep(DadosCep d)
     {
         _cepConhecido = Digitos(d.Cep);
@@ -1084,7 +1123,21 @@ public sealed partial class EnderecoFormulario : ItemDeLista
         Cep = CepValor.TentarCriar(d.Cep, out var cep) ? cep!.Formatado : d.Cep;
         if (d.Logradouro is not null) Logradouro = d.Logradouro;
         if (d.Bairro is not null) Bairro = d.Bairro;
-        if (string.IsNullOrWhiteSpace(Complemento) && d.Complemento is not null) Complemento = d.Complemento;
+        // Complemento (V2-0.1), três casos:
+        // 1. ainda é o que a consulta anterior escreveu (o usuário não mexeu): vale o da nova consulta, ou vazio;
+        // 2. vazio: recebe o da consulta, como antes;
+        // 3. é do usuário (digitado, editado ou do cadastro): nunca é tocado.
+        if (ComplementoVeioDaConsulta)
+        {
+            Complemento = d.Complemento ?? string.Empty;
+            LembrarComplementoDaConsulta(Complemento, _cepConhecido);
+        }
+        else if (string.IsNullOrWhiteSpace(Complemento) && d.Complemento is { Length: > 0 } doCep)
+        {
+            Complemento = doCep;
+            LembrarComplementoDaConsulta(doCep, _cepConhecido);
+        }
+        else LembrarComplementoDaConsulta(null, string.Empty);
         NoExterior = false;
         DefinirMunicipio(d.CodigoMunicipioIbge, d.Cidade, d.Uf);
         _municipioDoCep = int.TryParse(d.CodigoMunicipioIbge, out var codigo) ? codigo : null;
