@@ -104,12 +104,12 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
             ids => db.Papeis.AsNoTracking().Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Nome, ct));
         await TraduzirIdsAsync(registros, nameof(AnexoDocumento), nameof(AnexoDocumento.PessoaDocumentoId), "(documento)",
             ids => db.PessoaDocumentos.AsNoTracking().Where(d => ids.Contains(d.Id))
-                .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, Texto = t.Nome + " " + d.Numero })
-                .ToDictionaryAsync(x => x.Id, x => x.Texto, ct));
+                .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, t.Nome, d.Numero })
+                .ToDictionaryAsync(x => x.Id, x => DocumentoMascarado(x.Nome, x.Numero), ct));
         await TraduzirIdsAsync(registros, nameof(DocumentoValorPersonalizado), nameof(DocumentoValorPersonalizado.PessoaDocumentoId), "(documento)",
             ids => db.PessoaDocumentos.AsNoTracking().Where(d => ids.Contains(d.Id))
-                .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, Texto = t.Nome + " " + d.Numero })
-                .ToDictionaryAsync(x => x.Id, x => x.Texto, ct));
+                .Join(db.TiposDocumento, d => d.TipoDocumentoId, t => t.Id, (d, t) => new { d.Id, t.Nome, d.Numero })
+                .ToDictionaryAsync(x => x.Id, x => DocumentoMascarado(x.Nome, x.Numero), ct));
 
         // Estrutura empresarial: grupo da empresa, relacionamentos (tipo e a outra pessoa) e condição do fornecedor.
         await TraduzirIdsAsync(registros, nameof(Pessoa), nameof(Pessoa.GrupoEmpresarialId), "(grupo empresarial)",
@@ -293,4 +293,12 @@ public class AuditoriaConsultas : ServicoDadosBase, IAuditoriaConsultas
                 ? nome
                 : valor;
     }
+
+    /// <summary>
+    /// B0-7 (P1-8B): o documento citado no histórico de anexos e de campos personalizados aparece como o próprio campo
+    /// Número aparece — mascarado (só os 3 últimos), nunca o número inteiro por um caminho indireto.
+    /// </summary>
+    internal static string DocumentoMascarado(string tipo, string numero) =>
+        numero.Length == 0 ? tipo : tipo + " " + Lone.Infrastructure.Persistencia.Auditoria.ColetorAuditoria.Mascarar(numero);
 }
+

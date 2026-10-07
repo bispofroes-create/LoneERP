@@ -4,6 +4,7 @@ using Lone.Api.Seguranca;
 using Lone.Application;
 using Lone.Application.Infraestrutura;
 using Lone.Infrastructure;
+using Lone.Infrastructure.Persistencia.Servicos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,11 +15,12 @@ builder.Services
 
 var app = builder.Build();
 
-// Em desenvolvimento o banco é criado/atualizado sozinho; em produção isso é um passo de implantação.
-if (app.Configuration.GetValue<bool>("Banco:AplicarMigracoesAoIniciar"))
+// Incidente P18: migração nunca é aplicada só porque a API iniciou. Aplicar ao iniciar exige a configuração E o opt-in
+// explícito da variável LONE_PERMITIR_MIGRACAO_AUTOMATICA=true; senão, migração pendente vira só um aviso no log.
+await using (var escopo = app.Services.CreateAsyncScope())
 {
-    await using var escopo = app.Services.CreateAsyncScope();
-    await escopo.ServiceProvider.GetRequiredService<IBancoDeDados>().PrepararAsync();
+    await MigracaoAoIniciar.ExecutarAsync(app.Configuration, Environment.GetEnvironmentVariable(MigracaoAoIniciar.Variavel),
+        escopo.ServiceProvider.GetRequiredService<IBancoDeDados>(), app.Logger);
 }
 
 app.UseExceptionHandler();

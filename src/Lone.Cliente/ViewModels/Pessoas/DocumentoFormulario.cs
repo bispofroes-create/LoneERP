@@ -58,7 +58,8 @@ public sealed partial class DocumentoFormulario : ItemDeLista
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AvisoValidade), nameof(TemAvisoValidade), nameof(Vencido), nameof(RotuloValidade),
-                              nameof(MostrarOrgaoEmissor), nameof(MostrarUf))]
+                              nameof(MostrarOrgaoEmissor), nameof(MostrarUf), nameof(MostrarEmissao),
+                              nameof(RotuloOrgaoEmissor), nameof(RotuloUf), nameof(RotuloEmissao))]
     private Opcao<Guid> _tipo;
 
     /// <summary>Chamado pela ficha ao incluir o item: a lista de tipos do cadastro (vazia = não foi possível ler).</summary>
@@ -86,7 +87,7 @@ public sealed partial class DocumentoFormulario : ItemDeLista
             ? TiposSemCadastro(_tipoGravado)
                 .Where(o => o.Valor == _tipoGravado || TiposDocumentoSistema.AplicaA(TipoSistemaDe(o.Valor), _natureza)).ToList()
             : _catalogo
-                .Where(t => t.Id == _tipoGravado || (t.Ativo && TiposDocumentoSistema.AplicaA(t.TipoSistema, _natureza)))
+                .Where(t => t.Id == _tipoGravado || (t.Ativo && AplicaA(t, _natureza)))
                 .OrderBy(t => t.Ordem).ThenBy(t => t.Nome, StringComparer.CurrentCultureIgnoreCase)
                 .Select(t => new Opcao<Guid>(t.Id, t.Ativo ? t.Nome : t.Nome + " (desativado)"))
                 .ToList();
@@ -111,11 +112,41 @@ public sealed partial class DocumentoFormulario : ItemDeLista
             ? doCadastro.TipoSistema
             : TiposDocumentoSistema.Todos.Where(t => t.Id == tipoId).Select(t => (TipoDocumento?)t.Tipo).FirstOrDefault();
 
-    /// <summary>Órgão emissor: documentos pessoais de sistema (RG, CNH, passaporte, estrangeiro) ou já preenchido.</summary>
-    public bool MostrarOrgaoEmissor => _orgaoOuUfGravados || TiposDocumentoSistema.TemOrgaoEmissor(TipoSistemaDe(Tipo.Valor));
+    /// <summary>
+    /// P1-8B: a quem o tipo se aplica vem do cadastro (os de sistema nascem com a regra de antes). As regras fixas do enum
+    /// ficam só para quando o cadastro não pôde ser lido.
+    /// </summary>
+    private static bool AplicaA(TipoDocumentoDto t, NaturezaPessoa natureza) => natureza switch
+    {
+        NaturezaPessoa.Fisica => t.AplicaPessoaFisica,
+        NaturezaPessoa.Juridica => t.AplicaPessoaJuridica,
+        _ => t.AplicaEstrangeiro
+    };
 
-    /// <summary>UF: RG e CNH (emitidos por um estado) ou já preenchida.</summary>
-    public bool MostrarUf => _orgaoOuUfGravados || TiposDocumentoSistema.TemUf(TipoSistemaDe(Tipo.Valor));
+    /// <summary>Uso do órgão emissor no tipo escolhido (do cadastro; sem ele, a regra fixa de antes).</summary>
+    private UsoCampoDocumento UsoOrgao => TipoDoCadastro?.UsoOrgaoEmissor ??
+        (TiposDocumentoSistema.TemOrgaoEmissor(TipoSistemaDe(Tipo.Valor)) ? UsoCampoDocumento.Opcional : UsoCampoDocumento.Oculto);
+
+    private UsoCampoDocumento UsoUfDoTipo => TipoDoCadastro?.UsoUf ??
+        (TiposDocumentoSistema.TemUf(TipoSistemaDe(Tipo.Valor)) ? UsoCampoDocumento.Opcional : UsoCampoDocumento.Oculto);
+
+    private UsoCampoDocumento UsoEmissaoDoTipo => TipoDoCadastro?.UsoEmissao ?? UsoCampoDocumento.Opcional;
+
+    /// <summary>Órgão emissor: conforme o tipo ("Não usar" esconde) ou já preenchido (continua à vista e intacto).</summary>
+    public bool MostrarOrgaoEmissor => _orgaoOuUfGravados || UsoOrgao != UsoCampoDocumento.Oculto;
+
+    /// <summary>UF: conforme o tipo ou já preenchida.</summary>
+    public bool MostrarUf => _orgaoOuUfGravados || UsoUfDoTipo != UsoCampoDocumento.Oculto;
+
+    /// <summary>Data de emissão: conforme o tipo ou já preenchida.</summary>
+    public bool MostrarEmissao => _emissaoGravada || UsoEmissaoDoTipo != UsoCampoDocumento.Oculto;
+
+    public string RotuloOrgaoEmissor => UsoOrgao == UsoCampoDocumento.Obrigatorio ? "Órgão emissor (obrigatório)" : "Órgão emissor";
+    public string RotuloUf => UsoUfDoTipo == UsoCampoDocumento.Obrigatorio ? "UF (obrigatória)" : "UF";
+    public string RotuloEmissao => UsoEmissaoDoTipo == UsoCampoDocumento.Obrigatorio ? "Emitido em (obrigatório)" : "Emitido em";
+
+    /// <summary>Data de emissão gravada: continua à vista mesmo num tipo que não a usa.</summary>
+    private bool _emissaoGravada;
 
     // ---- Campos personalizados do tipo do documento (D4) ----
 
@@ -247,6 +278,7 @@ public sealed partial class DocumentoFormulario : ItemDeLista
         {
             _tipoGravado = tipo,
             _orgaoOuUfGravados = d.OrgaoEmissor is not null || d.Uf is not null,
+            _emissaoGravada = d.EmitidoEm is not null,
             _anexosGravados = d.Anexos,
             _valoresGravados = d.ValoresPersonalizados,
             Numero = d.Numero,

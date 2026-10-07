@@ -62,12 +62,32 @@ public sealed class TipoDocumentoAppService : ITipoDocumentoAppService
             // O vínculo com o enum não muda pelo aplicativo: só os de sistema, criados pela migração, o têm.
             TipoSistema = anterior?.TipoSistema,
             ExigeValidade = dto.ExigeValidade,
-            DiasAvisoVencimento = dto.DiasAvisoVencimento
+            DiasAvisoVencimento = dto.DiasAvisoVencimento,
+            AplicaPessoaFisica = dto.AplicaPessoaFisica,
+            AplicaPessoaJuridica = dto.AplicaPessoaJuridica,
+            AplicaEstrangeiro = dto.AplicaEstrangeiro,
+            UsoOrgaoEmissor = dto.UsoOrgaoEmissor,
+            UsoUf = dto.UsoUf,
+            UsoEmissao = dto.UsoEmissao,
+            FormatoNumero = dto.FormatoNumero,
+            TamanhoMinimoNumero = dto.TamanhoMinimoNumero,
+            TamanhoMaximoNumero = dto.TamanhoMaximoNumero,
+            Unicidade = dto.Unicidade
         };
         if (anterior is null && dados.Ordem <= 0) dados.Ordem = await _repositorio.ProximaOrdemAsync(ct);
 
         RegrasDocumento.Normalizar(dados);
         var erros = RegrasDocumento.Validar(dados);
+        // P1-8B (D1): os cinco tipos de sistema têm identidade fixa — o nome e a quem se aplicam não mudam pelo cadastro
+        // (as regras e o modo sem catálogo dependem disso). Desativar/reativar e as demais regras continuam livres.
+        if (anterior?.TipoSistema is { } sistema)
+        {
+            if (!string.Equals(anterior.Nome, dados.Nome, StringComparison.Ordinal))
+                erros.Add($"O nome do tipo de sistema \"{anterior.Nome}\" não pode ser alterado (RG, CNH, Passaporte, Documento estrangeiro e Outro são fixos).");
+            var semente = TiposDocumentoSistema.Semente(sistema);
+            if ((dados.AplicaPessoaFisica, dados.AplicaPessoaJuridica, dados.AplicaEstrangeiro) != (semente.Fisica, semente.Juridica, semente.Estrangeiro))
+                erros.Add($"A quem o tipo de sistema \"{anterior.Nome}\" se aplica não pode ser alterado.");
+        }
         if (dados.Nome.Length > 0 && await _repositorio.NomeEmUsoAsync(dados.Nome, dados.Id, ct))
             erros.Add($"Já existe o tipo de documento \"{dados.Nome}\" (ativo ou desativado; maiúsculas e acentos não contam).");
         if (erros.Count > 0)
@@ -82,7 +102,9 @@ public sealed class TipoDocumentoAppService : ITipoDocumentoAppService
                 ? $"Tipo de documento '{dados.Nome}' passou a exigir validade."
                 : $"Tipo de documento '{dados.Nome}' deixou de exigir validade.");
 
-        await _repositorio.SalvarAsync(dados, anterior is null, ct);
+        // P1-8B: mudou o que fazer com número repetido → as chaves de unicidade dos documentos do tipo são refeitas na
+        // mesma transação; para bloquear, os dados atuais precisam permitir (senão a gravação é recusada sem mudar nada).
+        await _repositorio.SalvarAsync(dados, anterior is null, recalcularChaves: anterior is not null && anterior.Unicidade != dados.Unicidade, ct);
         return await ReleAsync(dados.Id, ct);
     }
 
@@ -98,7 +120,7 @@ public sealed class TipoDocumentoAppService : ITipoDocumentoAppService
         var tipo = await _repositorio.ObterAsync(id, ct) ?? throw new ValidacaoException(["Este tipo não existe mais."]);
         tipo.Versao = requisicao.Versao ?? tipo.Versao;
         acao(tipo);
-        await _repositorio.SalvarAsync(tipo, novo: false, ct);
+        await _repositorio.SalvarAsync(tipo, novo: false, recalcularChaves: false, ct);
         return await ReleAsync(id, ct);
     }
 
@@ -121,6 +143,16 @@ public sealed class TipoDocumentoAppService : ITipoDocumentoAppService
         TipoSistema = t.TipoSistema,
         ExigeValidade = t.ExigeValidade,
         DiasAvisoVencimento = t.DiasAvisoVencimento,
+        AplicaPessoaFisica = t.AplicaPessoaFisica,
+        AplicaPessoaJuridica = t.AplicaPessoaJuridica,
+        AplicaEstrangeiro = t.AplicaEstrangeiro,
+        UsoOrgaoEmissor = t.UsoOrgaoEmissor,
+        UsoUf = t.UsoUf,
+        UsoEmissao = t.UsoEmissao,
+        FormatoNumero = t.FormatoNumero,
+        TamanhoMinimoNumero = t.TamanhoMinimoNumero,
+        TamanhoMaximoNumero = t.TamanhoMaximoNumero,
+        Unicidade = t.Unicidade,
         QuantidadeUsos = usos
     };
 }

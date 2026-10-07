@@ -41,6 +41,49 @@ public class TipoDocumentoCadastro : AgregadoRaiz
     [DisplayName("Dias de aviso do vencimento")]
     public int DiasAvisoVencimento { get; set; } = DiasAvisoPadrao;
 
+    // ---- P1-8: regras do tipo como dados (os cinco de sistema nascem com o comportamento de antes) ----
+
+    [DisplayName("Pode ser usado para pessoa física")]
+    public bool AplicaPessoaFisica { get; set; } = true;
+
+    [DisplayName("Pode ser usado para pessoa jurídica")]
+    public bool AplicaPessoaJuridica { get; set; } = true;
+
+    [DisplayName("Pode ser usado para estrangeiro")]
+    public bool AplicaEstrangeiro { get; set; } = true;
+
+    [DisplayName("Órgão emissor")]
+    public UsoCampoDocumento UsoOrgaoEmissor { get; set; } = UsoCampoDocumento.Oculto;
+
+    [DisplayName("UF")]
+    public UsoCampoDocumento UsoUf { get; set; } = UsoCampoDocumento.Oculto;
+
+    [DisplayName("Data de emissão")]
+    public UsoCampoDocumento UsoEmissao { get; set; } = UsoCampoDocumento.Opcional;
+
+    [DisplayName("Formato do número")]
+    public FormatoNumeroDocumento FormatoNumero { get; set; } = FormatoNumeroDocumento.Livre;
+
+    /// <summary>Mínimo de caracteres do número comparável (sem pontos, hífens...). Nulo = sem mínimo.</summary>
+    [DisplayName("Tamanho mínimo do número")]
+    public int? TamanhoMinimoNumero { get; set; }
+
+    /// <summary>Máximo de caracteres do número comparável (até o tamanho da coluna). Nulo = só o limite da coluna.</summary>
+    [DisplayName("Tamanho máximo do número")]
+    public int? TamanhoMaximoNumero { get; set; }
+
+    /// <summary>O mesmo número em outra pessoa: não verifica, avisa ou bloqueia. Na mesma pessoa é sempre erro.</summary>
+    [DisplayName("Número repetido em outra pessoa")]
+    public UnicidadeDocumento Unicidade { get; set; } = UnicidadeDocumento.Nenhuma;
+
+    /// <summary>O tipo pode ser usado por uma pessoa desta natureza (só vale para documento novo ou troca de tipo).</summary>
+    public bool AplicaA(NaturezaPessoa natureza) => natureza switch
+    {
+        NaturezaPessoa.Fisica => AplicaPessoaFisica,
+        NaturezaPessoa.Juridica => AplicaPessoaJuridica,
+        _ => AplicaEstrangeiro
+    };
+
     public void Desativar()
     {
         if (!Ativo) return;

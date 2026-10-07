@@ -27,6 +27,12 @@ public static class ConflitosDocumentoPessoa
         "Esta empresa (mesma raiz de CNPJ) já está cadastrada. Para uma filial, abra esse cadastro e adicione o CNPJ como estabelecimento.";
     public const string CnpjJaCadastrado = "Este CNPJ já está cadastrado em outra pessoa.";
 
+    /// <summary>P1-8B: número de documento único (tipos que bloqueiam): índice filtrado da chave de unicidade.</summary>
+    public const string IndiceChaveUnicidade = "IX_PessoaDocumentos_ChaveUnicidade";
+
+    public const string NumeroDocumentoJaCadastrado =
+        "Este número de documento já está cadastrado em outra pessoa e o tipo não permite repetir (gravado agora por outro usuário).";
+
     /// <summary>O erro de validação equivalente, ou nulo se a falha não é uma das conhecidas.</summary>
     public static ErroValidacao? Erro(Exception erro, Pessoa pessoa) => erro switch
     {
@@ -50,6 +56,13 @@ public static class ConflitosDocumentoPessoa
             return repetido is null or { Principal: true }
                 ? new ErroValidacao(CnpjJaCadastrado, C.Documento)
                 : new ErroValidacao(CnpjJaCadastrado, C.Cnpj, repetido.Id);
+        }
+
+        if (texto.Contains(IndiceChaveUnicidade, StringComparison.Ordinal))
+        {
+            // A chave repetida aparece no texto do SQL: leva ao documento dela (sem mostrar a chave ao usuário).
+            var documento = pessoa.Documentos.FirstOrDefault(d => d.ChaveUnicidade is { Length: > 0 } chave && texto.Contains(chave, StringComparison.Ordinal));
+            return new ErroValidacao(NumeroDocumentoJaCadastrado, C.DocumentoNumero, documento?.Id);
         }
 
         return null;

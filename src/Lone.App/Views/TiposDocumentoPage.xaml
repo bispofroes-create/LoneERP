@@ -11,7 +11,7 @@
     <Grid>
         <c:ListaCadastro IsVisible="{Binding SemFicha}"
                          Titulo="Tipos de documento"
-                         Subtitulo="Os tipos são escolhidos na aba &quot;Documentos&quot; do cadastro de pessoas (ex.: RG, CNH, Alvará, Certificado digital). Cada tipo diz se a validade é obrigatória e com quantos dias de antecedência avisar o vencimento."
+                         Subtitulo="Os tipos são escolhidos na aba &quot;Documentos&quot; do cadastro de pessoas (ex.: RG, CNH, Alvará, Certificado digital). Cada tipo diz quem pode usá-lo, quais campos pede, o formato do número, o que fazer com número repetido e a validade."
                          TextoNovo="+  Novo tipo de documento"
                          DicaBusca="Pesquisar tipos de documento"
                          TituloVazio="Nenhum tipo de documento cadastrado" />
@@ -21,18 +21,61 @@
                 <Label Text="{Binding Formulario.UsoTexto}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
                 <c:BlocoCampos>
-                    <c:Campo Rotulo="Nome do tipo" Texto="{Binding Formulario.Nome}" Dica="Ex.: Alvará de funcionamento" />
+                    <!-- Travado (tipo do sistema): fica esmaecido, para não parecer editável (homologação visual P1-8). -->
+                    <c:Campo Rotulo="Nome do tipo" Texto="{Binding Formulario.Nome}" Dica="Ex.: Alvará de funcionamento"
+                             IsEnabled="{Binding Formulario.PodeEditarIdentidade}">
+                        <c:Campo.Triggers>
+                            <Trigger TargetType="c:Campo" Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </c:Campo.Triggers>
+                    </c:Campo>
                     <c:Campo Rotulo="Ordem" Texto="{Binding Formulario.Ordem}" Mascara="Numero" Dica="Vazio = no fim" />
                 </c:BlocoCampos>
+                <Label Text="Tipo do sistema (RG, CNH, Passaporte, Documento estrangeiro, Outro): o nome e quem pode usar são fixos, porque regras e integrações dependem deles. Pode ser desativado; os demais campos podem ser ajustados."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.DoSistema}" />
+                <Label Text="Maiúsculas e acentos não contam no nome."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                <!-- P1-8B: as regras do tipo, em linguagem de quem usa -->
+                <Label Text="Quem pode usar" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
+                <c:BlocoCampos IsEnabled="{Binding Formulario.PodeEditarIdentidade}">
+                    <c:BlocoCampos.Triggers>
+                        <Trigger TargetType="c:BlocoCampos" Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </c:BlocoCampos.Triggers>
+                    <c:CaixaMarcar Texto="Pessoa física" Marcado="{Binding Formulario.AplicaPessoaFisica}" />
+                    <c:CaixaMarcar Texto="Pessoa jurídica" Marcado="{Binding Formulario.AplicaPessoaJuridica}" />
+                    <c:CaixaMarcar Texto="Estrangeiro" Marcado="{Binding Formulario.AplicaEstrangeiro}" />
+                </c:BlocoCampos>
+
+                <Label Text="Campos do documento" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
+                <c:BlocoCampos>
+                    <c:CampoEscolha Rotulo="Órgão emissor" Itens="{Binding Formulario.ListaUsos}" Selecionado="{Binding Formulario.UsoOrgaoEmissor}" />
+                    <c:CampoEscolha Rotulo="UF" Itens="{Binding Formulario.ListaUsos}" Selecionado="{Binding Formulario.UsoUf}" />
+                    <c:CampoEscolha Rotulo="Data de emissão" Itens="{Binding Formulario.ListaUsos}" Selecionado="{Binding Formulario.UsoEmissao}" />
+                </c:BlocoCampos>
+                <Label Text="&quot;Não usar&quot; esconde o campo nos documentos novos; um valor já gravado continua à vista e não é apagado."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                <Label Text="Número e duplicidade" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
+                <c:BlocoCampos>
+                    <c:CampoEscolha Rotulo="Formato do número" Itens="{Binding Formulario.ListaFormatos}" Selecionado="{Binding Formulario.FormatoNumero}" />
+                    <c:Campo Rotulo="Tamanho mínimo" Texto="{Binding Formulario.TamanhoMinimoNumero}" Mascara="Numero" Dica="Vazio = sem mínimo" />
+                    <c:Campo Rotulo="Tamanho máximo" Texto="{Binding Formulario.TamanhoMaximoNumero}" Mascara="Numero" Dica="Vazio = até 30" />
+                    <c:CampoEscolha Rotulo="Mesmo número em outra pessoa" Itens="{Binding Formulario.ListaUnicidades}" Selecionado="{Binding Formulario.Unicidade}" />
+                </c:BlocoCampos>
+                <Label Text="{Binding Formulario.ExplicacaoUnicidade}" Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+                <Label Text="Tamanhos e repetidos contam só letras e números (pontos, traços, barras e espaços não contam). Formato e tamanho valem para documentos novos ou alterados; os antigos não são revalidados."
+                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
+
+                <Label Text="Validade" Style="{StaticResource Rotulo}" Margin="0,8,0,0" />
                 <c:BlocoCampos>
                     <c:CaixaMarcar Texto="Exige validade (documento ativo precisa de &quot;válido até&quot;)" Marcado="{Binding Formulario.ExigeValidade}" />
                     <c:Campo Rotulo="Avisar vencimento com (dias)" Texto="{Binding Formulario.DiasAvisoVencimento}" Mascara="Numero"
                              Dica="0 = só quando vencer" />
                 </c:BlocoCampos>
-                <Label Text="Tipo do sistema (RG, CNH, Passaporte...): usado por regras e integrações; pode ser renomeado e desativado."
-                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" IsVisible="{Binding Formulario.DoSistema}" />
-                <Label Text="Maiúsculas e acentos não contam no nome."
-                       Style="{StaticResource Secundario}" LineBreakMode="WordWrap" />
 
                 <!-- Situação -->
                 <HorizontalStackLayout Spacing="12" Margin="0,12,0,0">

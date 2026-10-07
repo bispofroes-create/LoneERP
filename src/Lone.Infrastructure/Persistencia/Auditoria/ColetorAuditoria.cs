@@ -18,8 +18,13 @@ namespace Lone.Infrastructure.Persistencia.Auditoria;
 /// </summary>
 internal sealed class ColetorAuditoria
 {
+    /// <summary>
+    /// Campos técnicos que não viram linha no histórico. P1-8: o número comparável e a chave de unicidade do documento
+    /// são cópias do número — a mudança do número já é registrada (mascarada); registrá-las revelaria o número inteiro.
+    /// </summary>
     private static readonly HashSet<string> CamposIgnorados =
-        [nameof(EntidadeBase.CriadoEm), nameof(EntidadeBase.AtualizadoEm), nameof(AgregadoRaiz.Versao)];
+        [nameof(EntidadeBase.CriadoEm), nameof(EntidadeBase.AtualizadoEm), nameof(AgregadoRaiz.Versao),
+         nameof(PessoaDocumento.NumeroNormalizado), nameof(PessoaDocumento.ChaveUnicidade)];
 
     private const int TamanhoMaximoValor = 500;
 
@@ -294,6 +299,6 @@ internal sealed class ColetorAuditoria
     }
 
     /// <summary>Mantém só os 3 últimos caracteres visíveis (LGPD): "52998224725" → "••••••••725".</summary>
-    private static string Mascarar(string texto) =>
+    internal static string Mascarar(string texto) =>
         texto.Length <= 3 ? new string('•', texto.Length) : new string('•', texto.Length - 3) + texto[^3..];
 }

@@ -51,6 +51,9 @@ public sealed class AmbienteCadastroPessoas : IAsyncLifetime
     public BancoDeTeste? Banco { get; private set; }
     private ServiceProvider? _provedor;
 
+    /// <summary>P1-8: pasta temporária dos anexos destes testes (nunca a do sistema); apagada no fim.</summary>
+    public string PastaAnexos { get; } = Path.Combine(Path.GetTempPath(), "Lone_Teste_Anexos_" + Guid.NewGuid().ToString("N"));
+
     public async Task InitializeAsync()
     {
         if (FatoSqlServerAttribute.Conexao is null) return;
@@ -68,7 +71,8 @@ public sealed class AmbienteCadastroPessoas : IAsyncLifetime
         var configuracao = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:Lone"] = Banco.Conexao,
-            ["Jwt:Chave"] = new string('k', 64)
+            ["Jwt:Chave"] = new string('k', 64),
+            ["Anexos:Pasta"] = PastaAnexos
         }).Build();
 
         var servicos = new ServiceCollection();
@@ -91,6 +95,7 @@ public sealed class AmbienteCadastroPessoas : IAsyncLifetime
     {
         if (_provedor is not null) await _provedor.DisposeAsync();
         if (Banco is not null) await Banco.DisposeAsync();
+        if (Directory.Exists(PastaAnexos)) Directory.Delete(PastaAnexos, recursive: true);
     }
 }
 

@@ -26,6 +26,18 @@ public class PessoaDocumento : EntidadePessoaFilha
     [DisplayName("Número"), DadoSensivel]
     public string Numero { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Técnico (P1-8): o número na forma de comparar e buscar (<see cref="Documentos.NumeroDocumento.Normalizar"/>),
+    /// calculado na gravação. Não aparece na tela nem no histórico (a mudança do número já é registrada, mascarada).
+    /// </summary>
+    public string NumeroNormalizado { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Técnico (P1-8): chave da unicidade entre pessoas quando o tipo bloqueia número repetido (nula nos demais casos);
+    /// índice único filtrado nos ativos. Ver <see cref="Documentos.NumeroDocumento.ChaveUnicidade"/>.
+    /// </summary>
+    public string? ChaveUnicidade { get; set; }
+
     [DisplayName("Órgão emissor")]
     public string? OrgaoEmissor { get; set; }
 

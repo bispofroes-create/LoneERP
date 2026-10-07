@@ -258,6 +258,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         var inicioDocumento = documento.Length > 0 ? documento : inicio;
         var pesquisaveis = db.CamposPersonalizados.Where(x => x.Pesquisavel && x.Ativo).Select(x => x.Id);
         var numeroDocumento = termo.Trim().ToUpperInvariant();
+        // P1-8: também pelo número comparável — "12.345.678-9" acha "123456789" e vice-versa (índice no número comparável).
+        var numeroComparavel = Lone.Domain.Documentos.NumeroDocumento.Normalizar(termo);
 
         return consulta.Where(p =>
             p.Nome.Contains(termo) ||
@@ -270,7 +272,8 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
                 (e.NomeFantasia != null && e.NomeFantasia.Contains(termo)) ||
                 (documento != "" && e.Cnpj != null && e.Cnpj.Contains(documento))) ||
             p.MeiosContato.Any(m => m.Valor.Contains(termo) || (buscaDigitos && m.Valor.Contains(digitos))) ||
-            p.Documentos.Any(d => d.Numero.StartsWith(numeroDocumento)) ||
+            p.Documentos.Any(d => d.Numero.StartsWith(numeroDocumento) ||
+                                  (numeroComparavel != "" && d.NumeroNormalizado.StartsWith(numeroComparavel))) ||
             p.ValoresPersonalizados.Any(v => pesquisaveis.Contains(v.CampoId) &&
                 (EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicio) ||
                  EF.Property<string>(v, ConfiguracaoValorPersonalizado.ColunaBusca).StartsWith(inicioDocumento))) ||
@@ -396,6 +399,7 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
         }
 
         await ResolverPendenciasCorrigidasAsync(db, pessoa, ct);
+        await RecalcularChavesDeUnicidadeAsync(db, ct);
 
         // Ordem que o banco exige e o EF não garante entre UPDATEs (índice único filtrado e gatilhos):
         // 1. principais desmarcados primeiro (troca A -> B: A sai antes de B entrar; endereço desativado perde o
@@ -456,6 +460,28 @@ public class PessoaRepositorio : ServicoDadosBase, IPessoaRepositorio
             // CPF, raiz de CNPJ ou CNPJ gravado por outro usuário ao mesmo tempo (Bloco G): o mesmo erro da conferência,
             // no campo. Qualquer outra falha do banco segue como erro inesperado.
             throw new ValidacaoException([erro]);
+        }
+    }
+
+    /// <summary>
+    /// P1-8B: a chave de unicidade de cada documento é refeita com o modo do tipo lido do banco AGORA, na gravação (e não o
+    /// que o serviço leu antes): assim um tipo que acabou de passar a bloquear vale para esta gravação, e o índice único
+    /// filtrado barra o repetido. Só documentos com valores diferentes mudam (o EF ignora os iguais).
+    /// </summary>
+    private static async Task RecalcularChavesDeUnicidadeAsync(LoneDbContext db, CancellationToken ct)
+    {
+        var documentos = db.ChangeTracker.Entries<PessoaDocumento>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Unchanged)
+            .Select(e => e.Entity)
+            .ToList();
+        if (documentos.Count == 0) return;
+        var tipos = documentos.Select(d => d.TipoDocumentoId).Distinct().ToList();
+        var modos = await db.TiposDocumento.AsNoTracking().Where(t => tipos.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Unicidade, ct);
+        foreach (var d in documentos)
+        {
+            d.NumeroNormalizado = Lone.Domain.Documentos.NumeroDocumento.Normalizar(d.Numero);
+            d.ChaveUnicidade = Lone.Domain.Documentos.NumeroDocumento.ChaveUnicidade(
+                modos.GetValueOrDefault(d.TipoDocumentoId), d.TipoDocumentoId, d.Uf, d.NumeroNormalizado);
         }
     }
 

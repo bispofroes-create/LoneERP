@@ -17,6 +17,19 @@ public sealed class TipoDocumentoDto
     public bool ExigeValidade { get; set; }
     public int DiasAvisoVencimento { get; set; } = 30;
 
+    // ---- P1-8: regras do tipo (padrões = tipo novo criado pelo usuário, como sempre se comportou) ----
+
+    public bool AplicaPessoaFisica { get; set; } = true;
+    public bool AplicaPessoaJuridica { get; set; } = true;
+    public bool AplicaEstrangeiro { get; set; } = true;
+    public UsoCampoDocumento UsoOrgaoEmissor { get; set; } = UsoCampoDocumento.Oculto;
+    public UsoCampoDocumento UsoUf { get; set; } = UsoCampoDocumento.Oculto;
+    public UsoCampoDocumento UsoEmissao { get; set; } = UsoCampoDocumento.Opcional;
+    public FormatoNumeroDocumento FormatoNumero { get; set; } = FormatoNumeroDocumento.Livre;
+    public int? TamanhoMinimoNumero { get; set; }
+    public int? TamanhoMaximoNumero { get; set; }
+    public UnicidadeDocumento Unicidade { get; set; } = UnicidadeDocumento.Nenhuma;
+
     /// <summary>Somente leitura: quantos documentos ativos usam este tipo (só para quem gerencia os tipos).</summary>
     public int QuantidadeUsos { get; set; }
 }

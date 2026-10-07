@@ -451,11 +451,18 @@ public sealed class PessoaAppService : IPessoaAppService
 
         // Documentos: o tipo vem do cadastro (desativado só se já era o dele), que também diz se a validade é obrigatória;
         // o enum antigo é copiado do tipo escolhido.
+        var tiposDosDocumentos = await _tiposDocumento.ObterVariosAsync(dados.Documentos.Select(d => d.TipoDocumentoId).Distinct().ToList(), ct);
         erros.AddRange(RegrasDocumento.Aplicar(
             dados.Documentos,
             (anterior?.Documentos ?? []).ToDictionary(d => d.Id, d => d.TipoDocumentoId),
-            await _tiposDocumento.ObterVariosAsync(dados.Documentos.Select(d => d.TipoDocumentoId).Distinct().ToList(), ct),
+            tiposDosDocumentos,
             dados.Natureza));
+        // P1-8B: regras do tipo (órgão/UF/emissão, emissão futura, formato, repetido na pessoa) só em documento novo,
+        // alterado ou reativado (D6); e o mesmo número em outra pessoa: erro nos tipos que bloqueiam, aviso nos que avisam.
+        erros.AddRange(RegrasDocumento.ValidarTocados(dados.Documentos, anterior?.Documentos ?? [], tiposDosDocumentos,
+            DateOnly.FromDateTime(_relogio.GetLocalNow().DateTime)));
+        var avisosDocumentos = new List<string>();
+        erros.AddRange(await ConferirDocumentosEmOutrasPessoasAsync(dados, anterior, tiposDosDocumentos, avisosDocumentos, ct));
 
         // Campos personalizados dos documentos (D4): cada documento só com os campos do seu tipo.
         erros.AddRange(AplicarValoresDocumentos(dados, anterior,
@@ -574,6 +581,7 @@ public sealed class PessoaAppService : IPessoaAppService
         }
 
         var avisos = await BuscarAvisosDeDuplicidadeAsync(dados, ct);
+        avisos.AddRange(avisosDocumentos);
         avisos.AddRange(ConferenciaInscricaoEstadual.Avisos(dados, referencia));
         if (DuplicidadeEndereco.Pares(dados.Enderecos, incluirPossiveis: false).Count > 0)
             avisos.Add("Há endereços iguais já gravados nesta ficha. Use \"Consolidar endereços\" para juntar as finalidades num só.");
@@ -850,6 +858,70 @@ public sealed class PessoaAppService : IPessoaAppService
     }
 
     /// <summary>Nome, telefone ou e-mail iguais geram aviso, mas não impedem a gravação.</summary>
+    /// <summary>
+    /// P1-8B: o mesmo número (comparável) do mesmo tipo em OUTRA pessoa, só para documentos ativos novos, alterados ou
+    /// reativados. Tipo que bloqueia (por tipo, ou por tipo e UF): erro no documento, antes de gravar (o índice único do
+    /// banco é a garantia final). Tipo que avisa: aviso de POSSÍVEL duplicidade, que não impede gravar. Nunca mostra o
+    /// número inteiro (só o final) e nunca identifica um cadastro fora do alcance do usuário.
+    /// </summary>
+    private async Task<List<ErroValidacao>> ConferirDocumentosEmOutrasPessoasAsync(Pessoa dados, Pessoa? anterior,
+        IReadOnlyDictionary<Guid, TipoDocumentoCadastro> tipos, List<string> avisos, CancellationToken ct)
+    {
+        var erros = new List<ErroValidacao>();
+        var gravados = (anterior?.Documentos ?? []).ToDictionary(d => d.Id);
+        var conferir = dados.Documentos
+            .Where(d => d.Ativo && d.NumeroNormalizado.Length > 0 && RegrasDocumento.Tocado(d, gravados.GetValueOrDefault(d.Id)) &&
+                        tipos.TryGetValue(d.TipoDocumentoId, out var t) && t.Unicidade != UnicidadeDocumento.Nenhuma)
+            .ToList();
+        if (conferir.Count == 0) return erros;
+
+        var iguais = await _tiposDocumento.BuscarIguaisEmOutrasPessoasAsync(dados.Id,
+            conferir.Select(d => d.TipoDocumentoId).Distinct().ToList(), conferir.Select(d => d.NumeroNormalizado).Distinct().ToList(), ct);
+        foreach (var d in conferir)
+        {
+            var tipo = tipos[d.TipoDocumentoId];
+            var outros = iguais.Where(i => i.TipoDocumentoId == d.TipoDocumentoId && i.NumeroNormalizado == d.NumeroNormalizado &&
+                                           (tipo.Unicidade != UnicidadeDocumento.PorTipoEUf ||
+                                            (d.Uf is { Length: 2 } && string.Equals(i.Uf, d.Uf, StringComparison.OrdinalIgnoreCase))))
+                .Select(i => i.Pessoa).DistinctBy(p => p.Id).ToList();
+            if (outros.Count == 0) continue;
+
+            var visiveis = new List<PessoaIdentificacao>();
+            var foraDoAlcance = false;
+            foreach (var outro in outros)
+                if (await ForaDoAlcanceAsync(outro.Id, ct)) foraDoAlcance = true;
+                else visiveis.Add(outro);
+
+            var (erro, aviso) = MensagemDeDocumentoRepetido(tipo, d, visiveis, foraDoAlcance);
+            if (erro is not null) erros.Add(erro);
+            if (aviso is not null) avisos.Add(aviso);
+        }
+        return erros;
+    }
+
+    /// <summary>
+    /// O texto do documento repetido em outra pessoa: erro (tipo que bloqueia) ou aviso de POSSÍVEL duplicidade (tipo que
+    /// avisa). Só o final do número aparece; quem está fora do alcance nunca é identificado (só "cadastro fora do seu alcance").
+    /// </summary>
+    internal static (ErroValidacao? Erro, string? Aviso) MensagemDeDocumentoRepetido(TipoDocumentoCadastro tipo, PessoaDocumento documento,
+        IReadOnlyList<PessoaIdentificacao> visiveis, bool foraDoAlcance)
+    {
+        if (visiveis.Count == 0 && !foraDoAlcance) return (null, null);
+        var onde = string.Join(", ", visiveis.Select(v => v.ToString())) +
+                   (foraDoAlcance ? (visiveis.Count > 0 ? " e em cadastro" : "cadastro") + " fora do seu alcance" : string.Empty);
+        var numero = documento.NumeroNormalizado;
+        var final = numero.Length <= 3 ? numero : numero[^3..];
+
+        if (RegrasDocumento.Bloqueia(tipo.Unicidade))
+            return (new ErroValidacao(
+                $"{tipo.Nome} terminado em {final}: este número já está cadastrado em outra pessoa ({onde}) e o tipo \"{tipo.Nome}\" não permite repetir" +
+                (tipo.Unicidade == UnicidadeDocumento.PorTipoEUf ? " na mesma UF." : "."),
+                Lone.Domain.Pessoas.CamposFichaPessoa.DocumentoNumero, documento.Id), null);
+
+        return (null, $"Possível duplicidade: o número do documento \"{tipo.Nome}\" terminado em {final} também está em {onde}. " +
+                      "Confira se não é o mesmo cadastro; a gravação foi feita.");
+    }
+
     private async Task<List<string>> BuscarAvisosDeDuplicidadeAsync(Pessoa p, CancellationToken ct)
     {
         var contatos = p.MeiosContato.Where(m => m.Ativo).Select(m => m.Valor)

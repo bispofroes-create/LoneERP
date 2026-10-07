@@ -11,8 +11,17 @@ namespace Lone.Tests.Cliente;
 /// <summary>Documentos por natureza (RG só na PF, documento novo sem tipo) e ajustes do Fiscal da PJ.</summary>
 public class DocumentosPorNaturezaTests
 {
-    private static TipoDocumentoDto Sistema(TipoDocumento tipo, string nome, int ordem) =>
-        new() { Id = TiposDocumentoSistema.Id(tipo), Nome = nome, Ordem = ordem, TipoSistema = tipo, Ativo = true };
+    /// <summary>Tipo de sistema como a API o devolve desde o P1-8A: com as regras da semente (a quem se aplica, órgão, UF...).</summary>
+    private static TipoDocumentoDto Sistema(TipoDocumento tipo, string nome, int ordem)
+    {
+        var s = TiposDocumentoSistema.Semente(tipo);
+        return new()
+        {
+            Id = TiposDocumentoSistema.Id(tipo), Nome = nome, Ordem = ordem, TipoSistema = tipo, Ativo = true,
+            AplicaPessoaFisica = s.Fisica, AplicaPessoaJuridica = s.Juridica, AplicaEstrangeiro = s.Estrangeiro,
+            UsoOrgaoEmissor = s.Orgao, UsoUf = s.Uf, UsoEmissao = s.Emissao, FormatoNumero = s.Formato, Unicidade = s.Unicidade
+        };
+    }
 
     private static readonly TipoDocumentoDto Rg = Sistema(TipoDocumento.Rg, "RG", 1);
     private static readonly TipoDocumentoDto Cnh = Sistema(TipoDocumento.Cnh, "CNH", 2);

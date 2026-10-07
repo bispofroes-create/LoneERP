@@ -24,6 +24,12 @@ public class BancoDeDados : IBancoDeDados
         await db.Database.MigrateAsync(ct);
     }
 
+    public async Task<IReadOnlyList<string>> MigracoesPendentesAsync(CancellationToken ct = default)
+    {
+        await using var db = await _fabrica.CreateDbContextAsync(ct);
+        return (await db.Database.GetPendingMigrationsAsync(ct)).ToList();
+    }
+
     public async Task<bool> DisponivelAsync(CancellationToken ct = default)
     {
         await using var db = await _fabrica.CreateDbContextAsync(ct);

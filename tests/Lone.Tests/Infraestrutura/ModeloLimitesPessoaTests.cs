@@ -55,6 +55,8 @@ public class ModeloLimitesPessoaTests
         [(typeof(MeioContato), Lone.Infrastructure.Persistencia.Configuracoes.MeioContatoConfiguration.ColunaDdd)] = "calculada pelo banco",
         [(typeof(PessoaDocumento), nameof(PessoaDocumento.Uf))] = "UF válida no validador",
         [(typeof(PessoaDocumento), nameof(PessoaDocumento.Observacoes))] = "ValidarDocumento (250)",
+        [(typeof(PessoaDocumento), nameof(PessoaDocumento.NumeroNormalizado))] = "P1-8: derivado do Número (nunca maior que ele), calculado na gravação",
+        [(typeof(PessoaDocumento), nameof(PessoaDocumento.ChaveUnicidade))] = "P1-8: derivada (Guid + UF + número comparável ≤ 66), calculada na gravação",
         [(typeof(PessoaSocio), nameof(PessoaSocio.Nome))] = "ValidarDadosComplementares",
         [(typeof(PessoaSocio), nameof(PessoaSocio.Qualificacao))] = "ValidarDadosComplementares",
         [(typeof(PessoaSocio), nameof(PessoaSocio.Documento))] = "ValidarDadosComplementares"

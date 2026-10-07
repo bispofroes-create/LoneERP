@@ -184,6 +184,8 @@ public static class PessoaNormalizador
         foreach (var d in documentos)
         {
             d.Numero = (Texto(d.Numero) ?? string.Empty).ToUpperInvariant();
+            // P1-8: o número comparável (o exibido continua o digitado, só aparado e em maiúsculas, como sempre).
+            d.NumeroNormalizado = Lone.Domain.Documentos.NumeroDocumento.Normalizar(d.Numero);
             d.OrgaoEmissor = Texto(d.OrgaoEmissor)?.ToUpperInvariant();
             d.Uf = Texto(d.Uf)?.ToUpperInvariant();
             d.Observacoes = Texto(d.Observacoes);
